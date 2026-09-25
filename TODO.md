@@ -91,8 +91,11 @@ Rules for this file:
       per-token rate, because a masked answer goes straight into the protocol
       instead of narrating to the token budget. That is the number an operator
       feels, and it is reported next to the per-token one, not instead of it.
-- [ ] [B] Docs move together: README command, `flash/__init__.py` map,
+- [x] [B] Docs move together: README command, `flash/__init__.py` map,
       SPEC R-4.2 → SHIPPED, PLAN §33.3 status + Appendix A row.
+      Verified in tree: README:98-106, `flash/__init__.py`:13, SPEC.md's R-4.2
+      row, PLAN §33.3 and its Appendix A row. The census/sweep logs that back
+      the numbers are tracked under `benchmarks/results/`, not ignored.
 
 ## P2 — R-4.3 Debugger skill (watch execution, don't re-guess)
 
@@ -145,7 +148,10 @@ Rules for this file:
       rather than one). Then re-run this A/B. Do not tune the digest's wording
       against the current suites: with one discriminating task there is nothing
       to tune on, and any apparent gain would be noise.
-- [ ] [B] Docs move together (SPEC R-4.3, README, §33.2 status, Appendix A).
+- [x] [B] Docs move together (SPEC R-4.3, README, §33.2 status, Appendix A).
+      Verified: README:108-113, SPEC.md R-4.3 → PARTIAL with the three substrates,
+      PLAN §33.2's close note and the 2026-09-26 Appendix A row. `--debug` is
+      documented as off by default and the open gate is the P2-follow-up box.
 
 ## P3 — R-8.1 Speculative decoding (G5: brain ≥ 46 tok/s)
 

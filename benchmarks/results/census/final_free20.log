@@ -1,0 +1,25 @@
+[census] mlx-community/Qwen2.5-Coder-7B-Instruct-4bit
+[census] 20 generations over 6 prompt(s), max_tokens=1500, temp=0.7, arms=('free',)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 6184.26it/s]
+  [free       ]   1/20 mw1_ringbuf      BAD malformed rec=0/1  25.7 tok/s 1500 tok
+  [free       ]   2/20 mw2_codec        BAD malformed rec=0/2  25.8 tok/s 1146 tok
+  [free       ]   3/20 mw3_registry     BAD malformed rec=0/3  24.3 tok/s  104 tok
+  [free       ]   4/20 mw4_lexer        BAD malformed rec=0/4  25.9 tok/s  943 tok
+  [free       ]   5/20 mw5_postfix      BAD malformed rec=0/5  25.7 tok/s  613 tok
+  [free       ]   6/20 mw6_config       BAD malformed rec=0/6  25.4 tok/s  271 tok
+  [free       ]   7/20 mw1_ringbuf      BAD malformed rec=0/7  25.4 tok/s  215 tok
+  [free       ]   8/20 mw2_codec        BAD malformed rec=0/8  26.0 tok/s 1500 tok
+  [free       ]   9/20 mw3_registry     BAD malformed rec=0/9  25.7 tok/s  228 tok
+  [free       ]  10/20 mw4_lexer        BAD malformed rec=0/10  26.0 tok/s  984 tok
+  [free       ]  11/20 mw5_postfix      BAD malformed rec=0/11  26.1 tok/s  681 tok
+  [free       ]  12/20 mw6_config       BAD malformed rec=0/12  25.9 tok/s  378 tok
+  [free       ]  13/20 mw1_ringbuf      BAD malformed rec=0/13  25.8 tok/s  345 tok
+  [free       ]  14/20 mw2_codec        BAD malformed rec=0/14  25.8 tok/s  666 tok
+  [free       ]  15/20 mw3_registry     BAD malformed rec=0/15  25.8 tok/s  315 tok
+  [free       ]  16/20 mw4_lexer        BAD malformed rec=0/16  26.0 tok/s 1500 tok
+  [free       ]  17/20 mw5_postfix      BAD malformed rec=0/17  25.9 tok/s  353 tok
+  [free       ]  18/20 mw6_config       BAD malformed rec=0/18  24.8 tok/s  138 tok
+  [free       ]  19/20 mw1_ringbuf      BAD malformed rec=0/19  25.5 tok/s  257 tok
+  [free       ]  20/20 mw2_codec        BAD malformed rec=0/20  25.6 tok/s  207 tok
+
+[census] free       : 20/20 contract violations {'malformed': 20}  |  0 ended inside a block  |  0 mask breaches  |  0/20 recoverable by the parser  |  25.8 tok/s

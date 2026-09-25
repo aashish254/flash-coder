@@ -8,5 +8,9 @@ __pycache__/
 # regenerable: sha1-cached web fetches (flash.web refetches on demand)
 benchmarks/cache/
 
-# raw live-run logs (the measured numbers land in commit notes + PLAN Appendix A)
-benchmarks/results/census/
+# superseded partial census runs (the cited numbers come from the five logs
+# left tracked under benchmarks/results/census/ — claims that name a log must
+# have that log in the tree)
+benchmarks/results/census/arm_*.log
+benchmarks/results/census/arms.out
+benchmarks/results/census/r42_100*.log

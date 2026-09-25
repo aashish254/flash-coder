@@ -1,0 +1,25 @@
+[census] mlx-community/Qwen2.5-Coder-7B-Instruct-4bit
+[census] 20 generations over 6 prompt(s), max_tokens=1500, temp=0.7, arms=('constrained',)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 6039.80it/s]
+  [constrained]   1/20 mw1_ringbuf      ok  ok        rec=1/1  21.7 tok/s  158 tok
+  [constrained]   2/20 mw2_codec        ok  ok        rec=2/2  22.8 tok/s  164 tok
+  [constrained]   3/20 mw3_registry     ok  ok        rec=3/3  21.9 tok/s  109 tok
+  [constrained]   4/20 mw4_lexer        ok  ok        rec=4/4  24.6 tok/s  322 tok
+  [constrained]   5/20 mw5_postfix      ok  ok        rec=5/5  23.0 tok/s  130 tok
+  [constrained]   6/20 mw6_config       ok  ok        rec=6/6  23.4 tok/s  155 tok
+  [constrained]   7/20 mw1_ringbuf      ok  ok        rec=7/7  24.9 tok/s  175 tok
+  [constrained]   8/20 mw2_codec        ok  ok        rec=8/8  23.9 tok/s  128 tok
+  [constrained]   9/20 mw3_registry     ok  ok        rec=9/9  24.0 tok/s  109 tok
+  [constrained]  10/20 mw4_lexer        ok  ok        rec=10/10  25.1 tok/s  279 tok
+  [constrained]  11/20 mw5_postfix      ok  ok        rec=11/11  24.2 tok/s  149 tok
+  [constrained]  12/20 mw6_config       ok  ok        rec=12/12  24.9 tok/s  188 tok
+  [constrained]  13/20 mw1_ringbuf      ok  ok        rec=13/13  25.0 tok/s  235 tok
+  [constrained]  14/20 mw2_codec        ok  ok        rec=14/14  24.1 tok/s  117 tok
+  [constrained]  15/20 mw3_registry     ok  ok        rec=15/15  24.2 tok/s  135 tok
+  [constrained]  16/20 mw4_lexer        ok  ok        rec=16/16  24.8 tok/s  178 tok
+  [constrained]  17/20 mw5_postfix      ok  ok        rec=17/17  24.9 tok/s  193 tok
+  [constrained]  18/20 mw6_config       BAD file set  rec=17/18  15.3 tok/s   18 tok
+  [constrained]  19/20 mw1_ringbuf      ok  ok        rec=18/19  24.8 tok/s  189 tok
+  [constrained]  20/20 mw2_codec        ok  ok        rec=19/20  24.4 tok/s  148 tok
+
+[census] constrained: 1/20 contract violations {'file set': 1}  |  1 ended inside a block  |  0 mask breaches  |  19/20 recoverable by the parser  |  24.1 tok/s

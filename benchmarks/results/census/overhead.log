@@ -1,0 +1,6 @@
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5610.69it/s]
+[overhead] 400 applications per position, logits 151657 wide, model step ~47.4 ms
+[overhead] a header position      (s0)  0.002 ms/step  =  0.0% of the decode step
+[overhead] a path position        (s2)  0.002 ms/step  =  0.0% of the decode step
+[overhead] a clean body position  (s5)  0.002 ms/step  =  0.0% of the decode step
+[overhead] worst position: 0.002 ms/step = 0.0% (budget 5%)

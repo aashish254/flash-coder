@@ -1,0 +1,13 @@
+[census] mlx-community/Qwen2.5-Coder-7B-Instruct-4bit
+[census] 8 generations over 6 prompt(s), max_tokens=1500, temp=0.7, arms=('constrained',)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5335.51it/s]
+  [constrained]   1/8 mw1_ringbuf      ok  ok        rec=1/1  22.6 tok/s  158 tok
+  [constrained]   2/8 mw2_codec        ok  ok        rec=2/2  23.6 tok/s  164 tok
+  [constrained]   3/8 mw3_registry     ok  ok        rec=3/3  22.4 tok/s  109 tok
+  [constrained]   4/8 mw4_lexer        ok  ok        rec=4/4  24.4 tok/s  322 tok
+  [constrained]   5/8 mw5_postfix      ok  ok        rec=5/5  22.9 tok/s  130 tok
+  [constrained]   6/8 mw6_config       ok  ok        rec=6/6  23.6 tok/s  155 tok
+  [constrained]   7/8 mw1_ringbuf      ok  ok        rec=7/7  24.8 tok/s  175 tok
+  [constrained]   8/8 mw2_codec        ok  ok        rec=8/8  24.9 tok/s  128 tok
+
+[census] constrained: 0/8 contract violations {}  |  0 ended inside a block  |  0 mask breaches  |  8/8 recoverable by the parser  |  23.8 tok/s  |  hook 45223.9% of wall time
