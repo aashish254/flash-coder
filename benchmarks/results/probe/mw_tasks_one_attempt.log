@@ -1,0 +1,20 @@
+
+=== run-suite --tasks benchmarks/tasks/mw_tasks.jsonl --attempts 1 --allow-big never ===
+[trace] session 20260926-025851-run-suite-e720 — interrupt me anytime, then: flash resume 20260926-025851-run-suite-e720
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5316.72it/s]
+  [     SHED] mw1_ringbuf            solved=False attempts=1 (13.3s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5293.61it/s]
+  [    SMALL] mw2_codec              solved=True attempts=1 (11.2s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5408.90it/s]
+  [     SHED] mw3_registry           solved=False attempts=1 (8.0s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5724.71it/s]
+  [    SMALL] mw4_lexer              solved=True attempts=1 (13.0s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5172.48it/s]
+  [    SMALL] mw5_postfix            solved=True attempts=1 (14.5s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5217.52it/s]
+  [    SMALL] mw6_config             solved=True attempts=1 (8.4s)
+
+solved 4/6   small-tier 4, escalated 0   total 68s (avg 11.4s/task)
+[trace] flash trace show 20260926-025851-run-suite-e720
+2 task(s) denied escalation by the §34.1 governor (maximum-performance): no shed signal (ac=True, battery=80.0, mem-free=41.0, load/core=0.33)
+   rerun with --allow-big always to force the brain on battery/heat

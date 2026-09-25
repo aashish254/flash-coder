@@ -500,6 +500,8 @@ class ConstrainedSampler:
         self.contract = contract.clone()
         self.masks = Masks(contract, tokenizer)
         self._penalty = mx.array(-1e4, dtype=mx.float32)
+        self._turns = frozenset(self.masks.turns)
+        self._cast: dict = {}          # penalty, materialised once per dtype
         self._base: int | None = None
         self._fed = 0
         self.steps = 0
@@ -515,49 +517,42 @@ class ConstrainedSampler:
     def consume(self, ids: list[int]) -> bool:
         """Move the DFA over sampled ids. False = refused (the mask's job).
 
-        The piece text comes from the same table the mask was compiled from:
-        if the mask checked `texts[i]` and the DFA walked a re-decoded
-        `tokenizer.decode([i])`, the two could disagree on a byte-level token
-        and the sampler would blame itself for a mask it was handed.
-
-        A turn terminator ends the turn here and is not walked: the decoder
-        never shows it to the harness, and the contract's own `stop_ok` is the
-        gate that let the model choose it.
+        One id per step is the normal case and takes a path that allocates
+        nothing. The piece is `texts[i]` — the very string the mask was
+        compiled over — so mask and walk cannot disagree on a byte-level token
+        the way a re-decode would. A turn terminator is not walked at all: it
+        ends the turn, `Masks.allowed` offered it because `stop_ok` held, and
+        the decoder never shows it to the harness.
         """
         if not ids:
             return True
-        if set(ids) & set(self.masks.turns):
-            # A turn terminator ends the turn and is never answer text. Tested
-            # against `turns`, not `eos`: `Masks.allowed` offers the whole
-            # turn family wherever `stop_ok` holds, so checking only `eos`
-            # refused a legal stop one token after the model chose it — the
-            # census's one breach per generation, in a build whose offline walk
-            # had zero in 11 191 pieces. The walker's mistake, not the model's.
+        if len(ids) == 1:
+            i = ids[0]
+            nxt = True if i in self._turns else self.contract.absorb(
+                self.masks.texts[i])
+            if nxt is True:
+                return True
+        elif self._turns & set(ids):
             return True
-        for piece in self.pieces(ids):
-            nxt = self.contract.absorb(piece)
-            if nxt is None:
-                self.illegal_picks += 1
-                if not self.first_breach:
-                    # Named, not counted: "99 breaches" is a statistic, this is
-                    # a diagnosis. The census prints the first one per arm.
-                    self.first_breach = (" ".join(f"{i}:{self.masks.texts[i]!r}"
-                                      for i in ids) + " at "
-                                 + self.contract.snapshot())
-                return False
-            self.contract = nxt
+        else:
+            nxt = self.contract
+            for k in ids:
+                nxt = nxt.absorb(self.masks.texts[k])
+                if nxt is None:
+                    break
+        if nxt is None:
+            self.illegal_picks += 1
+            if not self.first_breach:
+                # Named, not counted: "99 breaches" is a statistic, this is a
+                # diagnosis, and a count without an instance invites a confident
+                # wrong explanation of it.
+                self.first_breach = (" ".join(f"{k}:{self.masks.texts[k]!r}"
+                                              for k in ids)
+                                     + " at " + self.contract.snapshot())
+            return False
+        self.contract = nxt
         return True
 
-    def pieces(self, ids: list[int]) -> list[str]:
-        """Piece texts for sampled ids, from the table the mask used."""
-        texts = self.masks.texts
-        try:
-            return [texts[i] for i in ids]
-        except IndexError:                        # id beyond the table
-            return [self.tokenizer.decode([i], clean_up_tokenization_spaces=False)
-                    for i in ids]
-
-    # ------------------------------------------------------------- the hook
     def __call__(self, tokens, logits):
         import mlx.core as mx
         t0 = time.perf_counter()
@@ -591,8 +586,11 @@ class ConstrainedSampler:
             self.steps += 1
             return logits
         self.steps += 1
+        pen = self._cast.get(logits.dtype)
+        if pen is None:
+            pen = self._cast[logits.dtype] = self._penalty.astype(logits.dtype)
         return mx.where(self.masks.allow(self.contract, logits.shape[-1]),
-                        logits, self._penalty.astype(logits.dtype))
+                        logits, pen)
 
     def finish(self) -> str:
         """Companion text to append once the turn has ended."""

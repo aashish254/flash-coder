@@ -1,0 +1,46 @@
+[trace] session 20260926-022825-run-suite-b1cc — interrupt me anytime, then: flash resume 20260926-022825-run-suite-b1cc
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5272.91it/s]
+  [    SMALL] t01_reverse_words      solved=True attempts=1 (2.5s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5195.97it/s]
+  [    SMALL] t02_two_sum            solved=True attempts=1 (4.2s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5535.82it/s]
+  [    SMALL] t03_is_palindrome      solved=True attempts=1 (3.0s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5685.91it/s]
+  [    SMALL] t04_fizzbuzz           solved=True attempts=1 (3.7s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5917.66it/s]
+  [    SMALL] t05_lru_cache          solved=True attempts=1 (7.7s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5604.03it/s]
+  [    SMALL] t06_merge_intervals    solved=True attempts=1 (5.9s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5743.87it/s]
+  [    SMALL] t07_binary_search      solved=True attempts=1 (5.3s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5714.31it/s]
+  [    SMALL] t08_valid_parens       solved=True attempts=1 (5.2s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5104.63it/s]
+  [    SMALL] t09_max_subarray       solved=True attempts=1 (4.2s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5559.46it/s]
+  [    SMALL] t10_climb_stairs       solved=True attempts=1 (4.2s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5754.38it/s]
+  [    SMALL] t11_group_anagrams     solved=True attempts=1 (4.5s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5462.12it/s]
+  [    SMALL] t12_json_flatten       solved=True attempts=1 (4.6s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5893.64it/s]
+  [    SMALL] t13_rate_limiter       solved=True attempts=1 (5.7s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5041.90it/s]
+  [     SHED] t14_topk_frequent      solved=False attempts=2 (6.3s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5465.29it/s]
+  [     SHED] t15_parse_log          solved=False attempts=2 (14.4s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5839.84it/s]
+  [    SMALL] t16_lis_length         solved=True attempts=1 (6.3s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5821.83it/s]
+  [    SMALL] t17_retry_decorator    solved=True attempts=1 (10.5s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5481.95it/s]
+  [    SMALL] t18_ttl_get            solved=True attempts=1 (3.8s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5764.93it/s]
+  [    SMALL] t19_word_ladder        solved=True attempts=1 (6.9s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5829.02it/s]
+  [    SMALL] t20_safe_divide        solved=True attempts=1 (4.3s)
+
+solved 18/20   small-tier 18, escalated 0   total 113s (avg 5.7s/task)
+[trace] flash trace show 20260926-022825-run-suite-b1cc
+2 task(s) denied escalation by the §34.1 governor (maximum-performance): no shed signal (ac=True, battery=80.0, mem-free=29.0, load/core=0.16)
+   rerun with --allow-big always to force the brain on battery/heat

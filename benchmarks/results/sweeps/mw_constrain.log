@@ -1,0 +1,16 @@
+[trace] session 20260926-022659-run-suite-6645 — interrupt me anytime, then: flash resume 20260926-022659-run-suite-6645
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 1848.80it/s]
+  [    SMALL] mw1_ringbuf            solved=True attempts=1 (13.5s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 6109.20it/s]
+  [    SMALL] mw2_codec              solved=True attempts=1 (8.3s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5617.37it/s]
+  [    SMALL] mw3_registry           solved=True attempts=2 (14.8s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 6172.13it/s]
+  [    SMALL] mw4_lexer              solved=True attempts=1 (14.4s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 6064.05it/s]
+  [    SMALL] mw5_postfix            solved=True attempts=1 (12.2s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5579.18it/s]
+  [    SMALL] mw6_config             solved=True attempts=1 (9.3s)
+
+solved 6/6   small-tier 6, escalated 0   total 72s (avg 12.1s/task)
+[trace] flash trace show 20260926-022659-run-suite-6645

@@ -141,10 +141,27 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   The **≤ 5% latency budget is missed**: −6.3% per token on the multi-file
   shape at matched generation length (see §10.5 for why the number is what it
   is, and for the operational metric that moved the other way).
-- **R-4.3 (OPEN)** The agent MUST be able to *watch* execution, not only rerun
-  tests (PLAN §33.2, debug-gym pattern).
-  Vector: a seeded-bug suite where step-and-inspect feedback solves ≥ 2 more
-  tasks than traceback feedback with the same fast tier and attempt budget.
+- **R-4.3 (PARTIAL — mechanism shipped, acceptance gate NOT met)** The agent
+  MUST be able to *watch* execution, not only rerun tests (PLAN §33.2,
+  debug-gym pattern).
+  Shipped and verified: `flash/debug.py` traces a candidate line by line in the
+  same isolated `-I` subprocess and reports the executed trail, per-variable
+  value history and the line that last mutated what the failing assert
+  compares; `--debug` puts it in the retry feedback as `kind="debug"`. Offline:
+  **55/55** checks, and `python -m flash.debug --suite` proves the premise on
+  all 8 seeded bugs — the causing line is **absent from the traceback and
+  present in the digest**, 32/32.
+  The vector's claim — *digest feedback solves ≥ 2 more tasks than traceback
+  feedback* — was run and **did not hold**: 7/8 vs 7/8 on the repair substrate,
+  6/21 vs 5/21 on a 21-task hard substrate (digest arm lost one task), at +18%
+  wall time (500s → 591s) for the same 59 generations. The reason is now
+  measured rather than assumed: attempt 0 is greedy, so both arms see the same
+  first code, and the digest can only differ on a task that survives to a
+  second retry — of the 12 tasks both arms solved, **11 had identical attempt
+  counts** and one (fix01_alias_sort) dropped from 3 attempts to 2. The
+  suites' discriminating band is one task wide, so the ≥2 gate is undetectable
+  here at any effect size; `P2-follow-up` in `TODO.md` states the instrument
+  that could measure it. `--debug` therefore stays **off by default**.
 - **R-4.4 (SHIPPED)** Vision outputs MUST be scored by a pixel oracle with a
   coverage guard so an empty page can never win.
   Vector: `calibrate_visr.py` + `visp` 5/5, `visr` 4/5 with real4 recorded as a

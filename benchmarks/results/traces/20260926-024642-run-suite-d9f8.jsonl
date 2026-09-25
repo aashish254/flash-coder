@@ -1,0 +1,88 @@
+{"ts": 1790370102.431, "seq": 0, "type": "session_start", "label": "run-suite", "cmd": "run-suite", "params": {"small": "mlx-community/Qwen2.5-Coder-7B-Instruct-4bit", "big": "mlx-community/Qwen3-30B-A3B-Instruct-2507-4bit", "tasks": "benchmarks/tasks/m0_tasks.jsonl", "with_context": false, "attempts": 2, "max_tasks": 25, "max_tokens": 1024, "max_chars": 4000, "threshold": 1.1, "allow_big": "never", "constrain": false, "debug": false}}
+{"ts": 1790370105.903, "seq": 1, "type": "route", "task_id": "t01_reverse_words", "routed": "small", "route_p": 0.5071, "profile": "maximum-performance", "allow_big": "never", "big_allowed": false, "multi": false, "why": "allow-big=never"}
+{"ts": 1790370107.211, "seq": 2, "type": "generate", "task_id": "t01_reverse_words", "attempt": 0, "temp": 0.0, "max_tokens": 1024, "ms": 1305, "prompt_tokens": 78, "completion_tokens": 22, "constrained": false}
+{"ts": 1790370108.161, "seq": 3, "type": "verify", "task_id": "t01_reverse_words", "attempt": 0, "ok": true, "kind": "test", "ms": 949}
+{"ts": 1790370108.175, "seq": 4, "type": "task_end", "task_id": "t01_reverse_words", "solved": true, "tier": "small", "attempts": 1, "seconds": 2.3, "routed": "small"}
+{"ts": 1790370111.005, "seq": 5, "type": "route", "task_id": "t02_two_sum", "routed": "small", "route_p": 0.4418, "profile": "maximum-performance", "allow_big": "never", "big_allowed": false, "multi": false, "why": "allow-big=never"}
+{"ts": 1790370113.92, "seq": 6, "type": "generate", "task_id": "t02_two_sum", "attempt": 0, "temp": 0.0, "max_tokens": 1024, "ms": 2914, "prompt_tokens": 72, "completion_tokens": 64, "constrained": false}
+{"ts": 1790370114.858, "seq": 7, "type": "verify", "task_id": "t02_two_sum", "attempt": 0, "ok": true, "kind": "test", "ms": 938}
+{"ts": 1790370114.869, "seq": 8, "type": "task_end", "task_id": "t02_two_sum", "solved": true, "tier": "small", "attempts": 1, "seconds": 3.9, "routed": "small"}
+{"ts": 1790370116.534, "seq": 9, "type": "route", "task_id": "t03_is_palindrome", "routed": "small", "route_p": 0.5032, "profile": "maximum-performance", "allow_big": "never", "big_allowed": false, "multi": false, "why": "allow-big=never"}
+{"ts": 1790370118.41, "seq": 10, "type": "generate", "task_id": "t03_is_palindrome", "attempt": 0, "temp": 0.0, "max_tokens": 1024, "ms": 1875, "prompt_tokens": 65, "completion_tokens": 39, "constrained": false}
+{"ts": 1790370119.368, "seq": 11, "type": "verify", "task_id": "t03_is_palindrome", "attempt": 0, "ok": true, "kind": "test", "ms": 957}
+{"ts": 1790370119.379, "seq": 12, "type": "task_end", "task_id": "t03_is_palindrome", "solved": true, "tier": "small", "attempts": 1, "seconds": 2.8, "routed": "small"}
+{"ts": 1790370120.537, "seq": 13, "type": "route", "task_id": "t04_fizzbuzz", "routed": "small", "route_p": 0.5525, "profile": "maximum-performance", "allow_big": "never", "big_allowed": false, "multi": false, "why": "allow-big=never"}
+{"ts": 1790370123.017, "seq": 14, "type": "generate", "task_id": "t04_fizzbuzz", "attempt": 0, "temp": 0.0, "max_tokens": 1024, "ms": 2475, "prompt_tokens": 80, "completion_tokens": 52, "constrained": false}
+{"ts": 1790370123.949, "seq": 15, "type": "verify", "task_id": "t04_fizzbuzz", "attempt": 0, "ok": true, "kind": "test", "ms": 932}
+{"ts": 1790370123.961, "seq": 16, "type": "task_end", "task_id": "t04_fizzbuzz", "solved": true, "tier": "small", "attempts": 1, "seconds": 3.4, "routed": "small"}
+{"ts": 1790370125.566, "seq": 17, "type": "route", "task_id": "t05_lru_cache", "routed": "small", "route_p": 0.565, "profile": "maximum-performance", "allow_big": "never", "big_allowed": false, "multi": false, "why": "allow-big=never"}
+{"ts": 1790370132.31, "seq": 18, "type": "generate", "task_id": "t05_lru_cache", "attempt": 0, "temp": 0.0, "max_tokens": 1024, "ms": 6743, "prompt_tokens": 91, "completion_tokens": 147, "constrained": false}
+{"ts": 1790370133.279, "seq": 19, "type": "verify", "task_id": "t05_lru_cache", "attempt": 0, "ok": true, "kind": "test", "ms": 969}
+{"ts": 1790370133.291, "seq": 20, "type": "task_end", "task_id": "t05_lru_cache", "solved": true, "tier": "small", "attempts": 1, "seconds": 7.7, "routed": "small"}
+{"ts": 1790370135.234, "seq": 21, "type": "route", "task_id": "t06_merge_intervals", "routed": "small", "route_p": 0.4393, "profile": "maximum-performance", "allow_big": "never", "big_allowed": false, "multi": false, "why": "allow-big=never"}
+{"ts": 1790370139.824, "seq": 22, "type": "generate", "task_id": "t06_merge_intervals", "attempt": 0, "temp": 0.0, "max_tokens": 1024, "ms": 4589, "prompt_tokens": 55, "completion_tokens": 101, "constrained": false}
+{"ts": 1790370140.773, "seq": 23, "type": "verify", "task_id": "t06_merge_intervals", "attempt": 0, "ok": true, "kind": "test", "ms": 948}
+{"ts": 1790370140.786, "seq": 24, "type": "task_end", "task_id": "t06_merge_intervals", "solved": true, "tier": "small", "attempts": 1, "seconds": 5.5, "routed": "small"}
+{"ts": 1790370142.319, "seq": 25, "type": "route", "task_id": "t07_binary_search", "routed": "small", "route_p": 0.4095, "profile": "maximum-performance", "allow_big": "never", "big_allowed": false, "multi": false, "why": "allow-big=never"}
+{"ts": 1790370146.384, "seq": 26, "type": "generate", "task_id": "t07_binary_search", "attempt": 0, "temp": 0.0, "max_tokens": 1024, "ms": 4065, "prompt_tokens": 67, "completion_tokens": 90, "constrained": false}
+{"ts": 1790370147.258, "seq": 27, "type": "verify", "task_id": "t07_binary_search", "attempt": 0, "ok": true, "kind": "test", "ms": 874}
+{"ts": 1790370147.271, "seq": 28, "type": "task_end", "task_id": "t07_binary_search", "solved": true, "tier": "small", "attempts": 1, "seconds": 4.9, "routed": "small"}
+{"ts": 1790370148.727, "seq": 29, "type": "route", "task_id": "t08_valid_parens", "routed": "small", "route_p": 0.5135, "profile": "maximum-performance", "allow_big": "never", "big_allowed": false, "multi": false, "why": "allow-big=never"}
+{"ts": 1790370152.524, "seq": 30, "type": "generate", "task_id": "t08_valid_parens", "attempt": 0, "temp": 0.0, "max_tokens": 1024, "ms": 3796, "prompt_tokens": 67, "completion_tokens": 83, "constrained": false}
+{"ts": 1790370153.506, "seq": 31, "type": "verify", "task_id": "t08_valid_parens", "attempt": 0, "ok": true, "kind": "test", "ms": 981}
+{"ts": 1790370153.52, "seq": 32, "type": "task_end", "task_id": "t08_valid_parens", "solved": true, "tier": "small", "attempts": 1, "seconds": 4.8, "routed": "small"}
+{"ts": 1790370156.748, "seq": 33, "type": "route", "task_id": "t09_max_subarray", "routed": "small", "route_p": 0.5113, "profile": "maximum-performance", "allow_big": "never", "big_allowed": false, "multi": false, "why": "allow-big=never"}
+{"ts": 1790370159.787, "seq": 34, "type": "generate", "task_id": "t09_max_subarray", "attempt": 0, "temp": 0.0, "max_tokens": 1024, "ms": 3036, "prompt_tokens": 59, "completion_tokens": 63, "constrained": false}
+{"ts": 1790370160.739, "seq": 35, "type": "verify", "task_id": "t09_max_subarray", "attempt": 0, "ok": true, "kind": "test", "ms": 952}
+{"ts": 1790370160.753, "seq": 36, "type": "task_end", "task_id": "t09_max_subarray", "solved": true, "tier": "small", "attempts": 1, "seconds": 4.0, "routed": "small"}
+{"ts": 1790370162.212, "seq": 37, "type": "route", "task_id": "t10_climb_stairs", "routed": "small", "route_p": 0.4199, "profile": "maximum-performance", "allow_big": "never", "big_allowed": false, "multi": false, "why": "allow-big=never"}
+{"ts": 1790370165.134, "seq": 38, "type": "generate", "task_id": "t10_climb_stairs", "attempt": 0, "temp": 0.0, "max_tokens": 1024, "ms": 2921, "prompt_tokens": 70, "completion_tokens": 63, "constrained": false}
+{"ts": 1790370165.959, "seq": 39, "type": "verify", "task_id": "t10_climb_stairs", "attempt": 0, "ok": true, "kind": "test", "ms": 825}
+{"ts": 1790370165.972, "seq": 40, "type": "task_end", "task_id": "t10_climb_stairs", "solved": true, "tier": "small", "attempts": 1, "seconds": 3.7, "routed": "small"}
+{"ts": 1790370167.364, "seq": 41, "type": "route", "task_id": "t11_group_anagrams", "routed": "small", "route_p": 0.4398, "profile": "maximum-performance", "allow_big": "never", "big_allowed": false, "multi": false, "why": "allow-big=never"}
+{"ts": 1790370170.555, "seq": 42, "type": "generate", "task_id": "t11_group_anagrams", "attempt": 0, "temp": 0.0, "max_tokens": 1024, "ms": 3190, "prompt_tokens": 65, "completion_tokens": 72, "constrained": false}
+{"ts": 1790370171.374, "seq": 43, "type": "verify", "task_id": "t11_group_anagrams", "attempt": 0, "ok": true, "kind": "test", "ms": 819}
+{"ts": 1790370171.387, "seq": 44, "type": "task_end", "task_id": "t11_group_anagrams", "solved": true, "tier": "small", "attempts": 1, "seconds": 4.0, "routed": "small"}
+{"ts": 1790370172.859, "seq": 45, "type": "route", "task_id": "t12_json_flatten", "routed": "small", "route_p": 0.542, "profile": "maximum-performance", "allow_big": "never", "big_allowed": false, "multi": false, "why": "allow-big=never"}
+{"ts": 1790370176.283, "seq": 46, "type": "generate", "task_id": "t12_json_flatten", "attempt": 0, "temp": 0.0, "max_tokens": 1024, "ms": 3422, "prompt_tokens": 76, "completion_tokens": 72, "constrained": false}
+{"ts": 1790370177.125, "seq": 47, "type": "verify", "task_id": "t12_json_flatten", "attempt": 0, "ok": true, "kind": "test", "ms": 842}
+{"ts": 1790370177.141, "seq": 48, "type": "task_end", "task_id": "t12_json_flatten", "solved": true, "tier": "small", "attempts": 1, "seconds": 4.3, "routed": "small"}
+{"ts": 1790370178.546, "seq": 49, "type": "route", "task_id": "t13_rate_limiter", "routed": "small", "route_p": 0.5152, "profile": "maximum-performance", "allow_big": "never", "big_allowed": false, "multi": false, "why": "allow-big=never"}
+{"ts": 1790370182.937, "seq": 50, "type": "generate", "task_id": "t13_rate_limiter", "attempt": 0, "temp": 0.0, "max_tokens": 1024, "ms": 4391, "prompt_tokens": 86, "completion_tokens": 98, "constrained": false}
+{"ts": 1790370183.809, "seq": 51, "type": "verify", "task_id": "t13_rate_limiter", "attempt": 0, "ok": true, "kind": "test", "ms": 872}
+{"ts": 1790370183.822, "seq": 52, "type": "task_end", "task_id": "t13_rate_limiter", "solved": true, "tier": "small", "attempts": 1, "seconds": 5.3, "routed": "small"}
+{"ts": 1790370185.314, "seq": 53, "type": "route", "task_id": "t14_topk_frequent", "routed": "small", "route_p": 0.4299, "profile": "maximum-performance", "allow_big": "never", "big_allowed": false, "multi": false, "why": "allow-big=never"}
+{"ts": 1790370187.225, "seq": 54, "type": "generate", "task_id": "t14_topk_frequent", "attempt": 0, "temp": 0.0, "max_tokens": 1024, "ms": 1910, "prompt_tokens": 65, "completion_tokens": 40, "constrained": false}
+{"ts": 1790370188.117, "seq": 55, "type": "verify", "task_id": "t14_topk_frequent", "attempt": 0, "ok": false, "kind": "test", "ms": 892, "err": "FAILING_ASSERT: assert top_k([4,4,2,2,1], 2) == [2,4] | GOT: [4, 2] | WANT: [2, 4]"}
+{"ts": 1790370190.209, "seq": 56, "type": "generate", "task_id": "t14_topk_frequent", "attempt": 1, "temp": 0.7, "max_tokens": 1024, "ms": 2078, "prompt_tokens": 217, "completion_tokens": 40, "constrained": false}
+{"ts": 1790370191.001, "seq": 57, "type": "verify", "task_id": "t14_topk_frequent", "attempt": 1, "ok": false, "kind": "test", "ms": 792, "err": "FAILING_ASSERT: assert top_k([4,4,2,2,1], 2) == [2,4] | GOT: [4, 2] | WANT: [2, 4]"}
+{"ts": 1790370191.001, "seq": 58, "type": "escalation", "task_id": "t14_topk_frequent", "denied": true, "tier": "big", "why": "allow-big=never"}
+{"ts": 1790370191.028, "seq": 59, "type": "task_end", "task_id": "t14_topk_frequent", "solved": false, "tier": "shed", "attempts": 2, "seconds": 5.7, "routed": "small"}
+{"ts": 1790370192.501, "seq": 60, "type": "route", "task_id": "t15_parse_log", "routed": "small", "route_p": 0.6027, "profile": "maximum-performance", "allow_big": "never", "big_allowed": false, "multi": false, "why": "allow-big=never"}
+{"ts": 1790370198.649, "seq": 61, "type": "generate", "task_id": "t15_parse_log", "attempt": 0, "temp": 0.0, "max_tokens": 1024, "ms": 6147, "prompt_tokens": 93, "completion_tokens": 139, "constrained": false}
+{"ts": 1790370199.539, "seq": 62, "type": "verify", "task_id": "t15_parse_log", "attempt": 0, "ok": false, "kind": "test", "ms": 890, "err": "IndexError: list index out of range"}
+{"ts": 1790370206.089, "seq": 63, "type": "generate", "task_id": "t15_parse_log", "attempt": 1, "temp": 0.7, "max_tokens": 1024, "ms": 6549, "prompt_tokens": 407, "completion_tokens": 139, "constrained": false}
+{"ts": 1790370206.851, "seq": 64, "type": "verify", "task_id": "t15_parse_log", "attempt": 1, "ok": false, "kind": "test", "ms": 762, "err": "ValueError: not enough values to unpack (expected 2, got 1)"}
+{"ts": 1790370206.852, "seq": 65, "type": "escalation", "task_id": "t15_parse_log", "denied": true, "tier": "big", "why": "allow-big=never"}
+{"ts": 1790370206.878, "seq": 66, "type": "task_end", "task_id": "t15_parse_log", "solved": false, "tier": "shed", "attempts": 2, "seconds": 14.3, "routed": "small"}
+{"ts": 1790370208.309, "seq": 67, "type": "route", "task_id": "t16_lis_length", "routed": "small", "route_p": 0.4301, "profile": "maximum-performance", "allow_big": "never", "big_allowed": false, "multi": false, "why": "allow-big=never"}
+{"ts": 1790370213.458, "seq": 68, "type": "generate", "task_id": "t16_lis_length", "attempt": 0, "temp": 0.0, "max_tokens": 1024, "ms": 5149, "prompt_tokens": 60, "completion_tokens": 116, "constrained": false}
+{"ts": 1790370214.406, "seq": 69, "type": "verify", "task_id": "t16_lis_length", "attempt": 0, "ok": true, "kind": "test", "ms": 948}
+{"ts": 1790370214.417, "seq": 70, "type": "task_end", "task_id": "t16_lis_length", "solved": true, "tier": "small", "attempts": 1, "seconds": 6.1, "routed": "small"}
+{"ts": 1790370215.904, "seq": 71, "type": "route", "task_id": "t17_retry_decorator", "routed": "small", "route_p": 0.4782, "profile": "maximum-performance", "allow_big": "never", "big_allowed": false, "multi": false, "why": "allow-big=never"}
+{"ts": 1790370220.054, "seq": 72, "type": "generate", "task_id": "t17_retry_decorator", "attempt": 0, "temp": 0.0, "max_tokens": 1024, "ms": 4147, "prompt_tokens": 65, "completion_tokens": 94, "constrained": false}
+{"ts": 1790370225.991, "seq": 73, "type": "verify", "task_id": "t17_retry_decorator", "attempt": 0, "ok": true, "kind": "test", "ms": 5936}
+{"ts": 1790370226.003, "seq": 74, "type": "task_end", "task_id": "t17_retry_decorator", "solved": true, "tier": "small", "attempts": 1, "seconds": 10.1, "routed": "small"}
+{"ts": 1790370227.458, "seq": 75, "type": "route", "task_id": "t18_ttl_get", "routed": "small", "route_p": 0.3876, "profile": "maximum-performance", "allow_big": "never", "big_allowed": false, "multi": false, "why": "allow-big=never"}
+{"ts": 1790370229.88, "seq": 76, "type": "generate", "task_id": "t18_ttl_get", "attempt": 0, "temp": 0.0, "max_tokens": 1024, "ms": 2421, "prompt_tokens": 76, "completion_tokens": 53, "constrained": false}
+{"ts": 1790370230.833, "seq": 77, "type": "verify", "task_id": "t18_ttl_get", "attempt": 0, "ok": true, "kind": "test", "ms": 953}
+{"ts": 1790370230.845, "seq": 78, "type": "task_end", "task_id": "t18_ttl_get", "solved": true, "tier": "small", "attempts": 1, "seconds": 3.4, "routed": "small"}
+{"ts": 1790370231.973, "seq": 79, "type": "route", "task_id": "t19_word_ladder", "routed": "small", "route_p": 0.4704, "profile": "maximum-performance", "allow_big": "never", "big_allowed": false, "multi": false, "why": "allow-big=never"}
+{"ts": 1790370238.003, "seq": 80, "type": "generate", "task_id": "t19_word_ladder", "attempt": 0, "temp": 0.0, "max_tokens": 1024, "ms": 6029, "prompt_tokens": 76, "completion_tokens": 130, "constrained": false}
+{"ts": 1790370238.899, "seq": 81, "type": "verify", "task_id": "t19_word_ladder", "attempt": 0, "ok": true, "kind": "test", "ms": 895}
+{"ts": 1790370238.913, "seq": 82, "type": "task_end", "task_id": "t19_word_ladder", "solved": true, "tier": "small", "attempts": 1, "seconds": 6.9, "routed": "small"}
+{"ts": 1790370240.749, "seq": 83, "type": "route", "task_id": "t20_safe_divide", "routed": "small", "route_p": 0.4706, "profile": "maximum-performance", "allow_big": "never", "big_allowed": false, "multi": false, "why": "allow-big=never"}
+{"ts": 1790370244.079, "seq": 84, "type": "generate", "task_id": "t20_safe_divide", "attempt": 0, "temp": 0.0, "max_tokens": 1024, "ms": 3329, "prompt_tokens": 76, "completion_tokens": 68, "constrained": false}
+{"ts": 1790370245.097, "seq": 85, "type": "verify", "task_id": "t20_safe_divide", "attempt": 0, "ok": true, "kind": "test", "ms": 1018}
+{"ts": 1790370245.112, "seq": 86, "type": "task_end", "task_id": "t20_safe_divide", "solved": true, "tier": "small", "attempts": 1, "seconds": 4.3, "routed": "small"}
+{"ts": 1790370245.112, "seq": 87, "type": "session_end", "solved": 18, "tasks": 20, "ran": 20}

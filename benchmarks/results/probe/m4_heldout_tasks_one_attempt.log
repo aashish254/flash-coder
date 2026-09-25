@@ -1,0 +1,24 @@
+
+=== run-suite --tasks benchmarks/tasks/m4_heldout_tasks.jsonl --attempts 1 --allow-big never ===
+[trace] session 20260926-025513-run-suite-d342 — interrupt me anytime, then: flash resume 20260926-025513-run-suite-d342
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5013.78it/s]
+  [     SHED] h17_ini_parse          solved=False attempts=1 (5.8s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5161.16it/s]
+  [     SHED] h18_word_search        solved=False attempts=1 (9.5s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5166.11it/s]
+  [    SMALL] h19_url_decode         solved=True attempts=1 (8.1s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5463.70it/s]
+  [    SMALL] h20_business_days      solved=True attempts=1 (5.0s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5599.87it/s]
+  [     SHED] h21_brace_expand       solved=False attempts=1 (7.3s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5614.03it/s]
+  [    SMALL] h22_sudoku_valid       solved=True attempts=1 (9.8s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5369.66it/s]
+  [     SHED] h23_number_words       solved=False attempts=1 (19.9s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5119.86it/s]
+  [     SHED] h24_md_table           solved=False attempts=1 (4.5s)
+
+solved 3/8   small-tier 3, escalated 0   total 70s (avg 8.7s/task)
+[trace] flash trace show 20260926-025513-run-suite-d342
+5 task(s) denied escalation by the §34.1 governor (maximum-performance): no shed signal (ac=True, battery=80.0, mem-free=37.0, load/core=0.26)
+   rerun with --allow-big always to force the brain on battery/heat

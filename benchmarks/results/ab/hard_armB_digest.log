@@ -1,0 +1,48 @@
+[trace] session 20260926-031223-run-suite-3814 — interrupt me anytime, then: flash resume 20260926-031223-run-suite-3814
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5106.01it/s]
+  [     SHED] h04_rle_codec          solved=False attempts=3 (26.5s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5828.12it/s]
+  [     SHED] h06_log_error_windows  solved=False attempts=3 (28.4s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 4873.32it/s]
+  [     SHED] h09_iso_duration       solved=False attempts=3 (34.1s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5968.18it/s]
+  [     SHED] h10_semver_sort        solved=False attempts=3 (24.2s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 6177.18it/s]
+  [     SHED] h11_camel_to_snake     solved=False attempts=3 (11.0s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5885.37it/s]
+  [     SHED] h12_min_remove_parens  solved=False attempts=3 (19.5s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5337.77it/s]
+  [     SHED] h15_shell_split        solved=False attempts=3 (23.7s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 4942.87it/s]
+  [    SMALL] h16_invoice_tax        solved=True attempts=2 (15.8s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5181.71it/s]
+  [    SMALL] h17_ini_parse          solved=True attempts=2 (12.7s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5494.72it/s]
+  [    SMALL] h18_word_search        solved=True attempts=3 (34.3s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 6241.52it/s]
+  [     SHED] h21_brace_expand       solved=False attempts=3 (25.4s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5772.86it/s]
+  [     SHED] h23_number_words       solved=False attempts=3 (135.1s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5224.02it/s]
+  [    SMALL] h24_md_table           solved=True attempts=2 (10.7s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5151.30it/s]
+  [     SHED] h31_csv_line           solved=False attempts=3 (22.2s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 4872.69it/s]
+  [     SHED] h33_base32_decode      solved=False attempts=3 (25.3s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 4692.78it/s]
+  [     SHED] h34_dice_parse         solved=False attempts=3 (30.6s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 4969.55it/s]
+  [     SHED] h40_env_subst          solved=False attempts=3 (17.4s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5379.61it/s]
+  [    SMALL] mw1_ringbuf            solved=True attempts=2 (28.8s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5011.12it/s]
+  [     SHED] mw3_registry           solved=False attempts=3 (27.6s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5232.71it/s]
+  [     SHED] t14_topk_frequent      solved=False attempts=3 (11.5s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 4915.20it/s]
+  [     SHED] t15_parse_log          solved=False attempts=3 (26.5s)
+
+solved 5/21   small-tier 5, escalated 0   total 591s (avg 28.2s/task)
+[trace] flash trace show 20260926-031223-run-suite-3814
+16 task(s) denied escalation by the §34.1 governor (maximum-performance): no shed signal (ac=True, battery=80.0, mem-free=38.0, load/core=0.25)
+   rerun with --allow-big always to force the brain on battery/heat

@@ -1,0 +1,31 @@
+{"ts": 1790370245.9, "seq": 0, "type": "session_start", "label": "run-suite", "cmd": "run-suite", "params": {"small": "mlx-community/Qwen2.5-Coder-7B-Instruct-4bit", "big": "mlx-community/Qwen3-30B-A3B-Instruct-2507-4bit", "tasks": "benchmarks/tasks/mw_tasks.jsonl", "with_context": false, "attempts": 2, "max_tasks": 25, "max_tokens": 2048, "max_chars": 4000, "threshold": 1.1, "allow_big": "never", "constrain": false, "debug": false}}
+{"ts": 1790370251.601, "seq": 1, "type": "route", "task_id": "mw1_ringbuf", "routed": "small", "route_p": 0.444, "profile": "maximum-performance", "allow_big": "never", "big_allowed": false, "multi": true, "why": "allow-big=never"}
+{"ts": 1790370263.008, "seq": 2, "type": "generate", "task_id": "mw1_ringbuf", "attempt": 0, "temp": 0.0, "max_tokens": 2048, "ms": 11404, "prompt_tokens": 190, "completion_tokens": 263, "constrained": false}
+{"ts": 1790370264.712, "seq": 3, "type": "verify", "task_id": "mw1_ringbuf", "attempt": 0, "ok": false, "kind": "test", "ms": 1704, "files": 2, "err": "FAILING_ASSERT: assert r.items() == [2, 3] | GOT: [2] | WANT: [2, 3]"}
+{"ts": 1790370278.708, "seq": 4, "type": "generate", "task_id": "mw1_ringbuf", "attempt": 1, "temp": 0.7, "max_tokens": 2048, "ms": 13994, "prompt_tokens": 791, "completion_tokens": 301, "constrained": false}
+{"ts": 1790370280.305, "seq": 5, "type": "verify", "task_id": "mw1_ringbuf", "attempt": 1, "ok": true, "kind": "test", "ms": 1596, "files": 2}
+{"ts": 1790370280.319, "seq": 6, "type": "task_end", "task_id": "mw1_ringbuf", "solved": true, "tier": "small", "attempts": 2, "seconds": 28.7, "routed": "small"}
+{"ts": 1790370281.98, "seq": 7, "type": "route", "task_id": "mw2_codec", "routed": "small", "route_p": 0.4057, "profile": "maximum-performance", "allow_big": "never", "big_allowed": false, "multi": true, "why": "allow-big=never"}
+{"ts": 1790370291.247, "seq": 8, "type": "generate", "task_id": "mw2_codec", "attempt": 0, "temp": 0.0, "max_tokens": 2048, "ms": 9265, "prompt_tokens": 168, "completion_tokens": 215, "constrained": false}
+{"ts": 1790370292.963, "seq": 9, "type": "verify", "task_id": "mw2_codec", "attempt": 0, "ok": true, "kind": "test", "ms": 1716, "files": 2}
+{"ts": 1790370292.978, "seq": 10, "type": "task_end", "task_id": "mw2_codec", "solved": true, "tier": "small", "attempts": 1, "seconds": 11.0, "routed": "small"}
+{"ts": 1790370294.594, "seq": 11, "type": "route", "task_id": "mw3_registry", "routed": "small", "route_p": 0.4269, "profile": "maximum-performance", "allow_big": "never", "big_allowed": false, "multi": true, "why": "allow-big=never"}
+{"ts": 1790370301.013, "seq": 12, "type": "generate", "task_id": "mw3_registry", "attempt": 0, "temp": 0.0, "max_tokens": 2048, "ms": 6415, "prompt_tokens": 159, "completion_tokens": 144, "constrained": false}
+{"ts": 1790370302.639, "seq": 13, "type": "verify", "task_id": "mw3_registry", "attempt": 0, "ok": false, "kind": "test", "ms": 1626, "files": 2, "err": "ImportError: cannot import name 'get' from 'registry' (/private/var/folders/jn/pnnpl_cn0gx93p8v1yf8jb080000gn/T/tmp6_i0mzld/registry.py)"}
+{"ts": 1790370312.645, "seq": 14, "type": "generate", "task_id": "mw3_registry", "attempt": 1, "temp": 0.7, "max_tokens": 2048, "ms": 10003, "prompt_tokens": 547, "completion_tokens": 218, "constrained": false}
+{"ts": 1790370313.413, "seq": 15, "type": "verify", "task_id": "mw3_registry", "attempt": 1, "ok": false, "kind": "test", "ms": 768, "files": 2, "err": "ImportError: cannot import name 'get' from 'registry' (/private/var/folders/jn/pnnpl_cn0gx93p8v1yf8jb080000gn/T/tmpwdhmqo4n/registry.py)"}
+{"ts": 1790370313.413, "seq": 16, "type": "escalation", "task_id": "mw3_registry", "denied": true, "tier": "big", "why": "allow-big=never"}
+{"ts": 1790370313.436, "seq": 17, "type": "task_end", "task_id": "mw3_registry", "solved": false, "tier": "shed", "attempts": 2, "seconds": 18.8, "routed": "small"}
+{"ts": 1790370315.128, "seq": 18, "type": "route", "task_id": "mw4_lexer", "routed": "small", "route_p": 0.4621, "profile": "maximum-performance", "allow_big": "never", "big_allowed": false, "multi": true, "why": "allow-big=never"}
+{"ts": 1790370326.397, "seq": 19, "type": "generate", "task_id": "mw4_lexer", "attempt": 0, "temp": 0.0, "max_tokens": 2048, "ms": 11267, "prompt_tokens": 188, "completion_tokens": 262, "constrained": false}
+{"ts": 1790370328.109, "seq": 20, "type": "verify", "task_id": "mw4_lexer", "attempt": 0, "ok": true, "kind": "test", "ms": 1712, "files": 2}
+{"ts": 1790370328.121, "seq": 21, "type": "task_end", "task_id": "mw4_lexer", "solved": true, "tier": "small", "attempts": 1, "seconds": 13.0, "routed": "small"}
+{"ts": 1790370329.889, "seq": 22, "type": "route", "task_id": "mw5_postfix", "routed": "small", "route_p": 0.3675, "profile": "maximum-performance", "allow_big": "never", "big_allowed": false, "multi": true, "why": "allow-big=never"}
+{"ts": 1790370343.094, "seq": 23, "type": "generate", "task_id": "mw5_postfix", "attempt": 0, "temp": 0.0, "max_tokens": 2048, "ms": 13203, "prompt_tokens": 170, "completion_tokens": 300, "constrained": false}
+{"ts": 1790370344.813, "seq": 24, "type": "verify", "task_id": "mw5_postfix", "attempt": 0, "ok": true, "kind": "test", "ms": 1719, "files": 2}
+{"ts": 1790370344.828, "seq": 25, "type": "task_end", "task_id": "mw5_postfix", "solved": true, "tier": "small", "attempts": 1, "seconds": 14.9, "routed": "small"}
+{"ts": 1790370346.666, "seq": 26, "type": "route", "task_id": "mw6_config", "routed": "small", "route_p": 0.4292, "profile": "maximum-performance", "allow_big": "never", "big_allowed": false, "multi": true, "why": "allow-big=never"}
+{"ts": 1790370353.623, "seq": 27, "type": "generate", "task_id": "mw6_config", "attempt": 0, "temp": 0.0, "max_tokens": 2048, "ms": 6953, "prompt_tokens": 187, "completion_tokens": 157, "constrained": false}
+{"ts": 1790370355.31, "seq": 28, "type": "verify", "task_id": "mw6_config", "attempt": 0, "ok": true, "kind": "test", "ms": 1687, "files": 2}
+{"ts": 1790370355.321, "seq": 29, "type": "task_end", "task_id": "mw6_config", "solved": true, "tier": "small", "attempts": 1, "seconds": 8.6, "routed": "small"}
+{"ts": 1790370355.321, "seq": 30, "type": "session_end", "solved": 5, "tasks": 6, "ran": 6}

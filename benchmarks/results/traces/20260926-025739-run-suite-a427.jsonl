@@ -1,0 +1,37 @@
+{"ts": 1790370759.478, "seq": 0, "type": "session_start", "label": "run-suite", "cmd": "run-suite", "params": {"small": "mlx-community/Qwen2.5-Coder-7B-Instruct-4bit", "big": "mlx-community/Qwen3-30B-A3B-Instruct-2507-4bit", "tasks": "benchmarks/tasks/m6_heldout_tasks.jsonl", "with_context": false, "attempts": 1, "max_tasks": 25, "max_tokens": 1024, "max_chars": 4000, "threshold": 1.1, "allow_big": "never", "constrain": false, "debug": false}}
+{"ts": 1790370763.638, "seq": 1, "type": "route", "task_id": "h33_base32_decode", "routed": "small", "route_p": 0.5777, "profile": "maximum-performance", "allow_big": "never", "big_allowed": false, "multi": false, "why": "allow-big=never"}
+{"ts": 1790370769.949, "seq": 2, "type": "generate", "task_id": "h33_base32_decode", "attempt": 0, "temp": 0.0, "max_tokens": 1024, "ms": 6309, "prompt_tokens": 111, "completion_tokens": 138, "constrained": false}
+{"ts": 1790370770.863, "seq": 3, "type": "verify", "task_id": "h33_base32_decode", "attempt": 0, "ok": false, "kind": "test", "ms": 914, "err": "FAILING_ASSERT: assert base32_decode('JBSWY3DPEB3W64TMMQQQ====') == b'Hello world!' | GOT: <eval error> unterminated string literal (detected at line 1) (<string>, line 1) | WANT: <eval error> unterminated string literal (detected at line 1) (<string>, line 1)"}
+{"ts": 1790370770.863, "seq": 4, "type": "escalation", "task_id": "h33_base32_decode", "denied": true, "tier": "big", "why": "allow-big=never"}
+{"ts": 1790370770.888, "seq": 5, "type": "task_end", "task_id": "h33_base32_decode", "solved": false, "tier": "shed", "attempts": 1, "seconds": 7.2, "routed": "small"}
+{"ts": 1790370772.983, "seq": 6, "type": "route", "task_id": "h34_dice_parse", "routed": "small", "route_p": 0.5722, "profile": "maximum-performance", "allow_big": "never", "big_allowed": false, "multi": false, "why": "allow-big=never"}
+{"ts": 1790370781.406, "seq": 7, "type": "generate", "task_id": "h34_dice_parse", "attempt": 0, "temp": 0.0, "max_tokens": 1024, "ms": 8423, "prompt_tokens": 155, "completion_tokens": 191, "constrained": false}
+{"ts": 1790370782.268, "seq": 8, "type": "verify", "task_id": "h34_dice_parse", "attempt": 0, "ok": false, "kind": "static", "ms": 862, "err": "STATIC: L7: undefined name 'random'"}
+{"ts": 1790370782.269, "seq": 9, "type": "escalation", "task_id": "h34_dice_parse", "denied": true, "tier": "big", "why": "allow-big=never"}
+{"ts": 1790370782.293, "seq": 10, "type": "task_end", "task_id": "h34_dice_parse", "solved": false, "tier": "shed", "attempts": 1, "seconds": 9.3, "routed": "small"}
+{"ts": 1790370783.988, "seq": 11, "type": "route", "task_id": "h35_uniq_stable", "routed": "small", "route_p": 0.5718, "profile": "maximum-performance", "allow_big": "never", "big_allowed": false, "multi": false, "why": "allow-big=never"}
+{"ts": 1790370786.049, "seq": 12, "type": "generate", "task_id": "h35_uniq_stable", "attempt": 0, "temp": 0.0, "max_tokens": 1024, "ms": 2059, "prompt_tokens": 111, "completion_tokens": 43, "constrained": false}
+{"ts": 1790370787.023, "seq": 13, "type": "verify", "task_id": "h35_uniq_stable", "attempt": 0, "ok": true, "kind": "test", "ms": 974}
+{"ts": 1790370787.036, "seq": 14, "type": "task_end", "task_id": "h35_uniq_stable", "solved": true, "tier": "small", "attempts": 1, "seconds": 3.0, "routed": "small"}
+{"ts": 1790370788.497, "seq": 15, "type": "route", "task_id": "h36_time_ago", "routed": "small", "route_p": 0.6442, "profile": "maximum-performance", "allow_big": "never", "big_allowed": false, "multi": false, "why": "allow-big=never"}
+{"ts": 1790370792.865, "seq": 16, "type": "generate", "task_id": "h36_time_ago", "attempt": 0, "temp": 0.0, "max_tokens": 1024, "ms": 4367, "prompt_tokens": 130, "completion_tokens": 92, "constrained": false}
+{"ts": 1790370793.84, "seq": 17, "type": "verify", "task_id": "h36_time_ago", "attempt": 0, "ok": true, "kind": "test", "ms": 975}
+{"ts": 1790370793.85, "seq": 18, "type": "task_end", "task_id": "h36_time_ago", "solved": true, "tier": "small", "attempts": 1, "seconds": 5.3, "routed": "small"}
+{"ts": 1790370796.058, "seq": 19, "type": "route", "task_id": "h37_quine_check", "routed": "small", "route_p": 0.5595, "profile": "maximum-performance", "allow_big": "never", "big_allowed": false, "multi": false, "why": "allow-big=never"}
+{"ts": 1790370802.027, "seq": 20, "type": "generate", "task_id": "h37_quine_check", "attempt": 0, "temp": 0.0, "max_tokens": 1024, "ms": 5968, "prompt_tokens": 109, "completion_tokens": 133, "constrained": false}
+{"ts": 1790370803.132, "seq": 21, "type": "verify", "task_id": "h37_quine_check", "attempt": 0, "ok": true, "kind": "test", "ms": 1105}
+{"ts": 1790370803.144, "seq": 22, "type": "task_end", "task_id": "h37_quine_check", "solved": true, "tier": "small", "attempts": 1, "seconds": 7.1, "routed": "small"}
+{"ts": 1790370805.34, "seq": 23, "type": "route", "task_id": "h38_hex_rgb", "routed": "small", "route_p": 0.5988, "profile": "maximum-performance", "allow_big": "never", "big_allowed": false, "multi": false, "why": "allow-big=never"}
+{"ts": 1790370811.246, "seq": 24, "type": "generate", "task_id": "h38_hex_rgb", "attempt": 0, "temp": 0.0, "max_tokens": 1024, "ms": 5905, "prompt_tokens": 138, "completion_tokens": 129, "constrained": false}
+{"ts": 1790370812.193, "seq": 25, "type": "verify", "task_id": "h38_hex_rgb", "attempt": 0, "ok": true, "kind": "test", "ms": 947}
+{"ts": 1790370812.205, "seq": 26, "type": "task_end", "task_id": "h38_hex_rgb", "solved": true, "tier": "small", "attempts": 1, "seconds": 6.9, "routed": "small"}
+{"ts": 1790370814.199, "seq": 27, "type": "route", "task_id": "h39_spiral_matrix", "routed": "small", "route_p": 0.5616, "profile": "maximum-performance", "allow_big": "never", "big_allowed": false, "multi": false, "why": "allow-big=never"}
+{"ts": 1790370823.241, "seq": 28, "type": "generate", "task_id": "h39_spiral_matrix", "attempt": 0, "temp": 0.0, "max_tokens": 1024, "ms": 9041, "prompt_tokens": 93, "completion_tokens": 206, "constrained": false}
+{"ts": 1790370824.22, "seq": 29, "type": "verify", "task_id": "h39_spiral_matrix", "attempt": 0, "ok": true, "kind": "test", "ms": 979}
+{"ts": 1790370824.233, "seq": 30, "type": "task_end", "task_id": "h39_spiral_matrix", "solved": true, "tier": "small", "attempts": 1, "seconds": 10.0, "routed": "small"}
+{"ts": 1790370826.218, "seq": 31, "type": "route", "task_id": "h40_env_subst", "routed": "small", "route_p": 0.6465, "profile": "maximum-performance", "allow_big": "never", "big_allowed": false, "multi": false, "why": "allow-big=never"}
+{"ts": 1790370829.709, "seq": 32, "type": "generate", "task_id": "h40_env_subst", "attempt": 0, "temp": 0.0, "max_tokens": 1024, "ms": 3489, "prompt_tokens": 135, "completion_tokens": 74, "constrained": false}
+{"ts": 1790370830.616, "seq": 33, "type": "verify", "task_id": "h40_env_subst", "attempt": 0, "ok": false, "kind": "test", "ms": 907, "err": "FAILING_ASSERT: assert env_subst('a$$b', {}) == 'a$b' | GOT: 'a$$b' | WANT: 'a$b'"}
+{"ts": 1790370830.616, "seq": 34, "type": "escalation", "task_id": "h40_env_subst", "denied": true, "tier": "big", "why": "allow-big=never"}
+{"ts": 1790370830.643, "seq": 35, "type": "task_end", "task_id": "h40_env_subst", "solved": false, "tier": "shed", "attempts": 1, "seconds": 4.4, "routed": "small"}
+{"ts": 1790370830.643, "seq": 36, "type": "session_end", "solved": 5, "tasks": 8, "ran": 8}

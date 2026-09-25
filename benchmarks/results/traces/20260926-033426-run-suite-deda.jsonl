@@ -1,0 +1,43 @@
+{"ts": 1790372966.498, "seq": 0, "type": "session_start", "label": "run-suite", "cmd": "run-suite", "params": {"small": "mlx-community/Qwen2.5-Coder-7B-Instruct-4bit", "big": "mlx-community/Qwen3-30B-A3B-Instruct-2507-4bit", "tasks": "benchmarks/tasks/dbg_fix_tasks.jsonl", "with_context": false, "attempts": 3, "max_tasks": 25, "max_tokens": 700, "max_chars": 4000, "threshold": 1.1, "allow_big": "never", "constrain": false, "debug": false}}
+{"ts": 1790372969.989, "seq": 1, "type": "route", "task_id": "fix01_alias_sort", "routed": "small", "route_p": 0.5825, "profile": "maximum-performance", "allow_big": "never", "big_allowed": false, "multi": false, "why": "allow-big=never"}
+{"ts": 1790372973.666, "seq": 2, "type": "generate", "task_id": "fix01_alias_sort", "attempt": 0, "temp": 0.0, "max_tokens": 700, "ms": 3676, "prompt_tokens": 144, "completion_tokens": 78, "constrained": false}
+{"ts": 1790372974.562, "seq": 3, "type": "verify", "task_id": "fix01_alias_sort", "attempt": 0, "ok": false, "kind": "test", "ms": 896, "err": "AssertionError"}
+{"ts": 1790372978.471, "seq": 4, "type": "generate", "task_id": "fix01_alias_sort", "attempt": 1, "temp": 0.7, "max_tokens": 700, "ms": 3908, "prompt_tokens": 330, "completion_tokens": 78, "constrained": false}
+{"ts": 1790372979.231, "seq": 5, "type": "verify", "task_id": "fix01_alias_sort", "attempt": 1, "ok": false, "kind": "test", "ms": 760, "err": "AssertionError"}
+{"ts": 1790372983.728, "seq": 6, "type": "generate", "task_id": "fix01_alias_sort", "attempt": 2, "temp": 0.7, "max_tokens": 700, "ms": 4496, "prompt_tokens": 516, "completion_tokens": 87, "constrained": false}
+{"ts": 1790372984.539, "seq": 7, "type": "verify", "task_id": "fix01_alias_sort", "attempt": 2, "ok": true, "kind": "test", "ms": 811}
+{"ts": 1790372984.555, "seq": 8, "type": "task_end", "task_id": "fix01_alias_sort", "solved": true, "tier": "small", "attempts": 3, "seconds": 14.6, "routed": "small"}
+{"ts": 1790372986.092, "seq": 9, "type": "route", "task_id": "fix02_stale_accumulator", "routed": "small", "route_p": 0.6114, "profile": "maximum-performance", "allow_big": "never", "big_allowed": false, "multi": false, "why": "allow-big=never"}
+{"ts": 1790372988.947, "seq": 10, "type": "generate", "task_id": "fix02_stale_accumulator", "attempt": 0, "temp": 0.0, "max_tokens": 700, "ms": 2854, "prompt_tokens": 157, "completion_tokens": 59, "constrained": false}
+{"ts": 1790372989.88, "seq": 11, "type": "verify", "task_id": "fix02_stale_accumulator", "attempt": 0, "ok": true, "kind": "test", "ms": 932}
+{"ts": 1790372989.893, "seq": 12, "type": "task_end", "task_id": "fix02_stale_accumulator", "solved": true, "tier": "small", "attempts": 1, "seconds": 3.8, "routed": "small"}
+{"ts": 1790372991.411, "seq": 13, "type": "route", "task_id": "fix03_offby_tail", "routed": "small", "route_p": 0.5775, "profile": "maximum-performance", "allow_big": "never", "big_allowed": false, "multi": false, "why": "allow-big=never"}
+{"ts": 1790372993.588, "seq": 14, "type": "generate", "task_id": "fix03_offby_tail", "attempt": 0, "temp": 0.0, "max_tokens": 700, "ms": 2176, "prompt_tokens": 142, "completion_tokens": 44, "constrained": false}
+{"ts": 1790372994.513, "seq": 15, "type": "verify", "task_id": "fix03_offby_tail", "attempt": 0, "ok": true, "kind": "test", "ms": 926}
+{"ts": 1790372994.526, "seq": 16, "type": "task_end", "task_id": "fix03_offby_tail", "solved": true, "tier": "small", "attempts": 1, "seconds": 3.1, "routed": "small"}
+{"ts": 1790372995.836, "seq": 17, "type": "route", "task_id": "fix04_dict_alias", "routed": "small", "route_p": 0.5838, "profile": "maximum-performance", "allow_big": "never", "big_allowed": false, "multi": false, "why": "allow-big=never"}
+{"ts": 1790372997.877, "seq": 18, "type": "generate", "task_id": "fix04_dict_alias", "attempt": 0, "temp": 0.0, "max_tokens": 700, "ms": 2040, "prompt_tokens": 163, "completion_tokens": 41, "constrained": false}
+{"ts": 1790372998.787, "seq": 19, "type": "verify", "task_id": "fix04_dict_alias", "attempt": 0, "ok": false, "kind": "test", "ms": 909, "err": "FAILING_ASSERT: assert src == {'a': 1, 'b': 2} | GOT: {'b': 2, 'alpha': 1} | WANT: {'a': 1, 'b': 2}"}
+{"ts": 1790373000.973, "seq": 20, "type": "generate", "task_id": "fix04_dict_alias", "attempt": 1, "temp": 0.7, "max_tokens": 700, "ms": 2184, "prompt_tokens": 321, "completion_tokens": 41, "constrained": false}
+{"ts": 1790373001.758, "seq": 21, "type": "verify", "task_id": "fix04_dict_alias", "attempt": 1, "ok": false, "kind": "test", "ms": 785, "err": "FAILING_ASSERT: assert src == {'a': 1, 'b': 2} | GOT: {'b': 2, 'alpha': 1} | WANT: {'a': 1, 'b': 2}"}
+{"ts": 1790373004.199, "seq": 22, "type": "generate", "task_id": "fix04_dict_alias", "attempt": 2, "temp": 0.7, "max_tokens": 700, "ms": 2440, "prompt_tokens": 479, "completion_tokens": 41, "constrained": false}
+{"ts": 1790373004.983, "seq": 23, "type": "verify", "task_id": "fix04_dict_alias", "attempt": 2, "ok": false, "kind": "test", "ms": 785, "err": "FAILING_ASSERT: assert src == {'a': 1, 'b': 2} | GOT: {'b': 2, 'alpha': 1} | WANT: {'a': 1, 'b': 2}"}
+{"ts": 1790373004.984, "seq": 24, "type": "escalation", "task_id": "fix04_dict_alias", "denied": true, "tier": "big", "why": "allow-big=never"}
+{"ts": 1790373005.01, "seq": 25, "type": "task_end", "task_id": "fix04_dict_alias", "solved": false, "tier": "shed", "attempts": 3, "seconds": 9.1, "routed": "small"}
+{"ts": 1790373006.682, "seq": 26, "type": "route", "task_id": "fix05_int_division", "routed": "small", "route_p": 0.5337, "profile": "maximum-performance", "allow_big": "never", "big_allowed": false, "multi": false, "why": "allow-big=never"}
+{"ts": 1790373008.406, "seq": 27, "type": "generate", "task_id": "fix05_int_division", "attempt": 0, "temp": 0.0, "max_tokens": 700, "ms": 1724, "prompt_tokens": 131, "completion_tokens": 34, "constrained": false}
+{"ts": 1790373009.343, "seq": 28, "type": "verify", "task_id": "fix05_int_division", "attempt": 0, "ok": true, "kind": "test", "ms": 935}
+{"ts": 1790373009.355, "seq": 29, "type": "task_end", "task_id": "fix05_int_division", "solved": true, "tier": "small", "attempts": 1, "seconds": 2.7, "routed": "small"}
+{"ts": 1790373010.682, "seq": 30, "type": "route", "task_id": "fix06_mutable_default", "routed": "small", "route_p": 0.6172, "profile": "maximum-performance", "allow_big": "never", "big_allowed": false, "multi": false, "why": "allow-big=never"}
+{"ts": 1790373013.422, "seq": 31, "type": "generate", "task_id": "fix06_mutable_default", "attempt": 0, "temp": 0.0, "max_tokens": 700, "ms": 2740, "prompt_tokens": 160, "completion_tokens": 59, "constrained": false}
+{"ts": 1790373014.359, "seq": 32, "type": "verify", "task_id": "fix06_mutable_default", "attempt": 0, "ok": true, "kind": "test", "ms": 936}
+{"ts": 1790373014.372, "seq": 33, "type": "task_end", "task_id": "fix06_mutable_default", "solved": true, "tier": "small", "attempts": 1, "seconds": 3.7, "routed": "small"}
+{"ts": 1790373015.989, "seq": 34, "type": "route", "task_id": "fix07_shared_row", "routed": "small", "route_p": 0.577, "profile": "maximum-performance", "allow_big": "never", "big_allowed": false, "multi": false, "why": "allow-big=never"}
+{"ts": 1790373017.399, "seq": 35, "type": "generate", "task_id": "fix07_shared_row", "attempt": 0, "temp": 0.0, "max_tokens": 700, "ms": 1409, "prompt_tokens": 137, "completion_tokens": 26, "constrained": false}
+{"ts": 1790373018.312, "seq": 36, "type": "verify", "task_id": "fix07_shared_row", "attempt": 0, "ok": true, "kind": "test", "ms": 912}
+{"ts": 1790373018.325, "seq": 37, "type": "task_end", "task_id": "fix07_shared_row", "solved": true, "tier": "small", "attempts": 1, "seconds": 2.3, "routed": "small"}
+{"ts": 1790373019.664, "seq": 38, "type": "route", "task_id": "fix08_dedupe_order", "routed": "small", "route_p": 0.5674, "profile": "maximum-performance", "allow_big": "never", "big_allowed": false, "multi": false, "why": "allow-big=never"}
+{"ts": 1790373022.007, "seq": 39, "type": "generate", "task_id": "fix08_dedupe_order", "attempt": 0, "temp": 0.0, "max_tokens": 700, "ms": 2343, "prompt_tokens": 162, "completion_tokens": 47, "constrained": false}
+{"ts": 1790373022.925, "seq": 40, "type": "verify", "task_id": "fix08_dedupe_order", "attempt": 0, "ok": true, "kind": "test", "ms": 918}
+{"ts": 1790373022.937, "seq": 41, "type": "task_end", "task_id": "fix08_dedupe_order", "solved": true, "tier": "small", "attempts": 1, "seconds": 3.3, "routed": "small"}
+{"ts": 1790373022.937, "seq": 42, "type": "session_end", "solved": 7, "tasks": 8, "ran": 8}

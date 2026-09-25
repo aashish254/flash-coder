@@ -1,0 +1,34 @@
+{"ts": 1790369185.863, "seq": 0, "type": "session_start", "label": "run-suite", "cmd": "run-suite", "params": {"small": "mlx-community/Qwen2.5-Coder-7B-Instruct-4bit", "big": "mlx-community/Qwen3-30B-A3B-Instruct-2507-4bit", "tasks": "benchmarks/tasks/dbg_tasks.jsonl", "with_context": false, "attempts": 3, "max_tasks": 25, "max_tokens": 700, "max_chars": 4000, "threshold": 1.1, "allow_big": "never", "constrain": false, "debug": true}}
+{"ts": 1790369189.021, "seq": 1, "type": "route", "task_id": "dbg01_alias_sort", "routed": "small", "route_p": 0.3792, "profile": "maximum-performance", "allow_big": "never", "big_allowed": false, "multi": false, "why": "allow-big=never"}
+{"ts": 1790369191.692, "seq": 2, "type": "generate", "task_id": "dbg01_alias_sort", "attempt": 0, "temp": 0.0, "max_tokens": 700, "ms": 2670, "prompt_tokens": 62, "completion_tokens": 55, "constrained": false}
+{"ts": 1790369192.571, "seq": 3, "type": "verify", "task_id": "dbg01_alias_sort", "attempt": 0, "ok": true, "kind": "test", "ms": 878}
+{"ts": 1790369192.585, "seq": 4, "type": "task_end", "task_id": "dbg01_alias_sort", "solved": true, "tier": "small", "attempts": 1, "seconds": 3.5, "routed": "small"}
+{"ts": 1790369193.829, "seq": 5, "type": "route", "task_id": "dbg02_stale_accumulator", "routed": "small", "route_p": 0.4412, "profile": "maximum-performance", "allow_big": "never", "big_allowed": false, "multi": false, "why": "allow-big=never"}
+{"ts": 1790369195.702, "seq": 6, "type": "generate", "task_id": "dbg02_stale_accumulator", "attempt": 0, "temp": 0.0, "max_tokens": 700, "ms": 1872, "prompt_tokens": 61, "completion_tokens": 36, "constrained": false}
+{"ts": 1790369196.515, "seq": 7, "type": "verify", "task_id": "dbg02_stale_accumulator", "attempt": 0, "ok": true, "kind": "test", "ms": 813}
+{"ts": 1790369196.527, "seq": 8, "type": "task_end", "task_id": "dbg02_stale_accumulator", "solved": true, "tier": "small", "attempts": 1, "seconds": 2.7, "routed": "small"}
+{"ts": 1790369197.62, "seq": 9, "type": "route", "task_id": "dbg03_offby_tail", "routed": "small", "route_p": 0.6055, "profile": "maximum-performance", "allow_big": "never", "big_allowed": false, "multi": false, "why": "allow-big=never"}
+{"ts": 1790369199.221, "seq": 10, "type": "generate", "task_id": "dbg03_offby_tail", "attempt": 0, "temp": 0.0, "max_tokens": 700, "ms": 1601, "prompt_tokens": 65, "completion_tokens": 31, "constrained": false}
+{"ts": 1790369200.08, "seq": 11, "type": "verify", "task_id": "dbg03_offby_tail", "attempt": 0, "ok": true, "kind": "test", "ms": 859}
+{"ts": 1790369200.094, "seq": 12, "type": "task_end", "task_id": "dbg03_offby_tail", "solved": true, "tier": "small", "attempts": 1, "seconds": 2.5, "routed": "small"}
+{"ts": 1790369201.916, "seq": 13, "type": "route", "task_id": "dbg04_dict_alias", "routed": "small", "route_p": 0.3262, "profile": "maximum-performance", "allow_big": "never", "big_allowed": false, "multi": false, "why": "allow-big=never"}
+{"ts": 1790369203.6, "seq": 14, "type": "generate", "task_id": "dbg04_dict_alias", "attempt": 0, "temp": 0.0, "max_tokens": 700, "ms": 1684, "prompt_tokens": 64, "completion_tokens": 31, "constrained": false}
+{"ts": 1790369204.537, "seq": 15, "type": "verify", "task_id": "dbg04_dict_alias", "attempt": 0, "ok": true, "kind": "test", "ms": 936}
+{"ts": 1790369204.549, "seq": 16, "type": "task_end", "task_id": "dbg04_dict_alias", "solved": true, "tier": "small", "attempts": 1, "seconds": 2.6, "routed": "small"}
+{"ts": 1790369205.548, "seq": 17, "type": "route", "task_id": "dbg05_int_division", "routed": "small", "route_p": 0.264, "profile": "maximum-performance", "allow_big": "never", "big_allowed": false, "multi": false, "why": "allow-big=never"}
+{"ts": 1790369206.72, "seq": 18, "type": "generate", "task_id": "dbg05_int_division", "attempt": 0, "temp": 0.0, "max_tokens": 700, "ms": 1172, "prompt_tokens": 46, "completion_tokens": 20, "constrained": false}
+{"ts": 1790369207.523, "seq": 19, "type": "verify", "task_id": "dbg05_int_division", "attempt": 0, "ok": true, "kind": "test", "ms": 803}
+{"ts": 1790369207.535, "seq": 20, "type": "task_end", "task_id": "dbg05_int_division", "solved": true, "tier": "small", "attempts": 1, "seconds": 2.0, "routed": "small"}
+{"ts": 1790369208.897, "seq": 21, "type": "route", "task_id": "dbg06_mutable_default", "routed": "small", "route_p": 0.4395, "profile": "maximum-performance", "allow_big": "never", "big_allowed": false, "multi": false, "why": "allow-big=never"}
+{"ts": 1790369211.099, "seq": 22, "type": "generate", "task_id": "dbg06_mutable_default", "attempt": 0, "temp": 0.0, "max_tokens": 700, "ms": 2201, "prompt_tokens": 79, "completion_tokens": 47, "constrained": false}
+{"ts": 1790369212.048, "seq": 23, "type": "verify", "task_id": "dbg06_mutable_default", "attempt": 0, "ok": true, "kind": "test", "ms": 948}
+{"ts": 1790369212.059, "seq": 24, "type": "task_end", "task_id": "dbg06_mutable_default", "solved": true, "tier": "small", "attempts": 1, "seconds": 3.2, "routed": "small"}
+{"ts": 1790369213.145, "seq": 25, "type": "route", "task_id": "dbg07_shared_row", "routed": "small", "route_p": 0.2844, "profile": "maximum-performance", "allow_big": "never", "big_allowed": false, "multi": false, "why": "allow-big=never"}
+{"ts": 1790369214.674, "seq": 26, "type": "generate", "task_id": "dbg07_shared_row", "attempt": 0, "temp": 0.0, "max_tokens": 700, "ms": 1529, "prompt_tokens": 58, "completion_tokens": 29, "constrained": false}
+{"ts": 1790369215.589, "seq": 27, "type": "verify", "task_id": "dbg07_shared_row", "attempt": 0, "ok": true, "kind": "test", "ms": 915}
+{"ts": 1790369215.603, "seq": 28, "type": "task_end", "task_id": "dbg07_shared_row", "solved": true, "tier": "small", "attempts": 1, "seconds": 2.4, "routed": "small"}
+{"ts": 1790369216.866, "seq": 29, "type": "route", "task_id": "dbg08_dedupe_order", "routed": "small", "route_p": 0.3044, "profile": "maximum-performance", "allow_big": "never", "big_allowed": false, "multi": false, "why": "allow-big=never"}
+{"ts": 1790369219.203, "seq": 30, "type": "generate", "task_id": "dbg08_dedupe_order", "attempt": 0, "temp": 0.0, "max_tokens": 700, "ms": 2336, "prompt_tokens": 59, "completion_tokens": 47, "constrained": false}
+{"ts": 1790369220.128, "seq": 31, "type": "verify", "task_id": "dbg08_dedupe_order", "attempt": 0, "ok": true, "kind": "test", "ms": 925}
+{"ts": 1790369220.141, "seq": 32, "type": "task_end", "task_id": "dbg08_dedupe_order", "solved": true, "tier": "small", "attempts": 1, "seconds": 3.3, "routed": "small"}
+{"ts": 1790369220.141, "seq": 33, "type": "session_end", "solved": 8, "tasks": 8, "ran": 8}

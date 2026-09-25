@@ -1,0 +1,24 @@
+
+=== run-suite --tasks benchmarks/tasks/m3_hard_tasks.jsonl --attempts 1 --allow-big never ===
+[trace] session 20260926-025302-run-suite-a87a — interrupt me anytime, then: flash resume 20260926-025302-run-suite-a87a
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5066.94it/s]
+  [    SMALL] h01_csv_agg            solved=True attempts=1 (6.2s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5632.46it/s]
+  [    SMALL] h02_interval_intersection solved=True attempts=1 (6.3s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5940.94it/s]
+  [    SMALL] h03_flatten_keys       solved=True attempts=1 (7.1s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5418.22it/s]
+  [    SMALL] h05_topk_stable        solved=True attempts=1 (3.6s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 4854.52it/s]
+  [     SHED] h04_rle_codec          solved=False attempts=1 (8.0s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5611.53it/s]
+  [     SHED] h06_log_error_windows  solved=False attempts=1 (8.2s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5168.94it/s]
+  [    SMALL] h07_strip_parens       solved=True attempts=1 (4.8s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 4947.41it/s]
+  [    SMALL] h08_settle_fees        solved=True attempts=1 (4.9s)
+
+solved 6/8   small-tier 6, escalated 0   total 49s (avg 6.1s/task)
+[trace] flash trace show 20260926-025302-run-suite-a87a
+2 task(s) denied escalation by the §34.1 governor (maximum-performance): no shed signal (ac=True, battery=80.0, mem-free=29.0, load/core=0.21)
+   rerun with --allow-big always to force the brain on battery/heat

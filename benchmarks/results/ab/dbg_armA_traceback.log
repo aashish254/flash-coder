@@ -1,0 +1,20 @@
+[trace] session 20260926-023050-run-suite-71a9 — interrupt me anytime, then: flash resume 20260926-023050-run-suite-71a9
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5238.51it/s]
+  [    SMALL] dbg01_alias_sort       solved=True attempts=1 (3.4s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5714.31it/s]
+  [    SMALL] dbg02_stale_accumulator solved=True attempts=1 (2.9s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5618.21it/s]
+  [    SMALL] dbg03_offby_tail       solved=True attempts=1 (2.6s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5235.61it/s]
+  [    SMALL] dbg04_dict_alias       solved=True attempts=1 (2.6s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 6097.36it/s]
+  [    SMALL] dbg05_int_division     solved=True attempts=1 (2.1s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5226.19it/s]
+  [    SMALL] dbg06_mutable_default  solved=True attempts=1 (3.2s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5747.37it/s]
+  [    SMALL] dbg07_shared_row       solved=True attempts=1 (2.4s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5589.92it/s]
+  [    SMALL] dbg08_dedupe_order     solved=True attempts=1 (3.2s)
+
+solved 8/8   small-tier 8, escalated 0   total 22s (avg 2.8s/task)
+[trace] flash trace show 20260926-023050-run-suite-71a9

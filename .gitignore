@@ -7,3 +7,6 @@ __pycache__/
 
 # regenerable: sha1-cached web fetches (flash.web refetches on demand)
 benchmarks/cache/
+
+# raw live-run logs (the measured numbers land in commit notes + PLAN Appendix A)
+benchmarks/results/census/

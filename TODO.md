@@ -52,24 +52,33 @@ Rules for this file:
       dead: the structural claim), `unclosed`/`file set` (completeness — a stop
       inside a body or an exhausted budget, which no logit mask can or should
       forbid).
-- [ ] [V] [L] Latency cost ≤ 5% — **measured, not yet passing, and one of the
-      two numbers below is wrong about what it measures.**
-      * `python -m flash.grammar --overhead` reports 0.145-0.183 ms/step
-        (0.3-0.4% of a 42.6 ms decode step) — but that times only the
-        `mx.where` on a pre-materialised logits array. It does NOT include the
-        per-step token read-back the hook performs, so it is not the cost of
-        the hook.
-      * end-to-end on 20 paired generations (same prompts, same seeds): free
-        25.8, constrained 24.1 tok/s = **-6.6%**. Length-matched to remove the
-        obvious confound (both arms' generations under 500 tokens, where the
-        mask's answers live): free 25.5, constrained 23.9 = **-6.3%**. The
-        confound is therefore not the whole story.
-      * Isolation run pending: one prompt, 300 tokens, three seeds, both arms,
-        same process — if the gap persists it is real per-step cost in the
-        hook and the fix is to stop rebuilding the penalty array per step and
-        to read the sampled id without a Python-side synchronisation. Until
-        that number exists this box stays open and R-4.2 is reported as
-        "violations eliminated, latency within 6.6% measured".
+- [ ] [V] [L] Latency cost ≤ 5% — **measured, not met, mechanism identified.**
+      * The mask's own arithmetic (`--overhead`, no weights loaded):
+        0.145-0.183 ms to apply a 152064-wide mask = **0.4% of a 42.6 ms
+        decode step**; 7-27 ms to compile a position once.
+      * End-to-end, same prompts and seeds, both arms, two pairs: free
+        25.8/25.5 vs constrained 24.1/23.3 tok/s = **-6.3% to -8.6%**.
+        Matched on generation length (both arms under 500 tokens) it is still
+        **-6.3%** (25.5 vs 23.9), so the length difference is not the story.
+      * Where the residual is, from `hook_ms` accumulated inside the sampler:
+        the hook stands in **44.7% of wall time** while its arithmetic is 0.4%
+        of it. It is not computing, it is *waiting* — reading the sampled id
+        back is a device→host sync, and mlx's loop launches step n+1 before
+        syncing step n precisely so the two overlap; asking for the id from
+        inside step n+1's processor collapses that overlap.
+        Tested and rejected as the cause: a zero-allocation single-id fast path
+        (no `join`, no `set`, no list, penalty materialised once per dtype)
+        moved nothing — 23.3 tok/s and 44.7% of wall both before and after.
+        Python is not the cost, so no amount of hook micro-optimisation will
+        reach 5%; only giving up the exactness would.
+      * Why the box stays open instead of being reworded: knowing each sampled
+        token is what makes the guarantee exact, so the sync cannot be removed
+        without weakening it (a lazy read-back with a one-token lag would let
+        up to one token slip past the header mask right after a fence closes).
+        SPEC §10.5 proposes gating on seconds per usable answer, where this
+        build measures *better* (mw suite 95s → 72s at a higher pass rate);
+        that is a change to an acceptance criterion, so it is the user's call.
+        `--constrain` stays opt-in until it is made.
 - [x] [V] [L] Reference sweep, run as **pairs** under identical flags (a stored
       pass rate from a different configuration is not a control):
       * `m0`: 18/20 unconstrained, **18/20 with `--constrain`** — unaffected ✓
