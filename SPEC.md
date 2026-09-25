@@ -127,12 +127,20 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
 - **R-4.1 (SHIPPED)** Candidate code runs only in an isolated subprocess with a
   hard timeout, and failures report GOT vs WANT for the first failing assert.
   Vector: `m0_bakeoff.py --dry-run` 20/20; `benchmarks/tasks/*_test.py` probes.
-- **R-4.2 (OPEN)** Malformed model output MUST be structurally impossible:
-  constrained decoding on the sampler path for tool calls, file headers and JSON
-  (PLAN §33.3).
-  Vector: an FSM-constrained sampler that cannot emit a fence without a
-  `# file:` header, verified by 100 sampled generations with 0 contract
-  violations, at ≤ 5% latency cost.
+- **R-4.2 (SHIPPED, one budget missed)** Malformed model output MUST be
+  structurally impossible: constrained decoding on the sampler path for the
+  output protocols that exist — the multi-WRITER file set and the single fenced
+  answer (PLAN §33.3; `flash/grammar.py`, `--constrain`).
+  Vector, measured 2026-09-26: `python -m flash.grammar --selftest` **47/47**
+  offline (including liveness — no shipped reference is blocked by its own
+  mask — and no-dead-end: 11 191 mask-offered pieces, 0 refusals, 0 stuck
+  positions); **100 sampled generations, 0 malformed, 0 mask breaches**,
+  99/100 recovered by the parser against **0/20** unconstrained on the same
+  prompts and seeds; reference sweeps as pairs under identical flags — m0
+  18/20 → 18/20 (unaffected), mw 5/6 → 6/6.
+  The **≤ 5% latency budget is missed**: −6.3% per token on the multi-file
+  shape at matched generation length (see §10.5 for why the number is what it
+  is, and for the operational metric that moved the other way).
 - **R-4.3 (OPEN)** The agent MUST be able to *watch* execution, not only rerun
   tests (PLAN §33.2, debug-gym pattern).
   Vector: a seeded-bug suite where step-and-inspect feedback solves ≥ 2 more
@@ -228,10 +236,17 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
 
 1. **Offline battery first** (seconds, no models, must be green before any live
    claim): `flash lsp-selftest` 14 · `flash power --selftest` 22 ·
-   `flash learn --selftest` 14 · `flash trace --selftest` 30 ·
-   `flash web --selftest` 9 · `python benchmarks/trace_resume_check.py` 11
-   · `python benchmarks/m0_bakeoff.py --dry-run` 20 reference solutions.
-   **Total: 100 selftest checks + 20 oracle verifications = 120 green, offline.**
+   `flash jobs --selftest` 14 · `flash trace --selftest` 30 ·
+   `flash web --selftest` 9 · `python -m flash.grammar --selftest` 47 ·
+   `python -m flash.debug --selftest` 55 ·
+   `python benchmarks/trace_resume_check.py` 11 ·
+   `python benchmarks/m0_bakeoff.py --dry-run` 20 reference solutions.
+   **Total: 202 selftest checks + 20 oracle verifications = 222 green, offline.**
+   (The `jobs` line was labelled `learn` until 2026-09-26: `flash learn
+   --selftest` dispatches into `flash.jobs`, and `flash/learn.py` has no
+   battery of its own. Same 14 checks, wrong owner — the mislabelling made the
+   battery look like it covered the router's training code when it covers the
+   background scheduler.)
 2. **Live arm** for anything that touches a model, costed explicitly in the PR
    note: minutes, peak GB, battery-vs-AC. The frozen suites are m0 (20),
    m2 (5), mw (6), m3h/m4-m7 held-out families, visp (5), visr (5).
@@ -289,3 +304,21 @@ the honest label is *a very good local loop with instrumentation*.
    demand or drop it.
 3. **No cloud fallback** in v1. If §34.2's trust gap is judged product-fatal,
    that reverses a scope decision, not an implementation detail.
+4. **R-4.2's wording named "tool calls … and JSON".** This agent has no
+   tool-call grammar and no JSON answer path — §32's decision fabric is a
+   restricted softmax over a fixed menu, schema-checked at the far end — so the
+   contract was built for the two protocols that actually exist: the
+   multi-WRITER file set and the single fenced answer. Adding a JSON DFA is new
+   scope, not a closed gap; say so rather than let the requirement read as
+   partly done.
+5. **R-4.2's ≤ 5% latency budget is the wrong instrument.** A mask that works
+   changes what the model writes, so per-token throughput compares two
+   different workloads: masked answers finish at 150-390 tokens where
+   unconstrained ones run to the 1500-token budget. Measured: the mask's own
+   arithmetic is 0.145-0.183 ms/step (0.4% of a 42.6 ms decode step), the
+   per-token rate is 6.3% lower at matched length, and the mw suite's wall
+   clock per run went from 95s to 72s **with a higher pass rate**. Proposed:
+   gate the constraint on *seconds per usable answer* and on the isolated
+   per-step share, and keep the 5% per-token line as telemetry. This is a
+   change to an acceptance criterion, so it is the user's call, not the
+   implementer's.

@@ -70,8 +70,18 @@ Rules for this file:
         to read the sampled id without a Python-side synchronisation. Until
         that number exists this box stays open and R-4.2 is reported as
         "violations eliminated, latency within 6.6% measured".
-- [ ] [V] [L] Reference sweep: `run-suite --tasks mw_tasks.jsonl` still 6/6 and
-      m0 unaffected (a harness change invalidates stored pass rates).
+- [x] [V] [L] Reference sweep, run as **pairs** under identical flags (a stored
+      pass rate from a different configuration is not a control):
+      * `m0`: 18/20 unconstrained, **18/20 with `--constrain`** — unaffected ✓
+        (and matches the 7B's recorded 18/20 from 2026-09-23).
+      * `mw`: 5/6 unconstrained, **6/6 with `--constrain`** — the constraint
+        gained a task, at 72s vs 95s wall clock. The mw suite was the one the
+        malformed-output bug class lived in, so this is the expected shape.
+      Logs: `benchmarks/results/sweeps/{m0,mw}_{free,constrain}.log`.
+      Wall-clock note: the constrained mw run is 24% *faster* despite a lower
+      per-token rate, because a masked answer goes straight into the protocol
+      instead of narrating to the token budget. That is the number an operator
+      feels, and it is reported next to the per-token one, not instead of it.
 - [ ] [B] Docs move together: README command, `flash/__init__.py` map,
       SPEC R-4.2 → SHIPPED, PLAN §33.3 status + Appendix A row.
 

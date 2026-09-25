@@ -95,6 +95,23 @@ Vision is benchmarked once the text brain is picked (PLAN §M1–M2).
 .venv/bin/python -m flash.cli symbols --path benchmarks/fixtures          # whole tree (AST)
 .venv/bin/python -m flash.cli lsp-selftest                                # 14 offline checks
 
+# §33.3 constrained decoding: the output contract becomes a per-step token mask, so a
+# fence without its '# file:' header, prose before the first header, a path outside the
+# declared file set, or a block that could never be finished cannot be emitted at all.
+# Off by default; --constrain turns it on for a run or a whole suite.
+.venv/bin/python -m flash.cli run "..." --test t.py --constrain
+.venv/bin/python -m flash.cli run-suite --tasks benchmarks/tasks/mw_tasks.jsonl --constrain
+.venv/bin/python -m flash.grammar --selftest     # 47 offline checks: DFA, masks, liveness, no dead ends
+.venv/bin/python -m flash.grammar --census --n 100 --tasks benchmarks/tasks/mw_tasks.jsonl   # live: violations + throughput
+.venv/bin/python -m flash.grammar --overhead     # live: ms the mask adds to one decode step
+
+# §33.2 debugger skill: a failed test is re-run under a line tracer in the same isolated
+# subprocess, and the retry is told where the value was MADE (executed trail, per-variable
+# value history, last-mutated line) instead of only where the assert noticed it.
+.venv/bin/python -m flash.cli run-suite --tasks benchmarks/tasks/dbg_tasks.jsonl --debug
+.venv/bin/python -m flash.debug --selftest       # 55 offline checks, incl. the suite's premise
+.venv/bin/python -m flash.debug --suite          # every seeded bug: invisible to the traceback, named by the digest
+
 # §34.1 power governor — every run asks the machine before loading a model
 .venv/bin/python -m flash.cli power                    # profile, state, allowed vs shed
 .venv/bin/python -m flash.cli power --json             # machine-readable
