@@ -1,0 +1,31 @@
+{
+  "results": [
+    {
+      "model": "mlx-community/Qwen3-30B-A3B-Instruct-2507-4bit",
+      "load_s": 5.6,
+      "pass": "2/2",
+      "pass_rate": 1.0,
+      "ttft_ms_avg": 13633,
+      "tok_s_avg": 10.6,
+      "peak_mem_gb": 17.3,
+      "draft": null,
+      "draft_tokens": null,
+      "details": [
+        {
+          "id": "t01_reverse_words",
+          "pass": true,
+          "ms": 25861,
+          "tok_s": 0.8,
+          "err": ""
+        },
+        {
+          "id": "t02_two_sum",
+          "pass": true,
+          "ms": 3080,
+          "tok_s": 20.5,
+          "err": ""
+        }
+      ]
+    }
+  ]
+}

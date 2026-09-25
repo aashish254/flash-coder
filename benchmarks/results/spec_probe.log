@@ -1,0 +1,8 @@
+
+=== qwen3-30b-instruct (mlx-community/Qwen3-30B-A3B-Instruct-2507-4bit) + draft mlx-community/Qwen3-0.6B-4bit ===
+Fetching 14 files:   0%|          | 0/14 [00:00<?, ?it/s]Fetching 14 files: 100%|██████████| 14/14 [00:00<00:00, 5988.20it/s]
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00,  9.67it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00,  9.66it/s]
+  load: 8.1s
+  MODEL FAILED qwen3-30b-instruct: [METAL] Command buffer execution failed: Caused GPU Timeout Error (00000002:kIOGPUCommandBufferCallbackErrorTimeout).
+EXIT=1

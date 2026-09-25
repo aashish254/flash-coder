@@ -1,0 +1,24 @@
+{
+  "results": [
+    {
+      "model": "mlx-community/Qwen2.5-Coder-7B-Instruct-4bit",
+      "load_s": 1.9,
+      "pass": "1/1",
+      "pass_rate": 1.0,
+      "ttft_ms_avg": 528,
+      "tok_s_avg": 18.8,
+      "peak_mem_gb": 4.8,
+      "draft": "mlx-community/Qwen3-0.6B-4bit",
+      "draft_tokens": 2,
+      "details": [
+        {
+          "id": "t01_reverse_words",
+          "pass": true,
+          "ms": 1224,
+          "tok_s": 18.8,
+          "err": ""
+        }
+      ]
+    }
+  ]
+}

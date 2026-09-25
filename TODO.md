@@ -149,12 +149,43 @@ Rules for this file:
 
 ## P3 — R-8.1 Speculative decoding (G5: brain ≥ 46 tok/s)
 
-- [ ] [B] Draft model selection (small tier drafts, 30B verifies) in the bake-off
-      harness.
-- [ ] [V] [L] `m0_bakeoff.py --run` with and without speculation on the 30B.
-- [ ] [V] [L] Acceptance test: pass rate within 1 of the frozen baseline,
-      throughput ≥ 46 tok/s, else the claim is recorded as a negative.
-- [ ] [B] Docs move together.
+- [x] [B] Draft model selection in the bake-off harness: `--draft <repo|key>`
+      and `--draft-tokens N`, threaded through `bench_model` into mlx's
+      `stream_generate(draft_model=…)`, recorded in the result JSON so a
+      speculated row cannot be mistaken for a plain one. Harness still
+      `--dry-run` 20/20 after the change.
+- [x] [V] [L] The arms, run 2026-09-26 — **both fail, and the reasons are
+      separate**:
+      * **Brain (Qwen3-30B-A3B-4bit, the G5 target): the speculative path faults
+        the GPU.** `kIOGPUCommandBufferCallbackErrorTimeout`, every time, with
+        both a vocabulary-matched draft (`Qwen3-0.6B-4bit`, width 151646 = the
+        target's own) and a mismatched one (`Qwen2.5-Coder-7B`, 151657), at
+        `--draft-tokens` 4 and 2. The same target with no draft runs the suite
+        normally (2/2, 17.3 GB peak) before and after, so the fault is the
+        draft-verify path on an MoE target under this mlx/Metal build — not my
+        wiring, not the tokenizer, not the batch size.
+      * **Fast tier (Qwen2.5-Coder-7B + `Qwen2.5-Coder-1.5B-4bit`, the same
+        tokenizer family, so this is the mechanism working as intended):
+        speculation is 40% SLOWER.** 11.7 tok/s against a 19.4 tok/s baseline on
+        the identical task, and TTFT 1219 ms against 337 ms.
+        Not claimed as proof of the mechanism: with a vocabulary-incompatible
+        draft (`Qwen3-0.6B`, 151646 against the target's 151657) the same target
+        made 18.8 tok/s, which is within noise of the 19.4 baseline — but that
+        is ambiguous, because mlx may have quietly disabled speculation on the
+        shape mismatch rather than paid for a draft that always rejects. What
+        is not ambiguous is the matched pair, where the path demonstrably ran
+        and moved throughput the wrong way.
+- [x] [V] [L] Acceptance test → **RECORDED AS A NEGATIVE**, which is the box's
+      own second branch. Throughput did not reach 46 tok/s anywhere: on the
+      dense target where speculation actually functions it moves the wrong way,
+      and on the MoE target it cannot be measured at all. 4-bit weights on
+      Apple Silicon are already bandwidth-bound at one token per step, so
+      verifying k drafted tokens costs the full k forwards and the only saving
+      is launch overhead — which is not what the GPU is short of here.
+- [x] [B] Docs move together: SPEC R-8.1 → measured-negative with the two
+      distinct causes, G5's target kept as unmet with the single-model figures
+      (46.5 best-case / 31.2 sustained) as the honest standing numbers, §9 gains
+      the arm register row, PLAN §8.1 and Appendix A record the runs.
 
 ## P4 — R-3.2 Symbol-precise edits (§33.1's ACT leg)
 

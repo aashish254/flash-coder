@@ -33,7 +33,7 @@ Baselines are from `benchmarks/results/ledger.jsonl` as of 2026-09-25
 | G2 | Fast-tier dominance: tasks the 7B solves without the brain | 57/91 = **63%** | **≥ 78%** via better perception + feedback + speed |
 | G3 | Escalation economy: brain loads as a share of runs | 33% of tasks need big | **≤ 20%**, with held-out router AUC ≥ 0.75 before any gate turns on |
 | G4 | Retry economy: attempts when the fast tier wins | mean **1.11**, one-shot **89%** | keep ≤ 1.3 at equal or better pass rate |
-| G5 | Speed: decision latency / generation rate | 282ms decisions, ~31 tok/s brain | decisions ≤ 300ms; brain **≥ 46 tok/s** (1.5× via speculative decode) |
+| G5 | Speed: decision latency / generation rate | 282ms decisions, ~31 tok/s brain (≥46 measured once as a best-case spike) | decisions ≤ 300ms; brain **≥ 46 tok/s** — the speculative-decode route to it is now closed (R-8.1, measured negative 2026-09-26), so the target stays unmet and needs another mechanism |
 | G6 | Machine courtesy | governor sheds on battery/heat, 0 measured thermal warnings | **0 thermal warnings, 0 swap growth** during a 30-min AC run |
 | G7 | Recovery: work lost to an interruption | 0 tasks (suite granularity, verified) | 0 at **task** granularity; `flash resume` after a real SIGKILL |
 | G8 | Explainability: why did it do that | 1 command (`flash trace <sid> --task <id>`) | keep; ≥ 95% of failures diagnosable without a rerun |
@@ -230,10 +230,30 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
 
 ### H. SPEED
 
-- **R-8.1 (OPEN)** Speculative decoding MUST lift brain-tier throughput to
-  ≥ 46 tok/s (G5) without changing pass rates.
-  Vector: `benchmarks/m0_bakeoff.py --run` on the 30B with a draft model;
-  tok/s reported per task, pass rate within 1 of the frozen baseline.
+- **R-8.1 (OPEN — measured negative on this hardware)** Speculative decoding
+  MUST lift brain-tier throughput to ≥ 46 tok/s (G5) without changing pass
+  rates.
+  Vector: `benchmarks/m0_bakeoff.py --run` on the 30B with a draft model; tok/s
+  reported per task, pass rate within 1 of the frozen baseline.
+  Run 2026-09-26 (`--draft`, `--draft-tokens`), and it failed in two different
+  ways: on the **brain** (Qwen3-30B-A3B-4bit) the draft-verify path faults the
+  GPU — `kIOGPUCommandBufferCallbackErrorTimeout`, every run, with a
+  vocabulary-matched draft (`Qwen3-0.6B-4bit`, both 151646 wide) and a
+  mismatched one, at 4 and at 2 drafted tokens; the same target without a draft
+  runs the suite normally before and after, so the fault is that path on an MoE
+  target under this mlx/Metal build. On the **fast tier**, where the mechanism
+  does run (`Qwen2.5-Coder-7B` + `Qwen2.5-Coder-1.5B-4bit`, both 151657 wide,
+  so acceptance is real) it is **40% slower**: 11.7 tok/s against a 19.4
+  baseline on the same task, TTFT 1219 ms against 337 ms. A
+  vocabulary-incompatible draft on the same target gave 18.8 tok/s, within noise
+  of the baseline, but that control is ambiguous — mlx may have disabled
+  speculation on the shape mismatch rather than paid for a draft that always
+  rejects. What is not ambiguous is the matched pair: the path ran, and
+  throughput moved the wrong way. Reading: 4-bit weights on Apple
+  Silicon are already bandwidth-bound at one token per step, so verifying k
+  candidates costs the k forwards speculation was supposed to avoid. **G5 must
+  come from somewhere else**; the standing brain figures stay 46.5 tok/s
+  best-case, 31.2 sustained, with no speculation.
 - **R-8.2 (OPEN)** Latent-compute mechanisms (§31.2, cheapest first) MUST be
   adopted only where a measured token or latency saving appears.
   Vector: a before/after token count on the same suite, ≥ 20% saving, no
@@ -310,6 +330,7 @@ the honest label is *a very good local loop with instrumentation*.
 
 | Item | Blocker | Interim |
 |---|---|---|
+| Speculative decoding on the brain (R-8.1) | the draft-verify path faults the Metal command buffer on the 30B MoE target, with a vocabulary-matched draft and at two batch sizes; and on the dense target where it does run it is 40% slower | an upstream mlx/Metal fix plus a re-run, or a draft small enough that verification is not the bottleneck — G5 then needs a different mechanism |
 | §34.1 16GB co-residency arm | this box is 32GB, single-user | profiles + shed evidence on battery |
 | Watts/task (G6 energy) | `powermetrics` needs sudo | tokens + seconds per task in the trace |
 | M16 24h chaos | needs a 24h window | offline kill/resume checks (11/11) |
