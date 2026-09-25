@@ -769,7 +769,7 @@ def run_census(n: int = 100, model: str | None = None,
                   f"{'ok ' if ok else 'BAD'} {reason:9s} rec={rec}/{i + 1} "
                   f"{nt / max(dt, 1e-9):5.1f} tok/s {nt:4d} tok")
         stats[arm] = dict(viol=viol, rec=rec, trunc=trunc, illegal=illegal,
-                          hook_pct=100.0 * hook_ms / max(gen_s, 1e-9),
+                          hook_pct=100.0 * (hook_ms / 1000.0) / max(gen_s, 1e-9),
                           breach_example=breach_example, why=why,
                           tps=toks / max(secs, 1e-9))
     for arm in arms:
@@ -778,7 +778,8 @@ def run_census(n: int = 100, model: str | None = None,
               f"{s['why']}  |  {s['trunc']} ended inside a block  |  "
               f"{s['illegal']} mask breaches  |  "
               f"{s['rec']}/{n} recoverable by the parser  |  {s['tps']:.1f} tok/s  |  "
-              f"hook {s['hook_pct']:.1f}% of wall time")
+              f"hook {s['hook_pct']:.1f}% of wall (incl. the model step "
+              "the read-back waits for)")
         if s.get("breach_example"):
             print(f"[census] first breach: {s['breach_example']}")
     free, con = stats.get("free"), stats.get("constrained")
