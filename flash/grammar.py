@@ -31,9 +31,11 @@ Masking policy, stated exactly, because "impossible" needs a definition:
     cut lands wherever it lands) and a stop inside a body, which is legal but
     may leave the file set partial. The census counts those separately.
 
-Not sound next to a draft model (speculative decoding samples ahead and can
-reject tokens the DFA already consumed) — `flash.loop` refuses to combine
-them, and SPEC P3 has to revisit this.
+Not sound next to a draft model: speculative decoding samples ahead and can
+reject tokens the DFA has already consumed, so the contract's state and the
+text would diverge. There is no draft path in `flash.loop` today, so nothing
+combines them yet — when P3 adds one it has to refuse the pairing explicitly,
+and SPEC P3 carries that as a condition of the arm.
 
     python -m flash.grammar --selftest              # offline, tokenizer only
     python -m flash.grammar --census [--n 100]      # live: violation census
