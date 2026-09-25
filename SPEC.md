@@ -152,16 +152,19 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   all 8 seeded bugs — the causing line is **absent from the traceback and
   present in the digest**, 32/32.
   The vector's claim — *digest feedback solves ≥ 2 more tasks than traceback
-  feedback* — was run and **did not hold**: 7/8 vs 7/8 on the repair substrate,
-  6/21 vs 5/21 on a 21-task hard substrate (digest arm lost one task), at +18%
-  wall time (500s → 591s) for the same 59 generations. The reason is now
-  measured rather than assumed: attempt 0 is greedy, so both arms see the same
-  first code, and the digest can only differ on a task that survives to a
-  second retry — of the 12 tasks both arms solved, **11 had identical attempt
-  counts** and one (fix01_alias_sort) dropped from 3 attempts to 2. The
-  suites' discriminating band is one task wide, so the ≥2 gate is undetectable
-  here at any effect size; `P2-follow-up` in `TODO.md` states the instrument
-  that could measure it. `--debug` therefore stays **off by default**.
+  feedback* — was run on **three substrates** and **did not hold**: 7/8 vs 7/8
+  on repair prompts that showed the model the tests, 8/8 vs 8/8 on blind repair
+  prompts that did not (every task solved on the first greedy attempt — a
+  ceiling, not a result), and 6/21 vs 5/21 on a 21-task substrate selected from
+  measured first-attempt failure, where the digest arm *lost* a task, at +18%
+  wall time (500s → 591s) for the same 59 generations. The reason is measured
+  rather than assumed: attempt 0 is greedy and shared, so the digest can only
+  differ on a task that survives to a second retry — of the 12 tasks both arms
+  solved, **11 had identical attempt counts** and one (`fix01_alias_sort`) went
+  from 3 attempts to 2. The discriminating band in these suites is one task
+  wide, so the ≥2 gate is undetectable here at any effect size; `P2-follow-up`
+  in `TODO.md` states the instrument that could measure it. `--debug` therefore
+  stays **off by default**.
 - **R-4.4 (SHIPPED)** Vision outputs MUST be scored by a pixel oracle with a
   coverage guard so an empty page can never win.
   Vector: `calibrate_visr.py` + `visp` 5/5, `visr` 4/5 with real4 recorded as a
@@ -338,4 +341,10 @@ the honest label is *a very good local loop with instrumentation*.
    gate the constraint on *seconds per usable answer* and on the isolated
    per-step share, and keep the 5% per-token line as telemetry. This is a
    change to an acceptance criterion, so it is the user's call, not the
-   implementer's.
+   implementer's. The residual is now identified rather than unexplained: the
+   hook stands in 44.7% of wall time while computing 0.4% of it, because
+   reading each sampled id back is a device→host sync and mlx deliberately
+   launches step n+1 before syncing step n. A zero-allocation hook changed the
+   number by nothing, so no Python-side work closes the gap — only accepting a
+   read-back lag, which would put the exactness of the guarantee at risk for
+   the first token after every fence closes.

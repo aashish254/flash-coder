@@ -116,7 +116,35 @@ Rules for this file:
       the traceback and PRESENT in the digest (that last pair is the suite's
       whole premise, and `--selftest` checks it per task).
 - [ ] [V] [L] Arm A: traceback feedback. Arm B: debug feedback. Same tier, same
-      budget → B solves **≥ 2 more**. Queued behind the R-4.2 arms.
+      budget → B solves **≥ 2 more**. **RUN on three substrates, NOT MET:**
+      * 21 tasks selected from measured first-attempt failure
+        (`benchmarks/gen_dbg_hard.py`, from `results/probe/*_one_attempt.log`):
+        A **6/21**, B **5/21** — the digest arm lost `h12_min_remove_parens`;
+        59 generations and 59 attempts in each arm; wall 500s → 591s (+18%).
+      * 8 repair tasks with the tests shown (`dbg_fix_tasks.jsonl`): A **7/8**,
+        B **7/8**; `fix01_alias_sort` went 3 attempts → 2.
+      * 8 blind repair tasks, brief + broken module, tests not shown
+        (`dbg_blind_tasks.jsonl`): A **8/8**, B **8/8**, every task on the first
+        greedy attempt — a ceiling, and proof the 7B is not fooled by these
+        traps once the code is in front of it.
+      Why, measured rather than asserted: attempt 0 is greedy and identical in
+      both arms, so the digest can only matter on a task that survives to a
+      second retry. Pairing the 12 tasks both arms solved: **11 have identical
+      attempt counts**. The discriminating band in every suite available is one
+      task wide, so a ≥2 gate cannot be observed here at any effect size — the
+      instrument is the limit, not the mechanism (which is verified offline:
+      `flash.debug --suite`, 32/32 causing lines invisible to the traceback and
+      present in the digest). `--debug` therefore stays off by default.
+- [ ] [B] P2-follow-up: build an instrument with a band wide enough to measure.
+      The requirement is a task set where the tier needs **2-3 retries under
+      traceback feedback**; it exists in the ledger already. Select from
+      `benchmarks/results/ledger.jsonl` the tasks whose recorded attempts ≥ 2
+      and whose tier was `small` (never escalated), and grow the set to ≥ 30 by
+      generating more of that difficulty shape (`gen_vis_assets`-style
+      generator, seeded-bug repairs with the tests withheld and *two* bugs
+      rather than one). Then re-run this A/B. Do not tune the digest's wording
+      against the current suites: with one discriminating task there is nothing
+      to tune on, and any apparent gain would be noise.
 - [ ] [B] Docs move together (SPEC R-4.3, README, §33.2 status, Appendix A).
 
 ## P3 — R-8.1 Speculative decoding (G5: brain ≥ 46 tok/s)
