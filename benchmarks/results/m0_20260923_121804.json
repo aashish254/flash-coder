@@ -1,0 +1,155 @@
+{
+  "results": [
+    {
+      "model": "mlx-community/Qwen3-Coder-30B-A3B-Instruct-4bit",
+      "load_s": 6.9,
+      "pass": "18/20",
+      "pass_rate": 0.9,
+      "ttft_ms_avg": 737,
+      "tok_s_avg": 31.0,
+      "peak_mem_gb": 17.3,
+      "details": [
+        {
+          "id": "t01_reverse_words",
+          "pass": true,
+          "ms": 4634,
+          "tok_s": 4.5,
+          "err": ""
+        },
+        {
+          "id": "t02_two_sum",
+          "pass": true,
+          "ms": 2050,
+          "tok_s": 30.7,
+          "err": ""
+        },
+        {
+          "id": "t03_is_palindrome",
+          "pass": true,
+          "ms": 1957,
+          "tok_s": 30.1,
+          "err": ""
+        },
+        {
+          "id": "t04_fizzbuzz",
+          "pass": true,
+          "ms": 2928,
+          "tok_s": 33.1,
+          "err": ""
+        },
+        {
+          "id": "t05_lru_cache",
+          "pass": true,
+          "ms": 9292,
+          "tok_s": 35.1,
+          "err": ""
+        },
+        {
+          "id": "t06_merge_intervals",
+          "pass": false,
+          "ms": 3781,
+          "tok_s": 37.0,
+          "err": "Traceback (most recent call last):\n  File \"<string>\", line 23, in <module>\nAssertionError"
+        },
+        {
+          "id": "t07_binary_search",
+          "pass": true,
+          "ms": 2718,
+          "tok_s": 32.7,
+          "err": ""
+        },
+        {
+          "id": "t08_valid_parens",
+          "pass": false,
+          "ms": 2649,
+          "tok_s": 33.6,
+          "err": "Traceback (most recent call last):\n  File \"<string>\", line 15, in <module>\nAssertionError"
+        },
+        {
+          "id": "t09_max_subarray",
+          "pass": true,
+          "ms": 2025,
+          "tok_s": 30.6,
+          "err": ""
+        },
+        {
+          "id": "t10_climb_stairs",
+          "pass": true,
+          "ms": 2873,
+          "tok_s": 32.7,
+          "err": ""
+        },
+        {
+          "id": "t11_group_anagrams",
+          "pass": true,
+          "ms": 3053,
+          "tok_s": 34.1,
+          "err": ""
+        },
+        {
+          "id": "t12_json_flatten",
+          "pass": true,
+          "ms": 2227,
+          "tok_s": 30.5,
+          "err": ""
+        },
+        {
+          "id": "t13_rate_limiter",
+          "pass": true,
+          "ms": 3611,
+          "tok_s": 32.7,
+          "err": ""
+        },
+        {
+          "id": "t14_topk_frequent",
+          "pass": true,
+          "ms": 1562,
+          "tok_s": 26.9,
+          "err": ""
+        },
+        {
+          "id": "t15_parse_log",
+          "pass": true,
+          "ms": 3552,
+          "tok_s": 35.5,
+          "err": ""
+        },
+        {
+          "id": "t16_lis_length",
+          "pass": true,
+          "ms": 3264,
+          "tok_s": 34.9,
+          "err": ""
+        },
+        {
+          "id": "t17_retry_decorator",
+          "pass": true,
+          "ms": 2302,
+          "tok_s": 31.7,
+          "err": ""
+        },
+        {
+          "id": "t18_ttl_get",
+          "pass": true,
+          "ms": 2025,
+          "tok_s": 27.7,
+          "err": ""
+        },
+        {
+          "id": "t19_word_ladder",
+          "pass": true,
+          "ms": 4859,
+          "tok_s": 36.0,
+          "err": ""
+        },
+        {
+          "id": "t20_safe_divide",
+          "pass": true,
+          "ms": 2248,
+          "tok_s": 30.2,
+          "err": ""
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+# environment
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.DS_Store
+
+# regenerable: sha1-cached web fetches (flash.web refetches on demand)
+benchmarks/cache/

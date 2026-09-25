@@ -1,0 +1,155 @@
+{
+  "results": [
+    {
+      "model": "mlx-community/Qwen2.5-Coder-7B-Instruct-4bit",
+      "load_s": 1.4,
+      "pass": "18/20",
+      "pass_rate": 0.9,
+      "ttft_ms_avg": 376,
+      "tok_s_avg": 20.0,
+      "peak_mem_gb": 4.4,
+      "details": [
+        {
+          "id": "t01_reverse_words",
+          "pass": true,
+          "ms": 1422,
+          "tok_s": 16.2,
+          "err": ""
+        },
+        {
+          "id": "t02_two_sum",
+          "pass": true,
+          "ms": 3322,
+          "tok_s": 19.6,
+          "err": ""
+        },
+        {
+          "id": "t03_is_palindrome",
+          "pass": true,
+          "ms": 2476,
+          "tok_s": 16.2,
+          "err": ""
+        },
+        {
+          "id": "t04_fizzbuzz",
+          "pass": true,
+          "ms": 2716,
+          "tok_s": 19.5,
+          "err": ""
+        },
+        {
+          "id": "t05_lru_cache",
+          "pass": true,
+          "ms": 7264,
+          "tok_s": 20.4,
+          "err": ""
+        },
+        {
+          "id": "t06_merge_intervals",
+          "pass": true,
+          "ms": 4755,
+          "tok_s": 21.4,
+          "err": ""
+        },
+        {
+          "id": "t07_binary_search",
+          "pass": true,
+          "ms": 4355,
+          "tok_s": 20.9,
+          "err": ""
+        },
+        {
+          "id": "t08_valid_parens",
+          "pass": true,
+          "ms": 3970,
+          "tok_s": 21.2,
+          "err": ""
+        },
+        {
+          "id": "t09_max_subarray",
+          "pass": true,
+          "ms": 3155,
+          "tok_s": 20.3,
+          "err": ""
+        },
+        {
+          "id": "t10_climb_stairs",
+          "pass": true,
+          "ms": 3257,
+          "tok_s": 19.7,
+          "err": ""
+        },
+        {
+          "id": "t11_group_anagrams",
+          "pass": true,
+          "ms": 3521,
+          "tok_s": 20.7,
+          "err": ""
+        },
+        {
+          "id": "t12_json_flatten",
+          "pass": true,
+          "ms": 3549,
+          "tok_s": 20.6,
+          "err": ""
+        },
+        {
+          "id": "t13_rate_limiter",
+          "pass": true,
+          "ms": 4687,
+          "tok_s": 21.1,
+          "err": ""
+        },
+        {
+          "id": "t14_topk_frequent",
+          "pass": false,
+          "ms": 2132,
+          "tok_s": 19.2,
+          "err": "Traceback (most recent call last):\n  File \"<string>\", line 9, in <module>\nAssertionError"
+        },
+        {
+          "id": "t15_parse_log",
+          "pass": false,
+          "ms": 6592,
+          "tok_s": 21.2,
+          "err": "Traceback (most recent call last):\n  File \"<string>\", line 17, in <module>\n  File \"<string>\", line 12, in parse_log\nInde"
+        },
+        {
+          "id": "t16_lis_length",
+          "pass": true,
+          "ms": 5521,
+          "tok_s": 21.2,
+          "err": ""
+        },
+        {
+          "id": "t17_retry_decorator",
+          "pass": true,
+          "ms": 4582,
+          "tok_s": 20.7,
+          "err": ""
+        },
+        {
+          "id": "t18_ttl_get",
+          "pass": true,
+          "ms": 2899,
+          "tok_s": 18.6,
+          "err": ""
+        },
+        {
+          "id": "t19_word_ladder",
+          "pass": true,
+          "ms": 6215,
+          "tok_s": 21.1,
+          "err": ""
+        },
+        {
+          "id": "t20_safe_divide",
+          "pass": true,
+          "ms": 3426,
+          "tok_s": 20.1,
+          "err": ""
+        }
+      ]
+    }
+  ]
+}

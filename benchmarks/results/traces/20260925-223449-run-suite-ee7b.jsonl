@@ -1,0 +1,11 @@
+{"ts": 1790354989.914, "seq": 0, "type": "session_start", "label": "run-suite", "cmd": "run-suite", "params": {"small": "mlx-community/Qwen2.5-Coder-7B-Instruct-4bit", "big": "mlx-community/Qwen3-30B-A3B-Instruct-2507-4bit", "tasks": "/tmp/m2_r03.jsonl", "with_context": false, "attempts": 2, "max_tasks": 25, "max_tokens": 1024, "max_chars": 4000, "threshold": 1.1, "allow_big": "always"}}
+{"ts": 1790355003.108, "seq": 1, "type": "route", "task_id": "r03_bulk_rule", "routed": "small", "route_p": 0.3444, "profile": "low-power", "allow_big": "always", "big_allowed": true, "multi": false}
+{"ts": 1790355013.92, "seq": 2, "type": "generate", "task_id": "r03_bulk_rule", "attempt": 0, "temp": 0.0, "max_tokens": 1024, "ms": 10808, "prompt_tokens": 452, "completion_tokens": 129}
+{"ts": 1790355015.639, "seq": 3, "type": "verify", "task_id": "r03_bulk_rule", "attempt": 0, "ok": false, "kind": "static", "ms": 1718, "err": "STATIC: L7: undefined name 'CartLine' | L13: undefined name 'BULK_MIN_QTY'"}
+{"ts": 1790355026.472, "seq": 4, "type": "generate", "task_id": "r03_bulk_rule", "attempt": 1, "temp": 0.7, "max_tokens": 1024, "ms": 10823, "prompt_tokens": 762, "completion_tokens": 125}
+{"ts": 1790355027.732, "seq": 5, "type": "verify", "task_id": "r03_bulk_rule", "attempt": 1, "ok": false, "kind": "static", "ms": 1259, "err": "STATIC: L12: undefined name 'BULK_MIN_QTY'"}
+{"ts": 1790355027.897, "seq": 6, "type": "escalation", "task_id": "r03_bulk_rule", "denied": false, "tier": "big", "reason": "small failed after 2 attempt(s)"}
+{"ts": 1790355064.802, "seq": 7, "type": "generate", "task_id": "r03_bulk_rule", "attempt": 0, "temp": 0.0, "max_tokens": 1024, "ms": 20289, "prompt_tokens": 431, "completion_tokens": 89}
+{"ts": 1790355066.446, "seq": 8, "type": "verify", "task_id": "r03_bulk_rule", "attempt": 0, "ok": true, "kind": "test", "ms": 1643}
+{"ts": 1790355066.992, "seq": 9, "type": "task_end", "task_id": "r03_bulk_rule", "solved": true, "tier": "big", "attempts": 3, "seconds": 46.6, "routed": "small"}
+{"ts": 1790355066.993, "seq": 10, "type": "session_end", "solved": 1, "tasks": 1, "ran": 1}

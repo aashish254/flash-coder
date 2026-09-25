@@ -1,0 +1,21 @@
+"""Flash Coder — fast, fully-local, self-improving coding agent for Apple Silicon.
+
+Plan: ../PLAN.md (v3.8). This package grows milestone by milestone:
+  M0: benchmarks/m0_bakeoff.py      (model selection — measured, not guessed)
+  M1: flash.loop + flash.harness    (ACT -> VERIFY -> error-feedback retry)
+      flash.decide + flash.cli      (System One decision fabric, PLAN §32)
+  M2: flash.context + flash.lsp     (repo perception: skeleton, symbols, refs)
+      flash.harness                 (multi-WRITER: '# file:' -> file sets)
+  M3: flash.ledger + flash.learn    (outcome flywheel + learned router)
+      flash.jobs                    (gated, resumable background refit, §34.3)
+  §34.1: flash.power                (system profile: what this machine may load)
+  §33.6/7: flash.trace              (replayable sessions + `flash resume`)
+  Phase-4: flash.web                (knowledge as a tool: fetch+sha1-cache+
+                                     bge-ranked excerpts, §25a3, §33.9)
+  M0b: flash.vision                 (screenshot -> HTML through the VLM)
+
+Every subsystem ships an offline deterministic selftest:
+  python -m flash.lsp | flash.power | flash.jobs | flash.trace
+"""
+
+__version__ = "0.0.1"

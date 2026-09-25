@@ -1,0 +1,50 @@
+{
+  "results": [
+    {
+      "model": "mlx-community/Qwen2.5-Coder-7B-Instruct-4bit",
+      "load_s": 2.3,
+      "pass": "5/5",
+      "pass_rate": 1.0,
+      "ttft_ms_avg": 877,
+      "tok_s_avg": 17.1,
+      "peak_mem_gb": 4.4,
+      "details": [
+        {
+          "id": "t01_reverse_words",
+          "pass": true,
+          "ms": 3718,
+          "tok_s": 6.2,
+          "err": ""
+        },
+        {
+          "id": "t02_two_sum",
+          "pass": true,
+          "ms": 3200,
+          "tok_s": 20.3,
+          "err": ""
+        },
+        {
+          "id": "t03_is_palindrome",
+          "pass": true,
+          "ms": 2281,
+          "tok_s": 17.5,
+          "err": ""
+        },
+        {
+          "id": "t04_fizzbuzz",
+          "pass": true,
+          "ms": 2607,
+          "tok_s": 20.3,
+          "err": ""
+        },
+        {
+          "id": "t05_lru_cache",
+          "pass": true,
+          "ms": 6927,
+          "tok_s": 21.4,
+          "err": ""
+        }
+      ]
+    }
+  ]
+}

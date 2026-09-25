@@ -1,0 +1,457 @@
+{
+  "results": [
+    {
+      "model": "mlx-community/Qwen3-Coder-30B-A3B-Instruct-4bit",
+      "load_s": 7.3,
+      "pass": "18/20",
+      "pass_rate": 0.9,
+      "ttft_ms_avg": 659,
+      "tok_s_avg": 32.8,
+      "peak_mem_gb": 17.3,
+      "details": [
+        {
+          "id": "t01_reverse_words",
+          "pass": true,
+          "ms": 4100,
+          "tok_s": 5.1,
+          "err": ""
+        },
+        {
+          "id": "t02_two_sum",
+          "pass": true,
+          "ms": 1877,
+          "tok_s": 33.6,
+          "err": ""
+        },
+        {
+          "id": "t03_is_palindrome",
+          "pass": true,
+          "ms": 1769,
+          "tok_s": 33.3,
+          "err": ""
+        },
+        {
+          "id": "t04_fizzbuzz",
+          "pass": true,
+          "ms": 2788,
+          "tok_s": 34.8,
+          "err": ""
+        },
+        {
+          "id": "t05_lru_cache",
+          "pass": true,
+          "ms": 8537,
+          "tok_s": 38.2,
+          "err": ""
+        },
+        {
+          "id": "t06_merge_intervals",
+          "pass": false,
+          "ms": 3539,
+          "tok_s": 39.6,
+          "err": "Traceback (most recent call last):\n  File \"<string>\", line 23, in <module>\nAssertionError"
+        },
+        {
+          "id": "t07_binary_search",
+          "pass": true,
+          "ms": 2481,
+          "tok_s": 35.9,
+          "err": ""
+        },
+        {
+          "id": "t08_valid_parens",
+          "pass": false,
+          "ms": 2443,
+          "tok_s": 36.4,
+          "err": "Traceback (most recent call last):\n  File \"<string>\", line 15, in <module>\nAssertionError"
+        },
+        {
+          "id": "t09_max_subarray",
+          "pass": true,
+          "ms": 1821,
+          "tok_s": 34.0,
+          "err": ""
+        },
+        {
+          "id": "t10_climb_stairs",
+          "pass": true,
+          "ms": 2536,
+          "tok_s": 37.1,
+          "err": ""
+        },
+        {
+          "id": "t11_group_anagrams",
+          "pass": true,
+          "ms": 3042,
+          "tok_s": 34.2,
+          "err": ""
+        },
+        {
+          "id": "t12_json_flatten",
+          "pass": true,
+          "ms": 2268,
+          "tok_s": 30.0,
+          "err": ""
+        },
+        {
+          "id": "t13_rate_limiter",
+          "pass": true,
+          "ms": 3205,
+          "tok_s": 36.8,
+          "err": ""
+        },
+        {
+          "id": "t14_topk_frequent",
+          "pass": true,
+          "ms": 1471,
+          "tok_s": 28.6,
+          "err": ""
+        },
+        {
+          "id": "t15_parse_log",
+          "pass": true,
+          "ms": 3515,
+          "tok_s": 35.8,
+          "err": ""
+        },
+        {
+          "id": "t16_lis_length",
+          "pass": true,
+          "ms": 3275,
+          "tok_s": 34.8,
+          "err": ""
+        },
+        {
+          "id": "t17_retry_decorator",
+          "pass": true,
+          "ms": 2268,
+          "tok_s": 32.2,
+          "err": ""
+        },
+        {
+          "id": "t18_ttl_get",
+          "pass": true,
+          "ms": 1926,
+          "tok_s": 29.1,
+          "err": ""
+        },
+        {
+          "id": "t19_word_ladder",
+          "pass": true,
+          "ms": 4814,
+          "tok_s": 36.3,
+          "err": ""
+        },
+        {
+          "id": "t20_safe_divide",
+          "pass": true,
+          "ms": 2239,
+          "tok_s": 30.4,
+          "err": ""
+        }
+      ]
+    },
+    {
+      "model": "mlx-community/Qwen3-30B-A3B-Instruct-2507-4bit",
+      "load_s": 5.6,
+      "pass": "18/20",
+      "pass_rate": 0.9,
+      "ttft_ms_avg": 629,
+      "tok_s_avg": 32.5,
+      "peak_mem_gb": 17.3,
+      "details": [
+        {
+          "id": "t01_reverse_words",
+          "pass": true,
+          "ms": 3845,
+          "tok_s": 5.5,
+          "err": ""
+        },
+        {
+          "id": "t02_two_sum",
+          "pass": true,
+          "ms": 1992,
+          "tok_s": 31.6,
+          "err": ""
+        },
+        {
+          "id": "t03_is_palindrome",
+          "pass": true,
+          "ms": 1277,
+          "tok_s": 28.2,
+          "err": ""
+        },
+        {
+          "id": "t04_fizzbuzz",
+          "pass": true,
+          "ms": 2669,
+          "tok_s": 33.7,
+          "err": ""
+        },
+        {
+          "id": "t05_lru_cache",
+          "pass": true,
+          "ms": 3549,
+          "tok_s": 39.5,
+          "err": ""
+        },
+        {
+          "id": "t06_merge_intervals",
+          "pass": false,
+          "ms": 3679,
+          "tok_s": 38.3,
+          "err": "Traceback (most recent call last):\n  File \"<string>\", line 22, in <module>\n  File \"<string>\", line 15, in merge\nTypeErro"
+        },
+        {
+          "id": "t07_binary_search",
+          "pass": true,
+          "ms": 2445,
+          "tok_s": 36.4,
+          "err": ""
+        },
+        {
+          "id": "t08_valid_parens",
+          "pass": true,
+          "ms": 2183,
+          "tok_s": 35.3,
+          "err": ""
+        },
+        {
+          "id": "t09_max_subarray",
+          "pass": true,
+          "ms": 1972,
+          "tok_s": 35.5,
+          "err": ""
+        },
+        {
+          "id": "t10_climb_stairs",
+          "pass": true,
+          "ms": 1838,
+          "tok_s": 33.2,
+          "err": ""
+        },
+        {
+          "id": "t11_group_anagrams",
+          "pass": true,
+          "ms": 2153,
+          "tok_s": 33.0,
+          "err": ""
+        },
+        {
+          "id": "t12_json_flatten",
+          "pass": true,
+          "ms": 2163,
+          "tok_s": 32.8,
+          "err": ""
+        },
+        {
+          "id": "t13_rate_limiter",
+          "pass": true,
+          "ms": 3061,
+          "tok_s": 36.6,
+          "err": ""
+        },
+        {
+          "id": "t14_topk_frequent",
+          "pass": true,
+          "ms": 1651,
+          "tok_s": 26.0,
+          "err": ""
+        },
+        {
+          "id": "t15_parse_log",
+          "pass": false,
+          "ms": 3289,
+          "tok_s": 34.1,
+          "err": "Traceback (most recent call last):\n  File \"<string>\", line 17, in <module>\nAssertionError"
+        },
+        {
+          "id": "t16_lis_length",
+          "pass": true,
+          "ms": 3058,
+          "tok_s": 37.0,
+          "err": ""
+        },
+        {
+          "id": "t17_retry_decorator",
+          "pass": true,
+          "ms": 2071,
+          "tok_s": 35.2,
+          "err": ""
+        },
+        {
+          "id": "t18_ttl_get",
+          "pass": true,
+          "ms": 1730,
+          "tok_s": 30.1,
+          "err": ""
+        },
+        {
+          "id": "t19_word_ladder",
+          "pass": true,
+          "ms": 4080,
+          "tok_s": 37.0,
+          "err": ""
+        },
+        {
+          "id": "t20_safe_divide",
+          "pass": true,
+          "ms": 2037,
+          "tok_s": 31.9,
+          "err": ""
+        }
+      ]
+    },
+    {
+      "model": "mlx-community/gpt-oss-20b-MXFP4-Q8",
+      "load_s": 4.1,
+      "pass": "13/20",
+      "pass_rate": 0.65,
+      "ttft_ms_avg": 518,
+      "tok_s_avg": 29.9,
+      "peak_mem_gb": 12.2,
+      "details": [
+        {
+          "id": "t01_reverse_words",
+          "pass": false,
+          "ms": 6383,
+          "tok_s": 22.7,
+          "err": "                                                                                                                        "
+        },
+        {
+          "id": "t02_two_sum",
+          "pass": false,
+          "ms": 7997,
+          "tok_s": 30.5,
+          "err": "File \"<string>\", line 11\n    That's it. Return only code.<|end|><|start|>assistant<|channel|>final<|message|>def two_sum"
+        },
+        {
+          "id": "t03_is_palindrome",
+          "pass": false,
+          "ms": 5208,
+          "tok_s": 28.4,
+          "err": "File \"<string>\", line 1\n    <|channel|>analysis<|message|>We need to output only the code. The function should ignore ca"
+        },
+        {
+          "id": "t04_fizzbuzz",
+          "pass": true,
+          "ms": 5294,
+          "tok_s": 29.1,
+          "err": ""
+        },
+        {
+          "id": "t05_lru_cache",
+          "pass": true,
+          "ms": 8557,
+          "tok_s": 29.3,
+          "err": ""
+        },
+        {
+          "id": "t06_merge_intervals",
+          "pass": false,
+          "ms": 10469,
+          "tok_s": 32.2,
+          "err": "Traceback (most recent call last):\n  File \"<string>\", line 33, in <module>\nAssertionError"
+        },
+        {
+          "id": "t07_binary_search",
+          "pass": true,
+          "ms": 4721,
+          "tok_s": 30.3,
+          "err": ""
+        },
+        {
+          "id": "t08_valid_parens",
+          "pass": true,
+          "ms": 7413,
+          "tok_s": 30.9,
+          "err": ""
+        },
+        {
+          "id": "t09_max_subarray",
+          "pass": true,
+          "ms": 6354,
+          "tok_s": 29.3,
+          "err": ""
+        },
+        {
+          "id": "t10_climb_stairs",
+          "pass": true,
+          "ms": 7725,
+          "tok_s": 29.9,
+          "err": ""
+        },
+        {
+          "id": "t11_group_anagrams",
+          "pass": true,
+          "ms": 4652,
+          "tok_s": 27.9,
+          "err": ""
+        },
+        {
+          "id": "t12_json_flatten",
+          "pass": true,
+          "ms": 10648,
+          "tok_s": 30.3,
+          "err": ""
+        },
+        {
+          "id": "t13_rate_limiter",
+          "pass": true,
+          "ms": 12487,
+          "tok_s": 30.4,
+          "err": ""
+        },
+        {
+          "id": "t14_topk_frequent",
+          "pass": true,
+          "ms": 9481,
+          "tok_s": 30.8,
+          "err": ""
+        },
+        {
+          "id": "t15_parse_log",
+          "pass": true,
+          "ms": 15020,
+          "tok_s": 31.2,
+          "err": ""
+        },
+        {
+          "id": "t16_lis_length",
+          "pass": false,
+          "ms": 8463,
+          "tok_s": 30.7,
+          "err": " each num, find insertion point via bisect_left on tails. Since strictly increasing, we use bisect_left? For strictly in"
+        },
+        {
+          "id": "t17_retry_decorator",
+          "pass": true,
+          "ms": 23643,
+          "tok_s": 31.5,
+          "err": ""
+        },
+        {
+          "id": "t18_ttl_get",
+          "pass": true,
+          "ms": 8547,
+          "tok_s": 30.7,
+          "err": ""
+        },
+        {
+          "id": "t19_word_ladder",
+          "pass": false,
+          "ms": 27508,
+          "tok_s": 31.5,
+          "err": "File \"<string>\", line 13\n    We need to ensure we don't modify the original words set? We can use visited set.\n         "
+        },
+        {
+          "id": "t20_safe_divide",
+          "pass": false,
+          "ms": 11380,
+          "tok_s": 31.0,
+          "err": " == 0: return 'undefined'. Else compute a / b, round to 4 decimals. Use round(result, 4). But round returns a float. Tha"
+        }
+      ]
+    }
+  ]
+}
