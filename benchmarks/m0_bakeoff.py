@@ -99,16 +99,34 @@ def download_models(names: list[str]) -> int:
     return rc
 
 
-def bench_model(name: str, max_tokens: int, max_tasks: int) -> dict:
+def bench_model(name: str, max_tokens: int, max_tasks: int,
+                draft: str | None = None, draft_tokens: int = 4) -> dict:
+    """One model through the frozen suite. `draft` turns on speculative
+    decoding (R-8.1): the draft proposes `draft_tokens` tokens, the target
+    verifies them in one pass, and accepted tokens are what the stream yields —
+    so tok/s here already counts accepted tokens per second, which is the only
+    honest unit for the comparison.
+
+    Never combined with the output mask: `flash.grammar`'s DFA consumes a
+    token as soon as it is read, and a rejected draft would leave the contract
+    ahead of the text."""
     import mlx.core as mx
     from mlx_lm import load, stream_generate
 
-    repo = MODELS[name]
+    repo = MODELS.get(name, name)
     tasks = load_tasks()[:max_tasks]
-    print(f"\n=== {name} ({repo}) ===", flush=True)
+    print(f"\n=== {name} ({repo})"
+          + (f" + draft {draft}" if draft else "") + " ===", flush=True)
 
     t0 = time.perf_counter()
     model, tokenizer = load(repo)
+    draft_model = None
+    if draft:
+        from mlx_lm import load as _load
+        draft_repo = MODELS.get(draft, draft)
+        # the draft shares the target's tokenizer family only if it is the same
+        # architecture; mlx checks and raises, which is the useful answer here
+        draft_model, _ = _load(draft_repo)
     load_s = time.perf_counter() - t0
     print(f"  load: {load_s:.1f}s")
 
@@ -123,7 +141,10 @@ def bench_model(name: str, max_tokens: int, max_tasks: int) -> dict:
             reset_peak()
         t0, ttft, text = time.perf_counter(), None, []
         ntok = 0
-        for resp in stream_generate(model, tokenizer, prompt=prompt, max_tokens=max_tokens):
+        kw = {"draft_model": draft_model, "num_draft_tokens": draft_tokens} \
+            if draft_model else {}
+        for resp in stream_generate(model, tokenizer, prompt=prompt,
+                                    max_tokens=max_tokens, **kw):
             if ttft is None and resp.text:
                 ttft = time.perf_counter() - t0
             text.append(resp.text)
@@ -149,9 +170,13 @@ def bench_model(name: str, max_tokens: int, max_tasks: int) -> dict:
         "ttft_ms_avg": round(sum(ttfts) / len(ttfts)),
         "tok_s_avg": round(sum(tpss) / len(tpss), 1),
         "peak_mem_gb": round(peak_gb, 1) if peak_gb else None,
+        "draft": MODELS.get(draft, draft) if draft else None,
+        "draft_tokens": draft_tokens if draft else None,
         "details": details,
     }
     del model
+    if draft_model is not None:
+        del draft_model
     mx.clear_cache()
     return result
 
@@ -160,7 +185,8 @@ def print_report(results: list[dict]) -> None:
     hdr = f"{'model':<44} {'pass':>6} {'ttft_ms':>8} {'tok/s':>7} {'mem_gb':>7} {'load_s':>7}"
     print("\n" + hdr + "\n" + "-" * len(hdr))
     for r in results:
-        print(f"{r['model']:<44} {r['pass']:>6} {r['ttft_ms_avg']:>8} "
+        label = r["model"] + (" +draft" if r.get("draft") else "")
+        print(f"{label:<44} {r['pass']:>6} {r['ttft_ms_avg']:>8} "
               f"{r['tok_s_avg']:>7} {str(r['peak_mem_gb']):>7} {r['load_s']:>7}")
 
 
@@ -174,6 +200,12 @@ def main() -> int:
     ap.add_argument("--report", action="store_true", help="print saved results table")
     ap.add_argument("--max-tokens", type=int, default=1024)
     ap.add_argument("--max-tasks", type=int, default=20)
+    ap.add_argument("--draft", default=None,
+                    help="R-8.1: draft model (key from --list or a repo id) used by "
+                         "the target for speculative decoding. Costs extra memory: "
+                         "both models stay resident")
+    ap.add_argument("--draft-tokens", type=int, default=4,
+                    help="tokens proposed per verification pass")
     args = ap.parse_args()
 
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -192,7 +224,9 @@ def main() -> int:
         results = []
         for n in args.models:
             try:
-                results.append(bench_model(n, args.max_tokens, args.max_tasks))
+                results.append(bench_model(n, args.max_tokens, args.max_tasks,
+                                        draft=args.draft,
+                                        draft_tokens=args.draft_tokens))
             except Exception as e:  # noqa: BLE001 — one bad model must not kill the bake-off
                 print(f"  MODEL FAILED {n}: {e}")
         if not results:
