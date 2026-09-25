@@ -328,62 +328,33 @@ _BUGS: list[tuple[str, str, str]] = [
 DBG_TASKS = "benchmarks/tasks/dbg_tasks.jsonl"
 
 
-def run_suite_check(root: Path | None = None) -> list[tuple[str, bool, str]]:
-    """Prove the dbg suite is what R-4.3 claims it is, with no model at all.
-
-    For every task: the stored solution passes, the seeded bug fails, and —
-    the premise of the whole arm — the line that made the value wrong is
-    ABSENT from the traceback the model would otherwise get and PRESENT in
-    the digest. A task that fails that test is not misleading, so it does not
-    belong in this suite.
-    """
-    from flash.harness import diagnose, load_tasks
-    path = (root or Path(__file__).resolve().parent.parent) / DBG_TASKS
-    out = []
-    if not path.exists():
-        return [("the seeded-bug suite exists", False, str(path))]
-    for t in load_tasks(path):
-        sop, _ = diagnose(t["solution"], t["test"])
-        kfp, tb = diagnose(t["seeded"], t["test"])
-        d = watch(t["seeded"], t["test"])
-        fb = d.as_feedback()
-        out.append((f"{t['id']}: solution passes", sop, ""))
-        out.append((f"{t['id']}: seeded bug fails", not kfp, tb[:60]))
-        out.append((f"{t['id']}: the traceback cannot see the cause",
-                    t["blame"] not in tb, t["blame"]))
-        out.append((f"{t['id']}: the digest names the cause",
-                    t["blame"] in fb, t["blame"]))
-    return out
-
-
-def run_suite_check(path: str | Path | None = None) -> list[str]:
-    """Offline proof of the suite's premise, with no model in the loop.
+def run_suite_check(path: str | Path | None = None) -> list[tuple[str, bool, str]]:
+    """Offline proof of the dbg suite's premise, with no model in the loop.
 
     For every task: the stored solution passes, the seeded bug fails, the
     traceback the model would otherwise read does NOT contain the line that
-    made the value wrong, and the digest does. A task that fails the fourth
+    made the value wrong, and the digest does. A task that fails the third
     clause is not misleading, so it does not belong in this suite.
     """
     from flash.harness import diagnose, load_tasks
     rows = load_tasks(str(path or (Path(__file__).resolve().parent.parent
-                             / "benchmarks/tasks/dbg_tasks.jsonl")))
-    bad: list[str] = []
+                                   / "benchmarks/tasks/dbg_tasks.jsonl")))
+    checks = []
     for t in rows:
         sol_ok, sol_err = diagnose(t["solution"], t["test"])
+        checks.append((f"{t['id']}: stored solution passes", sol_ok,
+                       sol_err[:70]))
         if not sol_ok:
-            bad.append(f"{t['id']}: stored solution does not pass ({sol_err[:60]})")
             continue
         bug_ok, tb = diagnose(t["seeded"], t["test"])
-        if bug_ok:
-            bad.append(f"{t['id']}: the seeded bug passes its own test")
-            continue
+        checks.append((f"{t['id']}: seeded bug fails", not bug_ok, ""))
         d = watch(t["seeded"], t["test"])
         fb = d.as_feedback()
-        if t["blame"] in tb:
-            bad.append(f"{t['id']}: the traceback already sees {t['blame']!r}")
-        if t["blame"] not in fb:
-            bad.append(f"{t['id']}: the digest does not see {t['blame']!r} either")
-    return bad
+        checks.append((f"{t['id']}: the traceback cannot see the cause",
+                       t["blame"] not in tb, repr(t["blame"])))
+        checks.append((f"{t['id']}: the digest names the cause",
+                       t["blame"] in fb, repr(t["blame"])))
+    return checks
 
 
 def run_selftest() -> int:
@@ -455,10 +426,12 @@ def run_selftest() -> int:
 
 if __name__ == "__main__":                       # pragma: no cover
     if "--suite" in sys.argv:
-        bad = run_suite_check()
-        for line in bad:
-            print("  BAD " + line)
-        print(f"\nflash.debug suite premise: {'FAIL' if bad else 'holds'}")
+        cs = run_suite_check()
+        bad = [n for n, ok, _ in cs if not ok]
+        for n, ok, note in cs:
+            print(f"  {'ok  ' if ok else 'FAIL'} {n}" + (f"  [{note}]" if note else ""))
+        print(f"\nflash.debug suite premise: {'FAILS: ' + ', '.join(bad) if bad else 'holds'} "
+              f"({len(cs) - len(bad)}/{len(cs)})")
         raise SystemExit(1 if bad else 0)
     if "--selftest" in sys.argv:
         raise SystemExit(run_selftest())
