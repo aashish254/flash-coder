@@ -55,15 +55,27 @@ Rules for this file:
 
 ## P2 — R-4.3 Debugger skill (watch execution, don't re-guess)
 
-- [ ] [B] `flash/debug.py`: pdb-based session — run to breakpoint, capture locals
-      at the failing frame, one-shot stepping, serialised trace digest.
-- [ ] [B] Feed the digest into retry feedback as a distinct `kind="debug"`.
-- [ ] [V] [offline] `python -m flash.debug --selftest` on seeded bugs:
-      locates the mutating line, no model involved.
-- [ ] [B] Seeded-bug suite `benchmarks/tasks/dbg_tasks.jsonl` (≥ 6 tasks where
-      the traceback alone is misleading).
+- [x] [B] `flash/debug.py`: a line-tracer session in the same isolated `-I`
+      subprocess — executed trail, the value each local took as it changed,
+      locals at the failing frame, last-mutated line, serialised digest.
+      *Done 2026-09-26. Not pdb: a model cannot drive an interactive loop, and
+      the harness needs a digest it can put in a prompt.*
+- [x] [B] Feed the digest into retry feedback as a distinct `kind="debug"`.
+      *Done: `loop._debug_feedback`, `--debug`, skipped for static failures
+      (broken syntax has no execution to watch) and on a pass.*
+- [x] [V] [offline] `python -m flash.debug --selftest`: **55/55**, 2026-09-26.
+      Five seeded bugs each blamed on the line that made the value wrong, a
+      hang that still reports the line it spun on, a raise that names its
+      frame's locals, a compile error blamed on the candidate rather than the
+      debugger, execution observed in a child pid, a path-escape refused, and
+      the trail cap.
+- [x] [B] Seeded-bug suite `benchmarks/tasks/dbg_tasks.jsonl`: 8 tasks, built
+      by `benchmarks/gen_dbg_tasks.py`, verified offline — every `solution`
+      passes, every `seeded` bug fails, and every causing line is ABSENT from
+      the traceback and PRESENT in the digest (that last pair is the suite's
+      whole premise, and `--selftest` checks it per task).
 - [ ] [V] [L] Arm A: traceback feedback. Arm B: debug feedback. Same tier, same
-      budget → B solves **≥ 2 more**.
+      budget → B solves **≥ 2 more**. Queued behind the R-4.2 arms.
 - [ ] [B] Docs move together (SPEC R-4.3, README, §33.2 status, Appendix A).
 
 ## P3 — R-8.1 Speculative decoding (G5: brain ≥ 46 tok/s)
