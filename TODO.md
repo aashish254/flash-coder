@@ -39,14 +39,19 @@ Rules for this file:
       historical shape, and adds three the spec did not ask for: liveness (no
       reference is blocked by its own mask), no dead ends, and the
       end-of-turn policy at exactly the positions where stopping parses.
-- [ ] [V] [L] Contract-violation census: 100 sampled unconstrained generations
-      → N violations; same 100 constrained → **0** *structural* violations.
-      Running now: 25 free + 25 constrained (latency pair) + 75 constrained.
-      `malformed` (a DFA-dead answer) and mask breaches must be 0;
-      `unclosed`/`file set` are completeness misses — a stop inside a body or
-      an exhausted budget, which no logit mask can or should forbid. The two
-      arms are measured on the same yardstick (`conformance`) so N stays
-      comparable.
+- [x] [V] [L] Contract-violation census: **100 constrained generations, 0
+      malformed, 0 mask breaches, 99/100 recoverable by the parser**
+      (2026-09-26, `benchmarks/results/census/final_con100.log`, temp 0.7,
+      max_tokens 1500, 6 mw prompts). The one violation is an answer that
+      opened its block and wrote nothing inside — a content failure, not a
+      shape one, and the mask must not pretend otherwise.
+      The unconstrained arm on the same prompts and seeds: **20/20 violations,
+      0/20 recoverable** (`final_free20.log`) — it narrates around the protocol
+      and then runs out of budget.
+      Reasons are broken out so the gate is auditable: `malformed` (the DFA is
+      dead: the structural claim), `unclosed`/`file set` (completeness — a stop
+      inside a body or an exhausted budget, which no logit mask can or should
+      forbid).
 - [ ] [V] [L] Latency cost ≤ 5%: same seeds, constrained vs unconstrained tok/s.
 - [ ] [V] [L] Reference sweep: `run-suite --tasks mw_tasks.jsonl` still 6/6 and
       m0 unaffected (a harness change invalidates stored pass rates).
@@ -171,10 +176,29 @@ Rules for this file:
   sampler's baseline was `len(tokens) - 1`, so the prompt's last token was
   walked as generated text and 49 refusals were booked against the mask.
   All three are fixed and each is pinned by a check (47/47 offline).
+  A fourth survived those fixes as **99 breaches in 100 generations** — one
+  per run. My first diagnosis (the turn guard tested `eos` where the mask
+  offers the whole turn family) was *wrong*, and disproved in five minutes by
+  the offline probe that the numbers were claimed to need: `eos` is in the
+  family, the stop policy is right at both positions, and feeding the stop
+  plus trailing tokens produces no breach. The real cause was `consume`
+  joining a multi-id array into one string and walking it as a single piece,
+  while the mask had been compiled piece by piece — the same mask/walk
+  disagreement as defect (2), reached from the other side. With pieces
+  absorbed one at a time: 6/6 live runs, 0 breaches; then 100/100, 0 breaches.
+  Two process notes worth keeping: the breach count was the *symptom* the
+  offline walk could not show, because the walk always fed one piece per step;
+  and `illegal_picks` was changed to also record the first offending ids, text
+  and position, because a count without a named instance invites exactly the
+  confident wrong diagnosis I just made.
   Observed on the pre-fix build, 84 constrained generations over the mw
   prompts: 0 malformed, 0 dead ends, 82/84 recoverable by the parser — the two
   misses were answers that opened their block and wrote nothing inside it,
   which is a content failure the mask cannot and should not prevent. The same
+  arm's answers averaged 150-330 tokens where the unconstrained arm consumed
+  the whole 1500-token budget to say less, which is why the latency claim is
+  measured as `--overhead` (ms of mask per decode step) rather than as
+  end-to-end tok/s: the two arms do not generate the same workload.
   arm's answers averaged 150-330 tokens where the unconstrained arm consumed
   the whole 1500-token budget to say less, which is why the latency claim is
   measured as `--overhead` (ms of mask per decode step) rather than as
