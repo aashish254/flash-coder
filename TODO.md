@@ -23,7 +23,7 @@ Rules for this file:
       decode step by `ConstrainedSampler`.
       *Done 2026-09-26. The mask is keyed on the live position — pending
       backtick count, header-literal progress and the unwritten names — so it
-      is exact, not a superset: 12 000 sampled pieces, 0 refusals, 0 dead ends.*
+      is exact, not a superset: 10 154 sampled pieces, 0 refusals, 0 dead ends.*
 - [x] [B] Wire the mask into the sampler path in `flash/loop.py::_generate`
       (mlx `logits_processors`), with a `--constrain` flag and a fallback path
       when no contract can be named.
