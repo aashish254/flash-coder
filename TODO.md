@@ -160,6 +160,25 @@ Rules for this file:
 
 ## Log
 
+- 2026-09-26 — P1 offline shipped and its live arm run. The live run found
+  three defects the offline battery could not: (1) this checkpoint returns
+  152064-wide logits over a 151657-token vocabulary, and a table-sized mask
+  does not broadcast — the arm crashed on its first masked step; (2) the mask
+  excused the whole special-token family as "template control" while the
+  decoder only ever strips the piece that *ends* the turn, so a role marker
+  sampled mid-body passed the mask and the walk then called the answer
+  malformed — every masked answer was reported as a violation; (3) the
+  sampler's baseline was `len(tokens) - 1`, so the prompt's last token was
+  walked as generated text and 49 refusals were booked against the mask.
+  All three are fixed and each is pinned by a check (47/47 offline).
+  Observed on the pre-fix build, 84 constrained generations over the mw
+  prompts: 0 malformed, 0 dead ends, 82/84 recoverable by the parser — the two
+  misses were answers that opened their block and wrote nothing inside it,
+  which is a content failure the mask cannot and should not prevent. The same
+  arm's answers averaged 150-330 tokens where the unconstrained arm consumed
+  the whole 1500-token budget to say less, which is why the latency claim is
+  measured as `--overhead` (ms of mask per decode step) rather than as
+  end-to-end tok/s: the two arms do not generate the same workload.
 - 2026-09-25 — P0 complete. Repo initialised; baseline `0ea2798` (72 files,
   `.venv`/`__pycache__`/`benchmarks/cache` ignored, results+traces tracked as
   evidence). Working tree clean.
