@@ -65,6 +65,9 @@ class Contract:
     `names` — the required file set. The path is matched against it character
     by character, so an unintended file cannot even be *started*, and a name
     already written leaves the set. Empty = any safe relative `.py` path.
+    `stops` — the marker texts this tokenizer ends a turn with. A turn
+    terminator is the sampler's stop decision, never answer text, so the walk
+    has to know it by name rather than try to parse it.
     """
 
     mode: str = "multi"
@@ -75,12 +78,14 @@ class Contract:
     path: str = ""
     ticks: int = 0
     blocks: int = 0
+    stops: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         # A mask is keyed on the position, and a position carries `left`; a
         # list would make the key unhashable.
         self.names = tuple(self.names)
         self.left = tuple(self.left)
+        self.stops = tuple(self.stops)
         if self.names and not self.left:
             self.left = self.names
 
@@ -95,12 +100,40 @@ class Contract:
 
     # ------------------------------------------------------------- DFA walk
     def feed(self, text: str) -> "Contract | None":
-        """Advance over one token's characters; None when the piece is illegal."""
+        """Advance over one piece's characters; None when the piece is illegal.
+
+        This is the whole rule, applied to the text as the harness will see it:
+        no piece is excused, chat markers included. A turn terminator is not
+        answer text and never arrives here — `absorb` handles it — and anything
+        else shaped like a marker really does land in the file, so it has to
+        survive the DFA or it is not a valid answer.
+        """
         c = self.clone()
         for ch in text:
             if not c._consume(ch):
                 return None
         return c
+
+    def absorb(self, text: str) -> "Contract | None":
+        """Advance over one *sampled* piece, excusing the turn terminator.
+
+        The mask is compiled for pieces; this is the walk that matches it. The
+        two must agree, or a model that stops where it is allowed to stop reads
+        as a contract violation — found live, when the first census reported
+        every masked answer malformed for exactly that reason.
+        """
+        return self.clone() if self.ends_turn(text) else self.feed(text)
+
+    def ends_turn(self, text: str) -> bool:
+        """Is this piece the chat template's turn terminator?
+
+        mlx stops the instant it samples one and decodes the rest with
+        skip_special_tokens, so its text never reaches the harness. The mask
+        offers it exactly where `stop_ok` holds; the walk must not then read it
+        as answer text and call the answer malformed.
+        """
+        stops = self.stops or _STOP_TEXTS
+        return text in stops or text.rstrip() in stops
 
     def _try(self, text: str) -> bool:
         """Probe `text` from this position and leave the contract untouched.
@@ -109,6 +142,8 @@ class Contract:
         it allocates nothing: the mutable fields are saved and put back. One
         DFA, one transition table — `_consume` stays the single authority.
         """
+        if self.ends_turn(text):            # the stop, wherever it is offered
+            return True
         held = (self.state, self.lit, self.path, self.ticks, self.blocks,
                 self.left)
         ok = True
@@ -282,6 +317,9 @@ def vocab_texts(tokenizer, n: int) -> list[str]:
 _TABLES: dict = {}
 
 
+_STOP_TEXTS: list[str] = []   # terminator texts, with the table
+
+
 def _table(tokenizer):
     """(width, id -> text, marker ids, end-of-turn ids, first characters,
     first character -> ids), built once per tokenizer and shared."""
@@ -301,9 +339,20 @@ def _table(tokenizer):
         # In a code body only a backtick can move the DFA, so the ids holding
         # one are the only ones that need a walk (a few hundred of 150k).
         ticked = [i for i, t in enumerate(texts) if "`" in t]
+        # Which markers this tokenizer ends a turn with. mlx stops at the
+        # end-of-turn id and decodes with skip_special_tokens, so that piece —
+        # and only that piece — is absent from the text the harness parses.
+        # Everything else shaped like a marker lands in the answer and has to
+        # survive the DFA there.
+        turns = {int(eos)} if isinstance(eos, int) else set()
+        turns |= {i for i, t in enumerate(texts)
+                  if _MARKER.fullmatch(t) and t.strip()
+                  in ("<|" + "im_end" + "|>", "<|" + "endoftext" + "|>")}
+        _STOP_TEXTS[:] = sorted({texts[i] for i in turns}
+                                | {texts[i].strip() for i in turns})
         _TABLES[key] = (n, texts, markers,
                         [int(eos)] if isinstance(eos, int) else [],
-                        sorted(by_first), by_first, ticked)
+                        sorted(by_first), by_first, ticked, sorted(turns))
     return _TABLES[key]
 
 def _position(c: Contract):
@@ -346,9 +395,19 @@ class Masks:
     def __init__(self, contract: Contract, tokenizer):
         import mlx.core as mx
         self.tokenizer = tokenizer
-        self.prototype = contract.clone()
-        (n, self.texts, self.markers, self.eos, self.firsts, self.by_first,
-         self.ticked) = _table(tokenizer)
+        (n, self.texts, self.all_markers, self.eos, self.firsts,
+         self.by_first, self.ticked, turns) = _table(tokenizer)
+        # The mask-immune family is EXACTLY the pieces the decoder never shows
+        # the harness: the turn terminator (and its vocabulary twins). A role
+        # header, a vision block or any other marker is ordinary vocabulary that
+        # can be sampled into the answer and would then sit in the file the
+        # harness parses — so it stays under the DFA. Claiming all of them as
+        # "template control" was the first build's mistake: it let the mask and
+        # the walk disagree about the same bytes.
+        self.turns = turns
+        self.markers = turns
+        contract.stops = tuple(sorted({self.texts[i] for i in turns}
+                                     | {self.texts[i].strip() for i in turns}))
         self.n = n
         self._cache = _CACHE.setdefault(id(self.texts), {})
         self._arr: dict = {}
@@ -376,32 +435,44 @@ class Masks:
         if c.state == "s5":
             # Body: everything that carries no backtick survives by
             # construction; only the ticked ids can reach a closing fence.
-            ids = set(range(self.n)) - set(self.ticked)
+            ids = (set(range(self.n)) - set(self.ticked)
+                   - {i for i in self.all_markers
+                      if i not in set(self.turns or ())
+                      and not c.ends_turn(self.texts[i])})
             ids.update(i for i in self.ticked if c._try(self.texts[i]))
         else:
             ids = {i for ch in self.firsts if c._try(ch)
                    for i in self.by_first.get(ch, ()) if c._try(self.texts[i])}
-        ids.update(i for i in self.markers if c._try(self.texts[i]))
         return sorted(ids)
 
     def allowed(self, c: Contract) -> list[int]:
         """Ids the sampler may emit at this position, end-of-turn policy
         applied. `stop_ok` is a function of the position, so one cache serves
         both the list and the array."""
-        ids = self.ids_for(c)
-        if self.eos:
-            if c.stop_ok():
-                ids = sorted(set(ids) | set(self.eos))
-            else:                        # a stop here would not parse: forbid
-                ids = [i for i in ids if i not in set(self.eos)]
-        return ids
+        ids = set(self.ids_for(c)) | set(self.turns)
+        if c.stop_ok():
+            return sorted(ids)
+        # A stop that would not parse is not offered: mid-header, mid-path,
+        # mid-fence. Anywhere else the model has to finish the structure it
+        # started, because a truncated one is the answer the harness cannot run.
+        return sorted(ids - set(self.eos) - set(self.turns))
 
-    def allow(self, c: Contract):
-        """Boolean logits mask for the position."""
-        key = _position(c)
+    def allow(self, c: Contract, width: int | None = None):
+        """Boolean logits mask for the position.
+
+        `width` is the model's logit width. Some checkpoints pad it past the
+        vocabulary (live find on the census: 152064 against a 151657 token
+        table), and a mask narrower than the logits does not broadcast — it
+        just kills the run. The extra columns address no token at all, so they
+        stay illegal.
+        """
+        if width is None:
+            width = self.n
+        key = (_position(c), width)
         if key not in self._arr:
-            arr = self._mx.zeros((self.n,), dtype=self._mx.bool_)
+            arr = self._mx.zeros((width,), dtype=self._mx.bool_)
             ids = self.allowed(c)
+            ids = [i for i in ids if i < width] if width < self.n else ids
             if ids:
                 arr[ids] = True
             self._arr[key] = arr
@@ -445,8 +516,14 @@ class ConstrainedSampler:
         if the mask checked `texts[i]` and the DFA walked a re-decoded
         `tokenizer.decode([i])`, the two could disagree on a byte-level token
         and the sampler would blame itself for a mask it was handed.
+
+        A turn terminator ends the turn here and is not walked: the decoder
+        never shows it to the harness, and the contract's own `stop_ok` is the
+        gate that let the model choose it.
         """
         if not ids:
+            return True
+        if set(ids) & set(self.masks.eos):
             return True
         texts = self.masks.texts
         try:
@@ -470,12 +547,13 @@ class ConstrainedSampler:
         if k:
             self.consume(new.tolist())
             self._fed += k
-        if self.masks.unrestricted(self.contract):   # nothing to forbid: skip
+        if (logits.shape[-1] == self.masks.n
+                and self.masks.unrestricted(self.contract)):   # nothing to forbid
             self.steps += 1
             return logits
         self.steps += 1
-        return mx.where(self.masks.allow(self.contract), logits,
-                        self._penalty.astype(logits.dtype))
+        return mx.where(self.masks.allow(self.contract, logits.shape[-1]),
+                        logits, self._penalty.astype(logits.dtype))
 
     def finish(self) -> str:
         """Companion text to append once the turn has ended."""
@@ -512,6 +590,8 @@ def conformance(text: str, names: list[str]) -> tuple[bool, str]:
     `extract_files` have to rescue it? That distinction is the whole point of
     R-4.2, so the vector measures the shape, not just the recovery."""
     from flash.harness import extract_files
+    for stop in _STOP_TEXTS:               # what the decoder leaves out
+        text = text.replace(stop, "")
     c = Contract(mode="multi", names=tuple(names)).feed(text)
     if c is None:
         return False, "malformed"
@@ -553,7 +633,7 @@ def run_census(n: int = 100, model: str | None = None,
         if loaded is None:
             loaded = load(repo)
         model, tok = loaded
-        viol = trunc = illegal = 0
+        viol = trunc = illegal = rec = 0
         why: dict[str, int] = {}
         toks = secs = 0.0
         for i in range(n):
@@ -572,16 +652,23 @@ def run_census(n: int = 100, model: str | None = None,
             if not ok:
                 viol += 1
                 why[reason] = why.get(reason, 0) + 1
+            # The number that actually broke the mw suite: could the tolerant
+            # parser recover exactly the file set the task asked for?
+            from flash.harness import extract_files
+            got = extract_files(text, expected=names)
+            rec += int(set(got) == set(names) and all(v.strip()
+                                                     for v in got.values()))
             print(f"  [{arm:11s}] {i + 1:3d}/{n} {t['id']:16s} "
-                  f"{'ok ' if ok else 'BAD'} {reason:9s} viol={viol} "
+                  f"{'ok ' if ok else 'BAD'} {reason:9s} rec={rec}/{i + 1} "
                   f"{nt / max(dt, 1e-9):5.1f} tok/s {nt:4d} tok")
-        stats[arm] = dict(viol=viol, trunc=trunc, illegal=illegal, why=why,
+        stats[arm] = dict(viol=viol, rec=rec, trunc=trunc, illegal=illegal, why=why,
                           tps=toks / max(secs, 1e-9))
     for arm in arms:
         s = stats[arm]
         print(f"\n[census] {arm:11s}: {s['viol']}/{n} contract violations "
               f"{s['why']}  |  {s['trunc']} ended inside a block  |  "
-              f"{s['illegal']} mask breaches  |  {s['tps']:.1f} tok/s")
+              f"{s['illegal']} mask breaches  |  "
+              f"{s['rec']}/{n} recoverable by the parser  |  {s['tps']:.1f} tok/s")
     free, con = stats.get("free"), stats.get("constrained")
     if free and con and free["tps"]:
         print(f"[census] mask cost : {(1 - con['tps'] / free['tps']) * 100:+.1f}% "
@@ -723,7 +810,7 @@ def run_selftest() -> int:
     else:
         import mlx.core as mx
         t0 = time.perf_counter()
-        n, texts, markers, eos, firsts, by_first, ticked = _table(tok)
+        n, texts, markers, eos, firsts, by_first, ticked, turns = _table(tok)
         table_s = time.perf_counter() - t0
         con0 = Contract(mode="multi", names=names)
         samp = ConstrainedSampler(con0, tok)
@@ -740,7 +827,13 @@ def run_selftest() -> int:
         ck("no fence token is legal before the first header",
            bool(fence_ids) and not (fence_ids & set(start_ids)),
            f"{len(fence_ids)} excluded")
-        odd = sorted(x for x in {texts[i] for i in start_ids}
+        # ---- the mask, excluding template control: at a tight position the
+        # only things the DFA should admit are answer-shaped pieces (markers
+        # ride along everywhere by design, and the template strips them).
+        def answer_shaped(ids):
+            return [i for i in ids if i not in markers]
+
+        odd = sorted(x for x in {texts[i] for i in answer_shaped(start_ids)}
                      if not x.isspace() and not HEADER.startswith(x.lstrip()))
         ck("only whitespace and a header prefix can open the answer",
            not odd, f"{len(start_ids)} ids, odd={odd[:3]}")
@@ -749,6 +842,21 @@ def run_selftest() -> int:
         # ticked id plus a wide stride of the unticked ones.
         body_set = set(body_ids)
         probe = list(ticked) + list(range(0, n, 37))
+        # Only the terminator is excused. A role marker is answer text, and it
+        # has to survive the DFA where it would be sampled — the body included.
+        L, S = "im_" + "end", "user"                  # built: no chat marker here
+        role = ["<|" + S + "|>", "<|" + L + "|>assistant\n"]
+        body_ids = set(body_ids)
+        ck("a role marker is refused even inside a code body",
+           all(texts[i] not in role for i in body_ids),
+           f"{len(role)} shapes checked")
+        ck("the terminator is the only mask-immune piece, and it is excused",
+           set(turns) <= set(samp.masks.markers)
+           and con0.ends_turn(texts[turns[0]])
+           and not con0.ends_turn("<|" + S + "|>")
+           and con0.absorb(texts[turns[0]]) is not None
+           and con0.feed(texts[turns[0]]) is None,
+           f"turns={[texts[i] for i in turns]}")
         ck("the body mask matches a direct DFA walk",
            all((con0.at("s5").feed(texts[i]) is not None) == (i in body_set)
                for i in probe),
@@ -757,27 +865,29 @@ def run_selftest() -> int:
         def path_ok(pos, ids):
             pool = pos.left or names
             return all(any(nm.startswith(pos.path + texts[i]) for nm in pool)
-                       for i in ids)
+                       for i in answer_shaped(ids))
 
         at_path = con0.feed(HEADER)
         p_ids = samp.masks.ids_for(at_path) if at_path else []
         ck("path pieces are restricted to the required names",
-           bool(p_ids) and path_ok(at_path, p_ids), f"{len(p_ids)} ids")
+           any(p_ids) and path_ok(at_path, p_ids), f"{len(p_ids)} ids")
         deep = at_path.feed(names[0][0]) if at_path else None
         d_ids = samp.masks.ids_for(deep) if deep else []
         ck("mid-path pieces track the remaining names",
-           bool(d_ids) and path_ok(deep, d_ids), f"{len(d_ids)} ids")
+           any(d_ids) and path_ok(deep, d_ids), f"{len(d_ids)} ids")
         done = con0.feed(_reference(t))
         a_ids = samp.masks.ids_for(done) if done else []
         ck("once every file is written, no new block can open",
-           not any(texts[i].lstrip().startswith("#") for i in a_ids),
+           not any(texts[i].lstrip().startswith("#")
+                   for i in answer_shaped(a_ids)),
            f"{len(a_ids)} ids, none of them a header")
         # The exact bug this pins: a bare '#' offered after the last file leads
         # to a path position with nothing left to name — a dead end the model
         # can neither leave nor stop out of.
         ck("a finished file set offers only whitespace and the stop",
-           done is not None and all(texts[i].isspace() for i in a_ids)
-           and done.stop_ok(), f"{len(a_ids)} ids")
+           done is not None and all(texts[i].isspace()
+                                    for i in answer_shaped(a_ids))
+           and done.stop_ok(), f"{len(answer_shaped(a_ids))} answer ids")
         ck("mask compilation is cheap enough to amortize", build_s < 2.0,
            f"{build_s:.2f}s for the start and body positions")
         logits = mx.ones((n,), dtype=mx.float32)
@@ -786,6 +896,16 @@ def run_selftest() -> int:
                                  mx.zeros_like(masked))).item())
         ck("a masked step leaves exactly the allowed ids unpenalised",
            un == len(samp.allowed_ids()), f"{un} vs {len(samp.allowed_ids())}")
+        # The census's own crash: this checkpoint's logits are 152064 wide for
+        # a 151657-token vocabulary, and a mask sized to the table does not
+        # broadcast against them.
+        wide = mx.ones((n + 4096,), dtype=mx.float32)
+        wmask = samp(mx.array([7], dtype=mx.uint32), wide)
+        wun = int(mx.sum(mx.where(wmask > -1e3, mx.ones_like(wmask),
+                                  mx.zeros_like(wmask))).item())
+        ck("a logit width padded past the vocabulary is masked, not crashed",
+           wmask.shape == wide.shape and wun == len(samp.allowed_ids()),
+           f"{wide.shape[-1]} columns over a {n}-token table")
         ck("end-of-turn is masked where a stop would not parse",
            all(i not in samp.allowed_ids() for i in samp.masks.eos),
            f"position {samp.contract.state}, {len(samp.allowed_ids())} ids")
@@ -797,8 +917,16 @@ def run_selftest() -> int:
            all(closed.contract.stop_ok() and inbody.contract.stop_ok()
                and set(samp.masks.eos) <= set(x.allowed_ids())
                for x in (closed, inbody)), str(samp.masks.eos))
-        ck("a clean body step does no mask work at all",
-           inbody(mx.array([7], dtype=mx.uint32), logits) is logits)
+        # In a clean body the mask refuses only the template markers. They are
+        # answer text as far as the harness is concerned: a vision block or a
+        # second role header landing mid-file is exactly the corruption this
+        # module exists to prevent, so nothing wider is excused here.
+        off = set(inbody.allowed_ids())
+        refused = [i for i in range(n) if i not in off]
+        ck("a clean body step refuses exactly the template markers",
+           refused and all(_MARKER.fullmatch(texts[i]) for i in refused)
+           and set(refused) == set(inbody.masks.all_markers) - set(inbody.masks.turns),
+           f"{len(refused)} refused, {len(off)} of {n} offered")
 
         # The bug this pins: a body that has already spent a backtick does NOT
         # admit the whole vocabulary — '```' there closes the fence and leaves
@@ -843,7 +971,7 @@ def run_selftest() -> int:
                 if not s.consume([pick]):
                     breach += 1
                     break
-                pieces.append(texts[pick])
+                pieces.append(texts[pick])       # markers included: as emitted
                 pieces_seen += 1
             else:
                 cut += 1                        # out of steps: the budget case
@@ -891,6 +1019,15 @@ def run_selftest() -> int:
                     break
             if not blocked and not w.contract.can_stop():
                 blocked.append((x["id"], "no stop offered at the end"))
+        # The live census's failure mode, pinned: a masked answer that ends on
+        # the terminator has to read as the answer, not as a violation.
+        stop_txt = texts[turns[0]]
+        whole = _reference(t)
+        ck("stopping on the terminator leaves the answer conforming",
+           conformance(whole + stop_txt, list(names))[0]
+           and conformance(whole + stop_txt + "\n", list(names))[0],
+           repr(stop_txt))
+
         ck("no mw reference is blocked by its own mask", not blocked,
            str(blocked[:3]))
     # ---- 30-31 the vector's own measure on shipped answers
