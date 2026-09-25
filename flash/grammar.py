@@ -504,6 +504,7 @@ class ConstrainedSampler:
         self._fed = 0
         self.steps = 0
         self.illegal_picks = 0
+        self.first_breach = ""        # ids/text/position of the first refusal
 
     # ---------------------------------------------------------- bookkeeping
     def allowed_ids(self) -> list[int]:
@@ -524,19 +525,36 @@ class ConstrainedSampler:
         """
         if not ids:
             return True
-        if set(ids) & set(self.masks.eos):
+        if set(ids) & set(self.masks.turns):
+            # A turn terminator ends the turn and is never answer text. Tested
+            # against `turns`, not `eos`: `Masks.allowed` offers the whole
+            # turn family wherever `stop_ok` holds, so checking only `eos`
+            # refused a legal stop one token after the model chose it — the
+            # census's one breach per generation, in a build whose offline walk
+            # had zero in 11 191 pieces. The walker's mistake, not the model's.
             return True
+        for piece in self.pieces(ids):
+            nxt = self.contract.absorb(piece)
+            if nxt is None:
+                self.illegal_picks += 1
+                if not self.first_breach:
+                    # Named, not counted: "99 breaches" is a statistic, this is
+                    # a diagnosis. The census prints the first one per arm.
+                    self.first_breach = (" ".join(f"{i}:{self.masks.texts[i]!r}"
+                                      for i in ids) + " at "
+                                 + self.contract.snapshot())
+                return False
+            self.contract = nxt
+        return True
+
+    def pieces(self, ids: list[int]) -> list[str]:
+        """Piece texts for sampled ids, from the table the mask used."""
         texts = self.masks.texts
         try:
-            text = "".join(texts[i] for i in ids)
+            return [texts[i] for i in ids]
         except IndexError:                        # id beyond the table
-            text = self.tokenizer.decode(ids, clean_up_tokenization_spaces=False)
-        nxt = self.contract.feed(text)
-        if nxt is None:
-            self.illegal_picks += 1
-            return False
-        self.contract = nxt
-        return True
+            return [self.tokenizer.decode([i], clean_up_tokenization_spaces=False)
+                    for i in ids]
 
     # ------------------------------------------------------------- the hook
     def __call__(self, tokens, logits):
@@ -687,6 +705,7 @@ def run_census(n: int = 100, model: str | None = None,
             loaded = load(repo)
         model, tok = loaded
         viol = trunc = illegal = rec = 0
+        breach_example = ""
         why: dict[str, int] = {}
         toks = secs = 0.0
         for i in range(n):
@@ -700,7 +719,9 @@ def run_census(n: int = 100, model: str | None = None,
             toks += nt
             cut = bool(samp and samp.contract.truncated())
             trunc += cut
-            illegal += samp.illegal_picks if samp else 0
+            if samp and samp.illegal_picks > illegal:
+                illegal = samp.illegal_picks
+                breach_example = breach_example or samp.first_breach
             ok, reason = conformance(text, names)
             if not ok:
                 viol += 1
@@ -714,7 +735,8 @@ def run_census(n: int = 100, model: str | None = None,
             print(f"  [{arm:11s}] {i + 1:3d}/{n} {t['id']:16s} "
                   f"{'ok ' if ok else 'BAD'} {reason:9s} rec={rec}/{i + 1} "
                   f"{nt / max(dt, 1e-9):5.1f} tok/s {nt:4d} tok")
-        stats[arm] = dict(viol=viol, rec=rec, trunc=trunc, illegal=illegal, why=why,
+        stats[arm] = dict(viol=viol, rec=rec, trunc=trunc, illegal=illegal,
+                          breach_example=breach_example, why=why,
                           tps=toks / max(secs, 1e-9))
     for arm in arms:
         s = stats[arm]
@@ -722,6 +744,8 @@ def run_census(n: int = 100, model: str | None = None,
               f"{s['why']}  |  {s['trunc']} ended inside a block  |  "
               f"{s['illegal']} mask breaches  |  "
               f"{s['rec']}/{n} recoverable by the parser  |  {s['tps']:.1f} tok/s")
+        if s.get("breach_example"):
+            print(f"[census] first breach: {s['breach_example']}")
     free, con = stats.get("free"), stats.get("constrained")
     if free and con and free["tps"]:
         print(f"[census] mask cost : {(1 - con['tps'] / free['tps']) * 100:+.1f}% "
