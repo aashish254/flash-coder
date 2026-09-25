@@ -39,6 +39,11 @@ class Attempt:
     err: str = ""
 
 
+# R-4.2: when on, every generation is masked to the task's output contract
+# (flash/grammar.py). The CLI's --constrain sets it; a suite A/B flips it.
+CONSTRAIN = False
+
+
 @dataclass
 class SolveResult:
     task_id: str
@@ -53,7 +58,8 @@ class SolveResult:
 
 def _generate(model, tokenizer, messages: list[dict], max_tokens: int,
               temp: float = 0.0, seed: int | None = None,
-              task_id: str = "", attempt: int = 0) -> str:
+              task_id: str = "", attempt: int = 0,
+              contract=None) -> str:
     from mlx_lm import generate
     from mlx_lm.sample_utils import make_sampler
     prompt = tokenizer.apply_chat_template(messages, tokenize=False,
@@ -68,13 +74,26 @@ def _generate(model, tokenizer, messages: list[dict], max_tokens: int,
         # index makes each retry draw from a different stream.
         import mlx.core as mx
         mx.random.seed(seed)
+    # R-4.2: a contract turns the output protocol into a per-step token mask.
+    # Never combine with a draft model — speculative decoding rejects tokens
+    # the DFA has already consumed (flash.grammar docstring).
+    guard = None
+    if contract is not None:
+        from flash.grammar import ConstrainedSampler
+        guard = ConstrainedSampler(contract, tokenizer)
     t0 = time.perf_counter()
     out = generate(model, tokenizer, prompt=prompt, max_tokens=max_tokens,
-                   verbose=False, sampler=sampler)
+                   verbose=False, sampler=sampler,
+                   logits_processors=[guard] if guard else None)
+    if guard is not None:
+        out = out + guard.finish()     # deterministic repair of a cut block
     trace.event("generate", task_id=task_id or None, attempt=attempt, temp=temp,
                 max_tokens=max_tokens, ms=round((time.perf_counter() - t0) * 1000),
                 prompt_tokens=trace.n_tokens(tokenizer, prompt),
                 completion_tokens=trace.n_tokens(tokenizer, out),
+                constrained=guard is not None,
+                mask_steps=guard.steps if guard else None,
+                mask_breaches=guard.illegal_picks if guard else None,
                 prompt=prompt if trace.CAPTURE else None,
                 output=out if trace.CAPTURE else None)
     return out
@@ -122,8 +141,28 @@ def _symbol_hint(task: dict, err: str, code: str = "") -> str:
     return f"{err}\n\n{hint}" if hint else err
 
 
+def _contract_for(task: dict, expected: list[str] | None,
+                  repair: list[str] | None, constrain: bool | None = None):
+    """The R-4.2 output contract for this attempt, or None to generate freely.
+
+    A retry that was asked to fix specific files gets a contract over exactly
+    those names — per-file persistence makes a narrow answer safe, and the
+    mask then keeps the narrow answer well-formed. With no file set to name
+    (a task that never declares one) there is nothing to constrain, and the
+    loop degrades to free generation rather than inventing a protocol (I-7).
+    """
+    if not (CONSTRAIN if constrain is None else constrain):
+        return None
+    from flash.grammar import Contract
+    if not task.get("multi"):
+        return Contract(mode="fence")
+    names = tuple(repair or expected or Contract.names_from_prompt(task["prompt"]))
+    return Contract(mode="multi", names=names) if names else None
+
+
 def solve(model, tokenizer, task: dict, max_attempts: int = 3,
-          max_tokens: int = 1024) -> SolveResult:
+          max_tokens: int = 1024,
+          constrain: bool | None = None) -> SolveResult:
     if task.get("multi"):               # multi-file answers are 2x+ longer;
         max_tokens = max(max_tokens, 2048)   # 1024 truncates mid-file (live: mw4)
     t0 = time.perf_counter()
@@ -132,10 +171,13 @@ def solve(model, tokenizer, task: dict, max_attempts: int = 3,
     code = ""
     expected: list[str] | None = None            # multi: file set from attempt 1
     merged: dict[str, str] = {}                  # multi: per-file persistent state
+    repair: list[str] | None = None              # multi: files a retry must fix
     for attempt_i in range(max_attempts):
         out = _generate(model, tokenizer, messages, max_tokens,
                         temp=0.0 if attempt_i == 0 else 0.7, seed=attempt_i,
-                        task_id=task["id"], attempt=attempt_i)
+                        task_id=task["id"], attempt=attempt_i,
+                        contract=_contract_for(task, expected, repair,
+                                               constrain))
         vt0 = time.perf_counter()
         kind = "test"
         if task.get("multi"):                       # M2: coordinated file set

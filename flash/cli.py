@@ -172,6 +172,7 @@ def cmd_escalate_test(args) -> int:
 def cmd_run(args) -> int:
     """The full agent on one task: PERCEIVE(repo) -> ROUTE -> small -> ESC."""
     from flash import trace
+    import flash.loop as loop
     from flash.loop import solve_routed
 
     task = {"id": "adhoc", "prompt": args.prompt,
@@ -179,6 +180,7 @@ def cmd_run(args) -> int:
     if args.context:
         task["context"] = args.context
     trace.CAPTURE = args.trace_full
+    loop.CONSTRAIN = args.constrain
     sid = trace.open_session("run", cmd="run", params={"prompt": args.prompt[:200],
                                                        "small": args.small,
                                                        "big": args.big,
@@ -200,7 +202,7 @@ def cmd_run(args) -> int:
 
 
 SUITE_PARAMS = ("small", "big", "tasks", "with_context", "attempts", "max_tasks",
-                "max_tokens", "max_chars", "threshold", "allow_big")
+                "max_tokens", "max_chars", "threshold", "allow_big", "constrain")
 
 
 def _run_suite(params: dict, sid: str | None = None) -> int:
@@ -213,7 +215,9 @@ def _run_suite(params: dict, sid: str | None = None) -> int:
     from flash import trace
     from flash.harness import load_tasks
     from flash.loop import solve_routed
+    import flash.loop as loop
 
+    loop.CONSTRAIN = bool(params.get("constrain"))   # R-4.2 output mask
     if params["threshold"] <= 1.0:          # gate on -> keep the router learning
         from flash.learn import autofit_if_stale
         msg = autofit_if_stale(params["small"])
@@ -599,6 +603,10 @@ def main() -> int:
                    help="escalation vs the §34.1 power governor: auto obeys the "
                         "profile (battery/heat/memory shed the brain), always is "
                         "the benchmark override, never is single-track")
+    p.add_argument("--constrain", action="store_true",
+                   help="R-4.2: mask every decode step to the task's output contract "
+                        "(# file: headers + fences), so a malformed answer is "
+                        "structurally impossible")
     p.add_argument("--trace-full", action="store_true",
                    help="§33.6: also store the exact prompts and outputs, so the "
                         "run can be re-fed to a model")
@@ -624,6 +632,8 @@ def main() -> int:
     p.add_argument("--resume", nargs="?", const="", default=None, metavar="SESSION",
                    help="§33.7: continue an interrupted trace session (blank = the "
                         "latest one) instead of starting a new run")
+    p.add_argument("--constrain", action="store_true",
+                   help="R-4.2: constrained decoding on the output contract")
     p.add_argument("--trace-full", action="store_true",
                    help="§33.6: store exact prompts/outputs too, for re-feeding")
     p.set_defaults(fn=cmd_run_suite)
@@ -642,6 +652,8 @@ def main() -> int:
     p.add_argument("--max-chars", type=int, default=None)
     p.add_argument("--threshold", type=float, default=None)
     p.add_argument("--allow-big", choices=("auto", "always", "never"), default=None)
+    p.add_argument("--constrain", action="store_true", default=None,
+                   help="R-4.2: omit to keep the resumed session's setting")
     p.add_argument("--trace-full", action="store_true")
     p.set_defaults(fn=cmd_resume)
 

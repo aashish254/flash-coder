@@ -62,7 +62,7 @@ the outcome flywheel, hardware governance, observability, recovery.
 
 | ID | Invariant | MUST | Conformance vector |
 |---|---|---|---|
-| I-1 | Reversibility | Every mutation of code, weights, skills or memory is a commit. | `git status` clean after a run; one commit per accepted change. **BLOCKED: this workspace is not a git repo** (see §9, P0). |
+| I-1 | Reversibility | Every mutation of code, weights, skills or memory is a commit. | `git status` clean after a run; one commit per accepted change. **SHIPPED 2026-09-25: repo initialised at baseline `0ea2798` (72 files, `.venv` excluded); pushing stays a user-gated step.** |
 | I-2 | Gated change | No self-modification ships without beating the frozen harness. | A change to model, router or prompt fabric reports pass rates on the frozen suites vs the recorded baseline; a regression blocks the merge. |
 | I-3 | Bounded resources | The agent sheds load before the user notices it. | `flash power` reports the profile; a run on battery records `tier="shed"` rather than loading the brain. **SHIPPED, measured 2026-09-25.** |
 | I-4 | Offline-first | Every feature degrades gracefully with no network. | `flash web --selftest` (9/9) and the offline battery below run with the radio off. |
@@ -275,7 +275,6 @@ the honest label is *a very good local loop with instrumentation*.
 
 | Item | Blocker | Interim |
 |---|---|---|
-| I-1 git reversibility | no repository here | user decision (P0) |
 | §34.1 16GB co-residency arm | this box is 32GB, single-user | profiles + shed evidence on battery |
 | Watts/task (G6 energy) | `powermetrics` needs sudo | tokens + seconds per task in the trace |
 | M16 24h chaos | needs a 24h window | offline kill/resume checks (11/11) |
