@@ -542,7 +542,12 @@ class ConstrainedSampler:
     def __call__(self, tokens, logits):
         import mlx.core as mx
         if self._base is None:
-            self._base = len(tokens) - 1        # the prompt's last token
+            # The first call's array is the whole prompt and nothing else: the
+            # baseline is its length, not its last index. Reading the last
+            # prompt token as generated text was the live census's 49 mask
+            # breaches — a prompt ending in '.' fed the DFA a piece no answer
+            # may start with, and the refusal was counted against the mask.
+            self._base = len(tokens)
         new = tokens[self._base + self._fed:]
         k = len(new)
         if k:
@@ -965,6 +970,22 @@ def run_selftest() -> int:
            all(closed.contract.stop_ok() and inbody.contract.stop_ok()
                and set(samp.masks.eos) <= set(x.allowed_ids())
                for x in (closed, inbody)), str(samp.masks.eos))
+        # The live census's 49 mask breaches, pinned offline: the first call's
+        # array is the whole prompt, and its last token is not generated text.
+        # Reading it as answer text fed the DFA a piece no answer may start
+        # with — a prompt ending in '.' produced a refusal the mask was blamed
+        # for.
+        pre = ConstrainedSampler(con0, tok)
+        prompt_ids = tok.encode('File "ring.py": a ring buffer.',
+                                add_special_tokens=False)
+        pre(mx.array(prompt_ids, dtype=mx.uint32), logits)
+        after_prompt = pre.contract.snapshot()
+        hash_id = [i for i in pre.allowed_ids() if texts[i] == "#"]
+        pre(mx.array(prompt_ids + hash_id, dtype=mx.uint32), logits)
+        ck("the prompt is never walked as answer text",
+           pre.illegal_picks == 0 and after_prompt.startswith("s0")
+           and pre.contract.state == "s1", f"prompt call -> {after_prompt}")
+
         # In a clean body the mask refuses only the template markers. They are
         # answer text as far as the harness is concerned: a vision block or a
         # second role header landing mid-file is exactly the corruption this
