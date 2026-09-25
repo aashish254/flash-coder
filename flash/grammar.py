@@ -37,6 +37,7 @@ them, and SPEC P3 has to revisit this.
 
     python -m flash.grammar --selftest              # offline, tokenizer only
     python -m flash.grammar --census [--n 100]      # live: violation census
+    python -m flash.grammar --overhead              # live: ms/step of the mask
 """
 from __future__ import annotations
 
@@ -603,6 +604,53 @@ def conformance(text: str, names: list[str]) -> tuple[bool, str]:
     return True, "ok"
 
 
+def run_overhead(model: str | None = None, iters: int = 400) -> int:
+    """The mask's per-step cost, measured against the decode step it joins.
+
+    The census cannot answer the latency question on its own: the constraint
+    also changes what the model writes (a masked answer goes straight into the
+    protocol instead of narrating around it), so end-to-end tok/s compares two
+    different workloads. This measures the one thing the mask actually adds —
+    applying a cached vocabulary array per step — against the model's own step
+    time, reported as a share of decode. No weights are loaded: the tokenizer
+    and the arithmetic are the whole cost.
+    """
+    import mlx.core as mx
+    from mlx_lm import load
+
+    repo = model or "mlx-community/Qwen2.5-Coder-7B-Instruct-4bit"
+    model, tok = load(repo)
+    del model                                  # the mask never touches weights
+    mx.clear_cache()
+    c = Contract(mode="multi", names=("ring.py", "stats.py"))
+    samp = ConstrainedSampler(c, tok)
+    logits = mx.zeros((1, samp.masks.n), dtype=mx.float32)
+    out = []
+    for label, pos in (("a header position", c.at("s0")),
+                       ("a path position", c.feed(HEADER)),
+                       ("a clean body position", c.at("s5"))):
+        samp.contract = pos.clone()
+        samp(mx.array([7], dtype=mx.uint32), logits)      # compile + cache
+        mx.eval(logits)
+        t0 = time.perf_counter()
+        for _ in range(iters):
+            samp(mx.array([7], dtype=mx.uint32), logits)
+        mx.eval(logits)
+        per = (time.perf_counter() - t0) / iters * 1000
+        out.append((label, per, samp.contract.state))
+    step_ms = 1000.0 / 21.1                    # this box's measured free-arm rate
+    print(f"[overhead] {iters} applications per position, logits "
+          f"{logits.shape[-1]} wide, model step ~{step_ms:.1f} ms")
+    worst = 0.0
+    for label, per, state in out:
+        worst = max(worst, per)
+        print(f"[overhead] {label:22s} ({state}) {per:6.3f} ms/step  "
+              f"= {per / step_ms * 100:4.1f}% of the decode step")
+    print(f"[overhead] worst position: {worst:.3f} ms/step = "
+          f"{worst / step_ms * 100:.1f}% (budget 5%)")
+    return 0 if worst / step_ms * 100 <= 5.0 else 1
+
+
 def run_census(n: int = 100, model: str | None = None,
                tasks_file: str | None = None, max_tokens: int = 1500,
                seed0: int = 1000, attempts: str = "both") -> int:
@@ -1067,6 +1115,13 @@ def run_selftest() -> int:
 
 if __name__ == "__main__":                       # pragma: no cover
     a = sys.argv[1:]
+    if a and a[0] == "--overhead":
+        kw = {}
+        for flag, name, cast in (("--model", "model", str),
+                                 ("--iters", "iters", int)):
+            if flag in a:
+                kw[name] = cast(a[a.index(flag) + 1])
+        raise SystemExit(run_overhead(**kw))
     if a and a[0] == "--census":
         kw = {}
         for flag, name, cast in (("--n", "n", int), ("--model", "model", str),

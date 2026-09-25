@@ -181,6 +181,7 @@ def cmd_run(args) -> int:
         task["context"] = args.context
     trace.CAPTURE = args.trace_full
     loop.CONSTRAIN = args.constrain
+    loop.DEBUG = args.debug
     sid = trace.open_session("run", cmd="run", params={"prompt": args.prompt[:200],
                                                        "small": args.small,
                                                        "big": args.big,
@@ -202,7 +203,8 @@ def cmd_run(args) -> int:
 
 
 SUITE_PARAMS = ("small", "big", "tasks", "with_context", "attempts", "max_tasks",
-                "max_tokens", "max_chars", "threshold", "allow_big", "constrain")
+                "max_tokens", "max_chars", "threshold", "allow_big", "constrain",
+                "debug")
 
 
 def _run_suite(params: dict, sid: str | None = None) -> int:
@@ -218,6 +220,7 @@ def _run_suite(params: dict, sid: str | None = None) -> int:
     import flash.loop as loop
 
     loop.CONSTRAIN = bool(params.get("constrain"))   # R-4.2 output mask
+    loop.DEBUG = bool(params.get("debug"))           # R-4.3 execution digest
     if params["threshold"] <= 1.0:          # gate on -> keep the router learning
         from flash.learn import autofit_if_stale
         msg = autofit_if_stale(params["small"])
@@ -607,6 +610,10 @@ def main() -> int:
                    help="R-4.2: mask every decode step to the task's output contract "
                         "(# file: headers + fences), so a malformed answer is "
                         "structurally impossible")
+    p.add_argument("--debug", action="store_true",
+                   help="R-4.3: re-run a failed test under a line tracer and put the "
+                        "execution digest (value history, last mutated line) in the "
+                        "retry feedback")
     p.add_argument("--trace-full", action="store_true",
                    help="§33.6: also store the exact prompts and outputs, so the "
                         "run can be re-fed to a model")
@@ -634,6 +641,8 @@ def main() -> int:
                         "latest one) instead of starting a new run")
     p.add_argument("--constrain", action="store_true",
                    help="R-4.2: constrained decoding on the output contract")
+    p.add_argument("--debug", action="store_true",
+                   help="R-4.3: execution digest in the retry feedback")
     p.add_argument("--trace-full", action="store_true",
                    help="§33.6: store exact prompts/outputs too, for re-feeding")
     p.set_defaults(fn=cmd_run_suite)
@@ -654,6 +663,8 @@ def main() -> int:
     p.add_argument("--allow-big", choices=("auto", "always", "never"), default=None)
     p.add_argument("--constrain", action="store_true", default=None,
                    help="R-4.2: omit to keep the resumed session's setting")
+    p.add_argument("--debug", action="store_true", default=None,
+                   help="R-4.3: omit to keep the resumed session's setting")
     p.add_argument("--trace-full", action="store_true")
     p.set_defaults(fn=cmd_resume)
 

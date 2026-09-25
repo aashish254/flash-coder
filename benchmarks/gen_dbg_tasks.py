@@ -1,0 +1,125 @@
+"""Build benchmarks/tasks/dbg_tasks.jsonl (SPEC R-4.3 vector suite).
+
+Every task here fails on an assertion whose traceback is *not* where the bug
+was made: the value is wrong by the time the assert notices, because a helper
+mutated a caller's list, an accumulator survived between calls, or a loop
+stopped one element early. That is the difference the debugger arm has to
+show, so the suite is built to be misleading without execution evidence.
+
+`solution` is the correct implementation; `seeded` is the bug a model
+typically writes for it, kept in the record so the offline check can prove the
+digest blames the seeding line rather than the assert line.
+"""
+import json
+from pathlib import Path
+
+TASKS = [
+    dict(
+        id="dbg01_alias_sort",
+        prompt="Write a function top_k(scores, k) that returns the k highest "
+               "scores in descending order. The caller's list must come back "
+               "unchanged. Return only the code.",
+        test="xs = [5, 3, 9, 1, 7]\nassert top_k(xs, 3) == [9, 7, 5]\n"
+             "assert xs == [5, 3, 9, 1, 7]\n",
+        solution="def top_k(scores, k):\n    return sorted(scores, reverse=True)[:k]\n",
+        seeded="def top_k(scores, k):\n    scores.sort(reverse=True)\n    return scores[:k]\n",
+        blame="scores.sort"),
+    dict(
+        id="dbg02_stale_accumulator",
+        prompt="Write a function window_sum(values, size) returning the sum of "
+               "each consecutive window of `size` items. Each call is "
+               "independent. Return only the code.",
+        test="assert window_sum([1, 2, 3, 4], 2) == [3, 5, 7]\n"
+             "assert window_sum([1, 2], 2) == [3]\n",
+        solution="def window_sum(values, size):\n    return [sum(values[i:i + size])\n"
+                 "            for i in range(len(values) - size + 1)]\n",
+        seeded="def window_sum(values, size, _acc=[]):\n    for i in range(len(values) - size + 1):\n"
+               "        _acc.append(sum(values[i:i + size]))\n    return _acc\n",
+        blame="_acc.append"),
+    dict(
+        id="dbg03_offby_tail",
+        prompt="Write adjacent_pairs(seq) returning [(seq[0], seq[1]), "
+               "(seq[1], seq[2]), ...] for every neighbouring pair. Return "
+               "only the code.",
+        test="assert adjacent_pairs([1, 2, 3]) == [(1, 2), (2, 3)]\n"
+             "assert adjacent_pairs([]) == []\n",
+        solution="def adjacent_pairs(seq):\n    return [(seq[i], seq[i + 1])\n"
+                 "            for i in range(len(seq) - 1)]\n",
+        seeded="def adjacent_pairs(seq):\n    out = []\n    for i in range(len(seq) - 2):\n"
+               "        out.append((seq[i], seq[i + 1]))\n    return out\n",
+        blame="len(seq) - 2"),
+    dict(
+        id="dbg04_dict_alias",
+        prompt="Write rename_keys(data, mapping) returning a new dict with the "
+               "keys named in mapping replaced by their values. data must be "
+               "left as it was. Return only the code.",
+        test="src = {'a': 1, 'b': 2}\nout = rename_keys(src, {'a': 'alpha'})\n"
+             "assert out == {'alpha': 1, 'b': 2}\nassert src == {'a': 1, 'b': 2}\n",
+        solution="def rename_keys(data, mapping):\n    return {mapping.get(k, k): v\n"
+                 "            for k, v in data.items()}\n",
+        seeded="def rename_keys(data, mapping):\n    for old, new in mapping.items():\n"
+               "        if old in data:\n            data[new] = data.pop(old)\n    return data\n",
+        blame="data.pop(old)"),
+    dict(
+        id="dbg05_int_division",
+        prompt="Write mean(values) returning the arithmetic mean as a float. "
+               "Return only the code.",
+        test="assert mean([1, 2, 3, 4]) == 2.5\nassert mean([7]) == 7.0\n",
+        solution="def mean(values):\n    return sum(values) / len(values)\n",
+        seeded="def mean(values):\n    total = 0\n    for v in values:\n        total += v\n"
+               "    return total // len(values)\n",
+        blame="total //"),
+    dict(
+        id="dbg06_mutable_default",
+        prompt="Write a counter factory make_tagger() such that each tagger "
+               "counts its own calls: tagger('x') returns 'x-1', then 'x-2'. "
+               "Two taggers made separately must not share counts. Return only "
+               "the code.",
+        test="a = make_tagger()\nb = make_tagger()\nassert a('x') == 'x-1'\n"
+             "assert a('x') == 'x-2'\nassert b('x') == 'x-1'\n",
+        solution="def make_tagger():\n    counts = {}\n\n    def tag(name):\n"
+                 "        counts[name] = counts.get(name, 0) + 1\n"
+                 "        return f'{name}-{counts[name]}'\n    return tag\n",
+        seeded="def make_tagger(counts={}):\n    def tag(name):\n"
+               "        counts[name] = counts.get(name, 0) + 1\n"
+               "        return f'{name}-{counts[name]}'\n    return tag\n",
+        blame="counts[name] ="),
+    dict(
+        id="dbg07_shared_row",
+        prompt="Write make_grid(rows, cols) returning a list of rows, each a "
+               "list of zeros, as a rectangular grid. Return only the code.",
+        test="g = make_grid(2, 3)\ng[0][0] = 1\nassert g == [[1, 0, 0], [0, 0, 0]]\n",
+        solution="def make_grid(rows, cols):\n    return [[0] * cols for _ in range(rows)]\n",
+        seeded="def make_grid(rows, cols):\n    row = [0] * cols\n    return [row] * rows\n",
+        blame="[row] * rows"),
+    dict(
+        id="dbg08_dedupe_order",
+        prompt="Write dedupe(items) returning the items with duplicates "
+               "removed, keeping first-seen order, without changing the "
+               "caller's list. Return only the code.",
+        test="src = [3, 1, 3, 2, 1]\nassert dedupe(src) == [3, 1, 2]\n"
+             "assert src == [3, 1, 3, 2, 1]\n",
+        solution="def dedupe(items):\n    seen = set()\n    out = []\n"
+                 "    for v in items:\n        if v not in seen:\n"
+                 "            seen.add(v)\n            out.append(v)\n    return out\n",
+        seeded="def dedupe(items):\n    seen = set()\n    for v in list(items):\n"
+               "        if v in seen:\n            items.remove(v)\n        else:\n"
+               "            seen.add(v)\n    return items\n",
+        blame="items.remove(v)"),
+]
+
+
+def main() -> int:
+    out = Path("benchmarks/tasks/dbg_tasks.jsonl")
+    rows = []
+    for t in TASKS:
+        t = dict(t)
+        t["multi"] = False
+        rows.append(t)
+    out.write_text("".join(json.dumps(r) + "\n" for r in rows))
+    print(f"wrote {len(rows)} tasks to {out}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

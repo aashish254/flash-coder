@@ -43,6 +43,11 @@ class Attempt:
 # (flash/grammar.py). The CLI's --constrain sets it; a suite A/B flips it.
 CONSTRAIN = False
 
+# R-4.3: when on, a failed verify is re-run under the tracer (flash/debug.py)
+# and the execution digest joins the retry feedback. The A/B that decides the
+# default is `run-suite --tasks dbg_tasks.jsonl` with and without it.
+DEBUG = False
+
 
 @dataclass
 class SolveResult:
@@ -160,9 +165,26 @@ def _contract_for(task: dict, expected: list[str] | None,
     return Contract(mode="multi", names=names) if names else None
 
 
+def _debug_feedback(task: dict, code: str, merged: dict[str, str],
+                    err: str) -> str:
+    """Append what execution actually did to a failing verdict (R-4.3).
+
+    Losing the debugger (a tracer error, a hostile candidate, no trail) costs
+    the extra signal and nothing else: the traceback feedback stays (I-7).
+    """
+    from flash.debug import watch, watch_files
+    try:
+        d = (watch_files(merged, task["test"]) if task.get("multi") and merged
+             else watch(code, task["test"]))
+    except Exception:
+        return err
+    return f"{err}\n\n{d.as_feedback()}" if (d.trail and not d.ok) else err
+
+
 def solve(model, tokenizer, task: dict, max_attempts: int = 3,
           max_tokens: int = 1024,
-          constrain: bool | None = None) -> SolveResult:
+          constrain: bool | None = None,
+          debug: bool | None = None) -> SolveResult:
     if task.get("multi"):               # multi-file answers are 2x+ longer;
         max_tokens = max(max_tokens, 2048)   # 1024 truncates mid-file (live: mw4)
     t0 = time.perf_counter()
@@ -231,6 +253,11 @@ def solve(model, tokenizer, task: dict, max_attempts: int = 3,
                 kind = "static"
             else:
                 ok, err = diagnose(code, task["test"])  # GOT/WANT feedback
+        # R-4.3: a failed run is re-executed under a line tracer, so the retry
+        # sees where the value was MADE, not only where the assert noticed it.
+        # Static failures are skipped — broken syntax has no execution to watch.
+        if not ok and (DEBUG if debug is None else debug) and kind != "static":
+            err, kind = _debug_feedback(task, code, merged, err), "debug"
         trace.event("verify", task_id=task["id"], attempt=attempt_i, ok=ok,
                     kind=kind, ms=round((time.perf_counter() - vt0) * 1000),
                     files=len(merged) if task.get("multi") else None,
