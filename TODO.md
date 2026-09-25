@@ -52,7 +52,24 @@ Rules for this file:
       dead: the structural claim), `unclosed`/`file set` (completeness — a stop
       inside a body or an exhausted budget, which no logit mask can or should
       forbid).
-- [ ] [V] [L] Latency cost ≤ 5%: same seeds, constrained vs unconstrained tok/s.
+- [ ] [V] [L] Latency cost ≤ 5% — **measured, not yet passing, and one of the
+      two numbers below is wrong about what it measures.**
+      * `python -m flash.grammar --overhead` reports 0.145-0.183 ms/step
+        (0.3-0.4% of a 42.6 ms decode step) — but that times only the
+        `mx.where` on a pre-materialised logits array. It does NOT include the
+        per-step token read-back the hook performs, so it is not the cost of
+        the hook.
+      * end-to-end on 20 paired generations (same prompts, same seeds): free
+        25.8, constrained 24.1 tok/s = **-6.6%**. Length-matched to remove the
+        obvious confound (both arms' generations under 500 tokens, where the
+        mask's answers live): free 25.5, constrained 23.9 = **-6.3%**. The
+        confound is therefore not the whole story.
+      * Isolation run pending: one prompt, 300 tokens, three seeds, both arms,
+        same process — if the gap persists it is real per-step cost in the
+        hook and the fix is to stop rebuilding the penalty array per step and
+        to read the sampled id without a Python-side synchronisation. Until
+        that number exists this box stays open and R-4.2 is reported as
+        "violations eliminated, latency within 6.6% measured".
 - [ ] [V] [L] Reference sweep: `run-suite --tasks mw_tasks.jsonl` still 6/6 and
       m0 unaffected (a harness change invalidates stored pass rates).
 - [ ] [B] Docs move together: README command, `flash/__init__.py` map,

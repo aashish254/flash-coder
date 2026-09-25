@@ -503,6 +503,7 @@ class ConstrainedSampler:
         self._base: int | None = None
         self._fed = 0
         self.steps = 0
+        self.hook_ms = 0.0            # wall time spent inside the hook itself
         self.illegal_picks = 0
         self.first_breach = ""        # ids/text/position of the first refusal
 
@@ -558,6 +559,20 @@ class ConstrainedSampler:
 
     # ------------------------------------------------------------- the hook
     def __call__(self, tokens, logits):
+        import mlx.core as mx
+        t0 = time.perf_counter()
+        try:
+            return self._mask(tokens, logits)
+        finally:
+            # Attributed to the hook, and reported by the census as a share of
+            # the generation. The end-to-end tok/s gap between the arms is the
+            # number SPEC R-4.2 gates on; this is the number that says whether
+            # the gap is the hook's doing at all — the arithmetic on a
+            # pre-materialised array is not, and only a real decode step knows
+            # what reading the sampled id back costs.
+            self.hook_ms += (time.perf_counter() - t0) * 1000.0
+
+    def _mask(self, tokens, logits):
         import mlx.core as mx
         if self._base is None:
             # The first call's array is the whole prompt and nothing else: the
@@ -719,6 +734,7 @@ def run_census(n: int = 100, model: str | None = None,
             loaded = load(repo)
         model, tok = loaded
         viol = trunc = illegal = rec = 0
+        hook_ms = gen_s = 0.0
         breach_example = ""
         why: dict[str, int] = {}
         toks = secs = 0.0
@@ -731,6 +747,9 @@ def run_census(n: int = 100, model: str | None = None,
                                          seed0 + i, c)
             secs += dt
             toks += nt
+            if samp:
+                hook_ms += samp.hook_ms
+            gen_s += dt
             cut = bool(samp and samp.contract.truncated())
             trunc += cut
             if samp and samp.illegal_picks > illegal:
@@ -750,6 +769,7 @@ def run_census(n: int = 100, model: str | None = None,
                   f"{'ok ' if ok else 'BAD'} {reason:9s} rec={rec}/{i + 1} "
                   f"{nt / max(dt, 1e-9):5.1f} tok/s {nt:4d} tok")
         stats[arm] = dict(viol=viol, rec=rec, trunc=trunc, illegal=illegal,
+                          hook_pct=100.0 * hook_ms / max(gen_s, 1e-9),
                           breach_example=breach_example, why=why,
                           tps=toks / max(secs, 1e-9))
     for arm in arms:
@@ -757,7 +777,8 @@ def run_census(n: int = 100, model: str | None = None,
         print(f"\n[census] {arm:11s}: {s['viol']}/{n} contract violations "
               f"{s['why']}  |  {s['trunc']} ended inside a block  |  "
               f"{s['illegal']} mask breaches  |  "
-              f"{s['rec']}/{n} recoverable by the parser  |  {s['tps']:.1f} tok/s")
+              f"{s['rec']}/{n} recoverable by the parser  |  {s['tps']:.1f} tok/s  |  "
+              f"hook {s['hook_pct']:.1f}% of wall time")
         if s.get("breach_example"):
             print(f"[census] first breach: {s['breach_example']}")
     free, con = stats.get("free"), stats.get("constrained")
