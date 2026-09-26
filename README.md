@@ -95,6 +95,12 @@ Vision is benchmarked once the text brain is picked (PLAN §M1–M2).
 .venv/bin/python -m flash.harness --selftest        # 20 offline checks on the oracle
 .venv/bin/python benchmarks/m0_bakeoff.py --dry-run # 20/20 reference solutions pass
 
+# All 23 offline vectors above in one command, summed from the fraction each run
+# PRINTS (never an exit code, never a phrase grep — see SPEC §6 for the two
+# capture traps that rule is there to prevent). Fails if the tree's total moves
+# off SPEC §6's number. `--quick ambient lora` re-runs only named lines.
+.venv/bin/python benchmarks/battery_reread.py       # ~2 min, no models
+
 # §33.1 symbol perception: AST discovery + a live language server (jedi/pylsp).
 # The loop uses this automatically: a failure that names a repo symbol gets that
 # symbol's REAL source appended to the retry feedback.

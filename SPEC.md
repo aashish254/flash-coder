@@ -517,7 +517,19 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
    `python -m flash.patches --suite benchmarks/tasks/edit_tasks.jsonl` 60 ·
    `python benchmarks/m0_bakeoff.py --dry-run` 20 reference solutions.
    **Total: 683 selftest / end-to-end / premise checks + 20 oracle
-   verifications = 703 green, offline** (re-read from the tree 2026-09-26 after
+   verifications (m0_bakeoff's 20 reference solutions, which are the only
+   numbers in that 20 — the 6 ambient and 14 lora mutants are extra to both
+   totals) = 703 green, offline.** Re-read by
+   `python benchmarks/battery_reread.py`, which holds one line per item above,
+   requires the exact fraction each one prints, sums checks/oracle/mutants
+   separately, and fails if the tree's sum moves off this page's number. It
+   exists because hand-summing this list produced a wrong total from output that
+   looked clean twice: a `grep "checks passed"` once collected 214 of 316
+   because `grammar` 47 and `debug` 55 print a bare fraction, and a grep for the
+   last `n/n` on 2026-09-26 read lora_path_check's `14/14 mutants` as its
+   checks and under-counted by 17. Both traps are why the counts below are the
+   runs' own printed numbers.
+   (Re-read from the tree 2026-09-26 after
    R-7.2's live ambient arm: 53→61, of which 6 are mutations that break each
    guarantee on purpose — the git allowlist, the worktree containment guard,
    the oracle itself, the additive-line clause, the newline carrier, and the map

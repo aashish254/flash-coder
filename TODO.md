@@ -552,7 +552,25 @@ Rules for this file:
       12 tasks the weights were fit on — the in-distribution question has zero
       headroom by construction. Closing R-6.4 needs rows the current tier *fails*
       or a component with headroom (skills, memory).
-- [ ] [B] Docs move together.
+- [x] [B] Docs move together. **Moved 2026-09-26, and the gate box above stays
+      unchecked on purpose** — the arm missed, so the spec row is OPEN, not
+      SHIPPED or PARTIAL. Re-read against the tree: SPEC.md:335 → `R-6.4 (OPEN —
+      first arm measured, gate MISSED)` with both halves of I-2's numbers, the
+      shed-tier decomposition and the zero-headroom finding at SPEC.md:374; SPEC
+      §9's register row (SPEC.md:603) naming the data law as the blocker; SPEC
+      §6's battery line carrying +36 train and +31 lora_path; README.md:190-215's
+      R-6.4 block (the fit command, the shuffle-control script, `lora_path_check`
+      with its 31+14, and the measured 18/20 · 16/20 · 19/20 line);
+      `flash/__init__.py`:30's `§27.3/R-6.4: flash.train` map entry; PLAN §34.3's
+      close note (PLAN.md:1482) pointing at the decomposition, and the full
+      Appendix A row at PLAN.md:1572. All of it landed in `6b1fde5`.
+      The §6 re-read is now a run rather than an arithmetic: 
+      `benchmarks/battery_reread.py` holds one line per vector, requires the
+      exact fraction each prints, sums checks (683) / oracle (20) / mutants (20)
+      apart, and exits non-zero if the tree's total moves off the page's number —
+      `9/9`-vs-`10/10` and `14`-vs-`15` mutants were both seeded and caught before
+      the script was trusted. It exists because the hand-sum hit two capture
+      traps (SPEC §6 records both).
 
 ## P9 — Product shell and adoption
 
