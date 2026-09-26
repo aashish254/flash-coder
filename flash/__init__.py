@@ -32,6 +32,13 @@ Plan: ../PLAN.md (v3.8). This package grows milestone by milestone:
                                      train/valid dataset split by task id, fit
                                      LoRA inside §34.3's budget, and regenerate a
                                      suite from a dataset's own task ids)
+  §21/R-9.2: flash.sandbox          (the explicit sandbox every candidate
+                                     execution runs under — Seatbelt via
+                                     /usr/bin/sandbox-exec + inherited rlimits:
+                                     writes only to the root it was given, no
+                                     outbound network, cpu and file-size ceilings;
+                                     `python -m flash.sandbox` prints which layers
+                                     this box actually enforces)
   Phase-4: flash.web                (knowledge as a tool: fetch+sha1-cache+
                                      bge-ranked excerpts, §25a3, §33.9)
   M0b: flash.vision                 (screenshot -> HTML through the VLM)
@@ -47,6 +54,7 @@ Every subsystem ships an offline deterministic selftest:
   python -m flash.harness | flash.lsp | flash.power | flash.jobs | flash.trace
              | flash.grammar | flash.patches | flash.debug | flash.tourney
              | flash.confidence | flash.checkpoint | flash.train | flash.ambient
+             | flash.sandbox
   (flash.web's runs through `flash web --selftest`; it has no __main__.)
 """
 

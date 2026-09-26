@@ -10,8 +10,11 @@ import json
 import re
 import subprocess
 import sys
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
+
+from flash import sandbox
 
 TASKS_FILE = Path(__file__).resolve().parent.parent / "benchmarks" / "tasks" / "m0_tasks.jsonl"
 CODE_FENCE = re.compile(r"```(?:python)?\s*\n(.*?)```", re.DOTALL)
@@ -75,7 +78,8 @@ def extract_files(text: str, expected: list[str] | None = None) -> dict[str, str
     return files or {"solution.py": extract_code(text)}
 
 
-def diagnose_files(files: dict[str, str], test: str, timeout: int = 15) -> tuple[bool, str]:
+def diagnose_files(files: dict[str, str], test: str,
+                   timeout: int = 15) -> tuple[bool, str]:
     """VERIFY for multi-WRITER: materialize the file set into a tmp package,
     substitute <TMPDIR> in the test's sys.path bootstrap, then reuse the exact
     same GOT/WANT assert-probing as single-file (one oracle for both shapes).
@@ -86,7 +90,6 @@ def diagnose_files(files: dict[str, str], test: str, timeout: int = 15) -> tuple
 
 def score_files(files: dict[str, str], test: str, timeout: int = 15) -> Score:
     """The same ranking for a file set as `score()` gives one file."""
-    import tempfile
     if not files:
         return Score(False, 0, 0,
                      "no files extracted (expected '# file: path.py' headers)")
@@ -98,7 +101,7 @@ def score_files(files: dict[str, str], test: str, timeout: int = 15) -> Score:
                 return Score(False, 0, 0, f"unsafe file path: {rel}")
             dest.parent.mkdir(parents=True, exist_ok=True)
             dest.write_text(src)
-        return score("", test.replace("<TMPDIR>", str(root)), timeout)
+        return score("", test.replace("<TMPDIR>", str(root)), timeout, root=root)
 
 
 def _hoist_path_bootstrap(test: str) -> tuple[str, str]:
@@ -114,16 +117,34 @@ def _hoist_path_bootstrap(test: str) -> tuple[str, str]:
     return "\n".join(pathy), "\n".join(rest)
 
 
-def run_test(code: str, test: str, timeout: int = 15) -> tuple[bool, str]:
+def _root(root: str | Path | None) -> tuple[Path, tempfile.TemporaryDirectory | None]:
+    """The sandbox root for a run: the caller's, or a private one.
+
+    A seam with no root of its own (a single-file `run_test`) still gets one,
+    so there is no execution path that reaches the interpreter unrooted — and
+    the candidate's cwd stops being OUR cwd, which is where its relative writes
+    used to land.
+    """
+    if root is not None:
+        return Path(root).resolve(), None
+    tmp = tempfile.TemporaryDirectory()
+    return Path(tmp.name).resolve(), tmp
+
+
+def run_test(code: str, test: str, timeout: int = 15,
+             root: str | Path | None = None) -> tuple[bool, str]:
     boot, body = _hoist_path_bootstrap(test)
     prog = boot + "\n" + code + "\n\n" + body + "\nprint('__PASS__')\n"
+    r, tmp = _root(root)
     try:
-        r = subprocess.run([sys.executable, "-I", "-c", prog],
-                           capture_output=True, text=True, timeout=timeout)
-        ok = "__PASS__" in r.stdout and r.returncode == 0
-        return ok, ("" if ok else (r.stderr.strip()[-500:] or "no __PASS__"))
+        p = sandbox.run([sys.executable, "-I", "-c", prog], r, timeout)
+        ok = "__PASS__" in p.stdout and p.returncode == 0
+        return ok, ("" if ok else (p.stderr.strip()[-500:] or "no __PASS__"))
     except subprocess.TimeoutExpired:
         return False, f"timeout>{timeout}s"
+    finally:
+        if tmp:
+            tmp.cleanup()
 
 
 _DIAG = '''
@@ -192,7 +213,8 @@ def _eq_sides(expr: str) -> str | None:
     return f"    __c0 = {left}\n    __c1 = {right}"
 
 
-def diagnose(code: str, test: str, timeout: int = 15) -> tuple[bool, str]:
+def diagnose(code: str, test: str, timeout: int = 15,
+           root: str | Path | None = None) -> tuple[bool, str]:
     """VERIFY upgrade: find WHICH assert fails and show actual vs expected.
 
     Runs each top-level assert individually; for the first failure the model
@@ -200,12 +222,12 @@ def diagnose(code: str, test: str, timeout: int = 15) -> tuple[bool, str]:
     signal that makes error-feedback retry actually converge (PLAN §33.1:
     better oracle -> fewer blind retries).
     """
-    s = score(code, test, timeout)
+    s = score(code, test, timeout, root)
     return s.ok, s.err[:400]
 
 
-def _probes(code: str, test: str,
-            timeout: int) -> tuple[list[tuple[bool, str]], int, bool] | None:
+def _probes(code: str, test: str, timeout: int,
+            root: str | Path) -> tuple[list[tuple[bool, str]], int, bool] | None:
     """One probe per TOP-LEVEL assert, in order, stopping at the first failure.
 
     Returns `(records, total, ran_all)`, or None when the test has no top-level
@@ -245,8 +267,7 @@ def _probes(code: str, test: str,
                                   .replace("__ASSERT__", repr(a))
                                   .replace("__EXPR__", expr))
         try:
-            r = subprocess.run([sys.executable, "-I", "-c", prog],
-                               capture_output=True, text=True, timeout=timeout)
+            r = sandbox.run([sys.executable, "-I", "-c", prog], root, timeout)
         except subprocess.TimeoutExpired:
             return recs + [(False, f"timeout>{timeout}s on: {a}")], len(idx), False
         if r.returncode != 0:
@@ -273,24 +294,31 @@ class Score:
     err: str = ""
 
 
-def score(code: str, test: str, timeout: int = 15) -> Score:
+def score(code: str, test: str, timeout: int = 15,
+          root: str | Path | None = None) -> Score:
     """VERIFY for ranking: every top-level assert decided, first failure named.
 
     Probing stops at the first failure because the real run stops there too — a
     later assert's prefix would have to replay past a failure that aborts it —
     so `passed` means "how far it got before the test would have stopped".
     """
-    probed = _probes(code, test, timeout)
-    if probed is None:                   # all checks inside blocks: run whole
-        ok, err = run_test(code, test, timeout)
-        return Score(ok, 0, 0, "" if ok else err)
-    recs, total, ran_all = probed
-    if ran_all:
-        # probes only cover top-level asserts; the full test stays the gate, so
-        # a non-assert failure (a crash after the last probe) cannot look green
-        ok, err = run_test(code, test, timeout)
-        return Score(ok, total, total, "" if ok else err)
-    return Score(False, len(recs) - 1, total, recs[-1][1])
+    r, tmp = _root(root)
+    try:
+        probed = _probes(code, test, timeout, r)
+        if probed is None:               # all checks inside blocks: run whole
+            ok, err = run_test(code, test, timeout, r)
+            return Score(ok, 0, 0, "" if ok else err)
+        recs, total, ran_all = probed
+        if ran_all:
+            # probes only cover top-level asserts; the full test stays the gate,
+            # so a non-assert failure (a crash after the last probe) cannot look
+            # green
+            ok, err = run_test(code, test, timeout, r)
+            return Score(ok, total, total, "" if ok else err)
+        return Score(False, len(recs) - 1, total, recs[-1][1])
+    finally:
+        if tmp:
+            tmp.cleanup()
 
 
 # ------------------------------------------------------------------- selftest

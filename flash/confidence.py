@@ -49,7 +49,7 @@ import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from flash import trace
+from flash import sandbox, trace
 from flash.debug import watch
 from flash.perceive import static_check
 
@@ -157,8 +157,13 @@ def _seeded_run(code: str, test: str, seed: int, timeout: int) -> subprocess.Com
         # seeded stream would then be a crash, not a verdict. `python -` puts the
         # script's directory at sys.path[0] exactly like `-c` puts '' there, so
         # the preamble above still removes the one entry -I would have.
-        return subprocess.run([sys.executable, "-s", "-"], input=prog,
-                              capture_output=True, text=True, timeout=timeout, env=env)
+        #
+        # The root here is the R-9.2 sandbox's writable directory: this run has no
+        # files of its own, but it is still candidate code, and `-s` (NOT `-I`)
+        # plus the env copy are what keep PYTHONHASHSEED alive through it.
+        with tempfile.TemporaryDirectory() as d:
+            return sandbox.run([sys.executable, "-s", "-"], d, timeout,
+                               input=prog, env=env)
     except subprocess.TimeoutExpired:
         return None
 
@@ -368,13 +373,13 @@ def edge_probe(code: str, test: str, budget: int = EDGE_BUDGET_S) -> list:
     if not calls:
         return []
     with tempfile.TemporaryDirectory() as d:
-        root = Path(d)
+        root = Path(d).resolve()          # Seatbelt wants the realpath, not /var
         (root / "answer.py").write_text(code)
         driver = _edge_script(root=str(root), budget=budget, calls=calls)
         (root / "_edge_driver.py").write_text(driver)
         try:
-            r = subprocess.run([sys.executable, "-I", str(root / "_edge_driver.py")],
-                               capture_output=True, text=True, timeout=budget * len(calls) + 15)
+            r = sandbox.run([sys.executable, "-I", str(root / "_edge_driver.py")],
+                            root, budget * len(calls) + 15)
         except subprocess.TimeoutExpired:
             return [("<whole probe>", "*", "TIMEOUT")]
         try:

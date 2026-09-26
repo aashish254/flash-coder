@@ -19,7 +19,6 @@ from __future__ import annotations
 import argparse
 import json
 import re
-import subprocess
 import sys
 import time
 from pathlib import Path
@@ -54,18 +53,12 @@ def extract_code(text: str) -> str:
     return (m.group(1) if m else text).strip()
 
 
-def run_test(code: str, test: str, timeout: int = 15) -> tuple[bool, str]:
-    """Execute candidate code + asserts in an isolated subprocess."""
-    prog = code + "\n\n" + test + "\nprint('__PASS__')\n"
-    try:
-        r = subprocess.run(
-            [sys.executable, "-I", "-c", prog],
-            capture_output=True, text=True, timeout=timeout,
-        )
-        ok = "__PASS__" in r.stdout and r.returncode == 0
-        return ok, ("" if ok else (r.stderr.strip()[-400:] or "no __PASS__"))
-    except subprocess.TimeoutExpired:
-        return False, f"timeout>{timeout}s"
+sys.path.insert(0, str(ROOT))
+# The harness's oracle, not a local copy: `--run` scores MODEL output here, and
+# R-9.2's boundary is the verifier itself — a duplicate that spawns python
+# directly would be an execution path with no sandbox on it (and the 20 oracle
+# numbers would come from a different program than the one the product uses).
+from flash.harness import run_test      # noqa: E402
 
 
 def dry_run() -> int:

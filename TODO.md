@@ -658,7 +658,8 @@ here rather than folded into P6's confidence work.
     sentinel is now ±10³. A memory ceiling in the child is NOT available here —
     `setrlimit(RLIMIT_AS|DATA|RSS, anything finite)` raises `ValueError` on this box
     (measured; `RLIMIT_CPU` does work and killed a busy loop at exactly 1.00 s,
-    which is the lever R-9.2's memory clause will have to do without).
+    which is the lever R-9.2's memory clause had to do without — the shipped
+    sandbox books that gap in `status()['memory']`).
     `flash.confidence --selftest` **21 → 25/25**, and deleting the guard from
     `_probe_calls` fails **exactly 1** of them.
   * **the key was unbounded in what it wrote.** The committed `p6_tasks.jsonl` held
@@ -877,6 +878,79 @@ here rather than folded into P6's confidence work.
       all), 0 leaked worktrees, 0 files touched outside the worktree. Still open
       and stated: no *unattended* overnight window has run — all seven were daytime
       and `--force`d — and §33.5's CI/dependency watch targets are not read here.*
+- [x] [V] [offline] R-9.2 explicit sandbox: every execution path runs under one
+      — writable root, no network by default, cpu and file-size rlimits — and the
+      hostile candidate (`~/.ssh` write, `socket.connect`) fails as a normal
+      verify error.
+      *Run 2026-09-27, `python -m flash.sandbox --selftest` → **34/34**, and the
+      vector is the clause rather than a paraphrase of it: a candidate that writes
+      into `~/.ssh` and one that opens a socket are refused BY THE KERNEL
+      (`PermissionError`), the sentinel file still does not exist after the run,
+      `urllib` re-wraps the same refusal as `URLError` so a candidate cannot hide
+      behind its own `try/except`, and a hostname never resolves either (`gaierror`,
+      because name service is itself outbound — the refusal arrives early, not as a
+      long timeout). The easy half to fake is the second clause, so it is checked as
+      arithmetic: a hostile candidate whose refusal sits after one passing assert
+      ranks **1/2** like any partial answer, and `diagnose` returns
+      `ERROR: PermissionError` in the same `GOT/WANT/ERROR` shape the retry loop
+      consumes. No collateral: a benign candidate is unaffected, `TMPDIR` and
+      `tempfile.gettempdir()` both name the root, a relative write lands in the root
+      and `getcwd()` IS the root, a child that shells out with `stderr=DEVNULL`
+      still works, and a multi-file set still imports its sibling module (`1/2`, not
+      an error-out). The rlimits are witnessed FROM INSIDE the sandbox — the child
+      reports the `(3, …)` it was given, a busy loop under `cpu=2` died on signal 24
+      rather than at its 30 s wall timeout — and `RLIMIT_FSIZE` turned a 600 MB write
+      into `OSError: [Errno 27] File too large`. "Every execution path" is verified
+      at runtime, not by grep: a check swaps `flash.sandbox.run` for a spy that
+      records the caller frame's name and requires all five seams
+      (`harness.run_test`, `harness._probes`, `debug._run`, `confidence._seeded_run`,
+      `confidence.edge_probe`) to appear, each with a root of its own. `seatbelt()`
+      is an enforcement probe, not a `Path.exists()` — the selftest hands it a fake
+      wrapper that shifts its own `-p` argument away and requires `False` plus an
+      empty prefix, so a box whose sandbox does nothing fails loudly instead of
+      reading green. 12 mutants caught (drop the blanket write-deny, drop the root
+      allow, single-quote the `subpath`, feed the `/var` symlink form, `seatbelt()`
+      reduced to `Path.exists`, remove the cpu limit, remove the FSIZE limit,
+      retarget `TMPDIR` back out, drop the null-device exception, unwire each seam),
+      tree checksum-verified after each. One mutant leaked the sentinel into
+      `~/.ssh`, which is why `reap_own_artifact()` exists and why 3 checks pin that
+      it deletes only a file carrying the vector's exact bytes. §6 re-read with the
+      new line on a quiet box: `battery_reread` prints
+      **`checks 944 oracle 20 §6 total 964 mutants 30`** and matches the page — the
+      first attempt, at 5.2/core load, printed 929 because `checkpoint_resume_check`
+      refuses its tournament arm under load, and the re-read reported the gap instead
+      of accepting it. Also closed on the
+      way: `benchmarks/m0_bakeoff.py` carried a duplicate oracle that scored real
+      MODEL output through a bare `subprocess.run`; it is an import of
+      `flash.harness.run_test` now.*
+      *PARTIAL, four named gaps rather than a rounded-off claim:* **(a)** the
+      **memory rlimit** — `setrlimit` raises `ValueError: current limit exceeds
+      maximum limit` for `RLIMIT_AS`, `RLIMIT_DATA` and `RLIMIT_RSS` at ANY finite
+      value on this macOS, at any privilege, so `memory_ceiling()` asks a *fresh
+      child* to try each one (the claim tracks the platform, not a table in this
+      file) and `status()['memory']` prints `UNAVAILABLE: …`. A hostile candidate
+      that allocates on its own initiative therefore has no ceiling here until the
+      sandbox runs on a kernel that enforces `RLIMIT_AS`, or §34.1's free-memory
+      signal is used as a pre-flight refusal. `RLIMIT_NPROC` was tried and rejected
+      as a design: this uid already owns ~436 processes, so anything that binds also
+      breaks the user's own shell, and the clause does not name it. **(b)** **reads
+      are not confined** — a `(deny default)` read policy breaks the interpreter's
+      own dyld and framework lookups, and the clause asks for a writable root, no
+      network and rlimits, so this is a write-and-network jail with a cpu and
+      file-size ceiling, described as that. **(c)** the **§34 HTML→PNG renderer**
+      (headless Chrome) is the one exempt execution path: `--user-data-dir=<root>`
+      makes Chrome exit `rc=21` "Failed to create a ProcessSingleton" (measured)
+      because it must lock and cache outside a one-shot directory, so its egress is
+      killed with `--disable-background-networking --host-resolver-rules="MAP *
+      ~NOTFOUND" --proxy-server=http://127.0.0.1:9` instead — byte-identical PNGs,
+      +10 s of wall only on a page that fetches — and its wall bound is the named
+      `RENDER_TIMEOUT_S = 60`. **(d)** §21's **microVM substrate is still the plan**:
+      this is the platform's own kernel mechanism standing in for it, and a box with
+      no `sandbox-exec` degrades to no prefix and still verifies (pinned by a check),
+      so a Linux rollout host can put a real VM underneath these same five seams.
+      Overhead is booked too, because a sandbox nobody can afford gets bypassed:
+      26.8 → 29.0 → 39.0 ms per child spawn (wrapper +10.0, whole sandbox +12.2) and
+      60 `score()` calls 6.04 s → 8.31 s.*
 - [ ] [V] [L] R-7.3 voice: real-microphone arm, VAD barge-in, ≥ 90% command
       recognition over 50 utterances.
 - [ ] [V] [L] M17 feel test: ≥ 7 of 10 developers keep it after a week.
@@ -887,8 +961,6 @@ here rather than folded into P6's confidence work.
 - [ ] R-1.3 knowledge graph (`flash graph <symbol>` blast radius < 200ms)
 - [ ] R-1.4 second language for perception (choose from ledger evidence)
 - [ ] R-8.2 latent compute — adopt only on a measured ≥ 20% token saving
-- [ ] R-9.2 explicit sandbox: writable root, no network, cpu/mem rlimits; hostile
-      candidate test proves `open('~/.ssh/id_rsa','w')` fails as a normal verify error
 - [ ] G6 watts/task (blocked: `powermetrics` needs sudo)
 - [ ] §34.1 16GB co-residency arm (blocked: this box is 32GB)
 

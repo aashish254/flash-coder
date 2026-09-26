@@ -65,9 +65,30 @@ def check_html(html: str, test: str) -> tuple[bool, str]:
 
 _CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 
+#: Egress off for the renderer. R-9.2's writable-root half CANNOT be applied to
+#: Chrome on this box: `--user-data-dir` inside the root makes headless Chrome
+#: abort with rc=21 ("Failed to create a ProcessSingleton") before it renders, so
+#: there is no screenshot to confine and a Seatbelt write-deny outside a root we
+#: cannot give it fails the same way. What IS enforced here is the network half,
+#: by Chrome's own switch board — measured three ways: the PNG bytes are
+#: IDENTICAL with and without the flags (3959 both ways, pixel_diff 0.0), so the
+#: oracle does not move, and a page that fetches costs +10 s of wall time
+#: (13.8 s against 3.0 s), which is why the budget below went from 30 s to 60 s.
+#: Killing DNS alone was worse: 25-29 s, inside a hair of the old timeout.
+RENDER_TIMEOUT_S = 60      # was 30; the egress flags cost a page that fetches
+
+_NO_EGRESS = ("--disable-background-networking",
+              "--host-resolver-rules=MAP * ~NOTFOUND",
+              "--proxy-server=http://127.0.0.1:9")
+
 
 def render_html_png(html: str, out_png, size: tuple[int, int] = (480, 320)) -> bool:
-    """Headless-Chrome screenshot of the HTML at the reference viewport."""
+    """Headless-Chrome screenshot of the HTML at the reference viewport.
+
+    The one execution path R-9.2 does NOT sandbox — see `_NO_EGRESS` for the
+    measurement that says why. Model HTML still runs its JavaScript here, which
+    is what a pixel oracle needs, and the flags take away its reach.
+    """
     import subprocess
     import tempfile
     from pathlib import Path
@@ -78,8 +99,8 @@ def render_html_png(html: str, out_png, size: tuple[int, int] = (480, 320)) -> b
         subprocess.run(
             [_CHROME, "--headless", "--disable-gpu", "--hide-scrollbars",
              f"--window-size={size[0]},{size[1]}",
-             f"--screenshot={out_png}", f"file://{src}"],
-            capture_output=True, timeout=30, check=True)
+             f"--screenshot={out_png}", f"file://{src}", *_NO_EGRESS],
+            capture_output=True, timeout=RENDER_TIMEOUT_S, check=True)
         return Path(out_png).exists()
     except Exception:
         return False

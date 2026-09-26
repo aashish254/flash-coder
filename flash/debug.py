@@ -28,6 +28,8 @@ import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from flash import sandbox
+
 MAX_LINES = 240          # executed candidate lines kept per session
 MAX_VALUE = 48           # characters of any recorded repr
 FEEDBACK_CHARS = 2000    # the digest's budget inside a retry prompt
@@ -234,10 +236,9 @@ def _run(files: dict[str, str], test: str, timeout: int) -> Digest:
         (root / "_dbg_driver.py").write_text(_DRIVER)
         note, proc = "", None
         try:
-            proc = subprocess.run([sys.executable, "-I",
-                                   str(root / "_dbg_driver.py")],
-                                  capture_output=True, text=True,
-                                  timeout=timeout, cwd=str(root))
+            proc = sandbox.run([sys.executable, "-I",
+                                str(root / "_dbg_driver.py")],
+                               root, timeout, cwd=str(root))
         except subprocess.TimeoutExpired:
             note = (f"The run exceeded {timeout}s. The trail below is what it "
                     "executed before it was killed — its last lines are where "

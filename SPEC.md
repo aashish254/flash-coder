@@ -613,22 +613,126 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
 - **R-9.1 (SHIPPED)** Untrusted fetched content is data: doc excerpts are
   budgeted, labelled and never executed; candidate paths are checked for escape
   before writing (§33.9 offline ladder).
-- **R-9.2 (OPEN)** Every execution path MUST run under an explicit sandbox
-  (§21): writable root, no network by default, cpu and memory rlimits.
+- **R-9.2 (SHIPPED — PARTIAL: the memory rlimit this box cannot set; the §34
+  renderer is the one exempt path, named below)** Every execution path MUST run
+  under an explicit sandbox (§21): writable root, no network by default, cpu and
+  memory rlimits.
   Vector: a test that proves a hostile candidate (`open('~/.ssh/id_rsa','w')`,
   `socket.connect`) fails under the sandbox and the suite still reports it as a
   normal verify failure.
-  *Platform fact measured 2026-09-27 while bounding the R-2.3 edge probe: on this
-  box (macOS, arm64) `resource.setrlimit` accepts `RLIMIT_CPU`, `RLIMIT_FSIZE` and
-  `RLIMIT_NPROC` and enforces them — a busy loop under `RLIMIT_CPU (1,2)` died at
-  1.00 s by signal 24 — but raises `ValueError: current limit exceeds maximum
-  limit` for `RLIMIT_AS`, `RLIMIT_DATA` and `RLIMIT_RSS` at ANY finite value, so the
-  "memory rlimit" half of this clause cannot be met with rlimits on this platform.
-  For OUR OWN probes the fix is to bound what is asked for (`_affordable`, shipped),
-  and for a wall-clock timeout CPU is the lever that works. For a hostile candidate
-  that allocates on its own initiative neither is a ceiling — the remaining options
-  are the §34.1 free-memory signal as a pre-flight refusal and running the sandbox on
-  a kernel that enforces `RLIMIT_AS`; this clause stays OPEN with that named.*
+  *Shipped as `flash/sandbox.py`. §21's substrate is named rather than quietly
+  swapped: the plan is a Firecracker microVM per rollout, which does not exist on
+  the ship target (macOS/arm64 — and the offline battery must run with no Docker
+  daemon), so the module wraps the platform's own kernel-enforced mechanism: a
+  Seatbelt profile handed to `/usr/bin/sandbox-exec`, plus POSIX rlimits the child
+  inherits across the `exec`. Candidate code cannot opt out of either, because
+  both are applied by the process that spawns it. `seatbelt()` is an *enforcement
+  probe*, not a `Path.exists()` — it asks a deny-only profile to refuse a real
+  write and requires the file to stay absent — so a wrapper that accepted a
+  profile it then ignored degrades to `prefix() == []` loudly instead of leaving
+  every check below reading green; the selftest proves that with a fake wrapper
+  which shifts its own `-p` argument away.*
+  *The vector's four refusal shapes, each run through `harness.score` so the
+  reporting path is the shipped one: a write to `~/.ssh` → `PermissionError` from
+  the kernel, with the sentinel file still absent afterwards; `socket.connect` to a
+  TEST-NET-3 address → `PermissionError: [Errno 1] Operation not permitted`, before
+  a packet leaves; `urllib.urlopen` → `URLError` re-wrapping the same refusal, so a
+  candidate cannot hide behind its own `try/except` (the ERROR line is what the retry
+  sees); `socket.getaddrinfo('example.com')` → `gaierror`, because name service is
+  itself outbound, so the refusal arrives early rather than as a long timeout. The
+  clause's second half is the part that is easy to fake, so it is checked as a
+  ranking: a hostile candidate whose refusal sits *after* one passing assert scores
+  `1/2` like any partial answer, and `diagnose` returns it in the same
+  `GOT/WANT/ERROR` shape (`ERROR: PermissionError`) the retry loop consumes. And
+  `open('~/.ssh/id_rsa','w')` spelled literally is *not* the confinement case —
+  `open()` never expands a tilde, so that candidate writes `<root>/~/.ssh/id_rsa`
+  inside its own writable root; the vector is run through `os.path.expanduser` and
+  the distinction is a stated check, not a glossed one.*
+  *Two traps found by running the thing, both pinned: a `subpath` must be
+  DOUBLE-quoted (a single-quoted path parses as a SYMBOL and `sandbox-exec` dies
+  with "unexpected symbol argument"), and the root must be a REALPATH —
+  `/var/folders/...` is a symlink to `/private/var/...`, a pattern naming the
+  symlink form is compared literally against the kernel's resolved write path, and
+  the exception then silently misses so a candidate cannot write in the directory
+  it was given (all four pattern×target combinations measured; only a symlink at
+  the ROOT of the path, `/tmp`, is resolved by a different rule). One claim
+  corrected in writing while doing this: the first draft of `profile` said
+  Seatbelt's last match wins, so the root allow had to follow the blanket deny.
+  Measured both orders, that is false — this pair resolves by filtered
+  specificity and the root stays writable either way. The order is now documented
+  as convention, and "the exception binds" is carried by the write vector rather
+  than by the shape of the string.*
+  *The rlimits ride a `preexec_fn` on the wrapper, which then `exec`s into the
+  interpreter, so they are the candidate's own and are inherited by anything it
+  forks. `RLIMIT_CPU` is proven to bind *through* the wrapper: a busy loop under
+  `(2, 3)` died at 2.01 s on signal 24 (SIGXCPU) instead of at its 30 s wall
+  timeout, and the child itself reports the limit it was given. `RLIMIT_FSIZE`
+  caps a file at 256 MB — a 600 MB write came back as `OSError: [Errno 27] File
+  too large`, i.e. an ordinary verify failure rather than a filled disk. The cpu
+  budget is deliberately `timeout * CPU_WIDTH + 2 s` (CPU_WIDTH = the box's cpu
+  count) instead of equal to the wall clock, because `RLIMIT_CPU` accrues a
+  waited-for child's cpu into its parent: a limit tuned to one thread would fail a
+  CORRECT parallel answer for our arithmetic. Nothing in the 22 shipped suites
+  parallelises (measured: 0 rows mention multiprocessing/threading/subprocess/Popen)
+  and Accelerate BLAS runs at 0.66 cpu-seconds per wall-second here, so in practice
+  the wall clock is the bound that fires and the rlimit is the backstop for a child
+  that outlives the caller waiting on it. `RLIMIT_NPROC` was tried and rejected as a
+  design: this uid already owns ~436 processes, so any cap that binds also breaks
+  the user's own shell, and the clause does not name it.*
+  *The memory half is NOT met and stays booked. Measured 2026-09-27 while bounding
+  the R-2.3 edge probe and re-measured here: `resource.setrlimit` accepts and
+  enforces `RLIMIT_CPU` and `RLIMIT_FSIZE` but raises `ValueError: current limit
+  exceeds maximum limit` for `RLIMIT_AS`, `RLIMIT_DATA` and `RLIMIT_RSS` at ANY
+  finite value on this macOS, at any privilege. `memory_ceiling()` therefore asks a
+  *fresh child* to try each one and report, so the claim tracks the platform
+  instead of a table written in this file, and `status()['memory']` prints the
+  refusal (`UNAVAILABLE: no memory rlimit can be set (...)`) wherever the report
+  does. For OUR OWN probes the fix is to bound what is asked for (`_affordable`,
+  shipped); for a hostile candidate that allocates on its own initiative neither
+  rlimit is a ceiling — the remaining options are the §34.1 free-memory signal as a
+  pre-flight refusal, and running the sandbox on a kernel that enforces `RLIMIT_AS`.
+  Reads are not confined anywhere either, as a stated limit rather than an accident:
+  a `(deny default)` read policy breaks the interpreter's own dyld and framework
+  lookups, and the clause names a writable root, no network and rlimits. So this is
+  a write-and-network jail with a cpu and file-size ceiling, described as that.*
+  *Wiring: the five candidate-execution seams — `harness.run_test`,
+  `harness._probes` (through `score`/`score_files`), `debug._run`,
+  `confidence._seeded_run`, `confidence.edge_probe` — now spawn through
+  `sandbox.run`, which is `subprocess.run` plus the prefix, the rlimits, and `TMPDIR`
+  retargeted into the root (without the retarget every candidate that calls
+  `tempfile` fails for our reason; the check asserts both
+  `os.environ['TMPDIR'] == root` and `tempfile.gettempdir() == root`, because
+  tempfile's cwd fallback can mask a missing retarget). "Every execution path" is
+  verified at runtime, not by grep: a selftest check swaps `flash.sandbox.run` for a
+  spy that records the caller frame's name and requires all five seams to appear —
+  and it must patch the *imported module*, since `python -m flash.sandbox` creates a
+  second module object and patching this file's own globals spies on a copy nobody
+  calls. `benchmarks/m0_bakeoff.py` carried a duplicate copy of the oracle that
+  scored real MODEL output through a bare `subprocess.run`; it is now an import of
+  `flash.harness.run_test`. Multi-file sets were re-verified inside the jail (the
+  `<TMPDIR>` bootstrap and `cwd=root` agree, so a sibling module still imports:
+  `1/2`, not an error-out), and `debug`'s trace driver runs with `cwd` in the root.*
+  *One path is exempt, named here instead of quietly skipped: the §34 HTML→PNG
+  renderer (`vision.render_html_png`, headless Chrome) cannot be given a writable
+  root — `--user-data-dir=<sandbox root>` makes Chrome exit rc=21 "Failed to create
+  a ProcessSingleton" (measured), because it must lock and cache outside a one-shot
+  directory. Its egress is killed instead with
+  `--disable-background-networking --host-resolver-rules="MAP * ~NOTFOUND"
+  --proxy-server=http://127.0.0.1:9`, which produced byte-identical PNGs and cost
+  +10 s of wall only on a page that actually fetches; its wall bound is now the
+  named `RENDER_TIMEOUT_S = 60` rather than an inherited default.*
+  *Cost, because "fast AND accurate" is the standing gate and a sandbox nobody can
+  afford gets bypassed: per child spawn the bare run measured 26.8 ms, with the
+  wrapper alone 29.0 ms, with the whole sandbox 39.0 ms (+12.2 ms); 60 `score()`
+  calls went 6.04 s → 8.31 s. Vector: `python -m flash.sandbox --selftest` (34
+  checks) plus a 12-mutant campaign — drop the blanket write-deny, drop the root
+  allow, single-quote the subpath, feed the `/var` symlink form, reduce `seatbelt()`
+  to `Path.exists`, remove the cpu limit, remove the FSIZE limit, retarget `TMPDIR`
+  back out, drop the null-device exception, unwire each of the five seams — all 12
+  caught, tree restored and checksum-verified after each. One mutant leaked the
+  sentinel into `~/.ssh`, which is why `reap_own_artifact()` exists: a clean run
+  deletes a file there only when its content is exactly the bytes the vector writes
+  (three checks pin that an unrelated file — a real key — survives).*
 
 ---
 
@@ -642,6 +746,7 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
    37 · `python -m flash.debug --selftest` 55 ·
    `python -m flash.tourney --selftest` 16 ·
    `python -m flash.confidence --selftest` 29 ·
+   `python -m flash.sandbox --selftest` 34 ·
    `python -m flash.checkpoint --selftest` 31 ·
    `python -m flash.train --selftest` 36 ·
    `python -m flash.ambient --selftest` 61 (+ 6 mutations) ·
@@ -657,10 +762,10 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
    `python -m flash.debug --suite` 32 ·
    `python -m flash.patches --suite benchmarks/tasks/edit_tasks.jsonl` 60 ·
    `python benchmarks/m0_bakeoff.py --dry-run` 20 reference solutions.
-   **Total: 910 selftest / end-to-end / premise checks + 20 oracle
+   **Total: 944 selftest / end-to-end / premise checks + 20 oracle
    verifications (m0_bakeoff's 20 reference solutions, which are the only
    numbers in that 20 — the 6 ambient, 14 lora, 5 band and 5 router-portability
-   mutants are extra to both totals) = 930 green, offline.** Re-read by
+   mutants are extra to both totals) = 964 green, offline.** Re-read by
    `python benchmarks/battery_reread.py`, which holds one line per item above,
    requires the exact fraction each one prints, sums checks/oracle/mutants
    separately, and fails if the tree's sum moves off this page's number. It
@@ -670,7 +775,21 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
    last `n/n` on 2026-09-26 read lora_path_check's `14/14 mutants` as its
    checks and under-counted by 17. Both traps are why the counts below are the
    runs' own printed numbers.
-   (Re-read from the tree again 2026-09-27, after the two live arms on the wide
+   (Updated 2026-09-27, after R-9.2's sandbox: **+34** for
+   `flash.sandbox --selftest` — the hostile-candidate vector in four refusal
+   shapes, the ranking half of the clause (`1/2`, and a `GOT/WANT/ERROR` line for
+   the retry), the two Seatbelt profile traps, the rlimit witnesses from inside the
+   sandbox, the runtime spy that requires all five execution seams to spawn
+   through `sandbox.run`, and three clauses pinning that the reaper would leave a
+   real key alone — 12 mutants of its own, extra to both totals, so
+   **930→964**. Re-read from the tree once the box quieted (2.8/core): `battery_reread`
+   prints `checks 944  oracle 20  §6 total 964  mutants 30` and matches this page,
+   with `flash.sandbox --selftest 34/34` and `checkpoint_resume_check 35/35` both on
+   the OK list. It is worth recording that this run was NOT available on the first
+   try: at 5.2/core load the checkpoint arm refuses its tournament clause, the tree
+   printed 909 + 20 = 929, and `battery_reread` reported the gap as a mismatch
+   against this page instead of accepting it — which is the whole reason the total is
+   a re-read and not a sum. Before the sandbox, after the two live arms on the wide
    instrument and the probe-child fix: +4 in `flash.confidence` (25→29 — an answer
    that crashes on import is reported as `answer does not import`, and no reason
    string can carry a newline or a temp path any more) and +7 for

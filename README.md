@@ -364,6 +364,42 @@ Vision is benchmarked once the text brain is picked (PLAN §M1–M2).
 # Not measured: an unattended overnight window — these were daytime and --forced,
 # with the idle+AC gate opened by a synthetic profile state.
 
+# §21 / R-9.2 — every candidate runs inside an explicit sandbox
+# §21's substrate is a Firecracker microVM per rollout, which does not exist on the
+# ship target (macOS/arm64 — and the offline battery must run with no Docker daemon),
+# so flash/sandbox.py wraps the platform's OWN kernel mechanism instead: a Seatbelt
+# profile handed to /usr/bin/sandbox-exec plus POSIX rlimits the child inherits
+# across the exec. Candidate code cannot opt out of either: both are applied by the
+# process that spawns it. Writes go only to the root the candidate was given (and
+# /dev/null — a benign child that redirects a subprocess's stderr there would
+# otherwise fail for our reason, not its own); network is denied outbound, so a
+# connect is a PermissionError before a packet leaves and a hostname never resolves;
+# RLIMIT_CPU is timeout*box-width+2s because a waited-for child's cpu accrues into
+# its parent (a narrow limit would kill a CORRECT parallel answer for our
+# arithmetic), and RLIMIT_FSIZE 256MB turns a disk-filling write into an ordinary
+# verify failure. What this box cannot do is printed, not hidden: `memory` says
+# UNAVAILABLE because setrlimit refuses RLIMIT_AS/DATA/RSS at any finite value here
+# at any privilege; reads are NOT confined; and headless Chrome cannot be given a
+# writable root (--user-data-dir=<root> exits rc=21, a ProcessSingleton it must
+# keep after the run), so the §34 renderer is the ONE exempt path and its egress is
+# killed with three flags instead (byte-identical PNGs, +10s wall only on a page
+# that fetches). Cost, because a sandbox nobody can afford gets bypassed: +12.2 ms
+# per child spawn (26.8 → 39.0 ms), 60 score() calls 6.04s → 8.31s.
+.venv/bin/python -m flash.sandbox                    # what is enforced on THIS box right now
+.venv/bin/python -m flash.sandbox --selftest         # 34 checks: the hostile-candidate vector, and no collateral
+# The vector IS the clause: a candidate that writes to ~/.ssh and one that opens a
+# socket both fail as ordinary verify errors, the sentinel file still does not exist
+# afterwards, and the suite still RANKS the hostile one like a partial answer (1/2)
+# and still hands the retry loop an ERROR line. A tilde spelled literally into
+# open() is not the hazard (open() never expands it — the file lands inside the
+# root), so the vector uses os.path.expanduser and says so. `seatbelt()` is an
+# enforcement probe, not a Path.exists(): a wrapper that ignored its profile would
+# degrade to no prefix and a loud status line, never to green checks.
+# The five candidate-execution seams (harness run_test/_probes, debug _run,
+# confidence _seeded_run/edge_probe) are verified at RUNTIME to spawn through
+# sandbox.run — a selftest spy records the caller's frame name for each, so "every
+# execution path" is one call site and not a grep.
+
 # clean build: no unused imports, no shadowed definitions, no dead assignments
 .venv/bin/python -m pyflakes flash/*.py benchmarks/*.py   # 0 findings (tasks/*_test.py are
                                                           # program fragments by design - the
