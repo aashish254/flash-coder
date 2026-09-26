@@ -382,10 +382,70 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
 - **R-7.1 (SHIPPED)** A single-command agent surface with typed flags, honest
   exit codes and a printed cost report. Vector: `flash --help`, all commands
   above.
-- **R-7.2 (OPEN)** Ambient mode (PLAN §33.5): on idle + AC, the agent MAY
-  prepare **draft PRs** for morning review — never merging, never auto-applying.
+- **R-7.2 (SHIPPED — offline vector MET; live vector MET on this repo, 2 verified
+  drafts, and the earlier "0 drafts" reading is withdrawn)** Ambient mode (PLAN
+  §33.5): on idle + AC, the agent MAY prepare **draft PRs** for morning review —
+  never merging, never auto-applying.
   Vector: an overnight run leaves ≥ 1 reviewable draft diff plus a trace, and
   0 commits pushed, 0 files modified outside its own worktree.
+  Shipped as `flash/ambient.py`, reached as `flash ambient`: three deterministic
+  repo checks (lint drift, suite premise, package-map drift) whose own green/red
+  verdict is the oracle for the draft that claims to fix them. The offline half
+  is measured: 61 checks against a temp git repo — 3 verified drafts, each
+  `git apply --check` clean, plus 0 pushes (`git branch -r` empty and no push in
+  the window's own command log), a byte-identical working tree outside the
+  worktrees, an unmoved HEAD, and a trace of every decision — and then each
+  guarantee is broken on purpose six times (allowlist guard out → a push is
+  issued; containment guard out → a file lands beside the worktree; oracle out →
+  a harmful draft ships as "verified"; additive-line clause out → a re-wrapping
+  draft ships; newline carrier out → the diff ships de-newlined; name matcher
+  widened → a draft the map cannot resolve goes green) so the boundary is known
+  to be enforced, not intended.
+  **What the live windows bought, in order: two oracle bugs, then a wrong causal
+  story, then the fix.** Qwen2.5-Coder-7B-Instruct-4bit on this repo's one red
+  finding, 2026-09-26. Window 1 refused (62.1s) because the work list came from
+  the *checkout* while the fix was verified in a *HEAD* worktree — an untracked
+  module produced a finding no worktree could clear; fixed by reading HEAD
+  (`head_tree`), which makes `--dry-run` and a live window agree by construction.
+  Window 2 produced the first verified live draft (77.8s, 1 attempt) — and
+  replaying its stored diff shows all three clauses passing on a change that
+  **re-wrapped 20 lines of the map** and dropped the file's trailing newline:
+  `verified` meant "the check is green", not "a reviewer would merge this". Fixed
+  by the additive clause (an ADD-only finding may delete no line) and by carrying
+  the newline back at the write layer, each pinned by a check and a mutation.
+  Windows 3, 4 and 5 (87.9s, 88.8s, 108.0s, 3 attempts each) then produced no
+  accepted draft, and the obvious story — "this tier cannot echo a 45-line file"
+  — was WRONG, and is retracted. `benchmarks/ambient_echo_probe.py` runs the
+  2x2 over the two variables that story conflated (echo length x number of
+  entries to place) and **all four arms produced a verified draft**: 3x1 in 2.3s,
+  52x1 in 64.1s (2 attempts), 3x3 in 3.8s, 52x3 in 74.7s (2 attempts). The
+  failing windows had echoed LESS than the passing arms — prompt 831–1070 tokens
+  and completion 677–714 against the 52-line arms' 984–1088 and 802–830 — so
+  neither echo length nor insertion count was the ceiling.
+  `--inspect` then named the mechanism by looking at the raw text rather than the
+  verdict: on greedy decode the model writes the entry as
+  `ambient — ambient context and environment handling.`, a BARE name, and the map
+  parser reads `flash.<name>` or a backticked `<name>` only. The finding survives
+  however good the clause is. The prompt had asked for "the module name" without
+  saying in what form, so it was answered in a form the check cannot see.
+  Stating the accepted form in the prompt closed the live half on the real repo:
+  window 6 produced a verified additive draft on its FIRST (greedy) attempt in
+  33.6s, and window 7 repeated it in 43.9s. Both diffs are pure additions
+  (5 lines and 4), no existing line moved, no trailing-newline damage, the names
+  in the readable form — the boundary across all seven windows is 1 worktree at a
+  time (0 leaked), HEAD unmoved at 4ea9c49, 0 pushes and no remote configured.
+  **The remaining gap is prose, not mechanics.** Window 6's draft was structurally
+  perfect and useless to a reviewer: it invented filler
+  ("Ambient context processing for the coding environment") because the prompt
+  asks what each module does while showing the model only the map. Fixed the same
+  day by quoting each module's own first docstring line into the finding —
+  window 7's draft therefore says what `flash.perceive` and `flash.route` actually
+  are — pinned by a check that fails if the prompt stops grounding itself. House
+  style (a section tag, column alignment) is still not matched, and no check
+  claims it is. Not run: an unattended overnight window on this box — every
+  window here was daytime and `--force`d, with the gate itself opened by a
+  synthetic idle+AC profile state, so "on idle + AC" is enforced and tested, not
+  observed in the wild.
 - **R-7.3 (OPEN)** Hands-free control (voice) at the measured spike latency:
   command-to-ack ~4.8s. Vector: real-microphone arm of the spike with VAD
   barge-in, ≥ 90% command recognition over 50 utterances.
@@ -446,6 +506,7 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
    `python -m flash.confidence --selftest` 21 ·
    `python -m flash.checkpoint --selftest` 31 ·
    `python -m flash.train --selftest` 36 ·
+   `python -m flash.ambient --selftest` 61 (+ 6 mutations) ·
    `python benchmarks/trace_resume_check.py` 11 ·
    `python benchmarks/confidence_wiring_check.py` 30 ·
    `python benchmarks/subtle_premise_check.py` 52 ·
@@ -455,8 +516,13 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
    `python -m flash.debug --suite` 32 ·
    `python -m flash.patches --suite benchmarks/tasks/edit_tasks.jsonl` 60 ·
    `python benchmarks/m0_bakeoff.py --dry-run` 20 reference solutions.
-   **Total: 622 selftest / end-to-end / premise checks + 20 oracle
-   verifications = 642 green, offline** (re-read from the tree 2026-09-26 after
+   **Total: 683 selftest / end-to-end / premise checks + 20 oracle
+   verifications = 703 green, offline** (re-read from the tree 2026-09-26 after
+   R-7.2's live ambient arm: 53→61, of which 6 are mutations that break each
+   guarantee on purpose — the git allowlist, the worktree containment guard,
+   the oracle itself, the additive-line clause, the newline carrier, and the map
+   name matcher — and must be caught; before
+   that 622, re-read after
    R-6.4's offline half: +36 the dataset law and the slice loop, +31 the LoRA
    path vector with its 14 mutants, and `jobs` 14→20 with the LoRA gate's
    decision; before that 549, re-read after
@@ -503,7 +569,7 @@ latency first; the rest earns the right to exist after)
 
 | Step | Item | Why now | Cost |
 |---|---|---|---|
-| P0 | `git init` + baseline commit | unblocks I-1, R-7.2, M15; **user-gated** | 5 min |
+| P0 | `git init` + baseline commit | **DONE 2026-09-25** (`0ea2798`, 39 commits since; `git push` stays user-gated) — unblocked I-1, R-7.2, M15 | 5 min |
 | P1 | R-4.2 constrained decoding | kills a whole bug class the mw suite keeps hitting | offline vector + 1 live arm |
 | P2 | R-4.3 debugger skill | highest-value new *capability* on hard tasks | 1 seeded suite + 2 live arms |
 | P3 | R-8.1 speculative decoding | G5 latency, and every later measurement gets cheaper | 2 bake-off runs |

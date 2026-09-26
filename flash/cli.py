@@ -1064,6 +1064,14 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("bench_args", nargs=argparse.REMAINDER)
     p.set_defaults(fn=cmd_bench)
 
+    p = sub.add_parser("ambient", help="§33.5/R-7.2: idle-window DRAFTS only — lint, "
+                                   "suite-premise and doc-drift fixes prepared in a "
+                                   "git worktree, verified by the check that found "
+                                   "them, never merged and never pushed")
+    from flash import ambient as _ambient      # flags defined once, in flash/ambient.py
+    _ambient.add_flags(p)
+    p.set_defaults(fn=_ambient.dispatch)
+
     return ap
 
 

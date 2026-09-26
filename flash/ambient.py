@@ -78,6 +78,13 @@ class Finding:
     files: list[str]
     detail: str
     prompt: str
+    # An ADDITIVE finding asks for something to be put in; the answer may then
+    # not take anything out. See verify()'s third clause for the measured diff
+    # that made this a rule instead of a hope.
+    additive: bool = False
+    # True when answering the finding means ADDING something: then a draft that
+    # removes any existing line is damage regardless of the check going green.
+    additive: bool = False
 
 
 @dataclass
@@ -215,6 +222,28 @@ def names_in(doc: str) -> list[str]:
     return sorted({m.group(1) for m in re.finditer(r"flash\.([a-z_][a-z0-9_]*)", doc)})
 
 
+def module_blurb(root: Path, mod: str, limit: int = 180) -> str:
+    """What the module says ITSELF is, in its own docstring's first line.
+
+    Measured 2026-09-26 on the first live draft this repo accepted
+    (window 20260926-213336): every line was additive, the names were in the right
+    form, the oracle was green — and the descriptions were filler,
+    'Ambient context processing for the coding environment', because the prompt
+    asked what each module does and showed the model only the map. A draft a
+    reviewer would merge quotes the module, and a module with no docstring says so
+    instead of inviting a guess.
+    """
+    import ast
+    p = root / "flash" / f"{mod}.py"
+    if not p.exists():
+        return ""
+    try:
+        doc = ast.get_docstring(ast.parse(p.read_text())) or ""
+    except (SyntaxError, ValueError):
+        return ""
+    return next((l.strip() for l in doc.splitlines() if l.strip()), "")[:limit]
+
+
 def check_drift(root: Path) -> list[Finding]:
     """Every module in flash/ named in the package map, and every name real.
 
@@ -232,6 +261,11 @@ def check_drift(root: Path) -> list[Finding]:
     src = init.read_text() if init.exists() else ""
     out: list[Finding] = []
     if missing:
+        hints = "\n".join(
+            "  flash." + m + ": " + (module_blurb(root, m)
+                                     or "(no docstring to quote — say only what the "
+                                        "name states, invent nothing)")
+            for m in missing)
         out.append(Finding(
             id="drift:flash/__init__.py:unmapped", kind="drift",
             files=["flash/__init__.py"],
@@ -241,10 +275,20 @@ def check_drift(root: Path) -> list[Finding]:
                    f"files exist in `flash/` without being named in it: "
                    f"{', '.join(missing)}.\n\nAdd one entry per module to the map "
                    f"in its docstring, in the existing house style (a section tag, "
-                   f"the module name, one clause saying what it does). Do not "
-                   f"remove anything and do not change any other text.\n\n"
+                   f"the module name, one clause saying what it does). Take that "
+                   f"clause from the module's own first docstring line, quoted "
+                   f"here; do not invent behaviour:\n{hints}\n\n"
+                   f"Write each name in the form the map already uses, "
+                   f"`flash.{missing[0]}` or "
+                   f"a backticked `{'` / `'.join(missing)}`: a bare name is NOT "
+                   f"read as a map entry, so the check stays red however well the "
+                   f"clause is written. This is an "
+                   f"ADDITIVE fix: every line already in the file must survive "
+                   f"exactly as it is, so do not re-wrap, re-order, re-indent or "
+                   f"delete any existing line, and add nothing but the entries "
+                   f"themselves.\n\n"
                    f"# file: flash/__init__.py\n```python\n{src}\n```\n\n"
-                   + FILE_PROTOCOL))
+                   + FILE_PROTOCOL, additive=True))
     if ghost:
         out.append(Finding(
             id="drift:flash/__init__.py:missing-module", kind="drift",
@@ -392,21 +436,71 @@ def slug(finding_id: str) -> str:
     return re.sub(r"[^A-Za-z0-9._-]", "-", finding_id)
 
 
-def verify(sb: Sandbox, finding: Finding, before: list[str]) -> tuple[bool, str]:
+def additive_kept(original: str, new: str) -> list[str]:
+    """Every non-blank line the draft dropped from a file it was only allowed to
+    add to, compared stripped so re-wrapping counts as a drop."""
+    have = {l.strip() for l in new.splitlines() if l.strip()}
+    return [l for l in original.splitlines() if l.strip() and l.strip() not in have]
+
+
+def verify(sb: Sandbox, finding: Finding, before: list[str],
+           original: dict[str, str]) -> tuple[bool, str]:
     """The oracle is the check itself: gone from the worktree, and nothing new.
 
     `before` is the finding-id set of THIS worktree before the edit. Demanding
     "nothing new" is what stops a draft from silencing one finding by breaking a
     file the first scan never reached — the classic shape of a fix that looks
     green and is not.
+
+    The third clause exists because of a measured miss. The first live window
+    (2026-09-26, Qwen2.5-Coder-7B) cleared an ADDITIVE finding — "these modules
+    are not in the map" — and did it by re-wrapping every existing map line and
+    appending a non-house-style block. All three original checks went green on
+    that diff, so `verified` meant "the check is satisfied" while the draft was
+    something no reviewer would merge: the finding was answered with collateral
+    damage to 20 untouched lines. A finding that asks only to add something
+    therefore may not REMOVE anything either, which is what `additive` enforces
+    and what a scripted, well-behaved generator could never have surfaced. (The
+    same live diff also dropped the file's trailing newline — not a line, so no
+    line-level clause can see it; `carry_newline` handles that at the layer that
+    loses it.)
     """
-    after = [f.id for f in scan(sb.wt)]
+    after_findings = scan(sb.wt)
+    after = [f.id for f in after_findings]
     if finding.id in after:
-        return False, f"the finding is still there after the edit: {finding.id}"
+        # the retry is only useful if it says WHAT is still wrong: the first live
+        # windows fed back "the finding is still there" three times and the model
+        # re-offered the same near-miss, because a refusal with no content in it
+        # is not error feedback, it is just a second no.
+        still = next((f.detail for f in after_findings if f.id == finding.id), "")
+        return False, (f"{finding.id} is still red after the edit — {still}"
+                       if still else f"the finding is still there: {finding.id}")
     new = [i for i in after if i not in before]
     if new:
         return False, "the fix introduced new finding(s): " + ", ".join(new)
+    if finding.additive:
+        for f in finding.files:
+            dropped = additive_kept(original.get(f, ""), sb.read_safe(f))
+            if dropped:
+                return False, (f"{finding.id} asks only to ADD to {f}, but the "
+                               f"draft removes {len(dropped)} line(s) of it: "
+                               + " | ".join(dropped[:3]))
     return True, f"cleared {finding.id}; {len(after)} finding(s) still red"
+
+
+def carry_newline(original: str, text: str) -> str:
+    """Put back the final newline the `# file:` fence cannot carry.
+
+    Measured on the first ACCEPTED live draft (2026-09-26, Qwen2.5-Coder-7B, a
+    4-line map, 6.5s): the map entry was exactly right and the diff still said
+    "No newline at end of file". `harness.extract_files` returns '...\"\"\"' for
+    both '...\"\"\"\n' and '...\"\"\"', so the protocol strips the byte on the way
+    in and this is where it comes back — otherwise every ambient draft
+    de-newlines every file it touches.
+    """
+    if original.endswith("\n") and text and not text.endswith("\n"):
+        return text + "\n"
+    return text
 
 
 def draft_one(sb: Sandbox, finding: Finding, generate, max_attempts: int = 2,
@@ -436,8 +530,8 @@ def draft_one(sb: Sandbox, finding: Finding, generate, max_attempts: int = 2,
                         verified=False, files=[], note=reason)
             continue
         for f in finding.files:
-            sb.write(f, files[f] if f in files else original[f])
-        ok, note = verify(sb, finding, before)
+            sb.write(f, carry_newline(original[f], files.get(f, original[f])))
+        ok, note = verify(sb, finding, before, original)
         d.attempts = attempt + 1
         trace.event("draft_attempt", task_id=finding.id, attempt=attempt,
                     verified=ok, files=touched, note=note,
@@ -619,9 +713,11 @@ def status(home: Path | None = None, verbose: bool = True) -> list[dict]:
     return rows
 
 
-def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(prog="flash ambient",
-                                 description="PLAN §33.5 ambient mode: drafts only")
+def add_flags(ap: argparse.ArgumentParser) -> None:
+    """The window's flags, defined once so `flash ambient` (R-7.1's surface) and
+    `python -m flash.ambient` cannot drift apart. A REMAINDER passthrough would
+    have looked cleaner and does not work: argparse will not hand an option-like
+    token to a positional, so `flash ambient --check` would die in the parent."""
     ap.add_argument("--limit", type=int, default=3,
                     help="drafts per idle window (0 = every red check)")
     ap.add_argument("--budget", type=float, default=BUDGET_S,
@@ -639,7 +735,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--keep-worktree", action="store_true",
                     help="leave the worktree on disk after drafting")
     ap.add_argument("--selftest", action="store_true")
-    a = ap.parse_args(argv)
+
+
+def dispatch(a: argparse.Namespace) -> int:
     if a.selftest:
         return run_selftest()
     if a.status:
@@ -655,6 +753,13 @@ def main(argv: list[str] | None = None) -> int:
               max_attempts=a.attempts, small_repo=a.small, adapter=a.adapter,
               keep=a.keep_worktree)
     return 0 if rec["gate"] == "open" else 1
+
+
+def main(argv: list[str] | None = None) -> int:
+    ap = argparse.ArgumentParser(prog="flash ambient",
+                                 description="PLAN §33.5 ambient mode: drafts only")
+    add_flags(ap)
+    return dispatch(ap.parse_args(argv))
 
 
 # --------------------------------------------------------------- offline vector
@@ -825,6 +930,19 @@ def run_selftest(verbose: bool = True) -> int:
     check("each draft's diff is on disk and is a real patch, not an empty file",
           all(d["diff"] and Path(d["diff"]).read_text().startswith("diff ")
               for d in v), str([d["diff"] for d in v]))
+    check("no draft strips a file's trailing newline — the '# file:' fence cannot "
+          "carry that byte, so the write layer puts it back; the first accepted live "
+          "draft had a perfect map entry and still said 'No newline at end of file'",
+          not any("No newline at end of file" in Path(d["diff"]).read_text()
+                  for d in v),
+          str([Path(d["diff"]).read_text().count("No newline") for d in v]))
+    check("carry_newline is a round trip, not a blanket append: a file that ended "
+          "cleanly keeps one newline, a file that never had one does not gain it, "
+          "and an empty response is left alone",
+          carry_newline("a\n", "a").endswith("\n")
+          and carry_newline("a\n", "a") == "a\n"
+          and carry_newline("a", "a\n") == "a\n" and carry_newline("a\n", "") == "",
+          "")
     check("'reviewable' means a human can take it: every draft applies cleanly to "
           "the untouched checkout with git apply",
           all(subprocess.run(["git", "-C", str(repo), "apply", "--check", d["diff"]],
@@ -962,6 +1080,116 @@ def run_selftest(verbose: bool = True) -> int:
                          capture_output=True, text=True).stdout.strip()
           == head_before, harm["drafts"][0]["branch"])
 
+    def gen_sloppy(messages, attempt):
+        """The SHAPE THE FIRST LIVE 7B ACTUALLY RETURNED: the missing entry is
+        added, so all three checks go green — and existing lines are re-wrapped
+        into one, so twenty lines of the file are collateral damage."""
+        txt = messages[0]["content"]
+        if "# file: flash/__init__.py" in txt:
+            return ('# file: flash/__init__.py\n```python\n'
+                    '"""Demo package:\n'
+                    "  M1: flash.known (the module the map does name) "
+                    "X1: flash.unmapped (what it does)\n"
+                    '"""\n\n```\n')
+        return gen_fix(messages, attempt)
+
+    sloppy = run(repo=repo, home=tmp / "home6b", generate=gen_sloppy, limit=1,
+                 force=True, verbose=False, state=state())
+    check("a draft that clears an additive finding by re-wrapping the file it was "
+          "only asked to ADD to is REFUSED — the shape the first live Qwen2.5-Coder-7B "
+          "window returned on this exact finding, which all three checks accepted as "
+          "'verified' before this clause existed",
+          not sloppy["drafts"][0]["verified"]
+          and "asks only to ADD" in sloppy["drafts"][0]["note"],
+          sloppy["drafts"][0]["note"][:150])
+    check("and the clause discriminates rather than blocking all editing: the "
+          "well-behaved additive fix on the same finding still ships, so 'every "
+          "line survives' is not 'nothing may move'",
+          rec["drafts"][0]["verified"] and rec["drafts"][0]["attempts"] == 1, "")
+
+    def gen_stubborn(messages, attempt):
+        """Maps the WRONG name: the finding survives, so the only question worth
+        asking is whether the retry was told what is still missing."""
+        seen.append([m["content"] for m in messages])
+        return ('# file: flash/__init__.py\n```python\n'
+                '"""Demo package:\n'
+                "  M1: flash.known    (the module the map does name)\n"
+                "  X1: flash.wrong    (a name that is not a module)\n"
+                '"""\n\n```\n')
+
+    seen: list[list[str]] = []
+    stubborn = run(repo=repo, home=tmp / "home6c", generate=gen_stubborn, limit=1,
+                   force=True, max_attempts=2, verbose=False, state=state())
+    check("a near-miss is refused by name, not by mood: the refusal quotes the "
+          "check's own detail, so 'still red' arrives with the module list still "
+          "missing from the map",
+          "still red" in stubborn["drafts"][0]["note"]
+          and "unmapped" in stubborn["drafts"][0]["note"],
+          stubborn["drafts"][0]["note"][:130])
+    check("and the retry is actually fed that reason: attempt 2's conversation has "
+          "a second turn that was not there for attempt 1, and it carries the "
+          "missing module's name — M1's error-feedback loop, not a second "
+          "independent guess",
+          len(seen) == 2 and len(seen[0]) == 1 and len(seen[1]) == 2
+          and "unmapped" in seen[1][1] and seen[1][1] != seen[0][0],
+          f"{len(seen)} attempts, {len(seen[-1])} turns in the last one")
+
+    grounded = tmp / "repo-ground"
+    (grounded / "flash").mkdir(parents=True)
+    (grounded / "flash" / "__init__.py").write_text(
+        '"""Demo package:\n  M1: flash.known\n"""\n')
+    (grounded / "flash" / "known.py").write_text('"""Known."""\n')
+    (grounded / "flash" / "widget.py").write_text(
+        '"""Register widgets and refuse duplicates."""\n')
+    (grounded / "flash" / "silent.py").write_text("SILENT = 1\n")
+    gfind = check_drift(grounded)[0]
+    check("the drift prompt QUOTES each unmapped module's own first docstring line, "
+          "and says so plainly when a module has none — the filler in the first "
+          "accepted live draft ('Ambient context processing for the coding "
+          "environment') came from a prompt that showed the model only the map, and "
+          "a reviewable draft cannot be built on a guess",
+          "Register widgets and refuse duplicates." in gfind.prompt
+          and "no docstring to quote" in gfind.prompt
+          and "invent nothing" in gfind.prompt,
+          gfind.prompt[gfind.prompt.find("do not invent"):][:200].replace("\n", " | "))
+
+    def gen_wrongform(messages, attempt, right_at=-1):
+        """THE SHAPE THE REAL 7B RETURNED ON GREEDY DECODE, twice on the real repo
+        and once on a synthetic one (benchmarks/ambient_echo_probe.py --inspect,
+        2026-09-26): the entry is there, the description is plausible, and the name
+        is bare — `ambient — ambient context and environment handling.` — which the
+        map parser does not read as a map entry at all. `right_at` is the attempt
+        index where it switches to the readable form (-1 = never)."""
+        line = ("  X1: flash.unmapped  (what it does)" if attempt == right_at
+                else "  X1: unmapped      (what it does)")
+        return ('# file: flash/__init__.py\n```python\n'
+                '"""Demo package:\n'
+                "  M1: flash.known    (the module the map does name)\n"
+                + line + '\n"""\n\n```\n')
+
+    badform = run(repo=repo, home=tmp / "home6d", generate=gen_wrongform, limit=1,
+                  force=True, max_attempts=2, verbose=False, state=state())
+    check("a correctly-MEANING draft in the wrong FORM is refused: the oracle reads "
+          "the map the way the check reads it, so `X1: unmapped` does not clear an "
+          "unmapped-module finding — the failure every live window actually hit",
+          not badform["drafts"][0]["verified"]
+          and "still red" in badform["drafts"][0]["note"],
+          badform["drafts"][0]["note"][:130])
+    rightform = run(repo=repo, home=tmp / "home6e",
+                    generate=lambda m, a: gen_wrongform(m, a, right_at=1), limit=1,
+                    force=True, max_attempts=2, verbose=False, state=state())
+    check("and the refusal is enough to fix it: the same generator, told the form on "
+          "the second turn, ships at attempt 2 — so the live miss is a prompt the "
+          "model can satisfy, not a ceiling on the tier",
+          rightform["drafts"][0]["verified"] and rightform["drafts"][0]["attempts"] == 2,
+          f"verified={rightform['drafts'][0]['verified']} "
+          f"attempts={rightform['drafts'][0]['attempts']}")
+    drift_prompt = next(f.prompt for f in scan(repo) if f.id.endswith(":unmapped"))
+    check("and the prompt now STATES that form, because the measured miss was a "
+          "form failure and a fix that lives only in a log line will be lost",
+          "flash.unmapped" in drift_prompt and "backticked" in drift_prompt
+          and "bare name" in drift_prompt, drift_prompt[230:330].replace("\n", " "))
+
     spent = run(repo=repo, home=tmp / "home6", generate=gen_fix, limit=0,
                 budget_s=0.0, force=True, verbose=False, state=state())
     check("the wall-clock budget is honoured before the first generation, so a "
@@ -1007,7 +1235,8 @@ def run_selftest(verbose: bool = True) -> int:
         Sandbox.write = real_write
         (home / "escaped.py").unlink(missing_ok=True)
     try:
-        A.verify = lambda sb, f, before: (True, "cleared (verification skipped)")
+        A.verify = lambda sb, f, before, original: (
+            True, "cleared (verification skipped)")
         mrun = run(repo=repo, home=tmp / "home7", generate=gen_harm, limit=1,
                    force=True, verbose=False, state=state())
         check("MUTATION: skipping verification ships the harmful draft as a "
@@ -1015,6 +1244,42 @@ def run_selftest(verbose: bool = True) -> int:
               "stop", mrun["drafts"][0]["verified"], str(mrun["drafts"][0]["note"]))
     finally:
         A.verify = real_verify
+    try:
+        A.additive_kept = lambda original, new: []
+        m2 = run(repo=repo, home=tmp / "home8", generate=gen_sloppy, limit=1,
+                 force=True, verbose=False, state=state())
+        check("MUTATION: with the additive clause removed, the re-wrapping draft is "
+              "'verified' again — so the clause, not the model's manners, is what "
+              "holds the line", m2["drafts"][0]["verified"],
+              str(m2["drafts"][0]["note"]))
+    finally:
+        A.additive_kept = additive_kept
+    try:
+        A.carry_newline = lambda original, text: text
+        m3 = run(repo=repo, home=tmp / "home9", generate=gen_fix, limit=1,
+                 force=True, verbose=False, state=state())
+        md = Path(m3["drafts"][0]["diff"]).read_text()
+        check("MUTATION: with the newline carried straight through instead of back, "
+              "the same draft ships with 'No newline at end of file' in it — the "
+              "artifact the live window actually produced",
+              "No newline at end of file" in md, str(md.count("No newline")))
+
+        # The live miss was a FORM failure, so the strictness that refuses it is
+        # load-bearing: widen the name matcher and the very draft the check above
+        # refuses goes green — the map would then claim a module it cannot resolve.
+        real_search = A.search_name
+        A.search_name = lambda doc, mod: re.search(rf"\b{re.escape(mod)}\b", doc)
+        widened = run(repo=repo, home=tmp / "home-mut-form",
+                      generate=gen_wrongform, limit=1, force=True,
+                      verbose=False, state=state())
+        A.search_name = real_search
+        check("MUTATION: let the map parser accept a bare name and the wrong-form "
+              "draft is 'verified' — so the refusal above is the matcher's rigor, "
+              "not the model's luck",
+              widened["drafts"][0]["verified"], widened["drafts"][0]["note"][:120])
+    finally:
+        A.carry_newline = carry_newline
+        A.search_name = search_name
     return _report(checks, verbose)
 
 

@@ -5,6 +5,8 @@ Plan: ../PLAN.md (v3.8). This package grows milestone by milestone:
   M1: flash.loop + flash.harness    (ACT -> VERIFY -> error-feedback retry)
       flash.decide + flash.cli      (System One decision fabric, PLAN §32)
   M2: flash.context + flash.lsp     (repo perception: skeleton, symbols, refs)
+      flash.perceive                (one file's static diagnostics as an oracle)
+      flash.route                   (the cheapest tier that can solve this task)
       flash.harness                 (multi-WRITER: '# file:' -> file sets)
   M3: flash.ledger + flash.learn    (outcome flywheel + learned router)
       flash.jobs                    (gated, resumable background refit, §34.3)
@@ -33,11 +35,18 @@ Plan: ../PLAN.md (v3.8). This package grows milestone by milestone:
   Phase-4: flash.web                (knowledge as a tool: fetch+sha1-cache+
                                      bge-ranked excerpts, §25a3, §33.9)
   M0b: flash.vision                 (screenshot -> HTML through the VLM)
+  §33.5/R-7.2: flash.ambient        (`flash ambient`: idle windows that DRAFT —
+                                     lint, suite-premise and doc-drift findings
+                                     fixed inside their own git worktree, verified
+                                     by re-running the check that found them, and
+                                     refused if the fix adds a finding or deletes
+                                     a line it was only asked to add — never
+                                     merged, never pushed)
 
 Every subsystem ships an offline deterministic selftest:
   python -m flash.harness | flash.lsp | flash.power | flash.jobs | flash.trace
              | flash.grammar | flash.patches | flash.debug | flash.tourney
-             | flash.confidence | flash.checkpoint | flash.train
+             | flash.confidence | flash.checkpoint | flash.train | flash.ambient
   (flash.web's runs through `flash web --selftest`; it has no __main__.)
 """
 

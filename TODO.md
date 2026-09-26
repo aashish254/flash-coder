@@ -556,10 +556,45 @@ Rules for this file:
 
 ## P9 — Product shell and adoption
 
-- [ ] [B] R-7.2 ambient mode: idle+AC prepares **draft** diffs only; never
+- [x] [B] R-7.2 ambient mode: idle+AC prepares **draft** diffs only; never
       merges, never auto-applies, nothing pushed.
-- [ ] [V] [offline] Check: an overnight run leaves ≥ 1 reviewable draft + trace,
+      *Done 2026-09-26 as `flash/ambient.py`, reached as `flash ambient` (flags
+      defined once in the module and shared with `flash.cli`, because argparse's
+      REMAINDER cannot carry a leading `--flag`). Git verbs run through an
+      allowlist with no `push`; writes are containment-checked against the
+      worktree root; a draft is verified by re-running, inside that worktree, the
+      very check that found it — and refused if the fix adds a finding or removes
+      a line an ADD-only finding was asked only to add. Not a daemon: no launchd
+      or cron entry was installed, because that part cannot be audited by a
+      reviewer reading this tree.*
+- [x] [V] [offline] Check: an overnight run leaves ≥ 1 reviewable draft + trace,
       0 pushes, 0 files touched outside its worktree.
+      *Run 2026-09-26, `python -m flash.ambient --selftest` → **61/61**, against a
+      temp git repo with a seeded red check and a scripted generator: 3 verified
+      drafts each `git apply --check` clean, a trace per window recording every
+      git call and attempt, 0 pushes (`git branch -r` empty and no `push` in the
+      window's own command log), byte-identical tree outside the worktrees, HEAD
+      unmoved. Six mutations break each guarantee on purpose and every one is
+      caught (allowlist → a push is issued; containment → the file lands at
+      `../../escaped.py`; oracle → a harmful draft ships; additive clause → the
+      re-wrapping draft ships; newline carrier → "No newline at end of file"; name
+      matcher widened → an unreadable draft goes green).*
+      *Live half also met, and it took seven windows to find out why the first five
+      failed: Qwen2.5-Coder-7B produced **0** verified drafts on this repo's real
+      map until the prompt was fixed, and the tempting story ("this tier cannot
+      echo a 45-line file") was **refuted** by `benchmarks/ambient_echo_probe.py`,
+      whose 2x2 over echo length × insert count produced a verified draft in all
+      four arms — 52 lines of echo with 3 inserts included (74.7s, 2 attempts). The
+      mechanism was a FORM failure, captured verbatim by `--inspect`: greedy decode
+      writes `ambient — ambient context…`, a bare name the map parser does not
+      read. Naming the accepted form in the prompt produced this repo's first
+      accepted live draft on the **greedy** attempt, 33.6s (window 6), repeated in
+      43.9s (window 7); window 6's filler prose is why the finding now quotes each
+      module's own docstring line. Boundary across all seven, read back from the
+      repo and the trace store: HEAD unmoved, 0 pushes (no remote configured at
+      all), 0 leaked worktrees, 0 files touched outside the worktree. Still open
+      and stated: no *unattended* overnight window has run — all seven were daytime
+      and `--force`d — and §33.5's CI/dependency watch targets are not read here.*
 - [ ] [V] [L] R-7.3 voice: real-microphone arm, VAD barge-in, ≥ 90% command
       recognition over 50 utterances.
 - [ ] [V] [L] M17 feel test: ≥ 7 of 10 developers keep it after a week.

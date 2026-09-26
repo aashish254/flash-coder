@@ -254,6 +254,42 @@ Vision is benchmarked once the text brain is picked (PLAN §M1–M2).
 # and the untouched tasks changed nothing. The arm prints that comparison itself:
 # it re-runs the same argv with no kill and sha1-compares every answer.
 
+# §33.5 / R-7.2 ambient mode — idle windows that DRAFT and ship nothing
+# `flash ambient` watches three deterministic checks (pyflakes over the shipped
+# scope, every seeded task's premise, and the package map vs `flash/`), and for
+# each red one it cuts a git worktree from HEAD, asks the small tier to fix it,
+# and re-runs THE SAME CHECK as the oracle. A draft is offered only if its own
+# finding is gone, nothing new appeared, and — for an ADD-only finding — not one
+# existing line was removed. It commits to a local branch, writes a .diff, and
+# never merges, never applies, never pushes.
+.venv/bin/python -m flash.cli ambient --dry-run        # print what is red, touch nothing
+.venv/bin/python -m flash.cli ambient --check          # may a window run right now? (exit 0/1)
+.venv/bin/python -m flash.cli ambient --small mlx-community/Qwen2.5-Coder-7B-Instruct-4bit \
+  --limit 1 --attempts 3                               # a real window; the gate needs idle + AC (--force to override)
+.venv/bin/python -m flash.cli ambient --status         # list every prepared draft, verified or not
+.venv/bin/python -m flash.ambient --selftest           # 61 checks + 6 mutations: the boundary, enforced
+.venv/bin/python benchmarks/ambient_echo_probe.py --dry   # rebuild the 2x2 fixtures, no model
+# MEASURED 2026-09-26, Qwen2.5-Coder-7B on THIS repo, one red drift finding: seven
+# windows. The first five bought two oracle bugs and one wrong story — a verified
+# draft that re-wrapped 20 lines it was only asked to ADD to (now refused, pinned by
+# a check and a mutation), a work list read from the dirty checkout instead of HEAD,
+# and a diff that silently dropped every file's trailing newline (the `# file:`
+# fence cannot carry that byte; `carry_newline` puts it back at the write layer).
+# The story that "this tier cannot echo a 45-line file" was then REFUTED by the 2x2
+# above: all four arms (3x1, 52x1, 3x3, 52x3 entries) produced verified drafts, and
+# the failing windows had echoed FEWER tokens than the passing arms. `--inspect`
+# named the real mechanism: greedy decode writes `ambient — ambient context
+# processing`, a bare name the map parser cannot read, because the prompt asked for
+# "the module name" without saying in which form. Stating the accepted form fixed
+# the live half on the first try — window 6 drafted in 33.6s on its greedy attempt,
+# window 7 in 43.9s — and window 6's filler prose ("Ambient context processing for
+# the coding environment") is why the prompt now quotes each module's OWN docstring
+# line, so window 7's draft says what flash.perceive and flash.route really do.
+# Boundary, across all seven: one worktree at a time and zero leaked, HEAD unmoved,
+# zero pushes, no remote configured, no file touched outside the worktree.
+# Not measured: an unattended overnight window — these were daytime and --forced,
+# with the idle+AC gate opened by a synthetic profile state.
+
 # clean build: no unused imports, no shadowed definitions, no dead assignments
 .venv/bin/python -m pyflakes flash/*.py benchmarks/*.py   # 0 findings (tasks/*_test.py are
                                                           # program fragments by design - the
