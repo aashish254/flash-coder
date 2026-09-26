@@ -18,6 +18,13 @@ a check added on top of a battery moves its line's number and trips CLAIM.
 `--quick ambient lora`. Mutation counts are summed and reported apart from the
 checks, because SPEC §6's total counts checks and m0_bakeoff's 20 oracle
 verifications, and the mutants are extra to both.
+
+One line is environmental rather than logical: `checkpoint_resume_check.py`
+refuses to run unless the §34.1 governor offers tournament width >= 2, so on a
+busy box it exits with its own remedy ("let it cool, re-run") and the §6 total
+cannot be read here. That is the battery failing closed, not passing quietly —
+but it arrived as `printed []`, which named nothing, so a BAD line now echoes the
+run's last line. Read the whole tree's total on a quiet machine.
 """
 import re
 import subprocess
@@ -31,7 +38,7 @@ PY = sys.executable
 # kind: "checks" feeds the selftest/end-to-end/premise sum, "oracle" the second.
 BATTERY = [
     ("flash.harness --selftest", "-m flash.harness --selftest", 20, None, "checks"),
-    ("flash lsp-selftest", "-m flash.cli lsp-selftest", 14, None, "checks"),
+    ("flash lsp-selftest", "-m flash.cli lsp-selftest", 17, None, "checks"),
     ("flash power --selftest", "-m flash.cli power --selftest", 22, None, "checks"),
     ("flash jobs --selftest", "-m flash.jobs --selftest", 20, None, "checks"),
     ("flash trace --selftest", "-m flash.cli trace --selftest", 30, None, "checks"),
@@ -64,7 +71,7 @@ BATTERY = [
      20, None, "oracle"),
 ]
 
-CLAIM = {"checks": 997, "oracle": 20, "mutants": 42}
+CLAIM = {"checks": 1000, "oracle": 20, "mutants": 42}
 
 
 def run(argv: str) -> str:
@@ -119,8 +126,16 @@ def main(argv: list) -> int:
     for label, cmd, want, mut, kind in items:
         out = run(cmd)
         if not has_check(out, want):
-            bad.append(f"{label}: expected {want}/{want}, printed {printed(out)[:4]}")
+            # A line that prints no fraction at all usually died on an assertion
+            # or a traceback, and "printed []" tells nobody which. Show its last
+            # line — this battery has to be runnable by someone who is not
+            # watching the terminal while it goes.
+            cause = next((l for l in reversed(out.strip().splitlines())
+                          if l.strip()), "no output whatsoever")
+            bad.append(f"{label}: expected {want}/{want}, printed "
+                       f"{printed(out)[:4]} — last line: {cause.strip()[:150]}")
             print(f"BAD  {label:44s} want {want}/{want} got {printed(out)[:4]}")
+            print(f"     └─ {cause.strip()[:150]}")
             continue
         extra = ""
         if mut is not None:

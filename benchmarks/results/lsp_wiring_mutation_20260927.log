@@ -1,0 +1,17 @@
+# Hand-run mutation of the R-1.1 wiring seam: the fix, then the bug put back.
+# `flash/lsp.py` section 6b drives `loop.solve` with a stubbed generator and
+# reads the retry message back, so the two prompt checks fail when the hint
+# goes only to the recorded Attempt. The third line is the negative control:
+# a task with no repo context must gain nothing either way, and it does not.
+
+### fix in place
+lsp selftest: 17/17 checks passed
+  OK   wiring: the RETRY PROMPT the model is actually shown carries the resolved source — not only the recorded attempt, which is the failure shape that made a dead seam look live  337 chars in the retry, 118 of them hint
+  OK   wiring: ...and what arrives is `symbol_hint`'s own output verbatim and exactly once, so the loop neither truncates it nor injects it twice  1 copies
+  OK   wiring: with no repo context on the task the retry is what it always was — the hint stays silent rather than resolving against a directory the task never named  217 chars
+
+### bug restored (R-1.1 exactly as it shipped)
+lsp selftest: 15/17 checks passed
+  FAIL wiring: the RETRY PROMPT the model is actually shown carries the resolved source — not only the recorded attempt, which is the failure shape that made a dead seam look live  217 chars in the retry, 118 of them hint
+  FAIL wiring: ...and what arrives is `symbol_hint`'s own output verbatim and exactly once, so the loop neither truncates it nor injects it twice  0 copies
+  OK   wiring: with no repo context on the task the retry is what it always was — the hint stays silent rather than resolving against a directory the task never named  217 chars

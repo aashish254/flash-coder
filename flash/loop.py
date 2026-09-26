@@ -463,9 +463,14 @@ def solve(model, tokenizer, task: dict, max_attempts: int = 3,
                     kind=kind, ms=round((time.perf_counter() - vt0) * 1000),
                     files=len(merged) if task.get("multi") else None,
                     err=None if ok else err[:trace.MAX_ERR])
-        res.attempts.append(Attempt(
-            code=code, ok=ok,
-            err=err if ok else _symbol_hint(task, err, code)))
+        # R-1.1: the resolved source has to reach the MODEL. It used to be
+        # computed inside the Attempt(...) call below, so it landed in the record
+        # that `flash trace` prints while `messages` — the thing read back as
+        # feedback — carried the bare error. Setting `err` first makes the record
+        # and the retry prompt show the same text.
+        if not ok:
+            err = _symbol_hint(task, err, code)
+        res.attempts.append(Attempt(code=code, ok=ok, err=err))
         if ok:
             res.solved = True
             break

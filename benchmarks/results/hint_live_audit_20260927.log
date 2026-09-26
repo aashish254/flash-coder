@@ -1,0 +1,31 @@
+# R-1.1's live witness, both directions, on the real trace corpus.
+# Produced by: python benchmarks/hint_live_audit.py [--expect present] [--print]
+#
+# Pre-fix half = the sealed claim: 248 stored prompts / 56 retry prompts from runs
+# captured before the fix, NONE carrying the header. That is what makes the old
+# SPEC line false — the hint reached the attempt record, which is what
+# `flash trace` prints, never the model.
+# Post-fix half = the live arm: one 7B run of r03_bulk_rule, --with-context
+# --allow-big never --attempts 3 --trace-full, session
+# 20260927-035552-run-suite-b2b4. Its retry prompts carry
+# 'Symbols in play (real repo source — call exactly as defined)' with
+# models.py:21 CartLine [class] and pricing.py:5 BULK_MIN_QTY [constant].
+# r03 still solved=False on the small tier, as the ledger says it never has
+# before: injection is verified, no accuracy delta is claimed from n=1.
+
+## expect=corrected (the default), rc 0
+pre-fix  prompts stored  248 · retries  56 · carrying 'Symbols in play': 0
+post-fix prompts stored   15 · retries   4 · carrying 'Symbols in play': 2
+  HIT 20260927-035552-run-suite-b2b4.jsonl task=r03_bulk_rule attempt=1
+  HIT 20260927-035552-run-suite-b2b4.jsonl task=r03_bulk_rule attempt=2
+OK pre-fix corpus clean: no prompt from before 20260927 carries the hint, so no older live run may credit symbol injection with anything it solved
+
+## expect=present (the live arm), rc 0
+pre-fix  prompts stored  248 · retries  56 · carrying 'Symbols in play': 0
+post-fix prompts stored   15 · retries   4 · carrying 'Symbols in play': 2
+OK pre-fix corpus clean: no prompt from before 20260927 carries the hint, so no older live run may credit symbol injection with anything it solved
+OK live arm: 2 post-fix retry prompt(s) carry it
+
+## the gate can get worse (synthetic corpora, from the same file)
+##   a hint-bearing pre-fix prompt  -> rc 1  'FAIL 1 pre-fix prompt(s) carry the hint'
+##   no post-fix hit, expect=present -> rc 1 'FAIL no post-fix retry prompt carries the hint'

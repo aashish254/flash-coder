@@ -671,6 +671,70 @@ def run_selftest(verbose: bool = True) -> int:
     check("hint: silent when nothing repo-defined is at issue",
           symbol_hint(fixture, "KeyError: 'zzz'", "x = 1") == "")
 
+    # 6b. THE WIRING, not the helper. R-1.1's clause is about what the MODEL is
+    # shown, and every check above calls `symbol_hint` directly — so all of them
+    # passed, on every run since the baseline commit 0ea2798, while `loop.solve`
+    # appended the hint to the recorded Attempt and never to the retry prompt. A
+    # trace of such a run looks completely convincing, because the hint IS in the
+    # record, which is what `flash trace` prints. These checks drive the real loop
+    # with a stubbed generator and read the messages back.
+    import tempfile
+    from flash import loop as _loop
+
+    seen: list[list[dict]] = []
+
+    def fake_generate(model, tokenizer, messages, max_tokens, **kw):
+        seen.append([dict(m) for m in messages])
+        if len(seen) == 1:
+            return ("```python\nimport cart\n\n\ndef answer(lines):\n"
+                    "    return cart.subtotal_cents(lines)\n```\n")
+        return "```python\nanswer = 0\n```\n"
+
+    wire = Path(tempfile.mkdtemp(prefix="lsp-wire-"))
+    (wire / "pricing.py").write_text(
+        '"""Pricing."""\nBULK_MIN_QTY = 5\n\n\n'
+        'def bulk_discount_cents(price_cents, qty):\n'
+        '    return price_cents * 10 if qty >= BULK_MIN_QTY else 0\n')
+    bare = "NameError: name 'BULK_MIN_QTY' is not defined"
+    real_gen, real_diag = _loop._generate, _loop.diagnose
+    _loop._generate = fake_generate
+    _loop.diagnose = lambda code, test: (False, bare)
+    try:
+        # (a) a task WITH repo context: the resolved source must reach the model.
+        _loop.solve(None, None,
+                    _loop.enrich_task({"id": "wire", "prompt": "sum the subtotal",
+                                       "test": "assert False", "context": "."},
+                                      wire),
+                    max_attempts=2, debug=False)
+        with_ctx = [dict(m) for m in seen[1]] if len(seen) > 1 else []
+        seen.clear()
+        # (b) a task WITHOUT it: the same machinery must add nothing at all.
+        _loop.solve(None, None,
+                    {"id": "bare", "prompt": "sum the subtotal",
+                     "test": "assert False"},
+                    max_attempts=2, debug=False)
+        without_ctx = [dict(m) for m in seen[1]] if len(seen) > 1 else []
+    finally:
+        _loop._generate, _loop.diagnose = real_gen, real_diag
+    retry = with_ctx[-1]["content"] if with_ctx else ""
+    want = symbol_hint(wire, bare, _loop.extract_code(with_ctx[-2]["content"])) \
+        if len(with_ctx) > 1 else ""
+    check("wiring: the RETRY PROMPT the model is actually shown carries the "
+          "resolved source — not only the recorded attempt, which is the failure "
+          "shape that made a dead seam look live",
+          "Symbols in play" in retry and "BULK_MIN_QTY = 5" in retry,
+          f"{len(retry)} chars in the retry, {len(want)} of them hint")
+    check("wiring: ...and what arrives is `symbol_hint`'s own output verbatim and "
+          "exactly once, so the loop neither truncates it nor injects it twice",
+          bool(want) and retry.count(want) == 1, f"{retry.count(want)} copies")
+    check("wiring: with no repo context on the task the retry is what it always "
+          "was — the hint stays silent rather than resolving against a directory "
+          "the task never named",
+          with_ctx and without_ctx
+          and "Symbols in play" not in without_ctx[-1]["content"]
+          and without_ctx[-1]["content"].count(bare) == 1,
+          f"{len(without_ctx[-1]['content']) if without_ctx else 0} chars")
+
     # 7. degradation: no server, same answers (§33.9 invariant 7)
     fs = find_symbol(fixture, "total_cents", use_lsp=False)
     check("fallback: find_symbol works without the server",

@@ -76,14 +76,53 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
 
 ### A. PERCEIVE — the agent knows the repo, not just the prompt
 
-- **R-1.1 (SHIPPED)** The agent MUST resolve a symbol named in an error to its
-  real source and inject it into retry feedback.
-  Vector: `flash lsp-selftest` 14/14; live — r03's retry received
-  `BULK_MIN_QTY = 5` from `pricing.py:5`.
+- **R-1.1 (SHIPPED — re-verified 2026-09-27, the earlier vector was false)** The
+  agent MUST resolve a symbol named in an error to its real source and inject it
+  into retry feedback.
+  *What was wrong: the clause says **inject into retry feedback**, and
+  `loop.solve` appended `lsp.symbol_hint`'s output to the recorded `Attempt` — a
+  different object from the `messages` list the next prompt is built from. The
+  helper was correct, every one of the old 14 checks called it directly, and the
+  trace render that "proved" the live half prints `Attempt.err`. So the resolved
+  source reached the record and never reached the model, on every live run since
+  the seam was written (`0ea2798`, the baseline commit — the only one that has
+  ever touched that call site).*
+  The fix is two lines: `err = _symbol_hint(task, err, code)` on a failed
+  attempt, before both the `Attempt` and the feedback template are built, so one
+  string is what the model reads and what the trace stores.
+  Vector: `flash lsp-selftest` **17/17**. Three new checks (section 6b, printed as
+  checks 11-13) drive `loop.solve` itself with a stubbed generator and read the
+  retry message back — that the prompt carries the source, that it carries
+  `symbol_hint`'s own output verbatim and exactly once, and (control) that a task
+  with no repo context gains nothing. Mutation, hand-run and kept in
+  `benchmarks/results/lsp_wiring_mutation_20260927.log`: with the old line put
+  back the two prompt checks FAIL and the control still passes — **15/17**.
+  Live, both directions (`python benchmarks/hint_live_audit.py`, raw witness
+  `benchmarks/results/hint_live_audit_20260927.log`): of **248** stored prompts
+  from runs captured before the fix — **56** of them retry prompts — **0**
+  carried the header, and after it one real 7B run of `r03_bulk_rule`
+  (`--with-context --allow-big never --attempts 3 --trace-full`) put it in both
+  of its retries (`models.py:21 CartLine [class]`, `pricing.py:5 BULK_MIN_QTY
+  [constant]`). The audit exits 1 if either half is contradicted, and was checked
+  that way on synthetic corpora in both directions.
+  **What this voids:** any live accuracy delta previously credited to symbol
+  injection, including the 2026-09-25 README note on r03 — that run's retry saw
+  the bare error. And no delta is claimed for the corrected seam either: on the
+  live run above r03 still failed all three small-tier attempts, as it always
+  has, so this clause is SHIPPED on *injection verified*, not on outcomes. The M2
+  context-skeleton A/B is unaffected — the skeleton is prepended to the prompt
+  itself, and `Project context (real API` appears in 10 of those same 248
+  captured prompts, which is the whole difference: one path wrote into `prompt`,
+  the other only into the record.
+  Out of scope, by design: `--edit` tasks, whose prompt already ships the real
+  source inline, and successful attempts.
 - **R-1.2 (SHIPPED)** Cross-file go-to-def and project-wide references MUST be
   answerable, with the AST owning kinds and the server owning resolution.
   Vector: `flash find total_cents --path benchmarks/fixtures`,
-  `flash refs …`, checks 3 and 9 of `lsp-selftest`.
+  `flash refs …`, and the two `lsp-selftest` checks
+  *"lsp: cross-file go-to-def lands in pricing.py"* and *"lsp: project-wide
+  references from a use site"* (the run prints labels, not numbers, so they are
+  named here rather than indexed).
 - **R-1.3 (SHIPPED)** The knowledge graph (PLAN §28) SHOULD supply architecture
   context (call/import graph, blast radius) alongside the LSP's live truth.
   Vector: a `flash graph <symbol>` answer that names the N callers a change
@@ -827,7 +866,7 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
 ## 6. Verification protocol — how a box gets checked
 
 1. **Offline battery first** (seconds, no models, must be green before any live
-   claim): `python -m flash.harness --selftest` 20 · `flash lsp-selftest` 14 ·
+   claim): `python -m flash.harness --selftest` 20 · `flash lsp-selftest` 17 ·
    `flash power --selftest` 22 · `flash jobs --selftest` 20 ·
    `flash trace --selftest` 30 · `flash web --selftest` 9 ·
    `python -m flash.grammar --selftest` 47 · `python -m flash.patches --selftest`
@@ -851,10 +890,10 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
    `python -m flash.debug --suite` 32 ·
    `python -m flash.patches --suite benchmarks/tasks/edit_tasks.jsonl` 60 ·
    `python benchmarks/m0_bakeoff.py --dry-run` 20 reference solutions.
-   **Total: 997 selftest / end-to-end / premise checks + 20 oracle
+   **Total: 1000 selftest / end-to-end / premise checks + 20 oracle
    verifications (m0_bakeoff's 20 reference solutions, which are the only
    numbers in that 20 — the 6 ambient, 14 lora, 5 band, 5 router-portability and
-   12 graph mutants are extra to both totals) = 1017 green, offline.** Re-read by
+   12 graph mutants are extra to both totals) = 1020 green, offline.** Re-read by
    `python benchmarks/battery_reread.py`, which holds one line per item above,
    requires the exact fraction each one prints, sums checks/oracle/mutants
    separately, and fails if the tree's sum moves off this page's number. It
@@ -864,6 +903,27 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
    last `n/n` on 2026-09-26 read lora_path_check's `14/14 mutants` as its
    checks and under-counted by 17. Both traps are why the counts below are the
    runs' own printed numbers.
+   **One line is environmental, not logical**: `checkpoint_resume_check.py`
+   refuses to run unless §34.1's governor offers tournament width ≥ 2, so on a
+   busy box it exits with its own remedy ("put it on AC, let it cool, re-run") and
+   the total cannot be read here at all. That is the battery failing closed rather
+   than passing quietly — measured 2026-09-27, when it tripped at load 2.4/core
+   while an unrelated process group held the machine — but it arrived as
+   `printed []`, which named nothing, so a BAD line now echoes the run's last
+   line. Read §6's total on a quiet machine.
+   (Updated 2026-09-27, after R-1.1's correction: **+3** on
+   `flash lsp-selftest` (**14 → 17**) — the three checks that drive `loop.solve`
+   and read the retry prompt back, instead of calling `lsp.symbol_hint` directly
+   the way the other 14 do. That is the whole point of the number: the 14 were
+   green and true, and the seam that fed their helper to the model was dead, so a
+   vector can print exactly its claimed fraction and still not test its clause.
+   **1017 → 1020**, mutants unchanged at 42, because this fix was mutation-checked
+   by hand rather than by a sweep: 15/17 with the old line put back, in
+   `benchmarks/results/lsp_wiring_mutation_20260927.log`.
+   `benchmarks/hint_live_audit.py` is deliberately **not** a line here — its
+   denominator is the trace corpus, which grows with every live run, so it can
+   never print a fixed fraction; it is a two-sided gate that exits 1 when a
+   pre-fix prompt carries the hint and when a post-fix one does not.)
    (Updated 2026-09-27, after R-1.3's knowledge graph: **+44** for
    `python -m flash.graph --selftest --mutants` — the clause's named answer (the
    callers a change would break, with the file/line/text that proves each one) plus

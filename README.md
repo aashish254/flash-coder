@@ -118,11 +118,19 @@ Vision is benchmarked once the text brain is picked (PLAN §M1–M2).
 
 # §33.1 symbol perception: AST discovery + a live language server (jedi/pylsp).
 # The loop uses this automatically: a failure that names a repo symbol gets that
-# symbol's REAL source appended to the retry feedback.
+# symbol's REAL source appended to the retry feedback. (Corrected 2026-09-27 —
+# that sentence described a seam that had never been live. The helper worked and
+# the loop appended its output to the RECORDED attempt, which is what `flash trace`
+# prints, while the retry prompt was built from the plain error. Two lines moved
+# it into `err` before both are built; checks 11-13 of `lsp-selftest` now drive
+# `loop.solve` and read the retry prompt back instead of calling the helper.)
 .venv/bin/python -m flash.cli find total_cents --path benchmarks/fixtures
 .venv/bin/python -m flash.cli refs total_cents --path benchmarks/fixtures
 .venv/bin/python -m flash.cli symbols --path benchmarks/fixtures          # whole tree (AST)
-.venv/bin/python -m flash.cli lsp-selftest                                # 14 offline checks
+.venv/bin/python -m flash.cli lsp-selftest                                # 17 offline checks
+#   the prompt claim, measured against the live corpus rather than asserted:
+.venv/bin/python benchmarks/hint_live_audit.py --print       # 248 pre-fix prompts, 0 hits
+.venv/bin/python benchmarks/hint_live_audit.py --expect present   # the live arm, 2 hits
 
 # §28/R-1.3 knowledge graph — the AST-only answer to "what breaks if I change this?".
 # No embedding and no vector store: nodes are functions/classes/modules/constants, edges
@@ -448,6 +456,15 @@ not a regression: the ledger shows r03 has never been a small-tier solve. And
 the §33.1 symbol hint fired on the live run — the retry that had just hit
 `undefined name 'BULK_MIN_QTY'` got `# pricing.py:5 BULK_MIN_QTY [constant]`
 with its real source, turning two API-blindness failures into one semantic one.
+**CORRECTION (2026-09-27):** the last sentence is false as written, and so is the
+clause it was supporting. That run's retry prompt did NOT contain the resolved
+source — `loop.solve` had appended `symbol_hint`'s output to the recorded
+attempt, which is what the trace renders, and built the retry from the plain
+error. What the note observed was real; it was observed in the wrong object. Two
+lines fixed it, and the same task re-run on the 7B with `--trace-full` now shows
+the header in both of its retries (`benchmarks/hint_live_audit.py`). No accuracy
+delta is claimed for the corrected seam: that run still failed all three
+small-tier attempts, as r03 always has, and an A/B arm would have to say more.
 
 **Pass criteria** (PLAN §M0): a 30B-class MoE must sustain ≥45 tok/s, peak
 memory ≤ 18 GB (24 GB Blender budget leaves headroom), and pass ≥17/20 tasks.

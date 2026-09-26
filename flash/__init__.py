@@ -4,7 +4,12 @@ Plan: ../PLAN.md (v3.8). This package grows milestone by milestone:
   M0: benchmarks/m0_bakeoff.py      (model selection — measured, not guessed)
   M1: flash.loop + flash.harness    (ACT -> VERIFY -> error-feedback retry)
       flash.decide + flash.cli      (System One decision fabric, PLAN §32)
-  M2: flash.context + flash.lsp     (repo perception: skeleton, symbols, refs)
+  M2: flash.context + flash.lsp     (repo perception: skeleton, symbols, refs.
+                                     R-1.1's seam is in flash.loop: a failed
+                                     attempt's `err` gains `lsp.symbol_hint`'s
+                                     resolved source BEFORE the retry prompt and
+                                     the recorded Attempt are built — writing it
+                                     the other way round fed only the trace)
       flash.perceive                (one file's static diagnostics as an oracle)
       §28/R-1.3: flash.graph         (the knowledge graph, AST-only and no vector
                                      store: nodes are functions/classes/modules/

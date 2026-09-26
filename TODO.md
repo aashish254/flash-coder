@@ -1058,9 +1058,63 @@ here rather than folded into P6's confidence work.
       Battery: `flash.graph --selftest` joins SPEC §6's re-read at 44 checks + 12
       mutants, moving the tree's printed totals to 997 + 20 = **1017 green,
       offline**, 42 mutants.*
+- [x] [B] **Correction, R-1.1 (2026-09-27): the clause was marked SHIPPED on a
+      vector that did not test it.** Picked up while choosing R-1.3b's seam — the
+      graph was about to be injected into a path that turned out not to reach the
+      model. SPEC R-1.1 says *resolve a symbol named in an error to its real
+      source and inject it into retry feedback*. `lsp.symbol_hint` did the
+      resolving; `loop.solve` called it inside the `Attempt(...)` constructor, so
+      its output went into the **record** and the retry prompt was built from the
+      plain `err`. `flash trace` prints that record, which is why this survived a
+      month of green vectors and a "live" note in the README.
+      Proof it was dead, three ways: the code had one call site and it was in the
+      record constructor; a stubbed-`_generate` probe showed the retry prompt
+      lacking `BULK_MIN_QTY` before the fix and carrying it after; and
+      `benchmarks/hint_live_audit.py` finds the header in **0 of 248** stored
+      prompts (56 of them retry prompts) across every `--trace-full` run captured
+      before today.
+      Fix: `err = _symbol_hint(task, err, code)` on a failed attempt before both
+      the record and the feedback template are built — one string, so the model
+      and the trace see the same thing.
+      Vector moved: three `wiring:` checks added to `flash lsp-selftest` (**14 →
+      17**), driving `loop.solve` itself with a stubbed generator and reading the
+      retry message back: the source arrives, it arrives verbatim and exactly
+      once, and (control) a task with no repo context gains nothing. Mutation is
+      hand-run and logged — put the old line back, the two prompt checks FAIL and
+      the control still passes, **15/17**
+      (`benchmarks/results/lsp_wiring_mutation_20260927.log`). Live arm re-taken
+      on the real 7B (`run-suite --with-context --allow-big never --attempts 3
+      --trace-full`, session `20260927-035552-run-suite-b2b4`): both retries carry
+      `Symbols in play` with `models.py:21 CartLine` and `pricing.py:5
+      BULK_MIN_QTY`, `hint_live_audit.py --expect present` exits 0, and the
+      pre-fix half still exits 1 if any older prompt is found carrying it
+      (`benchmarks/results/hint_live_audit_20260927.log`). r03 still did not solve
+      on the small tier, so **no accuracy delta is claimed** — only that the text
+      now reaches the model. Battery: 997 + 20 = 1017 → **1000 + 20 = 1020**,
+      mutants still 42. What this voids: any live delta credited to symbol
+      injection before today, including the 2026-09-25 README note (corrected in
+      place, not deleted). What it does not void: the M2 context-skeleton A/B —
+      the skeleton is prepended to the prompt itself, and `Project context (real
+      API` appears in 10 of those same 248 captured prompts, which is exactly the
+      difference: one path wrote into `prompt`, the other only into the record.*
+- [ ] R-1.1b does symbol injection actually HELP? A/B on a frozen suite, hint on
+      vs off, same model, same seeds — the clause is now live-verified in the
+      prompt (`benchmarks/hint_live_audit.py --expect present`) and its outcome
+      value has never been measured, because the one live note that claimed it was
+      read from the record. Gate: a stated delta or a stated nil.
+      *(Switch: `_symbol_hint` is already the single call site in `loop.solve`, so
+      an env or flag-off branch is one line; both arms must be scored with
+      `--trace-full` and the injection presence proven per-arm by the audit, or the
+      A/B compares two runs of the same thing.)*
 - [ ] R-1.3b feed the graph's subgraph into `loop.py`'s PERCEIVE context
       (PLAN §28.2 step 3). The graph and its CLI answer ship; the agent does not
-      yet consult it unprompted.
+      yet consult it unprompted. *(Seam note, 2026-09-27: inject it where R-1.1
+      now injects — into `err` before the `Attempt` and the feedback template are
+      both built. Anything added to the record side alone will pass every check
+      and reach no model; that is precisely the bug corrected above. The vector
+      has to read the retry message back, and
+      `benchmarks/hint_live_audit.py`'s `--expect present` is the shape a live arm
+      for this should take.)*
 - [ ] R-1.4 second language for perception (choose from ledger evidence)
 - [ ] R-8.2 latent compute — adopt only on a measured ≥ 20% token saving
 - [ ] G6 watts/task (blocked: `powermetrics` needs sudo)
