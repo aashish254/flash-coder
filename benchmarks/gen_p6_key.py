@@ -22,7 +22,15 @@ A row is written only after its own reference passes the key it was built from
 failure; tasks where no assertable value comes out are named as dropped rather
 than left silently absent.
 
-    python benchmarks/gen_p6_key.py
+    python benchmarks/gen_p6_key.py            # p6_tasks.jsonl, the 23-row arm
+    python benchmarks/gen_p6_key.py --wide     # p6b_tasks.jsonl, every keyed suite
+    python benchmarks/gen_p6_key.py --out PATH # anywhere else, same rules
+
+`--wide` exists because R-2.3's recall clause had an EMPTY denominator: the 7B
+answered all 15 keyed routine tasks correctly, so ">= 90% of would-fail-hidden"
+was untested rather than passed. Routine rows keep the `gate: "routine"` tag and
+hard-suite rows are tagged `hard`, so widening the recall population cannot move
+the per-20-routine-tasks false-offer clause the shipped gate is written against.
 """
 from __future__ import annotations
 
@@ -40,10 +48,40 @@ from flash import confidence                    # noqa: E402
 
 KEY_SEED = confidence.HASH_SEEDS[0]
 
-M0 = ROOT / "benchmarks" / "tasks" / "m0_tasks.jsonl"
 SUBTLE = ROOT / "benchmarks" / "tasks" / "subtle_tasks.jsonl"
 OUT = ROOT / "benchmarks" / "tasks" / "p6_tasks.jsonl"
 MAX_PROBES = 8
+
+# `--wide` mines keys from every brief-to-code suite that ships a reference,
+# because R-2.3's recall clause needs a denominator and 15 routine tasks cannot
+# carry one: at the 7B all 15 answered correctly under a strict key, so recall
+# was 0/0. Multi-file (mw) and change-request (edit) suites are deliberately
+# absent — their answer shape is not the one the key prober walks.
+#
+# The tag survives, it does not blur: rows from ROUTINE suites stay `gate
+# "routine"` (the false-offer clause is stated per 20 ROUTINE tasks) and rows
+# from HARD suites are tagged `hard`, so widening the recall denominator cannot
+# silently move the routine population the other clause is measured over.
+ROUTINE_SUITES = ["m0_tasks", "m2_tasks"]
+HARD_SUITES = ["m3_hard_tasks", "m3b_hard_tasks", "m4_heldout_tasks",
+               "m5_heldout_tasks", "m6_heldout_tasks", "m7_heldout_tasks"]
+WIDE_SUITES = ROUTINE_SUITES + HARD_SUITES
+WIDE_OUT = ROOT / "benchmarks" / "tasks" / "p6b_tasks.jsonl"
+MIN_WIDE_TOTAL = 40
+MIN_WIDE_HARD = 20
+
+# The largest expectation this script will write into a key, in characters.
+# Without it a probe on a quadratic answer is not a held-out expectation but a
+# multi-megabyte literal: h39_spiral_matrix's 10 ** 4-int battery entry made
+# `assert spiral(10000) == [[1, 2, …` print 943 MB of repr before the parent
+# gave up, and the key that came out of it timed out against its own reference
+# at every seed. Oversized probes are counted and reported, never written.
+MAX_EXPECTATION_CHARS = 2000
+OVERSIZED: list = []
+
+# Probes skipped because the task's own visible test already asserts them — the
+# key would be re-stating evidence the gate already has. Reported, never silent.
+NOVELTY: list = []
 
 
 def pick(calls: list) -> list:
@@ -97,6 +135,10 @@ def observe(code: str, fn: str, args: list):
     into the key as reprs and an unpinned child re-orders a set literal every
     run — a key that differs between two runs of this script is not a held-out
     expectation. `-s` rather than `-I`: -I implies -E, which would drop the seed.
+
+    The child truncates the repr it prints, because the parent would otherwise
+    read a 943 MB expectation into memory to discover it cannot be written: an
+    over-budget value comes back as the sentinel below and the probe is dropped.
     """
     with tempfile.TemporaryDirectory() as d:
         p = Path(d) / "ref.py"
@@ -104,18 +146,27 @@ def observe(code: str, fn: str, args: list):
         prog = (f"import sys, json\nsys.path.insert(0, {str(d)!r})\nimport ref\n"
                 f"args = [{', '.join(map(_arg_repr, args))}]\n"
                 f"try:\n"
-                f"    print(json.dumps(['value', "
-                f"repr(getattr(ref, {fn!r})(*args))]))\n"
+                f"    r = repr(getattr(ref, {fn!r})(*args))\n"
+                f"    print(json.dumps(['value', r[:{MAX_EXPECTATION_CHARS + 1}], "
+                f"len(r)]))\n"
                 f"except BaseException as e:\n"
-                f"    print(json.dumps(['raises', type(e).__name__]))\n")
+                f"    print(json.dumps(['raises', type(e).__name__, 0]))\n")
         env = dict(os.environ, PYTHONHASHSEED=str(KEY_SEED))
         env.pop("PYTHONPATH", None)
-        r = subprocess.run([sys.executable, "-s", "-c", prog],
-                           capture_output=True, text=True, timeout=20, env=env)
+        try:
+            # The program goes in on stdin: as one argv entry it can trip E2BIG,
+            # and a key generator that dies on one task loses the whole suite.
+            r = subprocess.run([sys.executable, "-s", "-"],
+                               input=prog, capture_output=True, text=True,
+                               timeout=20, env=env)
+        except OSError:
+            return None
     try:
-        kind, val = json.loads(r.stdout.strip().splitlines()[-1])
+        kind, val, full_len = json.loads(r.stdout.strip().splitlines()[-1])
     except Exception:
         return None
+    if kind == "value" and full_len > MAX_EXPECTATION_CHARS:
+        return ("oversized", str(full_len))
     if kind == "value" and not _evalable(val):
         return None
     return (kind, val)
@@ -136,11 +187,28 @@ def key_for(task: dict) -> str:
         kind, val = obs
         lit = ", ".join(map(_arg_repr, args))
         if kind == "raises":
-            lines.append(f"try:\n    {fn}({lit})\n"
-                         f"    assert False, 'expected {val}'\n"
-                         f"except {val}:\n    pass")
+            line = (f"try:\n    {fn}({lit})\n"
+                    f"    assert False, 'expected {val}'\n"
+                    f"except {val}:\n    pass")
+        elif kind == "oversized":
+            OVERSIZED.append(f"{task['id']}:{fn}({lit[:24]}…) value {val} chars")
+            continue
         else:
-            lines.append(f"assert {fn}({lit}) == {val}")
+            line = f"assert {fn}({lit}) == {val}"
+        if len(line) > MAX_EXPECTATION_CHARS:
+            OVERSIZED.append(f"{task['id']}:{fn}({lit[:24]}…) line {len(line)} chars")
+            continue
+        # A probe the visible oracle already asserts verbatim is not held-out
+        # evidence — hidden_ok would be implied by the visible pass, not held
+        # out beside it. The battery's own small values (0, 1, 2, 7) collide
+        # with what a test typically writes, and three hard tasks were more
+        # than half collisions (h26_pascal_row, h33_base32_decode,
+        # h45_phone_letters) before this line existed. Skipping keeps the key
+        # genuinely differential and keeps the row.
+        if line.strip() in task["test"]:
+            NOVELTY.append(f"{task['id']}:{fn}({lit[:24]}…)")
+            continue
+        lines.append(line)
     key = "\n".join(lines) + "\n" if lines else ""
     # A key of nothing but raise-expectations scores an answer for throwing,
     # which is not ground truth of any kind. t15_parse_log lands here: the
@@ -176,55 +244,111 @@ def verify(task: dict) -> str | None:
     return None
 
 
-def main() -> int:
-    subtle = [json.loads(l) for l in SUBTLE.read_text().splitlines() if l.strip()]
-    m0 = [json.loads(l) for l in M0.read_text().splitlines() if l.strip()]
+def _load(path: Path) -> list:
+    return [json.loads(l) for l in path.read_text().splitlines() if l.strip()]
+
+
+def main(argv: list = ()) -> int:
+    wide = "--wide" in argv
+    out = WIDE_OUT if wide else OUT
+    if "--out" in argv:
+        nxt = argv[argv.index("--out") + 1:]
+        if not nxt:
+            print("--out needs a path", file=sys.stderr)
+            return 2
+        out = Path(nxt[0])
+        if not out.is_absolute():
+            out = ROOT / out
+    subtle = _load(SUBTLE)
+    sources = ([(n, "routine") for n in ROUTINE_SUITES]
+               + [(n, "hard") for n in HARD_SUITES]) if wide else \
+        [("m0_tasks", "routine")]
     rows = [dict(t, gate="subtle") for t in subtle]
-    dropped, broken = [], []
-    for t in m0:
-        hidden = key_for(t)
-        if not hidden:
-            dropped.append(t["id"])
-            continue
-        row = {"id": t["id"], "prompt": t["prompt"], "test": t["test"],
-               "hidden": hidden, "solution": t["solution"], "gate": "routine"}
-        why = verify(row)
-        if why:
-            broken.append((t["id"], why))
-            continue
-        rows.append(row)
+    dropped, broken, unusable = [], [], []
+    keyed, seen_ids = {"routine": 0, "hard": 0}, {r["id"] for r in subtle}
+    by_tag: dict[str, int] = {}
+    for name, tag in sources:
+        for t in _load(ROOT / "benchmarks" / "tasks" / f"{name}.jsonl"):
+            by_tag[tag] = by_tag.get(tag, 0) + 1
+            # A task whose own reference does not pass its own visible test is
+            # not a keyable instrument and not a generator bug either: drop it
+            # and name it. Only a key that the reference FAILS is broken — that
+            # is this script's own defect, and it stops the whole run.
+            if not confidence._visible_verdict(t["solution"], t["test"], KEY_SEED, 20):
+                unusable.append(t["id"])
+                continue
+            hidden = key_for(t)
+            if not hidden:
+                dropped.append(t["id"])
+                continue
+            if t["id"] in seen_ids:
+                print(f"  REFUSED {t['id']}: its id is already in the population "
+                      f"— a duplicated id would silently double its weight",
+                      file=sys.stderr)
+                broken.append((t["id"], "duplicate id"))
+                continue
+            seen_ids.add(t["id"])
+            row = {"id": t["id"], "prompt": t["prompt"], "test": t["test"],
+                   "hidden": hidden, "solution": t["solution"], "gate": tag}
+            why = verify(row)
+            if why:
+                broken.append((t["id"], why))
+                continue
+            rows.append(row)
+            keyed[tag] += 1
     if broken:
         for tid, why in broken:
             print(f"  REFUSED {tid}: {why}", file=sys.stderr)
         print(f"wrote nothing: {len(broken)} key(s) unusable", file=sys.stderr)
         return 1
-    routine = [r for r in rows if r["gate"] == "routine"]
     # Half the population missing is this script breaking, not tasks being hard.
     # Without this clause a bug that makes every reference look like it raises
     # leaves a well-formed file with no routine rows, and the gate silently
     # loses its false-offer denominator.
-    if len(routine) * 2 < len(m0):
-        print(f"wrote nothing: {len(routine)}/{len(m0)} routine tasks yielded a "
-              f"key — that is a generator bug, not attrition "
-              f"(dropped: {dropped})", file=sys.stderr)
+    for tag, want in by_tag.items():
+        if keyed[tag] * 2 < want:
+            print(f"wrote nothing: {keyed[tag]}/{want} {tag} tasks yielded a key "
+                  f"— that is a generator bug, not attrition "
+                  f"(dropped: {dropped})", file=sys.stderr)
+            return 1
+    if wide and (len(rows) < MIN_WIDE_TOTAL or keyed["hard"] < MIN_WIDE_HARD):
+        print(f"wrote nothing: the wide instrument is {len(rows)} row(s) with "
+              f"{keyed['hard']} keyed hard task(s), and R-2.3's denominators are "
+              f"only measurable over >= {MIN_WIDE_TOTAL} / >= {MIN_WIDE_HARD} — a "
+              f"suite this thin cannot carry a >=90% recall clause", file=sys.stderr)
         return 1
-    OUT.write_text("".join(json.dumps(r) + "\n" for r in rows))
-    print(f"wrote {len(rows)} task(s) -> {OUT.relative_to(ROOT)}")
+    out.write_text("".join(json.dumps(r) + "\n" for r in rows))
+    shown = out.relative_to(ROOT) if out.is_absolute() and ROOT in out.parents else out
+    print(f"wrote {len(rows)} task(s) -> {shown}")
     print(f"  subtle (seeded-bug) tasks: {len(subtle)}")
-    print(f"  routine tasks with a differential key: "
-          f"{len(routine)}/{len(m0)} of m0")
-    if dropped:
-        print(f"  dropped (no differential key available — the reference yields "
-              f"no assertable value on the probed inputs): {dropped}")
+    for tag in ("routine", "hard"):
+        if by_tag.get(tag):
+            print(f"  {tag} tasks with a differential key: "
+                  f"{keyed[tag]}/{by_tag[tag]}")
+    if dropped or unusable:
+        if dropped:
+            print(f"  dropped (no differential key available — the reference yields "
+                  f"no assertable value on the probed inputs): {dropped}")
+        if unusable:
+            print(f"  dropped (the task's own reference does not pass its own "
+                  f"visible test, so no key built on it could be ground truth): "
+                  f"{unusable}")
     per = [len(r["hidden"].strip().splitlines()) for r in rows]
     print(f"  hidden key size: min {min(per)}, max {max(per)} lines")
-    stats = [_composition(r["hidden"])[0] for r in routine]
-    raises = sum(_composition(r["hidden"])[1] for r in routine)
-    print(f"  routine keys verified against their own reference: "
-          f"{len(routine)}/{len(routine)}   value assertions per key: "
+    if OVERSIZED:
+        print(f"  probes dropped for exceeding {MAX_EXPECTATION_CHARS} chars "
+              f"(an expectation nobody can read is not held-out ground truth): "
+              f"{len(OVERSIZED)} — {OVERSIZED[:3]}")
+    if NOVELTY:
+        print(f"  probes skipped for repeating the task's own visible test "
+              f"(held-out means NEW evidence): {len(NOVELTY)} — {NOVELTY[:3]}")
+    stats = [_composition(r["hidden"])[0] for r in rows if r["gate"] != "subtle"]
+    raises = sum(_composition(r["hidden"])[1] for r in rows if r["gate"] != "subtle")
+    print(f"  keys verified against their own reference: "
+          f"{len(stats)}/{len(stats)}   value assertions per key: "
           f"min {min(stats)}, max {max(stats)}   raise expectations total: {raises}")
     return 0
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(main(sys.argv[1:]))

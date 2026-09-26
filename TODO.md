@@ -471,6 +471,49 @@ Rules for this file:
       a population that produces real hidden failures (harder tasks, or the 4B
       tier) to give recall a denominator, and a second live arm at n ≥ 40 to
       give the false-offer clause any resolution.*
+      *Live arm 2026-09-27, the same 7B over the 59-row wide instrument (session
+      `20260927-001446-run-suite-bcf3`, log
+      `benchmarks/results/p6/arm_7b_p6b.log`, 47/59 solved in 396s, avg 6.7s/task):*
+      `[R-2.3] 9/59 answer(s) carried evidence; recall on would-fail-hidden 4/11
+      (gate: >= 90%), 5 false offer(s) over 48 hidden-accepted answer(s) (gate: < 1
+      per 20)` / `gate's own population (rows tagged routine): recall 0/1 (>= 90%),
+      1 false offer(s) over 14 hidden-accepted of 15 task(s) (< 1 per 20)`. *Both
+      clauses MISSED with real denominators: the recall clause has 11 answers the
+      hidden key sinks, so 4/11 = 36% is a measurement rather than an empty set.*
+      *Live arm 2026-09-27, the 1.5B pilot tier over the same 59 rows (session
+      `20260927-002448-run-suite-7bb2`, log
+      `benchmarks/results/p6/arm_1b5_p6b.log`, 7/59 solved in 1252s, avg 21.2s/task,
+      52 tasks denied escalation by the §34.1 governor at load 2.4/core on
+      low-power):* `[R-2.3] 45/59 answer(s) carried evidence; recall on
+      would-fail-hidden 44/52 (gate: >= 90%), 1 false offer(s) over 7 hidden-accepted
+      answer(s) (gate: < 1 per 20)` / `gate's own population (rows tagged routine):
+      recall 13/15 (>= 90%), false offers NOT MEASURABLE (none of the 15 routine
+      row(s) was accepted by a hidden test, so the per-20 clause has no population)`.*
+      *A weaker tier does produce answers that pass the visible oracle and fail the
+      held-out key — 52 of 59 — which is the population the recall clause was
+      written for and never had. Recall is 44/52 = 84.6% overall and 13/15 = 86.7%
+      on the routine rows: **MISSED at both**, and the shape of the 8 misses says
+      why. Five are coverage-shaped but ABOVE the shipped `COVERAGE_TAU` 0.55
+      (`cov01_invoice_tax` 0.667, `seed02_shared_name` 0.75, `h24_md_table` 0.818,
+      `h08_settle_fees` 0.846, `cov02_report_sum` 0.875); three have total visible
+      coverage and a wrong value anyway (`t09_max_subarray`, `t14_topk_frequent`,
+      `h25_luhn_check`) — the documented masked-value blind spot, not a new one.
+      Both routine misses are in that second group.*
+      *Whether a stricter threshold could close it is measured by
+      `benchmarks/confidence_tau_check.py` **7/7** (offline, no model): the shipped
+      predicate is re-derived from each arm's own recorded per-answer numbers, and
+      the re-derivation must reproduce the recorded `conf_offer` on **59/59 answers
+      at both tiers** before a single sweep row prints (dropping the static
+      short-circuit is the mutant that proves the clause bites). At tau 0.85 the
+      1.5B's recall becomes 48/52 = **92.3%, over the gate** — while the 7B's rises
+      only to 63.6% and its routine false offers go 1 → 3, i.e. 1 per 15 tasks →
+      **1 per 5**, deeper into the < 1 per 20 miss. **The two clauses move in
+      opposite directions across tiers, so R-2.3's gate is not a knob-tuning
+      problem on this feature set**: it needs a stream that reaches a wrong value on
+      a line that ran (§32.4's untried levers). Stated limit of that sweep: it is a
+      re-derivation from recorded fields, not the four streams re-run over the
+      answers (the traces keep the evidence, not the source), and the 1.5B's 7
+      hidden-accepted answers cannot resolve a per-20-tasks clause at all.*
       *Void data, kept for the record: the two arms run before 13:35 against a
       `p6_tasks.jsonl` whose keys were broken (`gen_p6_key.observe` never
       interpolated the function name, so every probe "raised NameError")
@@ -567,12 +610,125 @@ here rather than folded into P6's confidence work.
       disarmed at `run-suite`'s default `--threshold 1.1`, so no recorded pass rate
       moved — the damage is a wrong `route_p` column and a wrong answer for anyone
       who ran `--threshold 0.5`.
-- [ ] [L] Re-run the 1.5B pilot now that the crash is fixed: does a weaker tier
+- [x] [L] Re-run the 1.5B pilot now that the crash is fixed: does a weaker tier
       produce answers that pass the visible oracle and fail the held-out key?
-      Without a non-empty recall denominator R-2.3's ≥ 90% clause is untestable at
-      any n.
-- [ ] [B] Empty-denominator refusal in the arm printer: a recall line whose
+      **Answered 2026-09-27: yes — 52 of 59 answers on `p6b_tasks.jsonl` pass the
+      visible oracle and sink the held-out key, which is the non-empty denominator
+      the recall clause was written for and had never had.** The tier switched
+      without the router crash (P6b's three fixes hold under a live switch), the
+      arm solved 7/59 in 1252s with 52 escalations denied by the §34.1 governor on
+      low-power, and the recall clause measured 44/52 = 84.6% (routine rows
+      13/15 = 86.7%) against a gate of >= 90%. Booked as a miss in P6's R-2.3 box
+      with the eight misses named; the same box carries the 7B arm at 4/11. Without
+      this arm the clause would still be reading 0/0 at the strong tier.
+- [x] [B] Empty-denominator refusal in the arm printer: a recall line whose
       denominator is 0 must print `NOT MEASURABLE`, never a percentage.
+      **Built 2026-09-27 as `cli._scored`** — each R-2.3 clause renders through one
+      helper that keeps its own label and refuses when its own population is empty:
+      `recall on would-fail-hidden NOT MEASURABLE (nothing in this suite fails its
+      hidden test, so recall was not tested at any threshold)`, and the matching
+      offer clause; a suite with no hidden keys at all refuses both. The defect this
+      closes is the shipped printer's own output — the 1.5B pilot printed `0 false
+      offer(s) over 0 hidden-accepted of 15 task(s)` next to a recall clause that had
+      genuinely missed at 16/22, and the first line reads as a clean pass on a
+      population where nothing was ever accepted. Vector:
+      `benchmarks/confidence_wiring_check.py` **30 → 35/35**, five new checks over
+      three constructed populations (all-hidden-accepted, all-hidden-sunk, unkeyed);
+      replacing `_scored` with `return text` — the refusal muted — fails **exactly 3**
+      of them, which is the proof that the checks are about the refusal. §6 re-read
+      **895 → 919 green** (899 checks + 20 oracle, 30 mutants unchanged), pyflakes 0.
+- [x] [B] The wide instrument, and the two size bounds it forced on the shipped
+      probe design. **Built 2026-09-27:** `python benchmarks/gen_p6_key.py --wide`
+      writes `benchmarks/tasks/p6b_tasks.jsonl` — **59 rows: 8 seeded-subtle + 15
+      keyed routine + 36 keyed hard** — every key verified against its own reference
+      at all three hash orders before the file is written, with the tags kept
+      separate so widening the recall denominator cannot move the per-20-ROUTINE
+      false-offer clause. Attrition is named, not silent: 20 tasks yield no
+      assertable value on the probed inputs, and a per-tag guard refuses a file where
+      half a population disappeared. Two hazards had to be fixed in shipped code
+      first, both found by this generator refusing to write:
+  * **the probe was unbounded in size.** Measured on this box with the battery as
+    it shipped: `PROBE_BATTERIES["int"]` carried `10 ** 4`, so the edge stream
+    planned `spiral(10000)` for `h39_spiral_matrix`'s **correct** reference —
+    **2.29 s and 1445 MB** of probe child, through the 2-second alarm, reported as
+    `('spiral', '10000', 'HANG')`: our budget failing, filed as the answer's bug.
+    `confidence._affordable` now refuses an argument over `PROBE_MAX_INT` 1000 (or
+    32 elements / 64 characters) inside `_probe_calls`, so the bound lives in the
+    planner and a hand-edited battery cannot re-open it; the largest shipped
+    sentinel is now ±10³. A memory ceiling in the child is NOT available here —
+    `setrlimit(RLIMIT_AS|DATA|RSS, anything finite)` raises `ValueError` on this box
+    (measured; `RLIMIT_CPU` does work and killed a busy loop at exactly 1.00 s,
+    which is the lever R-9.2's memory clause will have to do without).
+    `flash.confidence --selftest` **21 → 25/25**, and deleting the guard from
+    `_probe_calls` fails **exactly 1** of them.
+  * **the key was unbounded in what it wrote.** The committed `p6_tasks.jsonl` held
+    **87 568 bytes of keys with one 82 183-character line** (`assert climb_stairs(10000)
+    == …`); the bounded file holds 3 576 bytes with a widest line of 238 characters
+    and the same 92 key lines. `gen_p6_key.observe` now truncates inside the child
+    and `key_for` refuses an expectation over `MAX_EXPECTATION_CHARS` 2000, counting
+    what it dropped: the wide run dropped `fizzbuzz(1000)` (7 673 chars),
+    `pascal_row(1000)` (218 190) and `spiral(1000)` (**7 890 896**). An earlier
+    symptom of the same missing bound was `OSError: [Errno 7] Argument list too
+    long`: both the key prober and the shipped seeded re-run (`_seeded_run`) now put
+    the program on stdin instead of `-c`, because a long answer plus a long test as
+    one argv entry is not a verdict, it is a crash.
+  * **and a key that repeats the visible oracle is not held out at all.** Three hard
+    keys were more than half repetitions (`h26_pascal_row` 2/3, `h33_base32_decode`
+    1/1, `h45_phone_letters` 1/1) because the battery's small integers are what a
+    test typically writes; `key_for` now skips a probe the task's own visible test
+    asserts verbatim (19 skipped across the wide run), which costs two rows and
+    keeps the rest differential. `benchmarks/p6_key_check.py` **13 → 28/28**: the
+    same eight clauses are now audited over BOTH instruments, plus both size bounds
+    and the novelty rule, each proven by removing it — with the key budget taken
+    away the same probe writes a **7 890 919**-character line, and with the novelty
+    skip taken away the generator writes the 61-row file back with 3 dominated keys.
+      Live arms on this instrument: BOTH are booked in P6's R-2.3 box — the 7B at
+      recall 4/11 with 5 false offers over 48 hidden-accepted, the 1.5B pilot at
+      recall 44/52 with 1 over 7 — both clauses missed with real denominators, and
+      `benchmarks/confidence_tau_check.py` 7/7 measures why no coverage threshold
+      fixes that pair.
+- [x] [B] The probe child's own death was being filed as the answer's edge
+      finding. **Fixed 2026-09-27, from the arm's own log.** The 7B's answer for
+      `h15_shell_split` carried a self-check at module level — `assert
+      rt.shell_split(…)` comparing the return value against the `ValueError`
+      *class* — so importing it raised. The edge driver then died at `import
+      answer` before printing its JSON line, and `edge_probe` returned the last 120
+      characters of the child's raw stderr as an edge event, which the arm printed
+      as three physical lines inside a log whose contract is one line per task:
+      `edges: <probe crashed>() -> rt shell_split("unmatched 'quote") == ValueError`
+      / the caret row / `AssertionError`. The driver guards its import now and
+      renders `edges: answer does not import (AssertionError)`; a child that dies
+      uncatchably (`os._exit`) still reaches the fallback, and both paths flatten
+      whitespace, so no reason can carry a newline or a temp path. Vector:
+      `flash.confidence --selftest` **25 → 29/29**, and the mutations are the proof
+      of the diagnosis rather than of the code — removing the import guard fails
+      **exactly 2** checks, removing `_filtered`'s flattening **exactly 1**,
+      removing the fallback's **exactly 1**, and removing both the guard and the
+      fallback's flattening (the shipped-before state) fails **3** and makes the
+      reason string **3 lines** with the recorded text in it. The fixture is a
+      reconstruction from that log line, not the original source (the trace keeps
+      the evidence, not the answer), and the reconstruction landing on the same
+      three-line shape is what makes it more than a guess. §6 re-read from the tree
+      **919 → 930 green** (910 checks + 20 oracle; the other +7 is
+      `confidence_tau_check`, below), pyflakes 0.
+- [x] [V] [offline] Is R-2.3's gate reachable by tuning the coverage threshold?
+      **Measured: no — the two clauses pull opposite ways across tiers.**
+      `benchmarks/confidence_tau_check.py` **7/7** re-derives the shipped predicate
+      from the two arms' own recorded per-answer fields and sweeps `COVERAGE_TAU`
+      over both, refusing to print a row until the re-derivation reproduces the
+      recorded `conf_offer` on **59/59 answers at each tier** (the mutant is a model
+      that drops the static short-circuit, which the clause catches on 41 answers at
+      the 1.5B and 0 at the 7B — the 7B produced no unparsable answer, which is why
+      the mutant is run over both arms and not the first one). Result: tau 0.85 lifts
+      the 1.5B's recall to 48/52 = 92.3%, clearing the ≥ 90% clause at that tier,
+      while the 7B's recall only reaches 63.6% at ANY threshold in the sweep and its
+      routine false offers go 1 → 3, i.e. 1 per 15 tasks → 1 per 5 against < 1 per
+      20. Stated limits, in the script's own docstring and not just here: this is a
+      re-derivation from recorded fields, not the four streams re-run over the
+      answers (the traces keep the evidence, not the source), and the 1.5B's 7
+      hidden-accepted answers cannot resolve a per-20-tasks clause at all. Wire the
+      finding into the gate rather than around it: the gate stays NOT MET.
+
 
 ## P7 — R-5.3 task-granular recovery → R-5.4 M16 chaos
 

@@ -23,7 +23,10 @@ Four evidence streams, each a real run, none a guess:
   visible asserts dies here. Wrong-TYPED arguments are not probed: they test
   the interpreter, not the answer (measured: a type-indiscriminate battery
   flagged 8 of 20 correct reference answers), and an answer's own
-  `ValueError`/`LookupError` is a decision, not a crash.
+  `ValueError`/`LookupError` is a decision, not a crash. Arguments are also
+  bounded by SIZE: a probe nobody can afford reports our budget, not the
+  answer's behavior (measured: `spiral(10000)` at 2.29 s / 1445 MB became a
+  `HANG` about a correct reference).
 
 What this CANNOT do, stated where it cannot be missed: a wrong-VALUE bug
 that the visible tests neither reach, order-depend, nor crash on is
@@ -149,7 +152,12 @@ def _seeded_run(code: str, test: str, seed: int, timeout: int) -> subprocess.Com
     env = dict(os.environ, PYTHONHASHSEED=str(seed))
     env.pop("PYTHONPATH", None)
     try:
-        return subprocess.run([sys.executable, "-s", "-c", prog],
+        # `-` with the program on stdin, not `-c`: a long answer plus a long test
+        # as a single argv entry trips E2BIG (`Argument list too long`) and the
+        # seeded stream would then be a crash, not a verdict. `python -` puts the
+        # script's directory at sys.path[0] exactly like `-c` puts '' there, so
+        # the preamble above still removes the one entry -I would have.
+        return subprocess.run([sys.executable, "-s", "-"], input=prog,
                               capture_output=True, text=True, timeout=timeout, env=env)
     except subprocess.TimeoutExpired:
         return None
@@ -213,7 +221,7 @@ def _shape(v):
 # a string function flagged 8 of 20 correct reference answers as suspect).
 PROBE_BATTERIES = {
     "str": ["", " ", "x" * 40, "a-b-c", "  pad  ", "A b C", "\n", "1,2", "-"],
-    "int": [0, 1, -1, 2, 7, 100, -100, 10 ** 4, -10 ** 4],
+    "int": [0, 1, -1, 2, 7, 100, -100, 10 ** 3, -10 ** 3],
     "float": [0.0, -0.0, 1.0, 3.5, -3.5, 0.1],
     "list[int]": [[], [0], [1], [1, 1], [3, 1, 2], [2, 1], [0, 0, 0], [-1, -2],
                   list(range(20))],
@@ -233,6 +241,49 @@ GUARD_ERRORS = {"AttributeError", "IndexError", "KeyError", "NameError",
                 "ZeroDivisionError", "StopIteration", "TypeError",
                 "UnboundLocalError", "RecursionError", "OverflowError",
                 "HANG", "TIMEOUT"}
+
+# The probe budget, in argument size. Cost is a property of the ANSWER
+# (spiral(n) is quadratic), so it cannot be computed per call — but the
+# argument's size is readable, and a battery member too big to afford is a
+# hang waiting to be reported as the answer's fault.
+PROBE_MAX_INT = 10 ** 3           # the shipped 10 ** 4 made h39's correct
+                                  # reference plan spiral(10000): a 10 ** 8
+                                  # cell build, measured here at 0.068 s / 54 MB
+                                  # for n=1000 and growing as n squared — which
+                                  # the 2 s alarm fires through, so the module
+                                  # reports `spiral(10000) -> HANG` about an
+                                  # answer that is simply correct. The child
+                                  # cannot be given a memory ceiling instead:
+                                  # setrlimit(RLIMIT_AS, anything finite) raises
+                                  # ValueError on this box (verified), so the
+                                  # only lever is what we ask for.
+PROBE_MAX_ITEMS = 32              # elements in a list, keys in a dict
+PROBE_MAX_CHARS = 64              # characters in a string
+
+
+def _affordable(v) -> bool:
+    """Could this probe argument ever finish inside the probe's budget?
+
+    Checked structurally, recursively, and only against size — an argument this
+    module is willing to pass. A value that fails here is not adversarial, it
+    is unaffordable, and the difference is the whole point: an unaffordable
+    probe measures our interpreter, not the answer.
+    """
+    if isinstance(v, bool):
+        return True
+    if isinstance(v, int):
+        return abs(v) <= PROBE_MAX_INT
+    if isinstance(v, float):
+        return abs(v) <= 10 ** 6
+    if isinstance(v, str):
+        return len(v) <= PROBE_MAX_CHARS
+    if isinstance(v, dict):
+        return (len(v) <= PROBE_MAX_ITEMS
+                and all(_affordable(k) and _affordable(x) for k, x in v.items()))
+    if isinstance(v, (list, tuple, set, frozenset)):
+        return (len(v) <= PROBE_MAX_ITEMS
+                and all(_affordable(x) for x in v))
+    return True
 
 
 def _declared_raises(code: str) -> set:
@@ -266,7 +317,8 @@ def _probe_calls(code: str, test: str) -> list:
     positions stay pinned to the values the test used. So a probe is always a
     legal-shaped call the spec might have to survive, never a type-error tour.
     A function the test never calls with a readable literal is not probed:
-    no evidence, no offer.
+    no evidence, no offer. A battery member outside the probe budget is not
+    planned either — see `_affordable`.
     """
     try:
         tree = ast.parse(code)
@@ -294,6 +346,8 @@ def _probe_calls(code: str, test: str) -> list:
         known = [v is not None for v in vals]
         for i, shape in enumerate(shapes):
             for v in PROBE_BATTERIES.get(shape or "", []):
+                if not _affordable(v):
+                    continue          # too big to afford is not too big to be a bug
                 if any(not k for j, k in enumerate(known) if j != i):
                     continue          # another positional arg is computed
                 args = list(vals)
@@ -324,10 +378,17 @@ def edge_probe(code: str, test: str, budget: int = EDGE_BUDGET_S) -> list:
         except subprocess.TimeoutExpired:
             return [("<whole probe>", "*", "TIMEOUT")]
         try:
-            raw = json.loads(r.stdout.strip().splitlines()[-1])["events"]
+            out = json.loads(r.stdout.strip().splitlines()[-1])
         except Exception:
-            return [("<probe crashed>", "", (r.stderr or "").strip()[-120:])]
-        return [tuple(e) for e in _filtered(raw)]
+            # The child died in a way that is OURS, not the answer's. The raw
+            # stderr of a traceback is multi-line and full of temp paths, so it
+            # goes into the evidence slot flattened to one line.
+            return [("<probe crashed>", "",
+                     " ".join((r.stderr or "").split())[-120:]
+                     or f"no output, exit {r.returncode}")]
+        if out.get("import_crash"):
+            return [("<module import>", "", out["import_crash"])]
+        return [tuple(e) for e in _filtered(out["events"])]
 
 
 def _edge_script(root: str, budget: int, calls: list) -> str:
@@ -337,7 +398,18 @@ def _edge_script(root: str, budget: int, calls: list) -> str:
     return f'''
 import json, signal, sys, traceback
 sys.path.insert(0, {root!r})
-import answer
+
+# An answer whose module body raises on import is a broken answer, and the
+# probe's child dies on `import answer` before it can log anything. Left
+# unguarded that death reached the parent as a raw stderr tail — a temp path
+# and a mid-traceback newline printed inside the arm's one-line evidence, i.e.
+# our report of an answer-level fact, unreadable.
+IMPORT_CRASH = ""
+try:
+    import answer
+except BaseException as e:                          # noqa: BLE001
+    IMPORT_CRASH = " ".join((type(e).__name__ if not str(e) else
+                             f"{{type(e).__name__}}: {{e}}").split())[:120]
 
 class Hang(Exception):
     pass
@@ -356,7 +428,7 @@ def _raise_line(e):
     except Exception:
         return ""
 
-for name, args in CALLS:
+for name, args in ([] if IMPORT_CRASH else CALLS):
     fn = getattr(answer, name, None)
     if fn is None:
         continue
@@ -374,7 +446,7 @@ for name, args in CALLS:
                        _raise_line(e)])
     finally:
         signal.alarm(0)
-print(json.dumps({{"events": events}}))
+print(json.dumps({{"events": events, "import_crash": IMPORT_CRASH}}))
 '''
 
 
@@ -400,7 +472,10 @@ def _filtered(raw: list) -> list:
         if kind == "HANG":
             out.append([name, args, "HANG"])
         elif _counts_as_guard(kind, line):
-            out.append([name, args, f"{kind}: {msg}"])
+            # `str(e)` can carry newlines — an answer that interpolates a
+            # multi-line value into the message it raises does — and a reason
+            # that spans lines breaks the arm's one-line-per-task log.
+            out.append([name, args, " ".join(f"{kind}: {msg}".split())])
     return out
 
 
@@ -437,7 +512,9 @@ def evaluate(code: str, test: str, timeout: int = 15,
         sig.reasons.append("seeds: verdict moves with hash order")
     if sig.edge_events:
         fn, arg, exc = sig.edge_events[0]
-        sig.reasons.append(f"edges: {fn}({arg}) -> {exc}")
+        sig.reasons.append(f"edges: answer does not import ({exc})"
+                           if fn == "<module import>"
+                           else f"edges: {fn}({arg}) -> {exc}")
     sig.offer = bool(sig.reasons)
     trace.event("confidence", offer=sig.offer, reasons="; ".join(sig.reasons) or None,
                 static=sig.static_errors, cov=round(sig.coverage, 3),
@@ -488,6 +565,44 @@ _ANS_NO_GUARD = (
     "    return t / len(values)\n"
 )
 _T_NO_GUARD = "assert mean([2, 4]) == 3\nassert mean([1]) == 1\n"
+
+# a quadratic reference, i.e. the answer shape whose COST is what the probe
+# budget is measured against (h39_spiral_matrix, trimmed to its reading)
+_ANS_SPIRAL = (
+    "def spiral(n):\n"
+    "    m = [[0] * n for _ in range(n)]\n"
+    "    return m\n"
+)
+_T_SPIRAL = "assert spiral(2) == [[1, 2], [4, 3]]\n"
+
+# the shape of the 7B's answer for h15_shell_split, read off the arm's own log
+# line (the trace keeps the evidence, not the source): a right-looking function
+# with a self-check at module level asserting that the function RETURNS its
+# exception class. Importing it raises, so the probe child died at `import
+# answer` before printing its JSON line, and the parent filed the last 120 chars
+# of the child's stderr as an edge finding. What that printed, verbatim:
+#   edges: <probe crashed>() -> rt shell_split("unmatched 'quote") == ValueError
+#              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+#   AssertionError
+_ANS_IMPORT_CRASH = (
+    "def shell_split(text):\n"
+    "    return text.split()\n"
+    "rt = __import__('sys').modules[__name__]\n"
+    "assert rt.shell_split(\"unmatched 'quote\") == ValueError\n"
+)
+_T_IMPORT_CRASH = "assert shell_split('a b') == ['a', 'b']\n"
+
+# a probe child that dies before it can print its JSON line — the parent's own
+# last resort. os._exit is not catchable, so nothing here can be graceful; what
+# matters is that the raw stderr (multi-line, temp paths) reaches the log
+# flattened, because the arm's contract is one readable line per task.
+_ANS_PROBE_DEATH = (
+    "import os, sys\n"
+    "def f(x): return x\n"
+    "sys.stderr.write(chr(10).join(['Traceback (most recent call last):',"
+    " '/private/var/folders/x/answer.py line 9 in <module>', '']))\n"
+    "os._exit(1)\n"
+)
 
 
 def _hashseed_ignored_under(flag: str) -> bool:
@@ -571,6 +686,54 @@ def run_selftest() -> int:
     ck("an edge reason prints the call as written — mean([]), not mean([[]])",
        any("mean([])" in r for r in s.reasons)
        and not any("[[]]" in r for r in s.reasons), "; ".join(s.reasons))
+    s = evaluate(_ANS_IMPORT_CRASH, _T_IMPORT_CRASH)
+    ck("an answer whose own module body raises is an import crash, not a probe "
+       "crash — the child used to die with it and file the raw traceback",
+       s.edge_events == [("<module import>", "", "AssertionError")],
+       str(s.edge_events))
+    ck("the import crash reads as a finding about the answer and cannot leak a "
+       "temp path or a newline into the arm's one-line-per-task log",
+       any("answer does not import" in r for r in s.reasons)
+       and all("\n" not in r and "tmp" not in r for r in s.reasons),
+       "; ".join(s.reasons))
+    ck("_filtered flattens a multi-line exception message (an answer that "
+       "interpolates a multi-line value into its raise does)",
+       _filtered([["f", "[]", "TypeError", "bad rows: line1\n   line2",
+                   "return x"]])
+       == [["f", "[]", "TypeError: bad rows: line1 line2"]])
+    dead = edge_probe(_ANS_PROBE_DEATH, "assert f(1) == 1\n")
+    ck("a probe child that dies before printing its JSON line reports one "
+       "flattened line, not a raw traceback with temp paths",
+       len(dead) == 1 and "\n" not in dead[0][2] and "<probe crashed>" == dead[0][0],
+       str(dead))
+
+    # --- the probe BUDGET: an argument we cannot afford is not evidence ------
+    # h39_spiral_matrix's shipped reference, measured on this box: the battery's
+    # 10 ** 4 entry planned spiral(10000), the probe child took 2.29 s and
+    # 1445 MB and the 2-second alarm fired, so edge_probe reported
+    # ('spiral', '10000', 'HANG') about an answer that is CORRECT — our budget
+    # failing, written into the trace as the answer's bug.
+    ck("_affordable: size is checked, and the largest int is the stated bound",
+       _affordable(10 ** 3) and not _affordable(10 ** 4)
+       and _affordable("x" * PROBE_MAX_CHARS) and not _affordable("x" * 10 ** 3)
+       and _affordable(list(range(PROBE_MAX_ITEMS)))
+       and not _affordable(list(range(PROBE_MAX_ITEMS + 1))))
+    ck("_affordable: a nested value is only as cheap as its biggest member",
+       _affordable([[1, 2]] * 4) and not _affordable({"k": list(range(200))}))
+    ck("every shipped battery member is inside the probe budget by construction",
+       all(_affordable(v) for vals in PROBE_BATTERIES.values() for v in vals),
+       [v for vals in PROBE_BATTERIES.values() for v in vals if not _affordable(v)])
+    _saved = dict(PROBE_BATTERIES)
+    PROBE_BATTERIES["int"] = [100, 10 ** 4]
+    try:
+        ck("_probe_calls: a battery member over budget is never planned — the "
+           "bound lives in the planner, so a hand-edited battery cannot re-open "
+           "the hang",
+           [v for _, a in _probe_calls(_ANS_SPIRAL, _T_SPIRAL) for v in a]
+           == [100], str(_probe_calls(_ANS_SPIRAL, _T_SPIRAL)))
+    finally:
+        PROBE_BATTERIES.clear()
+        PROBE_BATTERIES.update(_saved)
 
     s = evaluate("def f(:\n    pass\n", "assert True\n")
     ck("unparsable answer is a static error, offered without any subprocess",

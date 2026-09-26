@@ -296,6 +296,20 @@ def _hidden_verdict(r, hidden: str):
     return all(_visible_verdict(a.code, hidden, s, 15) for s in HASH_SEEDS)
 
 
+def _scored(label: str, den: int, text: str, zero: str) -> str:
+    """A gate clause, or the refusal to report an empty denominator as a result.
+
+    0/0 is not a rate and not a miss — it is an instrument that measured
+    nothing. The 1.5B pilot on `p6_tasks.jsonl` printed `0 false offer(s) over 0
+    hidden-accepted answer(s)` for its routine half, which reads like a clean
+    pass on a population where the hidden test never accepted anything; the
+    recall clause there was missed on 22 rows and the offer clause was not
+    tested at all. Both statements have to be on the page, and the refusal has
+    to name which clause it is about or a reader cannot tell the two apart.
+    """
+    return text if den else f"{label} NOT MEASURABLE ({zero})"
+
+
 def _run_suite(params: dict, sid: str | None = None) -> int:
     """The suite engine, shared by `run-suite` and `resume` (§33.7).
 
@@ -494,21 +508,38 @@ def _run_suite(params: dict, sid: str | None = None) -> int:
               f"(+{pts:.0f} pts, gate: >= 8)   {tour_gens} generation(s) spent")
     if conf_n:
         # Two clauses, two denominators — the gate is not one ratio. Unkeyed
-        # rows (no hidden test) are named, never folded into either.
+        # rows (no hidden test) are named, never folded into either, and a
+        # denominator of zero is a refusal to report rather than a number.
         print(f"[R-2.3] {conf_offers}/{conf_n} answer(s) carried evidence; "
-              f"recall on would-fail-hidden {conf_caught}/{conf_fails} "
-              f"(gate: >= 90%), {conf_false} false offer(s) over {conf_pass} "
-              f"hidden-accepted answer(s) (gate: < 1 per 20)"
+              + _scored(
+                  "recall on would-fail-hidden", conf_fails,
+                  f"recall on would-fail-hidden {conf_caught}/{conf_fails} "
+                  f"(gate: >= 90%)",
+                  "nothing in this suite fails its hidden test, so recall was "
+                  "not tested at any threshold")
+              + ", "
+              + _scored(
+                  "false offers", conf_pass,
+                  f"{conf_false} false offer(s) over {conf_pass} hidden-accepted "
+                  f"answer(s) (gate: < 1 per 20)",
+                  "no answer here was accepted by a hidden test, so there was no "
+                  "correct answer left to offer wrongly")
               + ("" if conf_fails + conf_pass else
                  "   [this suite has no hidden tests: the evidence is reported, "
                  "not scored]"))
         if rt_n and rt_n != conf_n:
             # The clause's own population, named separately rather than blended
             # with rows it was never about.
-            print(f"        gate's own population (rows tagged routine): "
-                  f"recall {rt_caught}/{rt_fails} (>= 90%), {rt_false} false "
-                  f"offer(s) over {rt_pass} hidden-accepted of {rt_n} task(s) "
-                  f"(< 1 per 20)")
+            print("        gate's own population (rows tagged routine): "
+                  + _scored("recall", rt_fails,
+                            f"recall {rt_caught}/{rt_fails} (>= 90%)",
+                            "no routine answer in this run fails its hidden test")
+                  + ", "
+                  + _scored("false offers", rt_pass,
+                            f"{rt_false} false offer(s) over {rt_pass} "
+                            f"hidden-accepted of {rt_n} task(s) (< 1 per 20)",
+                            f"none of the {rt_n} routine row(s) was accepted by a "
+                            f"hidden test, so the per-20 clause has no population"))
     print(f"[trace] flash trace show {sid}")
     if shed_n:
         from flash import power

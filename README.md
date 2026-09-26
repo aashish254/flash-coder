@@ -208,20 +208,44 @@ Vision is benchmarked once the text brain is picked (PLAN §M1–M2).
 # streams run on the answer the visible tests already accepted: static errors, the
 # share of the answer's own statement lines those tests EXECUTED, its verdict re-run
 # under three PYTHONHASHSEEDs, and adversarial calls shaped by the task's own test —
-# where only an accident counts, never a `raise` the answer wrote itself. The report
-# line prints the offer beside the held-out verdict, and the two gate clauses keep
+# where only an accident counts, never a `raise` the answer wrote itself, and never at
+# a size the probe cannot afford: the shipped 10000-int battery entry cost 1445 MB and
+# 2.29 s and came back as `HANG` about a CORRECT reference — our budget failing, filed
+# as its bug (`_affordable` refuses it now). An answer whose own module body raises on
+# import reads `edges: answer does not import (AssertionError)` — before, the probe
+# child died with it and the parent filed the raw traceback, three lines of caret art
+# inside a log that is one line per task. The report line prints the offer beside
+# the held-out verdict, and the two gate clauses keep
 # their own denominators (recall over answers the hidden tests sink, false offers
 # over the ones they float, routine rows split out because the <1-per-20 clause is
 # about routine tasks). Seconds of subprocess, no model; off by default on a suite,
 # on by default for a single `run` (before that answer ships to you).
-.venv/bin/python -m flash.cli run-suite --tasks benchmarks/tasks/p6_tasks.jsonl --confidence
-.venv/bin/python -m flash.confidence --selftest   # 21 offline checks, no model
-# measured 2026-09-26, 7B over 23 keyed tasks: every answer survived its held-out
-# key, so the >=90% recall clause had an EMPTY denominator (not a pass), and the
-# false-escalation clause was missed by one offer in 15 routine answers. Offline,
-# on the seeded subtle-bug suite where would-fail answers exist by construction,
-# recall is 6/6 — and the two masked-value bugs stay unoffered, which is the
-# documented blind spot, not a surprise.
+.venv/bin/python -m flash.cli run-suite --tasks benchmarks/tasks/p6b_tasks.jsonl --confidence
+# p6b is the WIDE instrument (59 rows: 8 seeded-subtle + 15 keyed routine + 36 keyed
+# hard), built by `python benchmarks/gen_p6_key.py --wide`; p6_tasks.jsonl is the
+# 23-row original. Both are keyed from each task's own shipped reference, so the
+# expectation is held out of the prompt and the model never sees it.
+.venv/bin/python -m flash.confidence --selftest   # 29 offline checks, no model
+# measured 2026-09-26, 7B over the 23-row original: every answer survived its
+# held-out key, so the >=90% recall clause had an EMPTY denominator (not a pass),
+# and the false-escalation clause was missed by one offer in 15 routine answers.
+# measured 2026-09-27, 7B over the 59-row wide instrument, both clauses now have a
+# population: recall 4/11 (gate >= 90%) and 5 false offers over 48 hidden-accepted
+# answers — 1 per 9.6 tasks against < 1 per 20 — so BOTH clauses are MISSED with
+# real denominators rather than unmeasured. Offline, on the seeded subtle-bug suite
+# where would-fail answers exist by construction, recall is 6/6 — and the two
+# masked-value bugs stay unoffered, which is the documented blind spot, not a
+# surprise. A clause with no denominator prints NOT MEASURABLE, never 0/0.
+# measured 2026-09-27, 1.5B pilot tier over the same 59 rows: 52 answers pass the
+# visible oracle and fail the held-out key, so recall finally has a population — and
+# measures 44/52 = 84.6% (13/15 on routine rows). Still MISSED, and 5 of the 8 misses
+# sit above the coverage threshold while 3 are the masked-value blind spot.
+.venv/bin/python benchmarks/confidence_tau_check.py # 7 checks, no model: does a
+# stricter coverage threshold close it? No. Re-derived from the arms' own recorded
+# numbers (that re-derivation must reproduce the recorded offer on 59/59 answers at
+# both tiers first), tau 0.85 clears the 1.5B's recall clause at 92.3% while the 7B
+# reaches 63.6% and its routine false offers go 1 per 15 tasks -> 1 per 5. The two
+# clauses pull opposite ways across tiers, so this gate is not a threshold knob.
 
 # §34.1 power governor — every run asks the machine before loading a model
 .venv/bin/python -m flash.cli power                    # profile, state, allowed vs shed

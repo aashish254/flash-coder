@@ -225,6 +225,55 @@ def main() -> int:
             ck("mutation: the split does not move the goalposts — same run, the "
                "blended figure is the stricter one",
                own and "2 false" in blend and "0 false" in own[0])
+
+            # ------------------------- an empty denominator refuses to read as
+            # a result. The 1.5B pilot on p6_tasks printed, for its routine
+            # half, `0 false offer(s) over 0 hidden-accepted of 15 task(s)` —
+            # a line that looks like a clean pass and measured nothing, next to
+            # a recall clause that genuinely missed at 13/15.
+            def run_rows(rows, name):
+                f = Path(d) / f"{name}.jsonl"
+                f.write_text("".join(
+                    json.dumps({"id": t, "prompt": f"task {t}",
+                                "test": FIXTURES[t][1], **kw}) + "\n"
+                    for t, kw in rows))
+                stub.calls.clear()
+                buf = io.StringIO()
+                with redirect_stdout(buf):
+                    cli._run_suite(params_for(f, True), None)
+                return buf.getvalue()
+
+            out5 = run_rows([("w01_clean", {"hidden": FIXTURES["w01_clean"][2],
+                                            "gate": "routine"}),
+                             ("w06_routine_clean",
+                              {"hidden": FIXTURES["w06_routine_clean"][2],
+                               "gate": "routine"})], "allaccepted")
+            l5 = [x for x in out5.splitlines() if x.startswith("[R-2.3]")][0]
+            ck("report: recall over 0 would-fail-hidden answers says NOT "
+               "MEASURABLE, never a ratio that reads as a miss",
+               "recall on would-fail-hidden NOT MEASURABLE" in l5 and "0/0" not in l5,
+               l5)
+            ck("report: an empty recall denominator does not silence the clause "
+               "that DOES have a population",
+               "0 false offer(s) over 2 hidden-accepted answer(s) (gate: < 1 per 20)"
+               in l5, l5)
+
+            out6 = run_rows([("w05_routine_caught",
+                              {"hidden": FIXTURES["w05_routine_caught"][2],
+                               "gate": "routine"})], "allsunk")
+            l6 = [x for x in out6.splitlines() if x.startswith("[R-2.3]")][0]
+            ck("report: false offers over 0 hidden-accepted answers say NOT "
+               "MEASURABLE — nothing was available to be offered wrongly",
+               "NOT MEASURABLE (no answer here was accepted" in l6
+               and "0 false offer(s) over 0" not in l6, l6)
+            ck("report: its measurable clause keeps its numbers",
+               "recall on would-fail-hidden 1/1 (gate: >= 90%)" in l6, l6)
+
+            out7 = run_rows([("w01_clean", {"gate": "routine"})], "unkeyed")
+            l7 = [x for x in out7.splitlines() if x.startswith("[R-2.3]")][0]
+            ck("report: a suite with no hidden tests refuses BOTH clauses and "
+               "says why, instead of printing 0/0 twice",
+               l7.count("NOT MEASURABLE") == 2 and "no hidden tests" in l7, l7)
         finally:
             loop.solve_routed = real
             trace.DIR = old_dir

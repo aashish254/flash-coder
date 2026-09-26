@@ -124,7 +124,8 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   recorded pass rate moved, because the gate is disarmed at
   `run-suite`'s default `--threshold 1.1`; the damage is a wrong `route_p` column
   and a wrong answer for anyone who ran `--threshold 0.5`.*
-- **R-2.3 (PARTIAL — mechanism shipped, both gate clauses missed)** The
+- **R-2.3 (PARTIAL — mechanism shipped, both gate clauses measured on live arms and
+  missed)** The
   prospective confidence signal (§34.2) MUST come from verification evidence —
   static diagnostics, coverage, suite flakiness — not the model's own probability.
   Shipped: `flash/confidence.py` (`--confidence`) judges the answer the visible
@@ -150,6 +151,80 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   whose own reference raises the same way — the edge stream calling a crash the
   spec itself admits a finding. Closing this needs a population that actually
   produces hidden failures (harder tasks or a weaker tier), not a softer key.*
+  *That population was built 2026-09-27, and building it exposed two unbounded
+  hazards in the shipped probe design. `benchmarks/tasks/p6b_tasks.jsonl` is the
+  wide instrument — **59 rows, 8 seeded-subtle + 15 keyed routine + 36 keyed hard**,
+  each key written from the task's own shipped reference and verified against it at
+  all three hash orders before the file is written; tags stay separate so widening
+  the recall denominator cannot move the per-20-ROUTINE clause.*
+  *Live on it, 2026-09-27, two tiers. 7B (`arm_7b_p6b.log`, 47/59 solved): recall on
+  would-fail-hidden **4/11** and **5 false offers over 48 hidden-accepted answers**,
+  routine population 0/1 and 1 over 15 tasks — both clauses MISSED, now with real
+  denominators. 1.5B (`arm_1b5_p6b.log`, 7/59 solved, 52 escalations denied by the
+  §34.1 governor): recall **44/52 = 84.6%**, routine 13/15 = 86.7%, 1 false offer
+  over the 7 hidden-accepted answers it produced, and the routine false-offer clause
+  printing `NOT MEASURABLE` because none of its 15 rows was accepted by a hidden
+  test. A weaker tier does answer in a way that passes the visible oracle and fails
+  the held-out key, which is the population §34.2's clause needed. Five of the eight
+  misses are coverage-shaped but above `COVERAGE_TAU` 0.55 (0.667 to 0.875); three
+  have total visible coverage and a wrong value anyway — the masked-value blind spot
+  already stated, not a new one.*
+  *`benchmarks/confidence_tau_check.py` **7/7** then tests the obvious fix, and the
+  obvious fix does not work. Re-deriving the shipped predicate from each arm's own
+  recorded per-answer numbers — it must reproduce the recorded `conf_offer` on 59/59
+  answers at both tiers before any row prints, and a model that drops the static
+  short-circuit is the mutant that proves that clause bites — tau 0.85 lifts the
+  1.5B's recall to 92.3%, over the gate, while the 7B's reaches only 63.6% and its
+  routine false offers go from 1 per 15 tasks to **1 per 5**. The two clauses pull
+  opposite ways across tiers: R-2.3's gate is not reachable by tuning a threshold on
+  this feature set, and needs a stream that reaches a wrong value on a line that ran
+  (§32.4's untried levers). The sweep is a re-derivation from recorded fields, not
+  the four streams re-run over the answers, and 7 hidden-accepted answers cannot
+  resolve a per-20-tasks clause — both clauses stay NOT MET.*
+  *Hazard 1, an unbounded probe: `PROBE_BATTERIES["int"]` carried `10 ** 4`, so
+  `edge_probe` planned `spiral(10000)` for a **correct** reference and measured
+  **2.29 s and 1445 MB** in the probe child before the 2-second alarm fired, which
+  the module then reported as `spiral(10000) -> HANG` — the instrument's own budget
+  failing, filed as the answer's bug. `confidence._affordable` now bounds what
+  `_probe_calls` will plan (int magnitude 1000, 32 elements, 64 characters) and the
+  shipped battery's largest sentinel is ±10³. A memory ceiling in the child is not
+  an alternative on this box: `setrlimit` for `RLIMIT_AS`, `RLIMIT_DATA` and
+  `RLIMIT_RSS` all raise `ValueError` here (measured), while `RLIMIT_CPU` does
+  enforce (a busy loop died at exactly 1.00 s) — which is also a stated limit for
+  R-9.2's "cpu and memory rlimits" clause.*
+  *Hazard 2, an unbounded key: the committed 23-row instrument held **87 568 bytes
+  of expectations, one line 82 183 characters long**; the bounded generator refuses
+  an expectation over 2000 characters (the wide run dropped `spiral(1000)` at
+  **7 890 896** of repr), rewrites the same 92 key lines into **3 576 bytes**, and
+  refuses to write a key that only repeats the task's own visible test — three hard
+  keys were more than half repetitions, because a battery of small integers collides
+  with what a test typically asserts. `flash.confidence --selftest` 21 → **25**,
+  `benchmarks/p6_key_check.py` 13 → **28** (the eight clauses now audited over both
+  instruments, each bound proven by removing it),
+  `benchmarks/confidence_wiring_check.py` 30 → **35**: a clause whose denominator is
+  0 now prints `NOT MEASURABLE` with its own label instead of a ratio that reads
+  like a result — the shipped printer used to emit `0 false offer(s) over 0
+  hidden-accepted`, a clean pass that measured nothing.*
+  *Hazard 3, an instrument death filed in an evidence slot: the 7B's answer for
+  `h15_shell_split` put a self-check at module level — `assert rt.shell_split(…)`
+  comparing the return value against the `ValueError` class — so importing it
+  raised, the probe child died at `import answer` before it could print its JSON
+  line, and `edge_probe` filed the last 120 characters of the child's raw stderr as
+  an edge finding. Verbatim from `arm_7b_p6b.log`, that report was
+  `edges: <probe crashed>() -> rt shell_split("unmatched 'quote") == ValueError`
+  followed by the traceback's caret line and `AssertionError` — three physical
+  lines inside a log whose contract is one readable line per task. The driver now
+  guards its own import and the module renders
+  `edges: answer does not import (AssertionError)`; a child that dies uncatchably
+  still reaches the fallback, and both paths flatten whitespace, so no reason
+  string can carry a newline or a temp path. `flash.confidence --selftest`
+  25 → **29**, proven by mutations that each fail exactly their own checks: taking
+  the import guard away fails 2, taking `_filtered`'s flattening away fails 1,
+  taking the fallback's away fails 1. Taking BOTH the guard and the fallback's
+  flattening away — the shipped-before state — fails 3 and reproduces the recorded
+  artifact: the reason string becomes **3 physical lines**,
+  `shell_split("unmatched 'quote") == ValueError` / the caret row /
+  `AssertionError`, the same shape `arm_7b_p6b.log` carries.*
 
 ### C. ACT — generate, then edit precisely
 
@@ -543,6 +618,17 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   Vector: a test that proves a hostile candidate (`open('~/.ssh/id_rsa','w')`,
   `socket.connect`) fails under the sandbox and the suite still reports it as a
   normal verify failure.
+  *Platform fact measured 2026-09-27 while bounding the R-2.3 edge probe: on this
+  box (macOS, arm64) `resource.setrlimit` accepts `RLIMIT_CPU`, `RLIMIT_FSIZE` and
+  `RLIMIT_NPROC` and enforces them — a busy loop under `RLIMIT_CPU (1,2)` died at
+  1.00 s by signal 24 — but raises `ValueError: current limit exceeds maximum
+  limit` for `RLIMIT_AS`, `RLIMIT_DATA` and `RLIMIT_RSS` at ANY finite value, so the
+  "memory rlimit" half of this clause cannot be met with rlimits on this platform.
+  For OUR OWN probes the fix is to bound what is asked for (`_affordable`, shipped),
+  and for a wall-clock timeout CPU is the lever that works. For a hostile candidate
+  that allocates on its own initiative neither is a ceiling — the remaining options
+  are the §34.1 free-memory signal as a pre-flight refusal and running the sandbox on
+  a kernel that enforces `RLIMIT_AS`; this clause stays OPEN with that named.*
 
 ---
 
@@ -555,14 +641,15 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
    `python -m flash.grammar --selftest` 47 · `python -m flash.patches --selftest`
    37 · `python -m flash.debug --selftest` 55 ·
    `python -m flash.tourney --selftest` 16 ·
-   `python -m flash.confidence --selftest` 21 ·
+   `python -m flash.confidence --selftest` 29 ·
    `python -m flash.checkpoint --selftest` 31 ·
    `python -m flash.train --selftest` 36 ·
    `python -m flash.ambient --selftest` 61 (+ 6 mutations) ·
    `python benchmarks/trace_resume_check.py` 11 ·
-   `python benchmarks/confidence_wiring_check.py` 30 ·
+   `python benchmarks/confidence_wiring_check.py` 35 ·
    `python benchmarks/subtle_premise_check.py` 52 ·
-   `python benchmarks/p6_key_check.py` 13 ·
+   `python benchmarks/p6_key_check.py` 28 ·
+   `python benchmarks/confidence_tau_check.py` 7 ·
    `python benchmarks/checkpoint_resume_check.py` 35 ·
    `python benchmarks/lora_path_check.py` 31 (+ 14 mutants) ·
    `python benchmarks/dbg_band_check.py` 172 (+ 5 mutants) ·
@@ -570,10 +657,10 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
    `python -m flash.debug --suite` 32 ·
    `python -m flash.patches --suite benchmarks/tasks/edit_tasks.jsonl` 60 ·
    `python benchmarks/m0_bakeoff.py --dry-run` 20 reference solutions.
-   **Total: 875 selftest / end-to-end / premise checks + 20 oracle
+   **Total: 910 selftest / end-to-end / premise checks + 20 oracle
    verifications (m0_bakeoff's 20 reference solutions, which are the only
    numbers in that 20 — the 6 ambient, 14 lora, 5 band and 5 router-portability
-   mutants are extra to both totals) = 895 green, offline.** Re-read by
+   mutants are extra to both totals) = 930 green, offline.** Re-read by
    `python benchmarks/battery_reread.py`, which holds one line per item above,
    requires the exact fraction each one prints, sums checks/oracle/mutants
    separately, and fails if the tree's sum moves off this page's number. It
@@ -583,7 +670,21 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
    last `n/n` on 2026-09-26 read lora_path_check's `14/14 mutants` as its
    checks and under-counted by 17. Both traps are why the counts below are the
    runs' own printed numbers.
-   (Re-read from the tree 2026-09-26 after the learned router's portability fix:
+   (Re-read from the tree again 2026-09-27, after the two live arms on the wide
+   instrument and the probe-child fix: +4 in `flash.confidence` (25→29 — an answer
+   that crashes on import is reported as `answer does not import`, and no reason
+   string can carry a newline or a temp path any more) and +7 for
+   `benchmarks/confidence_tau_check.py` (the coverage-threshold sweep over both
+   arms' recorded numbers, gated on reproducing the shipped predicate's recorded
+   offer on 59/59 answers at each tier), so 919→930; before that, earlier the same
+   day, after R-2.3's instrument was bounded and
+   widened: +4 in `flash.confidence` (the probe-size budget and the planner that
+   enforces it), +5 in `confidence_wiring_check` (a recall or false-offer clause
+   whose denominator is 0 now prints NOT MEASURABLE instead of a ratio that reads
+   as a result, and the mutation that mutes the refusal is caught by exactly 3
+   checks), +15 in `p6_key_check` (the same eight clauses now audited over BOTH
+   instruments, plus the two size bounds each proven by removing them), so
+   895→919; before that, the same day after the learned router's portability fix:
    +20 for `router_portable_check` — the embedding cache keyed by the weights
    that produced it, one model's bundle refusing another model's width, and
    serve-time pooling matching fit-time pooling — with 5 mutants of its own (a
@@ -604,7 +705,7 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
    decision; before that 549, re-read after
    R-5.3: +31 checkpoint storage, +35 the real-`kill -9` recovery vector; before
    that 503, re-read after
-   R-2.3: +21 confidence, +30 wiring, +52 seeded-suite premise, +13 key premise;
+   R-2.3: +25 confidence, +35 wiring, +52 seeded-suite premise, +28 key premise;
    before that 387, after R-3.3: harness 12→20 with the `score()` ranking checks
    and the new `tourney` line; and before that 202, when the oracle and the patch
    protocol had no batteries of their own).

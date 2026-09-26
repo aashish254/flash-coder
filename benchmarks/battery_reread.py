@@ -40,14 +40,16 @@ BATTERY = [
     ("flash.patches --selftest", "-m flash.patches --selftest", 37, None, "checks"),
     ("flash.debug --selftest", "-m flash.debug --selftest", 55, None, "checks"),
     ("flash.tourney --selftest", "-m flash.tourney --selftest", 16, None, "checks"),
-    ("flash.confidence --selftest", "-m flash.confidence --selftest", 21, None, "checks"),
+    ("flash.confidence --selftest", "-m flash.confidence --selftest", 29, None, "checks"),
     ("flash.checkpoint --selftest", "-m flash.checkpoint --selftest", 31, None, "checks"),
     ("flash.train --selftest", "-m flash.train --selftest", 36, None, "checks"),
     ("flash.ambient --selftest", "-m flash.ambient --selftest", 61, 6, "checks"),
     ("benchmarks/trace_resume_check.py", "benchmarks/trace_resume_check.py", 11, None, "checks"),
-    ("benchmarks/confidence_wiring_check.py", "benchmarks/confidence_wiring_check.py", 30, None, "checks"),
+    ("benchmarks/confidence_wiring_check.py", "benchmarks/confidence_wiring_check.py", 35, None, "checks"),
     ("benchmarks/subtle_premise_check.py", "benchmarks/subtle_premise_check.py", 52, None, "checks"),
-    ("benchmarks/p6_key_check.py", "benchmarks/p6_key_check.py", 13, None, "checks"),
+    ("benchmarks/p6_key_check.py", "benchmarks/p6_key_check.py", 28, None, "checks"),
+    ("benchmarks/confidence_tau_check.py", "benchmarks/confidence_tau_check.py",
+     7, None, "checks"),
     ("benchmarks/checkpoint_resume_check.py", "benchmarks/checkpoint_resume_check.py", 35, None, "checks"),
     ("benchmarks/lora_path_check.py", "benchmarks/lora_path_check.py", 31, 14, "checks"),
     ("benchmarks/dbg_band_check.py", "benchmarks/dbg_band_check.py", 172, 5, "checks"),
@@ -60,7 +62,7 @@ BATTERY = [
      20, None, "oracle"),
 ]
 
-CLAIM = {"checks": 875, "oracle": 20, "mutants": 30}
+CLAIM = {"checks": 910, "oracle": 20, "mutants": 30}
 
 
 def run(argv: str) -> str:

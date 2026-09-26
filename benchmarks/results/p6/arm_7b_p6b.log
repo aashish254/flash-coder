@@ -1,0 +1,128 @@
+[trace] session 20260927-001446-run-suite-bcf3 — interrupt me anytime, then: flash resume 20260927-001446-run-suite-bcf3
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5384.98it/s]
+  [    SMALL] cov01_invoice_tax      solved=True attempts=1 (6.4s)  [R-2.3] offer=YES static=0 cov=0.15(2/13) seeds=PPP edges=0 (coverage: 2/13 lines executed)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5576.71it/s]
+  [    SMALL] cov02_report_sum       solved=True attempts=1 (5.3s)  [R-2.3] offer=no static=0 cov=0.57(4/7) seeds=PPP edges=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 3380.69it/s]
+  [    SMALL] seed01_tag_order       solved=True attempts=1 (3.7s)  [R-2.3] offer=no static=0 cov=0.80(4/5) seeds=PPP edges=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5531.76it/s]
+  [    SMALL] seed02_shared_name     solved=True attempts=1 (3.2s)  [R-2.3] offer=no static=0 cov=0.75(3/4) seeds=PPP edges=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 3364.12it/s]
+  [    SMALL] edge01_mean_guard      solved=True attempts=1 (2.4s)  [R-2.3] offer=no static=0 cov=0.67(2/3) seeds=PPP edges=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5635.82it/s]
+  [    SMALL] edge02_last_pair       solved=True attempts=1 (2.7s)  [R-2.3] offer=no static=0 cov=0.67(2/3) seeds=PPP edges=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5260.41it/s]
+  [    SMALL] mask01_bucket_sign     solved=True attempts=1 (3.6s)  [R-2.3] offer=no static=0 cov=1.00(8/8) seeds=PPP edges=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5329.48it/s]
+  [    SMALL] mask02_leftovers       solved=True attempts=1 (3.3s)  [R-2.3] offer=no static=0 cov=1.00(3/3) seeds=PPP edges=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5628.26it/s]
+  [    SMALL] t01_reverse_words      solved=True attempts=1 (2.0s)  [R-2.3] offer=no static=0 cov=1.00(1/1) seeds=PPP edges=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 6573.00it/s]
+  [    SMALL] t02_two_sum            solved=True attempts=1 (3.7s)  [R-2.3] offer=no static=0 cov=0.86(6/7) seeds=PPP edges=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5874.38it/s]
+  [    SMALL] t03_is_palindrome      solved=True attempts=1 (2.7s)  [R-2.3] offer=no static=0 cov=1.00(2/2) seeds=PPP edges=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 6351.80it/s]
+  [    SMALL] t04_fizzbuzz           solved=True attempts=1 (3.1s)  [R-2.3] offer=no static=0 cov=1.00(1/1) seeds=PPP edges=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5707.40it/s]
+  [    SMALL] t06_merge_intervals    solved=True attempts=1 (5.4s)  [R-2.3] offer=no static=0 cov=1.00(10/10) seeds=PPP edges=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 4685.21it/s]
+  [    SMALL] t07_binary_search      solved=True attempts=1 (4.8s)  [R-2.3] offer=no static=0 cov=1.00(9/9) seeds=PPP edges=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 6249.79it/s]
+  [    SMALL] t08_valid_parens       solved=True attempts=1 (4.5s)  [R-2.3] offer=no static=0 cov=0.90(9/10) seeds=PPP edges=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5610.69it/s]
+  [    SMALL] t09_max_subarray       solved=True attempts=1 (3.8s)  [R-2.3] offer=YES static=0 cov=1.00(6/6) seeds=PPP edges=1 (edges: max_subarray([]) -> IndexError: list index out of range)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5196.69it/s]
+  [    SMALL] t10_climb_stairs       solved=True attempts=1 (3.6s)  [R-2.3] offer=no static=0 cov=0.83(5/6) seeds=PPP edges=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5133.79it/s]
+  [    SMALL] t11_group_anagrams     solved=True attempts=1 (4.1s)  [R-2.3] offer=no static=0 cov=1.00(7/7) seeds=PPP edges=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 6202.55it/s]
+  [    SMALL] t12_json_flatten       solved=True attempts=1 (4.1s)  [R-2.3] offer=no static=0 cov=1.00(7/7) seeds=PPP edges=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5779.93it/s]
+  [     SHED] t14_topk_frequent      solved=False attempts=2 (5.5s)  [R-2.3] offer=no static=0 cov=1.00(3/3) seeds=FFF edges=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 4491.22it/s]
+  [    SMALL] t16_lis_length         solved=True attempts=1 (5.9s)  [R-2.3] offer=no static=0 cov=0.93(13/14) seeds=PPP edges=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 6374.32it/s]
+  [    SMALL] t19_word_ladder        solved=True attempts=1 (6.5s)  [R-2.3] offer=no static=0 cov=0.81(13/16) seeds=PPP edges=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 6844.74it/s]
+  [    SMALL] t20_safe_divide        solved=True attempts=1 (3.9s)  [R-2.3] offer=no static=0 cov=1.00(5/5) seeds=PPP edges=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 6854.68it/s]
+  [    SMALL] h01_csv_agg            solved=True attempts=1 (6.2s)  [R-2.3] offer=YES static=0 cov=1.00(13/13) seeds=PPP edges=1 (edges: total_by_category('') -> StopIteration: )
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 6320.95it/s]
+  [    SMALL] h02_interval_intersection solved=True attempts=1 (6.1s)  [R-2.3] offer=no static=0 cov=1.00(11/11) seeds=PPP edges=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 6081.64it/s]
+  [    SMALL] h03_flatten_keys       solved=True attempts=1 (6.5s)  [R-2.3] offer=no static=0 cov=1.00(10/10) seeds=PPP edges=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 6267.43it/s]
+  [    SMALL] h05_topk_stable        solved=True attempts=1 (3.5s)  [R-2.3] offer=no static=0 cov=1.00(3/3) seeds=PPP edges=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 6324.13it/s]
+  [     SHED] h04_rle_codec          solved=False attempts=2 (17.3s)  [R-2.3] offer=no static=0 cov=1.00(17/17) seeds=FFF edges=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 6185.28it/s]
+  [     SHED] h06_log_error_windows  solved=False attempts=2 (17.0s)  [R-2.3] offer=no static=0 cov=1.00(17/17) seeds=FFF edges=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 2816.02it/s]
+  [    SMALL] h07_strip_parens       solved=True attempts=1 (3.9s)  [R-2.3] offer=no static=0 cov=1.00(12/12) seeds=PPP edges=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5190.97it/s]
+  [    SMALL] h08_settle_fees        solved=True attempts=1 (4.2s)  [R-2.3] offer=no static=0 cov=1.00(10/10) seeds=PPP edges=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5300.30it/s]
+  [     SHED] h10_semver_sort        solved=False attempts=2 (12.9s)  [R-2.3] offer=no static=0 cov=0.62(5/8) seeds=FFF edges=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5202.42it/s]
+  [     SHED] h11_camel_to_snake     solved=False attempts=2 (5.6s)  [R-2.3] offer=no static=0 cov=1.00(1/1) seeds=FFF edges=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5148.49it/s]
+  [     SHED] h12_min_remove_parens  solved=False attempts=2 (10.3s)  [R-2.3] offer=no static=0 cov=1.00(15/15) seeds=FFF edges=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 2787.32it/s]
+  [    SMALL] h14_collapse_ranges    solved=True attempts=1 (5.6s)  [R-2.3] offer=no static=0 cov=0.93(13/14) seeds=PPP edges=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 2806.39it/s]
+  [     SHED] h15_shell_split        solved=False attempts=2 (14.6s)  [R-2.3] offer=YES static=0 cov=1.00(10/10) seeds=FFF edges=1 (edges: <probe crashed>() -> rt shell_split("unmatched 'quote") == ValueError
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 2632.22it/s]
+  [    SMALL] h17_ini_parse          solved=True attempts=2 (10.1s)  [R-2.3] offer=no static=0 cov=1.00(12/12) seeds=PPP edges=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 3016.04it/s]
+  [    SMALL] h19_url_decode         solved=True attempts=1 (6.8s)  [R-2.3] offer=no static=0 cov=1.00(17/17) seeds=PPP edges=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5251.63it/s]
+  [     SHED] h21_brace_expand       solved=False attempts=2 (12.9s)  [R-2.3] offer=no static=0 cov=0.88(14/16) seeds=FFF edges=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5521.24it/s]
+  [     SHED] h23_number_words       solved=False attempts=2 (35.7s)  [R-2.3] offer=YES static=0 cov=0.73(16/22) seeds=FFF edges=2 (edges: words_to_number('a-b-c') -> KeyError: 'a')
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5430.69it/s]
+  [    SMALL] h24_md_table           solved=True attempts=2 (9.4s)  [R-2.3] offer=no static=0 cov=1.00(7/7) seeds=PPP edges=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 3889.62it/s]
+  [    SMALL] h25_luhn_check         solved=True attempts=1 (4.7s)  [R-2.3] offer=no static=0 cov=1.00(8/8) seeds=PPP edges=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 4870.18it/s]
+  [    SMALL] h26_pascal_row         solved=True attempts=1 (3.8s)  [R-2.3] offer=no static=0 cov=1.00(6/6) seeds=PPP edges=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5920.44it/s]
+  [    SMALL] h27_ipv4_valid         solved=True attempts=1 (4.4s)  [R-2.3] offer=no static=0 cov=1.00(7/7) seeds=PPP edges=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5940.94it/s]
+  [    SMALL] h28_merge_intervals    solved=True attempts=1 (4.2s)  [R-2.3] offer=no static=0 cov=1.00(7/7) seeds=PPP edges=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5920.44it/s]
+  [    SMALL] h29_roman_to_int       solved=True attempts=1 (5.8s)  [R-2.3] offer=YES static=0 cov=1.00(10/10) seeds=PPP edges=8 (edges: roman_to_int(' ') -> KeyError: ' ')
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5968.18it/s]
+  [    SMALL] h30_caesar_crack       solved=True attempts=1 (3.6s)  [R-2.3] offer=no static=0 cov=0.80(4/5) seeds=PPP edges=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 6202.55it/s]
+  [     SHED] h31_csv_line           solved=False attempts=2 (10.4s)  [R-2.3] offer=no static=0 cov=1.00(16/16) seeds=FFF edges=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 2610.92it/s]
+  [    SMALL] h32_histogram          solved=True attempts=1 (2.8s)  [R-2.3] offer=YES static=0 cov=1.00(1/1) seeds=PPP edges=1 (edges: histogram({'a': {'b': 1}}) -> TypeError: bad operand type for unary -: 'dict')
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 2497.27it/s]
+  [     SHED] h34_dice_parse         solved=False attempts=2 (16.8s)  [R-2.3] offer=no static=0 cov=0.72(13/18) seeds=FFF edges=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5599.87it/s]
+  [    SMALL] h35_uniq_stable        solved=True attempts=1 (2.6s)  [R-2.3] offer=no static=0 cov=1.00(5/5) seeds=PPP edges=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 2663.43it/s]
+  [    SMALL] h36_time_ago           solved=True attempts=1 (4.4s)  [R-2.3] offer=no static=0 cov=1.00(7/7) seeds=PPP edges=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 2622.35it/s]
+  [    SMALL] h37_quine_check        solved=True attempts=1 (5.8s)  [R-2.3] offer=no static=0 cov=1.00(17/17) seeds=PPP edges=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5943.75it/s]
+  [    SMALL] h39_spiral_matrix      solved=True attempts=1 (8.2s)  [R-2.3] offer=YES static=0 cov=1.00(21/21) seeds=PPP edges=3 (edges: spiral(-1) -> HANG)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 2546.80it/s]
+  [     SHED] h40_env_subst          solved=False attempts=2 (7.8s)  [R-2.3] offer=no static=0 cov=0.83(5/6) seeds=FFF edges=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5278.81it/s]
+  [    SMALL] h41_edit_distance      solved=True attempts=1 (7.8s)  [R-2.3] offer=no static=0 cov=1.00(12/12) seeds=PPP edges=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 2891.96it/s]
+  [    SMALL] h42_binary_gap         solved=True attempts=1 (5.2s)  [R-2.3] offer=no static=0 cov=1.00(13/13) seeds=PPP edges=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 2580.40it/s]
+  [    SMALL] h44_text_wrap          solved=True attempts=2 (10.1s)  [R-2.3] offer=no static=0 cov=1.00(14/14) seeds=PPP edges=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 2427.88it/s]
+  [    SMALL] h46_zigzag_convert     solved=True attempts=1 (4.6s)  [R-2.3] offer=YES static=0 cov=1.00(12/12) seeds=PPP edges=16 (edges: zigzag('PAYPALISHIRING', 0) -> IndexError: list index out of range)
+
+solved 47/59   small-tier 47, escalated 0   total 396s (avg 6.7s/task)
+[R-2.3] 9/59 answer(s) carried evidence; recall on would-fail-hidden 4/11 (gate: >= 90%), 5 false offer(s) over 48 hidden-accepted answer(s) (gate: < 1 per 20)
+        gate's own population (rows tagged routine): recall 0/1 (>= 90%), 1 false offer(s) over 14 hidden-accepted of 15 task(s) (< 1 per 20)
+[trace] flash trace show 20260927-001446-run-suite-bcf3
+12 task(s) denied escalation by the §34.1 governor (maximum-performance): no shed signal (ac=True, battery=100.0, mem-free=80.0, load/core=0.64)
+   rerun with --allow-big always to force the brain on battery/heat
