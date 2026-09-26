@@ -277,16 +277,21 @@ def _conf_note(r) -> str:
 
 
 def _hidden_verdict(r, hidden: str):
-    """§34.2's ground truth: would the surfaced answer fail the tests nobody
-    showed the model? None when there is nothing to surface. This is scored
-    AFTER the run, so it can only ever be the signal's answer key — the loop
-    never sees it, and an offer that matches it is measured, not assumed."""
+    """§34.2's ground truth: does the surfaced answer survive the tests nobody
+    showed the model, at EVERY measured hash seed? None when there is nothing
+    to surface, so an unkeyed row is reported as unkeyed rather than counted
+    either way.
+
+    Scored AFTER the offer, so it cannot leak into it — and scored under fixed
+    seeds, because an order-dependent answer's verdict is otherwise a coin flip
+    and a gate number has to be reproducible.
+    """
     from flash.loop import surfaced_attempt
     a = surfaced_attempt(r)
     if a is None or not a.code:
         return None
-    from flash.harness import run_test
-    return run_test(a.code, hidden)[0]
+    from flash.confidence import HASH_SEEDS, _visible_verdict
+    return all(_visible_verdict(a.code, hidden, s, 15) for s in HASH_SEEDS)
 
 
 def _run_suite(params: dict, sid: str | None = None) -> int:

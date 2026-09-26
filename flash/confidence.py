@@ -17,9 +17,13 @@ Four evidence streams, each a real run, none a guess:
 * `seeds`   — re-run the visible tests under several PYTHONHASHSEED values;
   a verdict that flips with dict/set iteration order is a bug the visible
   order happened to hide.
-* `edges`   — call every top-level function with a battery of adversarial
-  arguments (empty, negative, huge, wrong-typed); a subtle missing-guard
-  bug survives the visible asserts and then crashes here.
+* `edges`   — call the answer's functions on adversarial VALUES of the shape
+  its own visible test shows (empty, single, repeated, boundary), holding the
+  other arguments where the test held them; a missing guard that survives the
+  visible asserts dies here. Wrong-TYPED arguments are not probed: they test
+  the interpreter, not the answer (measured: a type-indiscriminate battery
+  flagged 8 of 20 correct reference answers), and an answer's own
+  `ValueError`/`LookupError` is a decision, not a crash.
 
 What this CANNOT do, stated where it cannot be missed: a wrong-VALUE bug
 that the visible tests neither reach, order-depend, nor crash on is
@@ -46,7 +50,13 @@ from flash import trace
 from flash.debug import watch
 from flash.perceive import static_check
 
-COVERAGE_TAU = 0.55               # calibrated on the seeded suite (see --suite)
+COVERAGE_TAU = 0.55               # measured on benchmarks/tasks/subtle_tasks.jsonl
+                                  # and the 20 m0 references: the two seeded
+                                  # untested-block answers sit at 0.18 and 0.46,
+                                  # every other answer in both populations is
+                                  # >= 0.75 — including the correct references of
+                                  # those two tasks, whose visible tests are thin
+                                  # by construction and so ARE offered, correctly
 HASH_SEEDS = (0, 1, 7)            # verdict must be stable across these
 EDGE_BUDGET_S = 2                 # per edge call before it is counted as a hang
 
@@ -150,29 +160,180 @@ def _visible_verdict(code: str, test: str, seed: int, timeout: int) -> bool:
     return r is not None and "__PASS__" in r.stdout and r.returncode == 0
 
 
-def edge_probe(code: str, budget: int = EDGE_BUDGET_S) -> list:
-    """Crash/hang evidence from adversarial arguments. Returns
-    [(function, arg-repr, exception-or-HANG)]; an empty list means every
-    probed call survived its battery — which is evidence, not absence of bugs."""
+def _literal(node):
+    """The value of a literal argument node, or None when it is computed.
+
+    `literal_eval` covers what a test actually writes — numbers, strings,
+    lists, dicts, tuples, True/False/None — and gives up on a name or a call,
+    which is exactly the case where this module has no business guessing.
+    """
+    try:
+        v = ast.literal_eval(node)
+    except Exception:
+        return None
+    return v
+
+
+def _shape(v):
+    """The one word that says what kind of value this is, or None when the
+    value teaches nothing (None, an empty container, an unfamiliar type)."""
+    if isinstance(v, bool) or v is None or isinstance(v, (set, frozenset, tuple)):
+        return None
+    if isinstance(v, str):
+        return "str"
+    if isinstance(v, int):
+        return "int"
+    if isinstance(v, float):
+        return "float"
+    if isinstance(v, dict):
+        return "dict" if v else None
+    if isinstance(v, list):
+        if not v:
+            return None
+        kinds = {_shape(x) for x in v}
+        if kinds == {"str"}:
+            return "list[str]"
+        if kinds == {"int"}:
+            return "list[int]"
+        if kinds == {"float"}:
+            return "list[float]"
+        if kinds == {"list[int]"}:
+            return "list[list[int]]"
+        if kinds == {None} and all(isinstance(x, tuple) and len(x) == 2 for x in v):
+            return "list[tuple]"
+        return None
+    return None
+
+
+# Adversarial VALUES, one battery per observed shape. Everything here is a
+# legal member of the type the task's own test showed — an empty one, a
+# repeated one, a boundary one. That is the whole design: a wrong-TYPED
+# argument tests the interpreter's error message, not the answer, and the
+# first version of this module learned that the expensive way (feeding [] to
+# a string function flagged 8 of 20 correct reference answers as suspect).
+PROBE_BATTERIES = {
+    "str": ["", " ", "x" * 40, "a-b-c", "  pad  ", "A b C", "\n", "1,2", "-"],
+    "int": [0, 1, -1, 2, 7, 100, -100, 10 ** 4, -10 ** 4],
+    "float": [0.0, -0.0, 1.0, 3.5, -3.5, 0.1],
+    "list[int]": [[], [0], [1], [1, 1], [3, 1, 2], [2, 1], [0, 0, 0], [-1, -2],
+                  list(range(20))],
+    "list[str]": [[], [""], ["a"], ["a", "a"], ["b", "a"], ["Z", "a"], [" a "]],
+    "list[float]": [[], [0.0], [-1.5, 2.5], [1e6, -1e6]],
+    "list[tuple]": [[], [(1, 2)], [(2, 1)], [(1, 2), (1, 3)], [(1, 2), (1, 2)],
+                    [(3, 4), (1, 2)]],
+    "list[list[int]]": [[], [[1, 2]], [[2, 3], [1, 4]], [[1, 4], [2, 3]],
+                        [[1, 2], [1, 2]], [[5, 6], [1, 2]]],
+    "dict": [{}, {"a": 1}, {"b": 2, "a": 1}, {"a": {"b": 1}}],
+}
+
+# Which escapes count as a missing guard. A function that answers an
+# adversarial input with ValueError/LookupError made a choice; one that dies
+# with ZeroDivisionError or IndexError never looked.
+GUARD_ERRORS = {"AttributeError", "IndexError", "KeyError", "NameError",
+                "ZeroDivisionError", "StopIteration", "TypeError",
+                "UnboundLocalError", "RecursionError", "OverflowError",
+                "HANG", "TIMEOUT"}
+
+
+def _declared_raises(code: str) -> set:
+    """Exception names the answer raises ON PURPOSE (`raise TypeError(...)`).
+
+    Those are design decisions the task's prompt made, not crashes: t20's
+    reference answers a list with `TypeError('numeric only')` and that is its
+    spec speaking. An exception the interpreter raised for it is the accident
+    this stream is looking for.
+    """
+    try:
+        tree = ast.parse(code)
+    except SyntaxError:
+        return set()
+    out = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Raise) and node.exc is not None:
+            target = node.exc.func if isinstance(node.exc, ast.Call) else node.exc
+            if isinstance(target, ast.Name):
+                out.add(target.id)
+            elif isinstance(target, ast.Attribute):
+                out.add(target.attr)
+    return out
+
+
+def _probe_calls(code: str, test: str) -> list:
+    """(function, [args]) pairs to probe, read off the task's OWN visible test.
+
+    For every call the test makes to a top-level function of the answer, each
+    argument position is varied through its shape's battery while the other
+    positions stay pinned to the values the test used. So a probe is always a
+    legal-shaped call the spec might have to survive, never a type-error tour.
+    A function the test never calls with a readable literal is not probed:
+    no evidence, no offer.
+    """
+    try:
+        tree = ast.parse(code)
+    except SyntaxError:
+        return []
+    names = {n.name for n in tree.body
+             if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))}
+    if not names:
+        return []
+    try:
+        ttree = ast.parse(test)
+    except SyntaxError:
+        return []
+    calls = []
+    seen = set()
+    for node in ast.walk(ttree):
+        if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Name):
+            continue
+        fn = node.func.id
+        if fn not in names or node.keywords \
+                or any(isinstance(a, ast.Starred) for a in node.args):
+            continue
+        vals = [_literal(a) for a in node.args]
+        shapes = [_shape(v) if v is not None else None for v in vals]
+        known = [v is not None for v in vals]
+        for i, shape in enumerate(shapes):
+            for v in PROBE_BATTERIES.get(shape or "", []):
+                if any(not k for j, k in enumerate(known) if j != i):
+                    continue          # another positional arg is computed
+                args = list(vals)
+                args[i] = v
+                key = (fn, tuple(map(repr, args)))
+                if key in seen:
+                    continue
+                seen.add(key)
+                calls.append((fn, args))
+    return calls
+
+
+def edge_probe(code: str, test: str, budget: int = EDGE_BUDGET_S) -> list:
+    """Crash/hang evidence from adversarial arguments of the declared shape.
+    Returns [(function, args-repr, exception-or-HANG)]; an empty list means
+    every probed call survived — which is evidence, not absence of bugs."""
+    calls = _probe_calls(code, test)
+    if not calls:
+        return []
     with tempfile.TemporaryDirectory() as d:
         root = Path(d)
         (root / "answer.py").write_text(code)
-        driver = _edge_script(root=str(root), budget=budget)
+        driver = _edge_script(root=str(root), budget=budget, calls=calls)
         (root / "_edge_driver.py").write_text(driver)
         try:
             r = subprocess.run([sys.executable, "-I", str(root / "_edge_driver.py")],
-                               capture_output=True, text=True, timeout=30 * budget)
+                               capture_output=True, text=True, timeout=budget * len(calls) + 15)
         except subprocess.TimeoutExpired:
             return [("<whole probe>", "*", "TIMEOUT")]
         try:
-            return [tuple(e) for e in json.loads(r.stdout.strip().splitlines()[-1])["events"]]
+            raw = json.loads(r.stdout.strip().splitlines()[-1])["events"]
         except Exception:
             return [("<probe crashed>", "", (r.stderr or "").strip()[-120:])]
+        return [tuple(e) for e in _filtered(raw)]
 
 
-def _edge_script(root: str, budget: int) -> str:
-    """The child program: import the answer, call each top-level single-arg
-    function on a battery of adversarial values, report what escaped."""
+def _edge_script(root: str, budget: int, calls: list) -> str:
+    """The child program: import the answer, make each planned call under an
+    alarm, and log every escape with the line that raised it. The child judges
+    nothing — triage happens in `_filtered`, where it can be tested."""
     return f'''
 import json, signal, sys, traceback
 sys.path.insert(0, {root!r})
@@ -185,32 +346,58 @@ def _alarm(sig, frm):
     raise Hang()
 
 signal.signal(signal.SIGALRM, _alarm)
-BATTERY = [[], [1], [1, 2, 2], {{}}, {{"a": 1, "b": 2}}, "", "x" * 40, 0, -1,
-           10 ** 9, 3.5, -0.0, None, [None, None], (1, 2), [float("nan")],
-           [float("inf")], "a-b", [True, False]]
+CALLS = {calls!r}
 
 events = []
-for name, fn in sorted(vars(answer).items()):
-    if getattr(fn, "__module__", None) != "answer" or name.startswith("_"):
+def _raise_line(e):
+    try:
+        fr = traceback.extract_tb(e.__traceback__)[-1]
+        return open(fr.filename).read().splitlines()[fr.lineno - 1].strip()
+    except Exception:
+        return ""
+
+for name, args in CALLS:
+    fn = getattr(answer, name, None)
+    if fn is None:
         continue
-    if not callable(fn) or isinstance(fn, type):
-        continue
-    for arg in BATTERY:
-        signal.alarm({budget})
-        try:
-            try:
-                fn(arg)
-            except TypeError:
-                continue                      # wrong shape for this signature
-        except Hang:
-            events.append([name, repr(arg)[:40], "HANG"])
-        except Exception:
-            events.append([name, repr(arg)[:40],
-                           traceback.format_exc(limit=1).strip().splitlines()[-1][:120]])
-        finally:
-            signal.alarm(0)
+    signal.alarm({budget})
+    try:
+        fn(*args)
+    except Hang:
+        events.append([name, repr(args)[:60], "HANG", "", ""])
+    except BaseException as e:                      # noqa: BLE001 — triage is the job
+        events.append([name, repr(args)[:60], type(e).__name__, str(e)[:80],
+                       _raise_line(e)])
+    finally:
+        signal.alarm(0)
 print(json.dumps({{"events": events}}))
 '''
+
+
+def _counts_as_guard(kind: str, raise_line: str) -> bool:
+    """Would this escape be reported as missing-guard evidence?
+
+    Two filters, both learned the expensive way. The exception has to name an
+    accident the answer never looked for (`GUARD_ERRORS`), and the line that
+    raised it must not be a `raise` the answer wrote for itself — t20's
+    reference answers a bad element with `raise TypeError('numeric only')`,
+    which is its spec speaking, and the first version of this module counted
+    that as a crash on 8 of 20 routine reference answers.
+    """
+    if kind not in GUARD_ERRORS:
+        return False
+    return not raise_line.startswith("raise ")
+
+
+def _filtered(raw: list) -> list:
+    """The child's full escape log, triaged into the events this module reports."""
+    out = []
+    for name, args, kind, msg, line in raw:
+        if kind == "HANG":
+            out.append([name, args, "HANG"])
+        elif _counts_as_guard(kind, line):
+            out.append([name, args, f"{kind}: {msg}"])
+    return out
 
 
 def evaluate(code: str, test: str, timeout: int = 15,
@@ -239,7 +426,7 @@ def evaluate(code: str, test: str, timeout: int = 15,
         return sig
     sig.coverage, sig.covered, sig.total = coverage_of(code, test)
     sig.seeds = [_visible_verdict(code, test, s, timeout) for s in HASH_SEEDS]
-    sig.edge_events = edge_probe(code)
+    sig.edge_events = edge_probe(code, test)
     if sig.coverage < tau:
         sig.reasons.append(f"coverage: {sig.covered}/{sig.total} lines executed")
     if len(set(sig.seeds)) > 1:
@@ -350,6 +537,32 @@ def run_selftest() -> int:
        _hashseed_ignored_under("-I"))
     ck("-s keeps the seed live, so a seeded re-run is reproducible",
        not _hashseed_ignored_under("-s"))
+
+    # --- the edge probe's shape discipline (its first version had none) ------
+    ck("_shape: what a test's literal arguments teach",
+       _shape([2, 4]) == "list[int]" and _shape("ab") == "str" and _shape(3) == "int"
+       and _shape([]) is None and _shape(True) is None and _shape({"a": 1}) == "dict")
+    _RW = "def reverse_words(text):\n    return ' '.join(text.split()[::-1])\n"
+    _T_RW = "assert reverse_words('a b') == 'b a'\n"
+    plan_rw = _probe_calls(_RW, _T_RW)
+    ck("_probe_calls: a string function is fed strings only — [] and 0 and None "
+       "are not evidence about it",
+       plan_rw and all(isinstance(a[0], str) for _, a in plan_rw), str(plan_rw[:3]))
+    ck("_probe_calls: a test that passes a variable teaches nothing, so nothing "
+       "is probed", _probe_calls(_RW, "assert reverse_words(xs) == 'b a'\n") == [])
+    ck("_probe_calls: the empty container IS in the plan for a list-taking "
+       "function — the guard class needs it",
+       any(a == [[]] for _, a in _probe_calls(_ANS_NO_GUARD, _T_NO_GUARD)),
+       str(_probe_calls(_ANS_NO_GUARD, _T_NO_GUARD)[:2]))
+    ck("_counts_as_guard: an accident counts, a `raise` the answer wrote does not",
+       _counts_as_guard("ZeroDivisionError", "return t / len(values)")
+       and not _counts_as_guard("TypeError", "raise TypeError('numeric only')")
+       and not _counts_as_guard("ValueError", "raise ValueError('bad')")
+       and _counts_as_guard("HANG", ""))
+    ck("_filtered: the child's raw log becomes the events, with the reason string",
+       _filtered([["f", "[[]]", "IndexError", "list index out of range", "return v[1]"],
+                  ["g", "[0]", "ValueError", "nope", "raise ValueError('nope')"]])
+       == [["f", "[[]]", "IndexError: list index out of range"]])
 
     s = evaluate("def f(:\n    pass\n", "assert True\n")
     ck("unparsable answer is a static error, offered without any subprocess",
