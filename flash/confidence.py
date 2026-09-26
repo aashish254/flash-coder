@@ -1,0 +1,374 @@
+"""Prospective confidence from VERIFICATION evidence (PLAN §34.2, SPEC R-2.3).
+
+The trust gap is asymmetric: one subtle logic bug that passes the visible
+tests destroys more credibility than ten fast correct completions build. So
+BEFORE shipping a passing answer, the loop can ask the machine what it has
+actually verified about it — and OFFER the escalation when the evidence is
+thin. "Confidence" here is deliberately not the model's own probability:
+self-rated prospective confidence is measured dead (§34.2, m7: leave-suite-out
+AUC 0.569), while every signal below comes from execution.
+
+Four evidence streams, each a real run, none a guess:
+
+* `static`  — LSP/AST diagnostics on the answer (perceive.static_check).
+* `coverage` — what fraction of the answer's statement lines the visible
+  tests actually executed (via the §33.2 line tracer on a PASSING run). A
+  guard that no test reaches is a guard nobody has ever seen work.
+* `seeds`   — re-run the visible tests under several PYTHONHASHSEED values;
+  a verdict that flips with dict/set iteration order is a bug the visible
+  order happened to hide.
+* `edges`   — call every top-level function with a battery of adversarial
+  arguments (empty, negative, huge, wrong-typed); a subtle missing-guard
+  bug survives the visible asserts and then crashes here.
+
+What this CANNOT do, stated where it cannot be missed: a wrong-VALUE bug
+that the visible tests neither reach, order-depend, nor crash on is
+invisible to every verification signal — the offer would be a guess, and
+guesses are what §34.2 killed. The gated suite (`benchmarks/tasks/
+subtle_tasks.jsonl`) is seeded from the four detectable classes, and the
+limitation ships with the number.
+
+Offline: `python -m flash.confidence --selftest` (no model; real subprocess
+runs, scripted answers).
+"""
+from __future__ import annotations
+
+import ast
+import json
+import os
+import subprocess
+import sys
+import tempfile
+from dataclasses import dataclass, field
+from pathlib import Path
+
+from flash import trace
+from flash.debug import watch
+from flash.perceive import static_check
+
+COVERAGE_TAU = 0.55               # calibrated on the seeded suite (see --suite)
+HASH_SEEDS = (0, 1, 7)            # verdict must be stable across these
+EDGE_BUDGET_S = 2                 # per edge call before it is counted as a hang
+
+
+@dataclass
+class Signals:
+    """The evidence table one answer earned. `offer` is the decision §34.2
+    gates; `reasons` names which stream(s) demanded it, and the numbers that
+    did, so a reviewer can replay the judgement without re-running anything."""
+    ok: bool = True                       # did the visible oracle pass at all
+    static_errors: int = 0
+    coverage: float = 1.0                 # executed / executable statement lines
+    covered: int = 0
+    total: int = 0
+    seeds: list = field(default_factory=list)   # verdict per hash seed
+    edge_events: list = field(default_factory=list)
+    offer: bool = False
+    reasons: list = field(default_factory=list)
+
+    def fields(self) -> dict:
+        return {"conf_static": self.static_errors, "conf_cov": round(self.coverage, 3),
+                "conf_seeds": len(self.seeds), "conf_edges": len(self.edge_events),
+                "conf_offer": self.offer, "conf_reasons": ",".join(self.reasons)}
+
+    def describe(self) -> str:
+        return (f"offer={'YES' if self.offer else 'no'} "
+                f"static={self.static_errors} cov={self.coverage:.2f}"
+                f"({self.covered}/{self.total}) seeds={''.join('P' if v else 'F' for v in self.seeds)}"
+                f" edges={len(self.edge_events)}"
+                + (" (" + "; ".join(self.reasons) + ")" if self.reasons else ""))
+
+
+def _statement_lines(code: str) -> set[int]:
+    """The coverage denominator: statements whose execution is evidence.
+
+    A `def`/`class` line runs at import whether or not its body ever does,
+    so counting it would flatter every untested function; docstrings are
+    data, not behavior. What remains is exactly the lines that had to RUN
+    for the answer to be the one the oracle passed.
+    """
+    lines: set[int] = set()
+    try:
+        tree = ast.parse(code)
+    except SyntaxError:
+        return lines
+    for node in ast.walk(tree):
+        if isinstance(node, ast.stmt):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                continue
+            if isinstance(node, ast.Expr) and isinstance(node.value, ast.Constant) \
+                    and isinstance(node.value.value, str):
+                continue
+            lines.add(getattr(node, "lineno", 0) or 0)
+    return {n for n in lines if n}
+
+
+def coverage_of(code: str, test: str) -> tuple[float, int, int]:
+    """Run the PASSING answer under the §33.2 tracer and count which of its
+    statement lines execution reached. `f:l` comes from the trail records."""
+    d = watch(code, test)
+    stmts = _statement_lines(code)
+    if not stmts:
+        return 1.0, 0, 0
+    hit = set()
+    for step in d.trail:
+        head = step.split(" ", 1)[0]
+        f, _, l = head.rpartition(":")
+        if f == "solution.py" and l.isdigit():
+            hit.add(int(l))
+    covered = len(stmts & hit)
+    return covered / len(stmts), covered, len(stmts)
+
+
+def _seeded_run(code: str, test: str, seed: int, timeout: int) -> subprocess.CompletedProcess:
+    """The visible oracle once more, with dict/set iteration order moved by
+    PYTHONHASHSEED. The program shape is harness.run_test's.
+
+    NOT -I, deliberately: -I implies -E, and -E makes the interpreter ignore
+    PYTHONHASHSEED — a seeded re-run under -I is just a random re-run (verified
+    on this box: the same -I command gave a different set order every time,
+    while a seeded one repeated exactly). Isolation is re-implemented instead:
+    PYTHONPATH is dropped from the child env, -s drops the user site, and a
+    preamble removes sys.path[0], which is all -I would have done for -c.
+    """
+    from flash.harness import _hoist_path_bootstrap
+    boot, body = _hoist_path_bootstrap(test)
+    prog = (boot + "\nimport sys\n"
+            "sys.path = [p for p in sys.path if p not in ('', '.')]\n"
+            + code + "\n\n" + body + "\nprint('__PASS__')\n")
+    env = dict(os.environ, PYTHONHASHSEED=str(seed))
+    env.pop("PYTHONPATH", None)
+    try:
+        return subprocess.run([sys.executable, "-s", "-c", prog],
+                              capture_output=True, text=True, timeout=timeout, env=env)
+    except subprocess.TimeoutExpired:
+        return None
+
+
+def _visible_verdict(code: str, test: str, seed: int, timeout: int) -> bool:
+    r = _seeded_run(code, test, seed, timeout)
+    return r is not None and "__PASS__" in r.stdout and r.returncode == 0
+
+
+def edge_probe(code: str, budget: int = EDGE_BUDGET_S) -> list:
+    """Crash/hang evidence from adversarial arguments. Returns
+    [(function, arg-repr, exception-or-HANG)]; an empty list means every
+    probed call survived its battery — which is evidence, not absence of bugs."""
+    with tempfile.TemporaryDirectory() as d:
+        root = Path(d)
+        (root / "answer.py").write_text(code)
+        driver = _edge_script(root=str(root), budget=budget)
+        (root / "_edge_driver.py").write_text(driver)
+        try:
+            r = subprocess.run([sys.executable, "-I", str(root / "_edge_driver.py")],
+                               capture_output=True, text=True, timeout=30 * budget)
+        except subprocess.TimeoutExpired:
+            return [("<whole probe>", "*", "TIMEOUT")]
+        try:
+            return [tuple(e) for e in json.loads(r.stdout.strip().splitlines()[-1])["events"]]
+        except Exception:
+            return [("<probe crashed>", "", (r.stderr or "").strip()[-120:])]
+
+
+def _edge_script(root: str, budget: int) -> str:
+    """The child program: import the answer, call each top-level single-arg
+    function on a battery of adversarial values, report what escaped."""
+    return f'''
+import json, signal, sys, traceback
+sys.path.insert(0, {root!r})
+import answer
+
+class Hang(Exception):
+    pass
+
+def _alarm(sig, frm):
+    raise Hang()
+
+signal.signal(signal.SIGALRM, _alarm)
+BATTERY = [[], [1], [1, 2, 2], {{}}, {{"a": 1, "b": 2}}, "", "x" * 40, 0, -1,
+           10 ** 9, 3.5, -0.0, None, [None, None], (1, 2), [float("nan")],
+           [float("inf")], "a-b", [True, False]]
+
+events = []
+for name, fn in sorted(vars(answer).items()):
+    if getattr(fn, "__module__", None) != "answer" or name.startswith("_"):
+        continue
+    if not callable(fn) or isinstance(fn, type):
+        continue
+    for arg in BATTERY:
+        signal.alarm({budget})
+        try:
+            try:
+                fn(arg)
+            except TypeError:
+                continue                      # wrong shape for this signature
+        except Hang:
+            events.append([name, repr(arg)[:40], "HANG"])
+        except Exception:
+            events.append([name, repr(arg)[:40],
+                           traceback.format_exc(limit=1).strip().splitlines()[-1][:120]])
+        finally:
+            signal.alarm(0)
+print(json.dumps({{"events": events}}))
+'''
+
+
+def evaluate(code: str, test: str, timeout: int = 15,
+             tau: float = COVERAGE_TAU) -> Signals:
+    """The prospective verdict on an answer the visible oracle already passed.
+
+    Offer = ANY thin strand of evidence: one static error, coverage under
+    tau, a verdict that moves with hash order, or an adversarial call that
+    crashed. The gate (§34.2) wants ≥90% recall on would-fail-hidden outputs;
+    a cheap, high-recall trigger is the correct shape — precision against
+    routine tasks is the <1-per-20 clause, and each reason is recorded so a
+    false offer can be traced to the strand that fired.
+    """
+    sig = Signals()
+    diags = [x for x in static_check(code) if x.severity == "error"]
+    sig.static_errors = len(diags)
+    if sig.static_errors:
+        # An answer that doesn't even parse cannot be executed, so the other
+        # three streams would measure nothing but the failure to launch. The
+        # offer is already demanded; running five subprocesses to re-derive
+        # that is noise (and the edge probe's crash report buries the reason).
+        sig.reasons.append(f"static: {sig.static_errors} error(s)")
+        sig.offer = True
+        trace.event("confidence", offer=True, reasons="; ".join(sig.reasons),
+                    static=sig.static_errors, cov=None, seeds=[], edges=[])
+        return sig
+    sig.coverage, sig.covered, sig.total = coverage_of(code, test)
+    sig.seeds = [_visible_verdict(code, test, s, timeout) for s in HASH_SEEDS]
+    sig.edge_events = edge_probe(code)
+    if sig.coverage < tau:
+        sig.reasons.append(f"coverage: {sig.covered}/{sig.total} lines executed")
+    if len(set(sig.seeds)) > 1:
+        sig.reasons.append("seeds: verdict moves with hash order")
+    if sig.edge_events:
+        fn, arg, exc = sig.edge_events[0]
+        sig.reasons.append(f"edges: {fn}({arg}) -> {exc}")
+    sig.offer = bool(sig.reasons)
+    trace.event("confidence", offer=sig.offer, reasons="; ".join(sig.reasons) or None,
+                static=sig.static_errors, cov=round(sig.coverage, 3),
+                seeds=sig.seeds, edges=sig.edge_events[:5])
+    return sig
+
+
+# ------------------------------------------------------------------ selftest
+
+_ANS_CLEAN = (
+    "def total_cents(qty, unit=25):\n"
+    "    return qty * unit\n"
+)
+_T_CLEAN = "assert total_cents(2) == 50\nassert total_cents(3) == 75\n"
+
+# untested block: the visible tests exercise slugify only; export_report's
+# body — six statements — is code that ships without ever having executed
+_ANS_UNCOVERED = (
+    "def slugify(text):\n"
+    "    return text.strip().lower().replace(' ', '-')\n"
+    "\n"
+    "def export_report(rows):\n"
+    "    out = []\n"
+    "    for r in rows:\n"
+    "        if r is None:\n"
+    "            raise ValueError('hole')\n"
+    "        out.append(r)\n"
+    "    return out\n"
+)
+_T_UNCOVERED = "assert slugify('A B') == 'a-b'\nassert slugify(' x ') == 'x'\n"
+
+# order-dependent: picks the first member of a set; the visible assert bakes
+# in one hash order (measured: P at seed 0, F at 1 and 7 for this key set)
+_ANS_ORDER = (
+    "def pick_tag(tags):\n"
+    "    s = set(tags)\n"
+    "    s.update(['alpha', 'bravo', 'charlie', 'delta', 'echo'])\n"
+    "    return next(iter(s))\n"
+)
+_T_ORDER = "assert pick_tag([]) == 'alpha'\n"
+
+# missing guard that survives visible asserts and dies on an empty input
+_ANS_NO_GUARD = (
+    "def mean(values):\n"
+    "    t = 0\n"
+    "    for v in values:\n"
+    "        t += v\n"
+    "    return t / len(values)\n"
+)
+_T_NO_GUARD = "assert mean([2, 4]) == 3\nassert mean([1]) == 1\n"
+
+
+def _hashseed_ignored_under(flag: str) -> bool:
+    """Premise of the seeds stream, re-checked every run: with `-I` the
+    interpreter skips PYTHON* env vars, PYTHONHASHSEED included, so the same
+    command gives a different hash each time. `-s` keeps the seed live."""
+    outs = set()
+    for _ in range(2):
+        r = subprocess.run([sys.executable, flag, "-c", "print(hash('a'))"],
+                           capture_output=True, text=True, timeout=15,
+                           env=dict(os.environ, PYTHONHASHSEED="0"))
+        outs.add(r.stdout)
+    return len(outs) > 1
+
+
+def run_selftest() -> int:
+    checks = []
+
+    def ck(name, cond, note=""):
+        checks.append((name, bool(cond), str(note)))
+        print(f"  {'OK  ' if cond else 'FAIL'} {name}" + (f"  [{note}]" if note and not cond else ""))
+
+    ck("_statement_lines: a def-line runs at import, so it is not evidence",
+       _statement_lines("def f():\n    return 1\n") == {2})
+    ck("_statement_lines: docstrings are not evidence",
+       _statement_lines('def f():\n    """note"""\n    return 1\n') == {3})
+
+    s = evaluate(_ANS_CLEAN, _T_CLEAN)
+    ck("a clean, fully-tested answer gets NO offer", not s.offer, s.describe())
+    ck("clean answer: coverage is total", s.coverage == 1.0, s.describe())
+
+    s = evaluate(_ANS_UNCOVERED, _T_UNCOVERED)
+    ck("an answer with a block the tests never reach is offered on coverage",
+       s.offer and any(r.startswith("coverage") for r in s.reasons), s.describe())
+    ck("coverage names the fraction", s.covered == 1 and s.total == 7,
+       f"{s.covered}/{s.total}")
+
+    s = evaluate(_ANS_NO_GUARD, _T_NO_GUARD)
+    ck("missing guard: edges fire even though visible tests pass coverage",
+       any(r.startswith("edges") for r in s.reasons), s.describe())
+    ck("the edge event names the function, arg and exception",
+       any(e[0] == "mean" and "ZeroDivision" in e[2] for e in s.edge_events),
+       str(s.edge_events))
+
+    s = evaluate(_ANS_ORDER, _T_ORDER)
+    ck("hash-seed instability is detected as a moving verdict",
+       s.offer and any("seeds" in r for r in s.reasons)
+       and s.seeds == [True, False, True], s.describe())
+
+    ck("-I would break the seeds stream: it ignores PYTHONHASHSEED",
+       _hashseed_ignored_under("-I"))
+    ck("-s keeps the seed live, so a seeded re-run is reproducible",
+       not _hashseed_ignored_under("-s"))
+
+    s = evaluate("def f(:\n    pass\n", "assert True\n")
+    ck("unparsable answer is a static error, offered without any subprocess",
+       s.static_errors >= 1 and s.offer and s.reasons == [f"static: {s.static_errors} error(s)"]
+       and s.seeds == [] and s.edge_events == [], s.describe())
+
+    ck("signals serialize for the ledger with every number behind the offer",
+       set(Signals(offer=True, reasons=["x"]).fields()) ==
+       {"conf_static", "conf_cov", "conf_seeds", "conf_edges", "conf_offer",
+        "conf_reasons"})
+    ck("describe prints the evidence table in one line",
+       "cov=" in Signals(coverage=0.5, covered=2, total=4).describe())
+
+    n_bad = sum(not ok for _, ok, _ in checks)
+    print(f"\nconfidence selftest: {len(checks) - n_bad}/{len(checks)} checks passed")
+    return 1 if n_bad else 0
+
+
+if __name__ == "__main__":                       # pragma: no cover
+    if "--selftest" in sys.argv or len(sys.argv) == 1:
+        raise SystemExit(run_selftest())
+    print(__doc__)

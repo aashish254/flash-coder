@@ -197,16 +197,18 @@ def cmd_run(args) -> int:
                                                        "small": args.small,
                                                        "big": args.big,
                                                        "allow_big": args.allow_big,
-                                                       "tournament": args.tournament})
+                                                       "tournament": args.tournament,
+                                                       "confidence": args.confidence})
     r, tier, routed = solve_routed(args.small, args.big, task, ROOT,
                                    small_attempts=args.attempts,
                                    big_attempts=args.attempts,
                                    max_tokens=args.max_tokens,
                                    allow_big=args.allow_big,
-                                   tournament=args.tournament)
+                                   tournament=args.tournament,
+                                   confidence=args.confidence)
     trace.event("task_end", task_id=task["id"], solved=r.solved, tier=tier,
                 attempts=r.n_attempts, seconds=r.seconds, routed=routed,
-                **loop.tournament_fields(r))
+                **loop.tournament_fields(r), **_conf_fields(r))
     trace.close_session(solved=r.solved)
     print(f"routed={routed} tier={tier}")
     print("--- code ---")
@@ -215,13 +217,15 @@ def cmd_run(args) -> int:
     if r.tournament is not None:
         from flash import tourney
         print("[R-3.3] " + tourney.describe(r.tournament))
+    if r.confidence is not None:
+        print("[R-2.3] " + r.confidence.describe())
     print(f"[trace] replay this run:  flash trace show {sid}")
     return 0 if r.solved else 1
 
 
 SUITE_PARAMS = ("small", "big", "tasks", "with_context", "attempts", "max_tasks",
                 "max_tokens", "max_chars", "threshold", "allow_big", "constrain",
-                "debug", "edit", "tournament")
+                "debug", "edit", "tournament", "confidence")
 
 
 def _patch_attempt(r):
@@ -259,6 +263,30 @@ def _tour_note(r) -> str:
         return ""
     from flash import tourney
     return "  " + tourney.describe(r.tournament)
+
+
+def _conf_fields(r) -> dict:
+    """R-2.3's task_end fields: the evidence table itself, so a resumed run
+    reports the offers it already earned without re-running five subprocesses
+    against an answer it did not regenerate."""
+    return {} if r.confidence is None else r.confidence.fields()
+
+
+def _conf_note(r) -> str:
+    return "" if r.confidence is None else "  [R-2.3] " + r.confidence.describe()
+
+
+def _hidden_verdict(r, hidden: str):
+    """§34.2's ground truth: would the surfaced answer fail the tests nobody
+    showed the model? None when there is nothing to surface. This is scored
+    AFTER the run, so it can only ever be the signal's answer key — the loop
+    never sees it, and an offer that matches it is measured, not assumed."""
+    from flash.loop import surfaced_attempt
+    a = surfaced_attempt(r)
+    if a is None or not a.code:
+        return None
+    from flash.harness import run_test
+    return run_test(a.code, hidden)[0]
 
 
 def _run_suite(params: dict, sid: str | None = None) -> int:
@@ -332,6 +360,31 @@ def _run_suite(params: dict, sid: str | None = None) -> int:
         tour_best += any(bool(s["ok"]) for s in t["scores"])
         tour_gens += t.get("gens") or 0
 
+    # R-2.3's gate has two halves and they are counted against DIFFERENT rows:
+    # recall over answers the hidden tests sink, false offers over answers they
+    # float. A task with no hidden test contributes to neither — it is reported
+    # as unkeyed rather than silently inflating the denominator.
+    conf_n = conf_offers = conf_fails = conf_pass = 0
+    conf_caught = conf_false = 0
+
+    def _count_conf(d):
+        nonlocal conf_n, conf_offers, conf_fails, conf_pass
+        nonlocal conf_caught, conf_false
+        if "conf_offer" not in d:
+            return
+        conf_n += 1
+        offer = bool(d.get("conf_offer"))
+        conf_offers += offer
+        h = d.get("hidden_ok")
+        if h is None:
+            return
+        # Two clauses, two denominators: recall is over the answers the hidden
+        # tests SINK, false offers over the answers they float.
+        (conf_fails, conf_pass) = (conf_fails + 1, conf_pass) if not h \
+            else (conf_fails, conf_pass + 1)
+        conf_caught += offer and not h        # recalled a would-fail-hidden answer
+        conf_false += offer and bool(h)       # offered an answer hidden accepts
+
     try:
         for t in tasks:
             if t["id"] in done:
@@ -343,6 +396,7 @@ def _run_suite(params: dict, sid: str | None = None) -> int:
                 total += d.get("seconds") or 0.0
                 _count_edits(d, d.get("attempts"))
                 _count_tourney(d)
+                _count_conf(d)
                 print(f"  [{'CACHED' if d.get('solved') else str(d.get('tier', 'failed')).upper():>9}] "
                       f"{t['id']:<22} solved={d.get('solved')} (already in session, "
                       f"not re-run)", flush=True)
@@ -353,11 +407,17 @@ def _run_suite(params: dict, sid: str | None = None) -> int:
                                            max_tokens=params["max_tokens"],
                                            threshold=params["threshold"],
                                            allow_big=params["allow_big"],
-                                           tournament=params.get("tournament") or 1)
+                                           tournament=params.get("tournament") or 1,
+                                           confidence=bool(params.get("confidence")))
             ran += 1
+            # §34.2's answer key, scored after the offer so it cannot leak into
+            # it: did the answer the machine just judged fail the hidden tests?
+            hid = (_hidden_verdict(r, t["hidden"])
+                   if params.get("confidence") and t.get("hidden") else None)
             trace.event("task_end", task_id=t["id"], solved=r.solved, tier=tier,
                         attempts=r.n_attempts, seconds=r.seconds, routed=routed,
-                        **_patch_fields(r), **_tour_fields(r))
+                        hidden_ok=hid,
+                        **_patch_fields(r), **_tour_fields(r), **_conf_fields(r))
             solved += r.solved
             small_n += tier == "small"
             big_n += tier == "big"
@@ -365,9 +425,11 @@ def _run_suite(params: dict, sid: str | None = None) -> int:
             total += r.seconds
             _count_edits(_patch_fields(r), r.n_attempts)
             _count_tourney(_tour_fields(r))
+            _count_conf({**_conf_fields(r), "hidden_ok": hid})
             print(f"  [{('SHED' if tier == 'shed' else 'ESC->BIG' if tier == 'big' else tier.upper()):>9}] "
                   f"{t['id']:<22} solved={r.solved} attempts={r.n_attempts} "
-                  f"({r.seconds}s)" + _patch_note(r) + _tour_note(r), flush=True)
+                  f"({r.seconds}s)" + _patch_note(r) + _tour_note(r) + _conf_note(r),
+                  flush=True)
     except KeyboardInterrupt:
         print(f"\ninterrupted after {ran} task(s). {len(done) + ran} of {len(tasks)} "
               f"are settled; nothing written to the ledger is lost.\n"
@@ -388,6 +450,16 @@ def _run_suite(params: dict, sid: str | None = None) -> int:
         print(f"[R-3.3] {tour_n} tournament task(s): pass@1 "
               f"{tour_c0}/{tour_n}  best-of-k {tour_best}/{tour_n}  "
               f"(+{pts:.0f} pts, gate: >= 8)   {tour_gens} generation(s) spent")
+    if conf_n:
+        # Two clauses, two denominators — the gate is not one ratio. Unkeyed
+        # rows (no hidden test) are named, never folded into either.
+        print(f"[R-2.3] {conf_offers}/{conf_n} answer(s) carried evidence; "
+              f"recall on would-fail-hidden {conf_caught}/{conf_fails} "
+              f"(gate: >= 90%), {conf_false} false offer(s) over {conf_pass} "
+              f"hidden-accepted answer(s) (gate: < 1 per 20)"
+              + ("" if conf_fails + conf_pass else
+                 "   [this suite has no hidden tests: the evidence is reported, "
+                 "not scored]"))
     print(f"[trace] flash trace show {sid}")
     if shed_n:
         from flash import power
@@ -727,6 +799,14 @@ def main() -> int:
                         "independent candidates (candidate 0 greedy, the rest "
                         "sampled), oracle-scored, first-pass adopted; clamped "
                         "to the governor's width (1 = off)")
+    p.add_argument("--confidence", action=argparse.BooleanOptionalAction,
+                   default=True,
+                   help="R-2.3: ON by default here — before a single answer "
+                        "ships, re-run it under the hash seeds, trace which of "
+                        "its lines the visible tests reached, and probe it with "
+                        "adversarial arguments, then print what that evidence "
+                        "backs. Seconds of subprocess, no model (--no-confidence "
+                        "to skip)")
     p.add_argument("--trace-full", action="store_true",
                    help="§33.6: also store the exact prompts and outputs, so the "
                         "run can be re-fed to a model")
@@ -761,6 +841,10 @@ def main() -> int:
     p.add_argument("--tournament", type=int, default=1, metavar="K",
                    help="R-3.3: best-of-K candidates on single-file tasks, "
                         "oracle-scored (1 = off; clamped to the governor's width)")
+    p.add_argument("--confidence", action="store_true", default=False,
+                   help="R-2.3: run §34.2's four evidence streams on every "
+                        "surfaced answer and report offers alongside the hidden "
+                        "verdicts (off: ~5 subprocesses per task)")
     p.add_argument("--trace-full", action="store_true",
                    help="§33.6: store exact prompts/outputs too, for re-feeding")
     p.set_defaults(fn=cmd_run_suite)
@@ -787,6 +871,8 @@ def main() -> int:
                    help="R-3.2: omit to keep the resumed session's setting")
     p.add_argument("--tournament", type=int, default=None, metavar="K",
                    help="R-3.3: omit to keep the resumed session's setting")
+    p.add_argument("--confidence", action="store_true", default=None,
+                   help="R-2.3: omit to keep the resumed session's setting")
     p.add_argument("--trace-full", action="store_true")
     p.set_defaults(fn=cmd_resume)
 

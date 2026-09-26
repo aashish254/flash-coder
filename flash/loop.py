@@ -87,6 +87,10 @@ class SolveResult:
     # replaced the small-tier chain, else None. The CLI reads it for the ledger
     # and the suite line, so the candidate table survives the return trip.
     tournament: "object | None" = None
+    # R-2.3: the flash.confidence.Signals for a `confidence=True` solve — the
+    # evidence table §34.2 gates on, kept so the CLI can print the reasons and
+    # the resume path can re-derive an offer without re-running the probes.
+    confidence: "object | None" = None
 
     @property
     def n_attempts(self) -> int:
@@ -481,11 +485,49 @@ def fail_output(r: SolveResult) -> str:
     return (r.attempts[-1].err if r.attempts else "")[-200:]
 
 
+def surfaced_attempt(r: SolveResult):
+    """The attempt an outside reader should judge: the tournament's best
+    candidate when one ran, else the last chain attempt."""
+    if not r.attempts:
+        return None
+    if r.tournament is not None:
+        i = r.tournament["surfaced"]
+        return r.attempts[i] if i < len(r.attempts) else None
+    return r.attempts[-1]
+
+
+def confidence_eligible(confidence: bool, task: dict) -> tuple[bool, str]:
+    """Whether R-2.3's evidence streams can run on this task's answer.
+
+    The four signals are single-answer shaped: coverage and the edge probe both
+    execute one `solution.py`. A multi-file or edit task's output is a file set
+    or a patch series, so the honest answer is a refusal with a reason, not a
+    number.
+    """
+    if not confidence:
+        return False, "confidence off"
+    if task.get("multi") or task.get("edit"):
+        return False, "multi-file/edit task: signals are single-answer shaped"
+    return True, ""
+
+
+def assess_confidence(task: dict, r: SolveResult) -> dict:
+    """Fill `r.confidence` with what verification actually covered and return
+    its ledger fields. §34.2's point in one call: the model's own probability
+    is not evidence, four real runs are."""
+    from flash import confidence
+    a = surfaced_attempt(r)
+    if a is None or not a.code:
+        return {}
+    r.confidence = confidence.evaluate(a.code, task["test"])
+    return r.confidence.fields()
+
+
 def solve_routed(small_repo: str, big_repo: str, task: dict, root,
                  small_attempts: int = 2, big_attempts: int = 2,
                  max_tokens: int = 1024, max_chars: int = 4000,
                  threshold: float = 0.5, allow_big: str = "auto",
-                 tournament: int = 1
+                 tournament: int = 1, confidence: bool = False
                  ) -> tuple[SolveResult, str, str]:
     """The full policy: PERCEIVE(repo skeleton) -> ROUTE -> small -> reactive ESC.
 
@@ -506,6 +548,11 @@ def solve_routed(small_repo: str, big_repo: str, task: dict, root,
     names a failing assert than as a second sample of the same distribution;
     so width 1 keeps the chain. Multi-file and edit tasks keep the chain too
     (a candidate is a whole project there, not an answer).
+
+    `confidence` (R-2.3) adds §34.2's prospective evidence table on the answer
+    this run surfaces — on BOTH tiers, and on a failure too, because "what did
+    you actually verify" is the same question either way. It never changes the
+    tier or the verdict: the offer is for a human, or for a later policy.
     """
     import mlx.core as mx
     from mlx_lm import load
@@ -545,13 +592,22 @@ def solve_routed(small_repo: str, big_repo: str, task: dict, root,
     # "tournament asked for and declined by the width cap".
     from flash import tourney
     tour_ok, tour_why = tourney.eligible(tournament, caps.tournament_width, task)
+    conf_ok, conf_why = confidence_eligible(confidence, task)
     trace.event("route", task_id=task["id"], routed=routed,
                 route_p=None if route_p is None else round(route_p, 4),
                 profile=caps.profile, allow_big=allow_big,
                 big_allowed=big_ok, multi=bool(task.get("multi")),
                 tournament=tournament, tournament_used=tour_ok,
+                conf_on=confidence, conf_used=conf_ok,
                 why=None if big_ok else big_why,
-                tour_why=tour_why or None)
+                tour_why=tour_why or None, conf_why=conf_why or None)
+
+    def with_conf(r: SolveResult) -> None:
+        """Merge §34.2's evidence fields into the record this run ends in.
+        Called at every return path, so a shed or a big answer carries the
+        same evidence as a small one — the gate counts offers, not tiers."""
+        if conf_ok:
+            entry.update(assess_confidence(task, r))
 
     if routed.startswith("big"):             # rare, high-precision: go direct
         if not big_ok:                       # the governor outranks the router
@@ -573,6 +629,7 @@ def solve_routed(small_repo: str, big_repo: str, task: dict, root,
             tier = "big" if r.solved else "failed"
             if not r.solved:                 # diagnose big-direct failures too
                 entry["fail_output"] = fail_output(r)
+            with_conf(r)
             ledger.record({**entry, "tier": tier, "routed": routed,
                            "solved": r.solved, "attempts": r.n_attempts,
                            "seconds": r.seconds})
@@ -583,6 +640,7 @@ def solve_routed(small_repo: str, big_repo: str, task: dict, root,
                if tour_ok else solve(model, tok, task, small_attempts, max_tokens))
     entry.update(tournament_fields(r_small))
     if r_small.solved:
+        with_conf(r_small)
         ledger.record({**entry, "tier": "small", "routed": routed,
                        "solved": True, "attempts": r_small.n_attempts,
                        "seconds": r_small.seconds})
@@ -591,6 +649,7 @@ def solve_routed(small_repo: str, big_repo: str, task: dict, root,
         entry["shed"] = big_why
         trace.event("escalation", task_id=task["id"], denied=True, tier="big",
                     why=big_why)
+        with_conf(r_small)
         ledger.record({**entry, "tier": "shed", "routed": routed,
                        "solved": False, "attempts": r_small.n_attempts,
                        "seconds": r_small.seconds})
@@ -610,6 +669,7 @@ def solve_routed(small_repo: str, big_repo: str, task: dict, root,
     r_big.attempts = r_small.attempts + r_big.attempts   # full audit trail
     r_big.seconds = round(r_small.seconds + r_big.seconds, 1)
     tier = "big" if r_big.solved else "failed"
+    with_conf(r_big)
     ledger.record({**entry, "tier": tier, "routed": routed,
                    "solved": r_big.solved, "attempts": r_big.n_attempts,
                    "seconds": r_big.seconds})
