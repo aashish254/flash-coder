@@ -159,7 +159,14 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
 
 - **R-4.1 (SHIPPED)** Candidate code runs only in an isolated subprocess with a
   hard timeout, and failures report GOT vs WANT for the first failing assert.
-  Vector: `m0_bakeoff.py --dry-run` 20/20; `benchmarks/tasks/*_test.py` probes.
+  The reported values MUST come from the same evaluation that decided the
+  verdict — an assert whose side mutates (`q.pop() == "high"`) used to be
+  evaluated twice, so a *failing* assert could report `GOT: 'high' |
+  WANT: 'high'` and the retry got feedback that named no difference.
+  Vector: `m0_bakeoff.py --dry-run` 20/20; `python -m flash.harness --selftest`
+  **12/12**, including a counting call whose printed GOT must be the value the
+  comparison used, and the seeded e09 task now reporting `GOT: 'low' |
+  WANT: 'high'` where the shipped probe reported no difference.
 - **R-4.2 (SHIPPED, one budget missed)** Malformed model output MUST be
   structurally impossible: constrained decoding on the sampler path for the
   output protocols that exist — the multi-WRITER file set and the single fenced

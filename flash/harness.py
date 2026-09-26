@@ -140,6 +140,49 @@ if not __ok:
 print("OK")
 '''
 
+# The `a == b` shape, probed with each side evaluated EXACTLY ONCE. See
+# _eq_sides() for why the re-evaluating version above is wrong for these.
+_DIAG_EQ = '''
+import sys
+try:
+__SIDES__
+    __ok = bool(__c0 == __c1)
+except Exception as e:
+    print("FAILING_ASSERT:", __ASSERT__)
+    print("ERROR:", type(e).__name__, e)
+    sys.exit(1)
+if not __ok:
+    print("FAILING_ASSERT:", __ASSERT__)
+    print("GOT:", repr(__c0))
+    print("WANT:", repr(__c1))
+    sys.exit(1)
+print("OK")
+'''
+
+
+def _eq_sides(expr: str) -> str | None:
+    """Indented `__c0 = <left>` / `__c1 = <right>` when `expr` is `a == b`.
+
+    The verdict and the printed values must come from ONE evaluation. The
+    re-evaluating probe told both arms of the R-3.2 run `GOT: 'high' |
+    WANT: 'high'` for a FAILING `assert q.pop() == "high"` — it had already
+    consumed the element while deciding, so the second evaluation of the left
+    side reported a value the test never got (and raised, in the sibling case).
+    Feedback that names no difference costs the retry its whole attempt.
+    """
+    try:
+        import ast
+        node = ast.parse(expr, mode="eval").body
+    except Exception:
+        return None
+    if not isinstance(node, ast.Compare) or len(node.ops) != 1 or not isinstance(node.ops[0], ast.Eq):
+        return None
+    left = ast.get_source_segment(expr, node.left)
+    right = ast.get_source_segment(expr, node.comparators[0])
+    if left is None or right is None:
+        return None
+    return f"    __c0 = {left}\n    __c1 = {right}"
+
 
 def diagnose(code: str, test: str, timeout: int = 15) -> tuple[bool, str]:
     """VERIFY upgrade: find WHICH assert fails and show actual vs expected.
@@ -170,10 +213,15 @@ def diagnose(code: str, test: str, timeout: int = 15) -> tuple[bool, str]:
             expr = _ast.get_source_segment(a, node.test) or a[len("assert "):]
         except Exception:
             expr = a[len("assert "):]
-        prog = (boot + "\n" + code + "\n" + "\n".join(raw[:i]) + "\n"
-                + _DIAG.replace("__EXPR_STR__", repr(expr))
-                        .replace("__ASSERT__", repr(a))
-                        .replace("__EXPR__", expr))
+        head = boot + "\n" + code + "\n" + "\n".join(raw[:i]) + "\n"
+        sides = _eq_sides(expr)
+        if sides is not None:            # `a == b`: one evaluation, both values
+            prog = (head + _DIAG_EQ.replace("__SIDES__", sides)
+                                   .replace("__ASSERT__", repr(a)))
+        else:
+            prog = (head + _DIAG.replace("__EXPR_STR__", repr(expr))
+                                  .replace("__ASSERT__", repr(a))
+                                  .replace("__EXPR__", expr))
         try:
             r = subprocess.run([sys.executable, "-I", "-c", prog],
                                capture_output=True, text=True, timeout=timeout)
@@ -186,3 +234,109 @@ def diagnose(code: str, test: str, timeout: int = 15) -> tuple[bool, str]:
             return False, f"timeout>{timeout}s on: {a}"
     # probes only cover top-level asserts; gate on the full test once
     return run_test(code, test, timeout)
+
+
+# ------------------------------------------------------------------- selftest
+
+def run_selftest() -> int:
+    """Offline, deterministic, no model: the oracle's own contract.
+
+    The load-bearing checks are the two that pin ONE evaluation per side — the
+    bug made the probe report a value the test never got, which turns a retry
+    into a coin flip on a difference that does not exist.
+    """
+    checks: list[tuple[str, bool, str]] = []
+
+    def ck(name: str, cond, note: str = "") -> None:
+        checks.append((name, bool(cond), str(note)))
+
+    # a green test is green, with no diagnostic text
+    ok, err = diagnose("def double(x):\n    return x * 2\n",
+                       "assert double(3) == 6\nassert double(0) == 0\n")
+    ck("passing test -> (True, '')", ok and err == "", f"ok={ok} err={err!r}")
+
+    # the common shape: the first failing assert names both values
+    ok, err = diagnose("BULK_MIN_QTY = 4\n",
+                       "assert BULK_MIN_QTY == 5\nassert BULK_MIN_QTY > 0\n")
+    ck("failing == reports GOT vs WANT",
+       not ok and "GOT: 4" in err and "WANT: 5" in err, err)
+
+    # THE FIX: the verdict and the printed GOT come from one evaluation, so a
+    # side-effecting side reports the value the comparison actually used (the
+    # old probe returned 2 here, from a second call the test never made).
+    code = ("calls = {'n': 0}\n"
+            "def f():\n"
+            "    calls['n'] += 1\n"
+            "    return calls['n']\n")
+    ok, err = diagnose(code, "assert f() == 5\n")
+    ck("side-effecting side evaluated EXACTLY ONCE (GOT is the compared value)",
+       not ok and "GOT: 1" in err and "WANT: 5" in err, err)
+
+    # the live artifact from the R-3.2 run: for a FAILING `assert q.pop() ==
+    # "high"` the old probe printed GOT == WANT, because popping a second time
+    # reached the element the first pop had not. Feedback that names no
+    # difference burned both arms' second attempt on e09.
+    ok, err = diagnose("q = ['high', 'low']\n", 'assert q.pop() == "high"\n')
+    ck("failing pop-assert reports the value the pop actually returned",
+       not ok and "GOT: 'low'" in err and "WANT: 'high'" in err, err)
+
+    # state between asserts survives: each probe replays the real prefix, so a
+    # mutation the 2nd assert depends on has happened exactly once
+    code = ("class Box:\n"
+            "    def __init__(self):\n"
+            "        self.n = 0\n"
+            "    def bump(self):\n"
+            "        self.n += 1\n"
+            "        return self.n\n")
+    test = "b = Box()\nassert b.bump() == 1\nassert b.n == 2\n"
+    ok, err = diagnose(code, test)
+    ck("prefix replay keeps mutation real (2nd assert sees n=1, not 2)",
+       not ok and "GOT: 1" in err and "WANT: 2" in err, err)
+
+    # assert-with-message: the probe must evaluate the CONDITION only.
+    # `assert (flag, "why")` is a non-empty tuple and always truthy, so a probe
+    # that swallows the message reports a real failure as passing.
+    ok, err = diagnose("flag = False\n", 'assert flag, "flag must be set"\n')
+    ck("assert-with-message still fails (and keeps its message)",
+       not ok and "FAILING_ASSERT" in err and "flag must be set" in err, err)
+    ok, err = diagnose("flag = True\n", 'assert flag, "flag must be set"\n')
+    ck("assert-with-message that holds passes", ok and err == "", f"ok={ok} err={err!r}")
+
+    # a non-comparison condition gets no invented values
+    ok, err = diagnose("flag = True\n", "assert not flag\n")
+    ck("non-== condition fails without fabricated GOT/WANT",
+       not ok and "FAILING_ASSERT" in err and "GOT:" not in err, err)
+
+    # a condition that raises is still an ERROR, not a value mismatch
+    ok, err = diagnose("", "assert missing_name == 1\n")
+    ck("raising condition reports ERROR", not ok and "ERROR: NameError" in err, err)
+
+    # no top-level assert (t20 class): the whole test runs, verdict stands
+    ok, err = diagnose("", "try:\n    raise ValueError('boom')\n"
+                           "except ValueError as e:\n    assert str(e) == 'other'\n")
+    ck("block-nested-only test still fails with the real traceback",
+       not ok and "AssertionError" in err, err)
+
+    # multi-WRITER shares the one oracle (diagnose_files -> diagnose)
+    ok, err = diagnose_files({"m.py": "X = 1\n"},
+                             "import sys; sys.path.insert(0, '<TMPDIR>')\n"
+                             "from m import X\nassert X == 2\n")
+    ck("diagnose_files reports the same GOT/WANT", 
+       not ok and "GOT: 1" in err and "WANT: 2" in err, err)
+
+    # a file path that escapes the tmp package is refused, not written
+    ok, err = diagnose_files({"../evil.py": "X = 1\n"}, "assert 1 == 1\n")
+    ck("path-escape guard refuses an out-of-tree file", not ok and "unsafe" in err, err)
+
+    for name, ok, note in checks:
+        print(f"  {'OK  ' if ok else 'FAIL'} {name}" + (f"  [{note}]" if not ok and note else ""))
+    n_bad = sum(not ok for _, ok, _ in checks)
+    print(f"\nharness selftest: {len(checks) - n_bad}/{len(checks)} checks passed")
+    return 1 if n_bad else 0
+
+
+if __name__ == "__main__":                       # pragma: no cover
+    if "--selftest" in sys.argv:
+        raise SystemExit(run_selftest())
+    print(__doc__)
+    raise SystemExit(run_selftest())

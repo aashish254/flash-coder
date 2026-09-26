@@ -87,6 +87,14 @@ Vision is benchmarked once the text brain is picked (PLAN §M1–M2).
 .venv/bin/python -m flash.cli context --path flash  # token-budgeted skeleton
 .venv/bin/python -m flash.cli perceive flash/loop.py # LSP lint of one file
 
+# The oracle itself is testable: VERIFY reports GOT vs WANT for the first failing
+# assert, and those two values come from the SAME evaluation that decided the verdict.
+# An assert whose side mutates is therefore reported honestly (`q.pop() == "high"` on a
+# failing assert says GOT: 'low' | WANT: 'high', not GOT == WANT for a difference that
+# was really there).
+.venv/bin/python -m flash.harness --selftest        # 12 offline checks on the oracle
+.venv/bin/python benchmarks/m0_bakeoff.py --dry-run # 20/20 reference solutions pass
+
 # §33.1 symbol perception: AST discovery + a live language server (jedi/pylsp).
 # The loop uses this automatically: a failure that names a repo symbol gets that
 # symbol's REAL source appended to the retry feedback.

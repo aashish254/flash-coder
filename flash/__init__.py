@@ -19,8 +19,9 @@ Plan: ../PLAN.md (v3.8). This package grows milestone by milestone:
   M0b: flash.vision                 (screenshot -> HTML through the VLM)
 
 Every subsystem ships an offline deterministic selftest:
-  python -m flash.lsp | flash.power | flash.jobs | flash.trace | flash.grammar
-             | flash.patches | flash.debug
+  python -m flash.harness | flash.lsp | flash.power | flash.jobs | flash.trace
+             | flash.grammar | flash.patches | flash.debug
+  (flash.web's runs through `flash web --selftest`; it has no __main__.)
 """
 
 __version__ = "0.0.1"

@@ -257,19 +257,27 @@ Rules for this file:
       §33.1's ACT sentence + Appendix A row, README's patch-protocol block,
       `flash/__init__.py` map. Re-verified against the tree: `--selftest` 37/37,
       `--suite` premise 60/60, README names both counts.
-- [ ] [B] P4-follow-up — the GOT/WANT probe double-evaluates a stateful assert.
-      `diagnose()` evaluates the whole condition and then evaluates each side
+- [x] [B] P4-follow-up — the GOT/WANT probe double-evaluated a stateful assert.
+      `diagnose()` evaluated the whole condition and then evaluated each side
       AGAIN to print its values, so an assert whose condition mutates
-      (`q.pop() == "high"`) hands the retry feedback that names no difference.
-      Reproduced offline in one line (`q.pop()` twice → `GOT: <eval error> pop
-      from empty list` on an assert about the *second* element) and seen live on
-      `e09_pop_by_priority`, where both arms were told `GOT: 'high' |
-      WANT: 'high'` for a failing assert and both burned their second attempt
-      on it. Fix: for an `a == b` condition, evaluate `a` and `b` once into
-      temporaries and compare the stored values, so the printed GOT/WANT *are*
-      the comparison that failed. Falsifiable check: an assert on a
-      side-effecting call must report the value it actually got, and the side
-      effect must happen exactly once.
+      (`q.pop() == "high"`) handed the retry feedback that named no difference.
+      Fixed: for a single `a == b` condition the probe now assigns each side
+      once (`__c0 = a`, `__c1 = b`) and compares the stored values, so the
+      printed GOT/WANT *are* the comparison that failed. Non-comparison
+      conditions keep the old probe, which prints no values it did not compute.
+      Proven falsifiable — the legacy probe run on the same two cases prints
+      `GOT: 2` for `assert f() == 5` where `f()` had returned 1, and
+      `GOT: 'high' | WANT: 'high'` on the failing pop-assert; the new one prints
+      `GOT: 1` and `GOT: 'low' | WANT: 'high'`.
+      On real task data (`benchmarks/tasks/edit_tasks.jsonl`, e09 seeded):
+      `FAILING_ASSERT: assert q.pop() == "high" | GOT: 'low' | WANT: 'high'`.
+      Vector: `python -m flash.harness --selftest` **12/12** (new — the oracle
+      had no offline selftest before). No regression: `m0_bakeoff --dry-run`
+      20/20, and the whole battery stays green (14/22/14/30/47/37/55/9 + 60/60
+      premise + 11/11 resume). The recorded R-3.2 arms are NOT re-run: the fix
+      changes what future retries are told, not the measured clause-1/clause-2
+      outcomes, and re-running to make a missed gate look better would be the
+      wrong kind of progress.
 
 ## P5 — R-3.3 Tournament mode (G2, AC-only)
 
