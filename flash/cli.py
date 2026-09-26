@@ -179,9 +179,20 @@ def cmd_run(args) -> int:
             "test": open(args.test).read()}
     if args.context:
         task["context"] = args.context
+    if args.edit:
+        # the patch arm edits a real tree; without one there is nothing to
+        # address, so say so instead of silently generating whole files
+        if not args.context:
+            print("--edit needs --context <dir>: the project to patch")
+            return 2
+        from flash.patches import workspace_from_dir
+        task["files"] = workspace_from_dir(args.context)
+        task["edit"] = True
+        task["multi"] = True
     trace.CAPTURE = args.trace_full
     loop.CONSTRAIN = args.constrain
     loop.DEBUG = args.debug
+    loop.EDIT = args.edit
     sid = trace.open_session("run", cmd="run", params={"prompt": args.prompt[:200],
                                                        "small": args.small,
                                                        "big": args.big,
@@ -204,7 +215,30 @@ def cmd_run(args) -> int:
 
 SUITE_PARAMS = ("small", "big", "tasks", "with_context", "attempts", "max_tasks",
                 "max_tokens", "max_chars", "threshold", "allow_big", "constrain",
-                "debug")
+                "debug", "edit")
+
+
+def _patch_attempt(r):
+    """The attempt that ended an edit task, or None for a non-edit run.
+
+    When a task is solved the loop breaks on that attempt, so the last one IS
+    the patch set the workspace now holds; measuring it is the gate's
+    "never rewrite a line outside the target symbol's range".
+    """
+    a = r.attempts[-1] if r.attempts else None
+    return a if a and (a.patches or a.refused) else None
+
+
+def _patch_note(r) -> str:
+    a = _patch_attempt(r)
+    return "" if a is None else (f" patches={a.patches} refused={a.refused} "
+                                 f"whole={a.whole} outside={a.outside}")
+
+
+def _patch_fields(r) -> dict:
+    a = _patch_attempt(r)
+    return {} if a is None else {"patch_refused": a.refused, "patch_whole": a.whole,
+                                 "patch_outside": a.outside}
 
 
 def _run_suite(params: dict, sid: str | None = None) -> int:
@@ -221,6 +255,7 @@ def _run_suite(params: dict, sid: str | None = None) -> int:
 
     loop.CONSTRAIN = bool(params.get("constrain"))   # R-4.2 output mask
     loop.DEBUG = bool(params.get("debug"))           # R-4.3 execution digest
+    loop.EDIT = bool(params.get("edit"))             # R-3.2 symbol-precise patches
     if params["threshold"] <= 1.0:          # gate on -> keep the router learning
         from flash.learn import autofit_if_stale
         msg = autofit_if_stale(params["small"])
@@ -245,6 +280,21 @@ def _run_suite(params: dict, sid: str | None = None) -> int:
     solved = small_n = big_n = shed_n = 0
     total = 0.0
     ran = 0
+    # R-3.2's gate numbers, summed over edit tasks (a resumed run reads them
+    # from the session's own task_end records, so the report is the whole
+    # suite either way, not just the part that ran this time)
+    edit_n = first_try = outside_n = whole_n = refused_n = 0
+
+    def _count_edits(d, attempts):
+        nonlocal edit_n, first_try, outside_n, whole_n, refused_n
+        if "patch_outside" not in d:
+            return
+        edit_n += 1
+        first_try += (attempts or 0) <= 1
+        outside_n += d.get("patch_outside") or 0
+        whole_n += d.get("patch_whole") or 0
+        refused_n += d.get("patch_refused") or 0
+
     try:
         for t in tasks:
             if t["id"] in done:
@@ -254,6 +304,7 @@ def _run_suite(params: dict, sid: str | None = None) -> int:
                 big_n += d.get("tier") == "big"
                 shed_n += d.get("tier") == "shed"
                 total += d.get("seconds") or 0.0
+                _count_edits(d, d.get("attempts"))
                 print(f"  [{'CACHED' if d.get('solved') else str(d.get('tier', 'failed')).upper():>9}] "
                       f"{t['id']:<22} solved={d.get('solved')} (already in session, "
                       f"not re-run)", flush=True)
@@ -266,15 +317,17 @@ def _run_suite(params: dict, sid: str | None = None) -> int:
                                            allow_big=params["allow_big"])
             ran += 1
             trace.event("task_end", task_id=t["id"], solved=r.solved, tier=tier,
-                        attempts=r.n_attempts, seconds=r.seconds, routed=routed)
+                        attempts=r.n_attempts, seconds=r.seconds, routed=routed,
+                        **_patch_fields(r))
             solved += r.solved
             small_n += tier == "small"
             big_n += tier == "big"
             shed_n += tier == "shed"
             total += r.seconds
+            _count_edits(_patch_fields(r), r.n_attempts)
             print(f"  [{('SHED' if tier == 'shed' else 'ESC->BIG' if tier == 'big' else tier.upper()):>9}] "
                   f"{t['id']:<22} solved={r.solved} attempts={r.n_attempts} "
-                  f"({r.seconds}s)", flush=True)
+                  f"({r.seconds}s)" + _patch_note(r), flush=True)
     except KeyboardInterrupt:
         print(f"\ninterrupted after {ran} task(s). {len(done) + ran} of {len(tasks)} "
               f"are settled; nothing written to the ledger is lost.\n"
@@ -284,6 +337,12 @@ def _run_suite(params: dict, sid: str | None = None) -> int:
     trace.close_session(solved=solved, tasks=n, ran=ran)
     print(f"\nsolved {solved}/{n}   small-tier {small_n}, escalated {big_n}   "
           f"total {total:.0f}s (avg {total / n:.1f}s/task)")
+    if edit_n:
+        print(f"[R-3.2] {first_try}/{edit_n} edit(s) solved in <=1 attempt "
+              f"(gate: >= {max(1, edit_n * 4 // 5)})   "
+              f"{outside_n} line(s) touched outside the target symbol "
+              f"(gate: 0)   {whole_n} whole-file rewrite(s)   "
+              f"{refused_n} refusal round(s)")
     print(f"[trace] flash trace show {sid}")
     if shed_n:
         from flash import power
@@ -614,6 +673,10 @@ def main() -> int:
                    help="R-4.3: re-run a failed test under a line tracer and put the "
                         "execution digest (value history, last mutated line) in the "
                         "retry feedback")
+    p.add_argument("--edit", action="store_true",
+                   help="R-3.2: answer a change request with symbol-addressed "
+                        "patches (# edit: file :: Symbol) that replace exactly the "
+                        "lines the AST owns, instead of re-typing whole files")
     p.add_argument("--trace-full", action="store_true",
                    help="§33.6: also store the exact prompts and outputs, so the "
                         "run can be re-fed to a model")
@@ -643,6 +706,8 @@ def main() -> int:
                    help="R-4.2: constrained decoding on the output contract")
     p.add_argument("--debug", action="store_true",
                    help="R-4.3: execution digest in the retry feedback")
+    p.add_argument("--edit", action="store_true",
+                   help="R-3.2: symbol-addressed patches on edit tasks")
     p.add_argument("--trace-full", action="store_true",
                    help="§33.6: store exact prompts/outputs too, for re-feeding")
     p.set_defaults(fn=cmd_run_suite)

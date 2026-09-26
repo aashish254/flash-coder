@@ -12,12 +12,15 @@ Plan: ../PLAN.md (v3.8). This package grows milestone by milestone:
   §33.6/7: flash.trace              (replayable sessions + `flash resume`)
   §33.3: flash.grammar              (constrained decoding: the output contract
                                      as a per-step token mask, `--constrain`)
+  §33.1 ACT: flash.patches          (symbol-precise edits: '# edit: file ::
+                                     Symbol' -> the AST's own lines, `--edit`)
   Phase-4: flash.web                (knowledge as a tool: fetch+sha1-cache+
                                      bge-ranked excerpts, §25a3, §33.9)
   M0b: flash.vision                 (screenshot -> HTML through the VLM)
 
 Every subsystem ships an offline deterministic selftest:
   python -m flash.lsp | flash.power | flash.jobs | flash.trace | flash.grammar
+             | flash.patches | flash.debug
 """
 
 __version__ = "0.0.1"

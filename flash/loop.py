@@ -31,17 +31,36 @@ MULTI_FIX_TEMPLATE = (
     "of them, each as a fenced block starting with '# file: <name>'."
 )
 
+# R-3.2: the patch arm's retry note. The refusal text already names the reason;
+# this is the one rule that keeps a retry from answering a refusal with a
+# whole-file dump, which is the failure mode patches exist to remove.
+RETRY_EDITS = (
+    "Send one patch per symbol you change, addressed at a symbol shown in the "
+    "project above, with that symbol's complete new definition in the block."
+)
+
 
 @dataclass
 class Attempt:
     code: str
     ok: bool
     err: str = ""
+    # R-3.2 (edit tasks only): what the patch set did, so the ACT leg is
+    # auditable per attempt rather than reconstructed from the code text.
+    patches: int = 0
+    refused: int = 0
+    whole: int = 0
+    outside: int = 0
 
 
 # R-4.2: when on, every generation is masked to the task's output contract
 # (flash/grammar.py). The CLI's --constrain sets it; a suite A/B flips it.
 CONSTRAIN = False
+
+# R-3.2: when on, a task that ships a project (`edit`) is answered with
+# symbol-addressed patches (flash/patches.py) instead of whole files. The CLI's
+# --edit sets it.
+EDIT = False
 
 # R-4.3: when on, a failed verify is re-run under the tracer (flash/debug.py)
 # and the execution digest joins the retry feedback. The A/B that decides the
@@ -109,6 +128,10 @@ def enrich_task(task: dict, root, max_chars: int = 4000) -> dict:
     and ranked doc excerpts for tasks that declare `doc_urls` (Phase-4 web
     tool: knowledge as a tool, PLAN §25a3). Both idempotent via markers."""
     from pathlib import Path
+    if task.get("edit"):
+        # An edit task ships its own real source in the prompt; a skeleton on
+        # top of it would be pure token cost.
+        return task
     prompt = task["prompt"]
     query = prompt                                  # rank vs the RAW prompt
     if task.get("context"):
@@ -181,10 +204,89 @@ def _debug_feedback(task: dict, code: str, merged: dict[str, str],
     return f"{err}\n\n{d.as_feedback()}" if (d.trail and not d.ok) else err
 
 
+def _solve_edits(model, tokenizer, task: dict, max_attempts: int,
+                 max_tokens: int) -> SolveResult:
+    """R-3.2's ACT leg: answer a change request with patches, not files.
+
+    The workspace is state, exactly like the multi-file loop's `merged` dict:
+    an accepted patch set becomes the project the next attempt sees, and a
+    refused one leaves it untouched. That is what makes a retry cheap — the
+    model repairs the change it asked for, not a transcription of the file.
+
+    These attempts generate freely: R-4.2's mask covers the '# file:'
+    protocol, and no grammar exists for this one (SPEC §10.4).
+    """
+    from flash.harness import diagnose_files
+    from flash.patches import apply_patches, edit_prompt, outside_lines, parse_patches
+    t0 = time.perf_counter()
+    res = SolveResult(task_id=task["id"], solved=False)
+    workspace = dict(task["files"])
+    messages = [{"role": "user", "content": edit_prompt(task)}]
+    code = ""
+    for attempt_i in range(max_attempts):
+        out = _generate(model, tokenizer, messages, max_tokens,
+                        temp=0.0 if attempt_i == 0 else 0.7, seed=attempt_i,
+                        task_id=task["id"], attempt=attempt_i)
+        vt0 = time.perf_counter()
+        before = dict(workspace)
+        patches = parse_patches(out)
+        result = apply_patches(before, patches)
+        kind = "patch"
+        if not patches:
+            ok, err = False, ("PATCH MISSING: no "
+                              "'# edit: <file> :: <symbol>' patch in the response")
+        elif not result.ok:
+            ok, err = False, "PATCH REFUSED: " + "; ".join(
+                f"{p.file}:{p.address} — {w}" for p, w in result.refusals)
+        elif not result.applied:
+            ok, err = False, "PATCH EMPTY: the response addressed nothing"
+        else:
+            workspace = result.files
+            code = "\n\n".join(f"# file: {p}\n{c}" for p, c in workspace.items())
+            # PERCEIVE still runs first — a patched file that does not compile
+            # is line-precise for free, and the splice already guarantees the
+            # rest of the file is byte-identical.
+            static_err = []
+            for p, c in result.files.items():
+                if c == before.get(p):
+                    continue
+                e = format_errors(static_check(c))
+                if e:
+                    static_err.append(f"{p}: {e}")
+            if static_err:
+                ok, err = False, "STATIC: " + "; ".join(static_err)
+                kind = "static"
+            else:
+                ok, err = diagnose_files(workspace, task["test"])
+                kind = "test"
+        outside = outside_lines(before, result, task.get("target") or {})
+        trace.event("patch", task_id=task["id"], attempt=attempt_i, ok=ok,
+                    applied=len(result.applied), refused=len(result.refusals),
+                    whole=result.whole_rewrites, outside=outside,
+                    addresses=[f"{a.patch.file}:{a.patch.address}"
+                               for a in result.applied],
+                    why=None if ok else err[:trace.MAX_ERR],
+                    ms=round((time.perf_counter() - vt0) * 1000))
+        res.attempts.append(Attempt(code=code or out, ok=ok, err=err,
+                                    patches=len(patches),
+                                    refused=len(result.refusals),
+                                    whole=result.whole_rewrites, outside=outside))
+        if ok:
+            res.solved = True
+            break
+        messages += [{"role": "assistant", "content": out},
+                     {"role": "user", "content": err + "\n\n" + RETRY_EDITS}]
+    res.seconds = round(time.perf_counter() - t0, 1)
+    return res
+
+
 def solve(model, tokenizer, task: dict, max_attempts: int = 3,
           max_tokens: int = 1024,
           constrain: bool | None = None,
-          debug: bool | None = None) -> SolveResult:
+          debug: bool | None = None,
+          edit: bool | None = None) -> SolveResult:
+    if (EDIT if edit is None else edit) and task.get("edit"):
+        return _solve_edits(model, tokenizer, task, max_attempts, max_tokens)
     if task.get("multi"):               # multi-file answers are 2x+ longer;
         max_tokens = max(max_tokens, 2048)   # 1024 truncates mid-file (live: mw4)
     t0 = time.perf_counter()
