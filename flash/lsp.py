@@ -189,9 +189,16 @@ def symbols_involved(index: "SymbolIndex", err: str = "", code: str = "",
 
 
 def symbol_hint(root: str | Path, err: str = "", code: str = "", limit: int = 3,
-                max_chars: int = 1200) -> str:
-    """Feedback block: the EXACT source of the repo symbols at issue."""
-    index = SymbolIndex.build(root)
+                max_chars: int = 1200, index: "SymbolIndex | None" = None) -> str:
+    """Feedback block: the EXACT source of the repo symbols at issue.
+
+    `index` is the caller's, when it has one: `loop` asks this module and
+    `graph.scope_hint` about the SAME ranked symbols, and the parse behind the
+    index is the expensive part of both — on this repo's own 26 files the pair
+    costs 33 ms shared against ~170 ms parsed twice, which
+    `benchmarks/graph_perceive_check.py` prints rather than asserts.
+    """
+    index = index if index is not None else SymbolIndex.build(root)
     syms = symbols_involved(index, err, code, limit)
     if not syms:
         return ""

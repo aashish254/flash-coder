@@ -207,21 +207,84 @@ def enrich_task(task: dict, root, max_chars: int = 4000) -> dict:
 
 
 
-def _symbol_hint(task: dict, err: str, code: str = "") -> str:
+def _repo_index(task: dict):
+    """The AST symbol index both perception hints read, built once per retry.
+
+    They rank the SAME list of at-issue symbols — that agreement is deliberate,
+    and so is sharing the parse that produces it: measured on this repo's own 26
+    files, the hint pair costs 33 ms on a shared index and ~170 ms (167-169 across
+    the runs taken) when each hint builds its own, so a retry would otherwise pay
+    the AST parse twice for one list of names. Paying it twice is also a pure waste
+    of the budget §10.5's latency gate measures. None when the task has no repo
+    context, which is what keeps both hints silent.
+    """
+    ctx = task.get("_ctx_dir")
+    if not ctx:
+        return None
+    try:
+        from flash.lsp import SymbolIndex
+        return SymbolIndex.build(ctx)
+    except Exception:
+        return None
+
+
+def _symbol_hint(task: dict, err: str, code: str = "", index=None) -> str:
     """§33.1 ACT upgrade: when a failure turns on a repo symbol, its REAL
-    source goes into the feedback. 'property object is not callable' is
-    fixable in one line of context; a retry without it is a coin flip.
-    Silent (and harmless) when the task has no repo context or nothing the
-    repo defines is at issue."""
+    source. 'property object is not callable' is fixable in one line of
+    context; a retry without it is a coin flip. Returns the BLOCK, or "" — which
+    is also what makes it safe to rank on `err` alone. See `_perceive`."""
+    ctx = task.get("_ctx_dir")
+    if not (ctx and err):
+        return ""
+    try:
+        from flash.lsp import symbol_hint
+        return symbol_hint(ctx, err, code, index=index) or ""
+    except Exception:
+        return ""
+
+
+def _graph_hint(task: dict, err: str, code: str = "", index=None) -> str:
+    """§28.2 step 3: the at-issue symbols' blast radius.
+
+    `symbol_hint` answers "what is this symbol really"; this answers "who breaks
+    if I change it", which is the question a RETRY is about — the candidate
+    already wrote a call, and the fix that satisfies the oracle without breaking
+    a second test is the one that knows the other call sites. Same silence
+    contract: no repo context, nothing at issue, no block.
+    """
+    ctx = task.get("_ctx_dir")
+    if not (ctx and err):
+        return ""
+    try:
+        from flash.graph import scope_hint
+        return scope_hint(ctx, err, code, index=index) or ""
+    except Exception:
+        return ""
+
+
+def _perceive(task: dict, err: str, code: str = "") -> str:
+    """The failed verdict, with both repo-perception blocks appended.
+
+    Both blocks rank over the BARE error, and that is a fix rather than a style
+    point: assembled by nesting (the graph hint fed the error that already
+    carried the source block), the source hint's own quoted source became part of
+    the ranking text, and one retry showed two different answers to "what is at
+    issue" — the source block quoted 1 symbol while the dependents block headed 3,
+    including names lifted out of the first block's body. `graph.scope_hint`
+    borrows `lsp.symbols_involved` precisely so the two cannot disagree; nesting
+    defeated that through the argument.
+
+    What this adds to a retry's context is bounded twice over: 1200 chars for the
+    source block and 900 for the dependents block, so neither can crowd out the
+    code being fixed, and the task's own skeleton is already in the opening turn.
+    """
     ctx = task.get("_ctx_dir")
     if not (ctx and err):
         return err
-    try:
-        from flash.lsp import symbol_hint
-        hint = symbol_hint(ctx, err, code)
-    except Exception:
-        return err
-    return f"{err}\n\n{hint}" if hint else err
+    index = _repo_index(task)
+    blocks = [b for b in (_symbol_hint(task, err, code, index),
+                          _graph_hint(task, err, code, index)) if b]
+    return "\n\n".join([err] + blocks)
 
 
 def _contract_for(task: dict, expected: list[str] | None,
@@ -467,9 +530,11 @@ def solve(model, tokenizer, task: dict, max_attempts: int = 3,
         # computed inside the Attempt(...) call below, so it landed in the record
         # that `flash trace` prints while `messages` — the thing read back as
         # feedback — carried the bare error. Setting `err` first makes the record
-        # and the retry prompt show the same text.
+        # and the retry prompt show the same text. R-1.3b rides the same
+        # assignment for the same reason: the blast radius is computed here, from
+        # the same `err`, and goes into the prompt or nowhere.
         if not ok:
-            err = _symbol_hint(task, err, code)
+            err = _perceive(task, err, code)
         res.attempts.append(Attempt(code=code, ok=ok, err=err))
         if ok:
             res.solved = True

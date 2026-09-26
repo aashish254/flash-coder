@@ -35,6 +35,14 @@ The LSP stays the live truth (R-1.2): `live_upgrade()` asks
 how many it settled. The < 200 ms clause is measured on the deterministic pass,
 because a language-server round trip is not a bound anyone can hold on a cold
 index — that would be a timing claim about a process nobody has started yet.
+
+§28.2 step 3 — feeding a subgraph into the loop's context — lives in
+`scope_hint()` at the bottom of this file. It answers "who reaches the symbol
+this failure turns on", and it borrows `flash.lsp.symbols_involved` to decide
+which symbols those are, so the source hint and this one cannot name different
+symbols for one error. The query path (`blast`, `render`) still imports stdlib
+and `flash.patches` only; `flash.lsp` is imported lazily by `--live` and by
+`scope_targets`, which is the only entry point here that needs a second module.
 """
 from __future__ import annotations
 
@@ -928,6 +936,141 @@ def live_upgrade(root: str | Path, g: Graph, limit: int = 25) -> dict:
     return {"asked": asked, "settled": settled, "hits": hits,
             "names_not_asked": max(len(dict.fromkeys(names)) - asked, 0),
             "why": "find_references answered for each name in `hits`"}
+
+
+# ------------------------------------------- §28.2 step 3: graph -> PERCEIVE
+
+SCOPE_LIMIT = 3          # symbols at issue — same cap `lsp.symbol_hint` uses
+SCOPE_DEPTH = 2          # not DEFAULT_DEPTH: §28.2's own words are "small context"
+SCOPE_HITS = 6           # per symbol; a hub with 400 callers is not a hint
+SCOPE_MAX_CHARS = 900
+SCOPE_CACHE = 8          # repos one process may hold a graph for
+
+SCOPE_HEADER = ("Dependents of the symbols at issue (AST call graph — these call "
+                "sites break if you change them):")
+
+_scope_cache: dict[str, Graph] = {}
+
+
+def scope_graph(root: str | Path) -> Graph:
+    """This process's graph for `root`: cold build once, `merge` after.
+
+    §28.1's incremental merge exists for exactly this caller. Injecting context
+    that is a hour stale would be worse than injecting none — the agent would be
+    told a caller exists that has since been deleted — so every reuse runs the
+    merge, which re-extracts only the files whose content hash moved. The first
+    call pays the scan and every later one pays a stat-and-hash pass.
+    """
+    key = str(Path(root).resolve())
+    g = _scope_cache.pop(key, None)
+    if g is None and len(_scope_cache) >= SCOPE_CACHE:
+        # Reinserting below keeps the dict in least-recently-used order, so this
+        # drops the repo nobody has asked about lately and never the one in hand.
+        del _scope_cache[next(iter(_scope_cache))]
+    _scope_cache[key] = g = merge(g, key)[0] if g is not None else build(key)
+    return g
+
+
+def _rel(root: str | Path, path: Path) -> str:
+    """A node id's file half, from an absolute path the AST index produced."""
+    try:
+        return str(Path(path).resolve().relative_to(
+            Path(root).resolve())).replace("\\", "/")
+    except (OSError, ValueError):
+        return Path(path).name
+
+
+def _one_node(g: Graph, root: str | Path, sym) -> Node | None:
+    """The node one at-issue symbol names — or None when the graph will not say.
+
+    This is `resolved()`'s rule applied to the injection: one candidate is
+    evidence, two are a coin flip, and a hint that blames the wrong symbol's
+    callers is worse than no hint, because the model has no way to see which it
+    got. The file the AST index read is the tie-breaker, which is why
+    `symbols_involved` hands back paths and not just names.
+    """
+    qual = f"{sym.container}.{sym.name}" if sym.container else sym.name
+    cands = g.get(qual)
+    if len(cands) > 1:
+        rel = _rel(root, sym.path)
+        cands = [n for n in cands if n.file == rel]
+    return cands[0] if len(cands) == 1 else None
+
+
+def scope_targets(root: str | Path, err: str = "", code: str = "",
+                  limit: int = SCOPE_LIMIT, g: Graph | None = None,
+                  index=None) -> list[Node]:
+    """The nodes for the symbols a failure actually turns on.
+
+    The ranking is imported from `flash.lsp.symbols_involved` on purpose. Two
+    private notions of "what is at issue" would have the source hint and this one
+    name different symbols for the same error, and the model would read two
+    stories about one failure. `index` is shared with the source hint for the
+    same reason: one parse, one ranking, one cost.
+    """
+    from flash.lsp import SymbolIndex, symbols_involved
+    g = g or scope_graph(root)
+    index = index if index is not None else SymbolIndex.build(root)
+    out: list[Node] = []
+    for s in symbols_involved(index, err, code, limit=limit):
+        n = _one_node(g, root, s)
+        if n is not None and not any(n.id == x.id for x in out):
+            out.append(n)
+    return out
+
+
+def scope_hint(root: str | Path, err: str = "", code: str = "",
+               limit: int = SCOPE_LIMIT, depth: int = SCOPE_DEPTH,
+               max_chars: int = SCOPE_MAX_CHARS, index=None) -> str:
+    """Feedback block: who reaches the symbols at issue, and from where.
+
+    Silent when nothing repo-defined is at issue or the graph places none of it,
+    which is the same contract `lsp.symbol_hint` has — a retry that gains nothing
+    must not pay for a header. `index` is the shared symbol ranking; see
+    `scope_targets`.
+    """
+    g = scope_graph(root)
+    nodes = scope_targets(root, err, code, limit=limit, g=g, index=index)
+    if not nodes:
+        return ""
+    blocks: list[tuple[str, list[str], int]] = []
+    for n in nodes:
+        rad = g.blast(n.id, depth)
+        head = (f"  {n.symbol} [{n.kind}] {n.file}:{n.start} — "
+                f"{len(rad.hits)} symbol(s) reach it"
+                + (f", {len(rad.importers)} file(s) import it"
+                   if rad.importers else ""))
+        details = [f"      d{h.depth} {h.node.id} {h.edge.kind} it: "
+                   f"{h.edge.text}  [{h.edge.file}:{h.edge.line} "
+                   f"via {h.edge.via}]" for h in rad.hits[:SCOPE_HITS]]
+        details += [f"      -- {e.src} imports it at {e.file}:{e.line}"
+                    for e in rad.importers[:2]]
+        blocks.append((head, details, max(len(rad.hits) - SCOPE_HITS, 0)))
+    lines = [SCOPE_HEADER]
+    used = len(SCOPE_HEADER) + 1
+    unsaid = 0
+    for head, details, hidden in blocks:
+        if used + len(head) + 1 > max_chars:
+            unsaid += 1
+            continue
+        lines.append(head)
+        used += len(head) + 1
+        cut = hidden
+        for i, line in enumerate(details):
+            if used + len(line) + 1 > max_chars:
+                cut += len(details) - i
+                break
+            lines.append(line)
+            used += len(line) + 1
+        if cut:
+            note = f"      … {cut} more not shown (context budget)"
+            if used + len(note) + 1 <= max_chars:
+                lines.append(note)
+                used += len(note) + 1
+    if unsaid and len(lines) > 1:
+        lines.append(f"      … {unsaid} symbol(s) at issue left out "
+                     f"(context budget)")
+    return "\n".join(lines) if len(lines) > 1 else ""
 
 
 # ---------------------------------------------------------------- selftest

@@ -1,0 +1,10 @@
+  ok   MUTATION: serves the cached graph without merging, so a caller added after the first retry is invisible -> 2 check(s) fail
+  ok   MUTATION: binds an at-issue symbol by NAME alone, so it can borrow another file's callers -> 2 check(s) fail
+  ok   MUTATION: ignores the character budget -> 7 check(s) fail
+  ok   MUTATION: accepts `depth` and injects one hop -> 2 check(s) fail
+  ok   MUTATION: prints its header even when it has no answer -> 14 check(s) fail
+  ok   MUTATION: keeps one graph per repo root forever -> 2 check(s) fail
+  ok   MUTATION: computes the block for the record and never appends it — R-1.1's bug, put back -> 7 check(s) fail
+  ok   MUTATION: parses the repo once per hint instead of once per retry -> 2 check(s) fail
+  ok   MUTATION: feeds the second hint the text the first one quoted, so the two rank different symbols for one failure -> 2 check(s) fail
+perceive mutants: 9/9 caught

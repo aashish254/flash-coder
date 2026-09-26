@@ -109,7 +109,7 @@ Vision is benchmarked once the text brain is picked (PLAN §M1–M2).
 .venv/bin/python -m flash.harness --selftest        # 20 offline checks on the oracle
 .venv/bin/python benchmarks/m0_bakeoff.py --dry-run # 20/20 reference solutions pass
 
-# All 28 offline vectors in this file (27 check-summing + m0_bakeoff's oracle) in
+# All 29 offline vectors in this file (28 check-summing + m0_bakeoff's oracle) in
 # one command, summed from the fraction each run
 # PRINTS (never an exit code, never a phrase grep — see SPEC §6 for the two
 # capture traps that rule is there to prevent). Fails if the tree's total moves
@@ -141,7 +141,8 @@ Vision is benchmarked once the text brain is picked (PLAN §M1–M2).
 # ABSENT with the nearest addresses offered. `--live` asks the language server about this
 # pass's own blind spots (outside the <200 ms clause, on purpose). Re-scan by hash
 # re-extracts only changed files, and will not drop nodes for files the scan never
-# covered. Not yet wired: the loop does not consult this on its own (TODO R-1.3b).
+# covered. Wired into the loop as of R-1.3b: a retry now carries this graph's
+# blast radius for the symbols at issue, not only the LSP's source (see below).
 .venv/bin/python -m flash.cli graph bulk_discount_cents --path benchmarks/fixtures
 .venv/bin/python -m flash.cli graph Cart.subtotal_cents --path benchmarks/fixtures --depth 2 --json
 #   ...and the seam to the live server, which is slow on purpose (a server starts up) and
@@ -155,6 +156,30 @@ Vision is benchmarked once the text brain is picked (PLAN §M1–M2).
 #   The trailing `?` line counts uses this pass could not place, so the number above it
 #   reads as a floor and not as a census.
 .venv/bin/python -m flash.graph --selftest --mutants   # 44 offline checks + 12 mutants
+
+# §28.2 step 3 / R-1.3b — and the loop READS that graph on a retry. `graph.scope_hint`
+# takes the ≤3 symbols `lsp.symbols_involved` ranks as at issue and emits their
+# blast radius at depth 2, ≤6 dependents each, ≤900 characters, every line carrying
+# its file:line and the `via` rule that bound it; a name the graph cannot place
+# contributes NOTHING rather than a guess (the file the AST read is the tie-breaker).
+# It rides the same assignment as the source hint, into `err` before both the
+# `Attempt` record and the feedback template exist, so the model and the trace see one
+# string — that seam is exactly where R-1.1's hint failed to reach the model for a
+# month. One AST parse per retry serves both hints (33 ms shared against ~170 ms
+# parsed twice on this repo's 26 files), and the graph is cached per repo root in an
+# LRU of 8 so a long run refreshes by hash instead of holding one graph per task.
+.venv/bin/python benchmarks/graph_perceive_check.py --sweep   # 27 checks + 9 mutants
+#   `--sweep`, not the bare run, is the quoted form: several mutants live in the graph
+#   CACHE, so the NUMBER a mutant fails depends on whether that process already built a
+#   graph (2/2/7/2/14/2/7/2/2 together, 2/1/6/1/13/2/6/1/1 apart). What is claimed is
+#   the identity — each mutant caught by its own named check, in both orders — and the
+#   run fails if the two sweeps ever disagree.
+#   live, on the real 7B: r03_bulk_rule's two retry prompts both carry
+#   `Dependents of the symbols at issue` (`CartLine [class] minishop/models.py:20`,
+#   `BULK_MIN_QTY [constant] minishop/pricing.py:5`), and the same failure's first
+#   attempt carries neither hint. No accuracy delta is claimed — r03 still failed all
+#   three small-tier attempts; whether the hints HELP is TODO R-1.1b.
+.venv/bin/python benchmarks/hint_live_audit.py --header "Dependents of the symbols at issue" --expect present
 
 # §33.1 ACT leg — symbol-precise edits: a change request is answered with patches that
 # name a SYMBOL, and the AST's own lines are what gets replaced. Everything outside the

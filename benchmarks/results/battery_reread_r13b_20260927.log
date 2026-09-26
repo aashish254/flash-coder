@@ -1,0 +1,32 @@
+OK   flash.harness --selftest                     20/20
+OK   flash lsp-selftest                           17/17
+OK   flash power --selftest                       22/22
+OK   flash jobs --selftest                        20/20
+OK   flash trace --selftest                       30/30
+OK   flash web --selftest                         9/9
+OK   flash.grammar --selftest                     47/47
+OK   flash.patches --selftest                     46/46
+OK   flash.debug --selftest                       55/55
+OK   flash.tourney --selftest                     16/16
+OK   flash.confidence --selftest                  29/29
+OK   flash.sandbox --selftest                     34/34
+OK   flash.checkpoint --selftest                  31/31
+OK   flash.train --selftest                       36/36
+OK   flash.graph --selftest                       44/44 (+ 12 mutants)
+OK   flash.ambient --selftest                     61/61 (+ 6 mutants)
+OK   benchmarks/trace_resume_check.py             11/11
+OK   benchmarks/confidence_wiring_check.py        35/35
+OK   benchmarks/subtle_premise_check.py           52/52
+OK   benchmarks/p6_key_check.py                   28/28
+OK   benchmarks/confidence_tau_check.py           7/7
+OK   benchmarks/checkpoint_resume_check.py        35/35
+OK   benchmarks/lora_path_check.py                31/31 (+ 14 mutants)
+OK   benchmarks/dbg_band_check.py                 172/172 (+ 5 mutants)
+OK   benchmarks/router_portable_check.py          20/20 (+ 5 mutants)
+OK   benchmarks/graph_perceive_check.py           27/27 (+ 9 mutants)
+OK   flash.debug --suite                          32/32
+OK   flash.patches --suite                        60/60
+OK   benchmarks/m0_bakeoff.py --dry-run           20/20
+
+checks 1027  oracle 20  §6 total 1047  mutants 51
+matches SPEC §6 as written: 1027 + 20 = 1047 green, offline (+ 51 mutants)

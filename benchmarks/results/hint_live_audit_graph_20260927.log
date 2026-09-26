@@ -1,0 +1,6 @@
+pre-fix  prompts stored  248 · retries  56 · carrying 'Dependents of the symbols at issue': 0
+post-fix prompts stored   19 · retries   6 · carrying 'Dependents of the symbols at issue': 2
+  HIT 20260927-044613-run-suite-d366.jsonl task=r03_bulk_rule attempt=1
+  HIT 20260927-044613-run-suite-d366.jsonl task=r03_bulk_rule attempt=2
+OK pre-fix corpus clean: no prompt from before 20260927 carries 'Dependents of the symbols at issue', so no older live run may credit symbol injection with anything it solved
+OK live arm: 2 post-fix retry prompt(s) carry it

@@ -87,9 +87,12 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   source reached the record and never reached the model, on every live run since
   the seam was written (`0ea2798`, the baseline commit — the only one that has
   ever touched that call site).*
-  The fix is two lines: `err = _symbol_hint(task, err, code)` on a failed
+  The fix is two lines: `err = _perceive(task, err, code)` on a failed
   attempt, before both the `Attempt` and the feedback template are built, so one
-  string is what the model reads and what the trace stores.
+  string is what the model reads and what the trace stores. *(R-1.1 wrote that call
+  as `_symbol_hint`; R-1.3b renamed it to `_perceive`, which appends the LSP source
+  block AND the graph's dependents block at the same assignment — same position,
+  same single-consumer property, and the rename is the only change to this line.)*
   Vector: `flash lsp-selftest` **17/17**. Three new checks (section 6b, printed as
   checks 11-13) drive `loop.solve` itself with a stubbed generator and read the
   retry message back — that the prompt carries the source, that it carries
@@ -169,13 +172,52 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   worth having (provenance per edge, no vector store, incremental merge, shrink
   guard) are each pinned by a check here, so the vector is met without adding an
   extractor that runs code of its own. The place where comparing against Graphify
-  would actually decide something is §28.2 step 3's subgraph injection, and that is
-  the box this write-up leaves open (TODO R-1.3b) — the dependency question moves
-  there rather than being answered by silence.*
-  *What is NOT wired: `loop.py`'s PERCEIVE context does not inject the subgraph
-  yet (that is PLAN §28.2 step 3), so the answer ships as the CLI text and
-  `--json`, not as automatically-supplied context inside a run. Recorded rather
-  than glossed; the bookkeeping box is TODO's R-1.3b.*
+  would actually decide something is §28.2 step 3's subgraph injection, and that
+  step has now shipped in-repo (R-1.3b, below) — so the dependency question is
+  closed by what the injection turned out to need (the graph's own `blast()`, one
+  shared AST parse, 900 chars) rather than by silence either way.*
+- **R-1.3b (SHIPPED)** PLAN §28.2 step 3: the graph's blast-radius subgraph MUST
+  reach the model's retry context, not only the CLI answer.
+  *Wired at the seam R-1.1 exposes: `loop._perceive(task, err, code)` appends both
+  perception blocks to `err` on a failed attempt, before the `Attempt` record and
+  the feedback template are built — so the model and the trace read the same
+  string. One call site, one ranking: `_repo_index` parses the repo ONCE per retry
+  and hands the same `SymbolIndex` to `lsp.symbol_hint` ("what is this symbol
+  really") and `graph.scope_hint` ("who breaks if I change it"), which is
+  deliberate — fed the source block as its own `err`, the graph ranked names out
+  of that quoted text and one retry showed two different sets at issue, a defect
+  this vector found and now pins with a mutant.*
+  `scope_hint` takes the ≤3 symbols at issue, walks depth **2** (§28.2's own words
+  are "small context", not "everything"), caps at 6 dependents per symbol and
+  **900 characters** with a stated `… N more not shown (context budget)` tail
+  rather than a silent cut, and refuses to guess: an at-issue name that binds two
+  graph nodes is disambiguated by the FILE the AST index read, and if that does not
+  settle it the symbol contributes no block. The graph is held per repo root in a
+  `SCOPE_CACHE`-bounded LRU (8 roots), cold `build` then `merge` on re-entry, so a
+  long run refreshes rather than serving a stale scope.
+  Vector: `benchmarks/graph_perceive_check.py` **27/27 + 9/9 mutants**, and the §6
+  line runs it as `--sweep` — one fresh process per mutant — because several of
+  these bugs live in the cache and the number of checks a mutant fails is
+  order-dependent (2/2/7/2/14/2/7/2/2 in one process, 2/1/6/1/13/2/6/1/1 in nine);
+  what is claimed is that each mutant is caught by ITS OWN named check in both
+  orders. Three of the 27 drive `loop.solve` with a stubbed generator and read the
+  retry message back, per R-1.1's lesson. Cost, printed by the run: **3.0-3.4 ms**
+  cold and **0.84-0.91 ms** cached on the fixtures repo; 33 ms for the hint pair on
+  this repo's 26 files against ~170 ms if the parse were done twice (167 and 169 in
+  the two runs taken here, 33 in both for the shared path; so the ratio — about 5× —
+  is the stable part of this claim, not the millisecond).
+  Live (`run-suite --with-context --allow-big never --attempts 3 --trace-full`,
+  session `20260927-044613-run-suite-d366`): `r03_bulk_rule`'s two stored retry
+  prompts both carry `Dependents of the symbols at issue`, headed
+  `CartLine [class] minishop/models.py:20 — 2 symbol(s) reach it` and
+  `BULK_MIN_QTY [constant] minishop/pricing.py:5`, with provenance on every line
+  (`d1 minishop/cart.py::Cart.add calls it: self.lines.append(CartLine(product,
+  qty)) [minishop/cart.py:18 via import-alias]`), and the run's other task solved
+  on its first attempt so it paid nothing. `benchmarks/hint_live_audit.py`, which
+  took a `--header` for this, reports **2 of 6** post-fix retries carrying it and
+  **0 of 248** pre-fix prompts. **No accuracy delta is claimed**: r03 still failed
+  all three small-tier attempts, and whether either hint HELPS is R-1.1b's
+  unmeasured question.*
 - **R-1.4 (OPEN)** Perception MUST extend to the second language of real work
   (TypeScript or SQL — pick by ledger evidence, not taste).
   Vector: R-1.1..1.2 equivalents pass on a fixture tree in that language.
@@ -887,13 +929,15 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
    `python benchmarks/lora_path_check.py` 31 (+ 14 mutants) ·
    `python benchmarks/dbg_band_check.py` 172 (+ 5 mutants) ·
    `python benchmarks/router_portable_check.py` 20 (+ 5 mutants) ·
+   `python benchmarks/graph_perceive_check.py --sweep` 27 (+ 9 mutants) ·
    `python -m flash.debug --suite` 32 ·
    `python -m flash.patches --suite benchmarks/tasks/edit_tasks.jsonl` 60 ·
    `python benchmarks/m0_bakeoff.py --dry-run` 20 reference solutions.
-   **Total: 1000 selftest / end-to-end / premise checks + 20 oracle
+   **Total: 1027 selftest / end-to-end / premise checks + 20 oracle
    verifications (m0_bakeoff's 20 reference solutions, which are the only
-   numbers in that 20 — the 6 ambient, 14 lora, 5 band, 5 router-portability and
-   12 graph mutants are extra to both totals) = 1020 green, offline.** Re-read by
+   numbers in that 20 — the 6 ambient, 14 lora, 5 band, 5 router-portability,
+   12 graph and 9 graph-perceive mutants are extra to both totals) = 1047 green,
+   offline.** Re-read by
    `python benchmarks/battery_reread.py`, which holds one line per item above,
    requires the exact fraction each one prints, sums checks/oracle/mutants
    separately, and fails if the tree's sum moves off this page's number. It
@@ -911,6 +955,24 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
    while an unrelated process group held the machine — but it arrived as
    `printed []`, which named nothing, so a BAD line now echoes the run's last
    line. Read §6's total on a quiet machine.
+   (Updated 2026-09-27, after R-1.3b's injection: **+27 checks and +9 mutants** for
+   `python benchmarks/graph_perceive_check.py --sweep` (`--sweep`, not the bare run,
+   because several of its mutants live in the graph CACHE and how many checks one
+   fails depends on whether the process already built a graph — 2/2/7/2/14/2/7/2/2
+   in a single process against 2/1/6/1/13/2/6/1/1 in nine; the claim is that each
+   mutant is caught by its OWN named check in both orders, and `--sweep` fails if
+   the two ever disagree). **1020 → 1027**, mutants **42 → 51**. Two things this
+   vector caught that its clause did not expect: assembling the hints by nesting fed
+   the graph the text the source hint had already quoted, so one retry showed two
+   different symbol sets for one failure (`loop._perceive` now ranks the bare error
+   once, and mutant `nested` keeps that from regressing), and the same probe found
+   `lsp.symbol_hint` returning NOTHING when the top-ranked symbol's source exceeds
+   `max_chars` — measured on this repo, `symbol_source` at 1631 chars makes the
+   whole block vanish although a 72-char symbol ranked beside it would have fit.
+   Re-read from the tree the same day, quiet box: `battery_reread` prints
+   `checks 1027  oracle 20  §6 total 1047  mutants 51` with all 29 lines on the OK
+   list (raw witness `benchmarks/results/battery_reread_r13b_20260927.log`), pyflakes
+   0 findings.)
    (Updated 2026-09-27, after R-1.1's correction: **+3** on
    `flash lsp-selftest` (**14 → 17**) — the three checks that drive `loop.solve`
    and read the retry prompt back, instead of calling `lsp.symbol_hint` directly

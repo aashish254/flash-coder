@@ -9,7 +9,11 @@ Plan: ../PLAN.md (v3.8). This package grows milestone by milestone:
                                      attempt's `err` gains `lsp.symbol_hint`'s
                                      resolved source BEFORE the retry prompt and
                                      the recorded Attempt are built — writing it
-                                     the other way round fed only the trace)
+                                     the other way round fed only the trace.
+                                     `loop._perceive` appends BOTH perception
+                                     blocks over the BARE error, and `_repo_index`
+                                     parses the repo once per retry so the source
+                                     hint and the graph hint rank the same symbols)
       flash.perceive                (one file's static diagnostics as an oracle)
       §28/R-1.3: flash.graph         (the knowledge graph, AST-only and no vector
                                      store: nodes are functions/classes/modules/
@@ -19,7 +23,12 @@ Plan: ../PLAN.md (v3.8). This package grows milestone by milestone:
                                      change would break under the clause's 200 ms,
                                      `merge()` re-extracts only changed files, and
                                      `--live` lets the language server settle the
-                                     graph's own blind spots)
+                                     graph's own blind spots.
+                                     §28.2 step 3 / R-1.3b: `scope_hint()` feeds the
+                                     same answer into the loop — the at-issue
+                                     symbols' depth-2 blast radius, ≤900 chars, as
+                                     the second block `_perceive` appends, silent
+                                     when a name will not resolve to one node)
       flash.route                   (the cheapest tier that can solve this task)
       flash.harness                 (multi-WRITER: '# file:' -> file sets)
   M3: flash.ledger + flash.learn    (outcome flywheel + learned router)

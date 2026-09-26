@@ -1075,7 +1075,10 @@ here rather than folded into P6's confidence work.
       before today.
       Fix: `err = _symbol_hint(task, err, code)` on a failed attempt before both
       the record and the feedback template are built — one string, so the model
-      and the trace see the same thing.
+      and the trace see the same thing. *(Name updated when R-1.3b landed: that
+      call is now `_perceive(task, err, code)`, which appends the LSP source block
+      and the graph's dependents block at the same assignment. The fix itself is
+      unchanged — same position, one string, one consumer that is also the record.)*
       Vector moved: three `wiring:` checks added to `flash lsp-selftest` (**14 →
       17**), driving `loop.solve` itself with a stubbed generator and reading the
       retry message back: the source arrives, it arrives verbatim and exactly
@@ -1102,11 +1105,32 @@ here rather than folded into P6's confidence work.
       prompt (`benchmarks/hint_live_audit.py --expect present`) and its outcome
       value has never been measured, because the one live note that claimed it was
       read from the record. Gate: a stated delta or a stated nil.
-      *(Switch: `_symbol_hint` is already the single call site in `loop.solve`, so
-      an env or flag-off branch is one line; both arms must be scored with
-      `--trace-full` and the injection presence proven per-arm by the audit, or the
-      A/B compares two runs of the same thing.)*
-- [ ] R-1.3b feed the graph's subgraph into `loop.py`'s PERCEIVE context
+      *(Switch, updated by R-1.3b: `_perceive` is now the single call site and it
+      appends TWO blocks, so an arm that turns "the hint" off must say which —
+      `--no-source-hint`, `--no-graph-hint`, or both — or the A/B measures one
+      block while believing it measured the pair. Both arms must be scored with
+      `--trace-full` and the injection presence proven per-arm by
+      `benchmarks/hint_live_audit.py --header …`, which now takes the header as an
+      argument precisely so each arm can be certified separately.)*
+- [ ] **R-1.1c (OPEN, found by R-1.3b's vector)** A failure whose top-ranked symbol
+      is long loses the source hint entirely. `lsp.symbol_hint`'s budget check is a
+      `break`, so when the FIRST ranked symbol's own source exceeds `max_chars=1200`
+      the loop never reaches the symbols that would have fit and `len(lines) == 1`
+      returns `""` — the block does not shrink, it vanishes. Measured on this repo
+      (2026-09-27): `err="lsp.symbol_source is broken: AttributeError"` ranks
+      `symbol_source` at **1631 chars** and `broken` at **72**, and
+      `symbol_hint("flash", err, …)` returns **0 characters**.
+      Gate: a too-long symbol contributes a truncated block with a stated tail —
+      `graph.scope_hint`'s `… N more not shown (context budget)` is the in-repo
+      precedent — and never a silent zero while a ranked symbol sits unused; plus a
+      check that a non-empty ranking yields a non-empty block.
+      *Why it is booked rather than fixed here: it changes R-1.1's shipped semantics
+      and its 17/17 vector, and R-1.3b's commit is the graph's wiring. It also
+      blocks R-1.1b: with this live, a hint-OFF arm can come back empty for a reason
+      nobody measured, and the A/B would compare an invisible arm against an
+      invisible control. Found because `_shared_index_cost` needed a symbol that
+      fits on `flash/` to have a source block to compare at all.*
+- [x] R-1.3b feed the graph's subgraph into `loop.py`'s PERCEIVE context
       (PLAN §28.2 step 3). The graph and its CLI answer ship; the agent does not
       yet consult it unprompted. *(Seam note, 2026-09-27: inject it where R-1.1
       now injects — into `err` before the `Attempt` and the feedback template are
@@ -1115,6 +1139,45 @@ here rather than folded into P6's confidence work.
       has to read the retry message back, and
       `benchmarks/hint_live_audit.py`'s `--expect present` is the shape a live arm
       for this should take.)*
+      **Shipped 2026-09-27, at the seam the note names.** `graph.scope_hint(root,
+      err, code)` ranks the at-issue symbols through `lsp.symbols_involved` — the
+      SAME function the source hint ranks with, so the two blocks answer about one
+      set — takes each to depth **2** (§28.2's own words are "small context"), caps
+      at 6 dependents per symbol and **900 characters** with a stated
+      `… N more not shown (context budget)` tail, and returns `""` rather than
+      guessing when a name binds two graph nodes and the file the AST read does not
+      settle it. `loop._perceive` appends both blocks to `err` at the one call site
+      in `solve`, and `_repo_index` parses the repo ONCE per retry for both —
+      measured on this repo's own 26 files at **33 ms shared against ~170 ms
+      parsed twice**, a number the vector prints. The per-root graph cache is an LRU
+      of 8 roots, because a suite over ten repos is a suite holding ten graphs.
+      Vector: `benchmarks/graph_perceive_check.py` **27/27 + 9/9 mutants**, run for
+      §6 as `--sweep` (one fresh process per mutant). Three of the 27 drive
+      `loop.solve` with a stubbed generator and read the retry message back; one is
+      the control that a first attempt pays nothing; one requires every cited
+      `file:line` to be re-read from disk and match the call text it quotes.
+      Two of the nine mutants are the reason this box was worth opening:
+      `record_only` puts R-1.1's bug back at THIS seam (compute the block, never
+      append it — 6 checks fail), and `nested` re-creates the assembly this shipped
+      with first, where the graph ranked over the source hint's own quoted text and
+      one retry showed two different symbol sets for one failure.
+      Live arm, real 7B (`run-suite --with-context --allow-big never --attempts 3
+      --trace-full`, session `20260927-044613-run-suite-d366`): both stored retry
+      prompts of `r03_bulk_rule` carry `Dependents of the symbols at issue`, headed
+      `CartLine [class] minishop/models.py:20 — 2 symbol(s) reach it` with
+      `d1 minishop/cart.py::Cart.add calls it: self.lines.append(CartLine(product,
+      qty)) [minishop/cart.py:18 via import-alias]` under it, and
+      `BULK_MIN_QTY [constant] minishop/pricing.py:5` reaching to depth 2 at
+      `Cart.subtotal_cents`. `hint_live_audit.py` grew a `--header` for exactly this
+      and now reads **2 of 6** post-fix retries carrying it, **0 of 248** pre-fix
+      prompts (`benchmarks/results/hint_live_audit_graph_20260927.log`). **No
+      accuracy delta is claimed** — r03 failed all three small-tier attempts, as it
+      always has, and whether either hint helps at all is R-1.1b's open question.
+      Battery: **+27 checks, +9 mutants**, **1020 → 1027**, mutants **42 → 51**;
+      re-read on a quiet box as `checks 1027 oracle 20 §6 total 1047 mutants 51`,
+      all 29 lines OK
+      (`benchmarks/results/battery_reread_r13b_20260927.log`), pyflakes 0. What it
+      found on the way is booked as **R-1.1c** above rather than fixed here.*
 - [ ] R-1.4 second language for perception (choose from ledger evidence)
 - [ ] R-8.2 latent compute — adopt only on a measured ≥ 20% token saving
 - [ ] G6 watts/task (blocked: `powermetrics` needs sudo)

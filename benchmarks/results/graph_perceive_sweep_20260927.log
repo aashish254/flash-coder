@@ -1,0 +1,44 @@
+  OK   R-1.3b's clause shape: a failure that turns on `Cart.subtotal_cents` gets the symbol that would BREAK if it changed — `Cart.total_cents`, with the line that calls it
+  OK   ...and the provenance rides along AND IS TRUE: the `via` rule is printed, and the file:line plus the quoted call-site text match the repo's own source read off disk — an injected hint that misquotes the file it cites is worse than none, because the model has no other way to check it
+  OK   ...and the merge pass is not a second opinion: the same failure against the cached-and-merged graph yields a byte-identical block, so `merge()` cannot quietly rebuild a different graph on every retry
+  OK   what the block injects IS what `flash graph` answers for the same symbol — the same `blast()` call, not a prose summary of it
+  OK   the block is only as long as it says it is: under `max_chars`, always
+  OK   nothing repo-defined is at issue — a stdlib failure gains no block, rather than a header over an empty body
+  OK   an empty repo gains no block either — the graph is real and says nobody is at issue
+  OK   two same-named symbols in two files never BLEND into one caller list: the block carries one file's dependents and says which file it resolved to — the `Cart.total_cents` vs `CartLine.total_cents` confusion App. A bills as the costliest hallucination in the suite
+  OK   ...and the tie-break is the FILE, not the name: a symbol the AST index read from a file the graph never scanned names no node, so the block drops it instead of borrowing another file's callers
+  OK   §28.2's 'small context' is a number, not a mood: at depth 2 the block carries c and b but NOT the third hop a, which a depth-3 ask does get — and the depth is printed per line, so a truncated list cannot read as a complete one
+  OK   a hub with 30 callers and a 440-char budget says so: it trims the list AND prints how many it left out, because a silently short answer reads as 'those are all the callers'
+  OK   a budget too small for the first symbol's own header yields nothing at all, rather than a header with no answer under it
+  OK   first contact builds the graph, and the block heads the symbol with its own file and line before listing who reaches it
+  OK   FRESHNESS, which is what makes a cached graph dangerous: add a caller and the next block names it — the reuse path runs `merge()`, not a re-serve of a stale index
+  OK   ...and it un-names one too: delete the import and the same block loses that caller, so a merge that only ADDS cannot pass this
+  OK   the per-process cache is bounded (8 repos): a 9th root evicts the least-recently-used graph instead of holding one per task forever in a long-running run
+  OK   sharing the index changes no answer: the hint pair built on a passed-in ranking is byte-identical to the pair that builds its own
+  OK   R-1.3b's clause, at the seam that names it: the retry message `loop.solve` sends carries the dependents block. A hint computed for the record and not appended to `err` passes every unit check and tells the model nothing — that is the bug corrected in R-1.1, one line from here
+  OK   ...and it arrives verbatim and exactly once, not once per retry path
+  OK   the block `solve` injects IS the block `scope_hint` returns for the same failure — the loop adds nothing to it and truncates none of it
+  OK   both perception blocks coexist: the LSP's source hint ('Symbols in play') and the graph's dependents hint, each once — one answers 'what is this', the other 'what depends on it'
+  OK   one ranking, two readers: every symbol the dependents block heads is one the source block quoted in the same retry — the loop cannot be shown two different notions of 'what is at issue' about one failure
+  OK   one parse per retry, two readers: two failing attempts built the symbol index 2 time(s) — the graph hint rides the source hint's parse instead of repeating it
+  OK   a first attempt that passes pays nothing extra: the opening prompt — the task and the repo skeleton — carries neither hint
+  OK   control: a task with no repo context gains no block — the injection is silent by the same contract `_symbol_hint` is silent, and the bare error still reaches the model exactly once
+  OK   and the seam is clean on the way out: with the graph restored, a later retry still carries the block
+  OK   a graph that raises costs the run nothing but the block: the retry still goes out, with the bare error and the source hint intact (§33.9 invariant 7)
+  ..  cost of the injection on the fixtures repo: 3.3 ms cold (build + query), 0.91 ms once cached (merge + query)
+  ..  one parse per retry, on flash/ (26 files): both hints together 33 ms on a shared index vs 170 ms building it twice
+
+R-1.3b graph-into-context: 27/27 checks passed
+  ok   MUTATION: serves the cached graph without merging, so a caller added after the first retry is invisible -> 2 check(s) fail
+  ok   MUTATION: binds an at-issue symbol by NAME alone, so it can borrow another file's callers -> 1 check(s) fail
+  ok   MUTATION: ignores the character budget -> 6 check(s) fail
+  ok   MUTATION: accepts `depth` and injects one hop -> 1 check(s) fail
+  ok   MUTATION: prints its header even when it has no answer -> 13 check(s) fail
+  ok   MUTATION: keeps one graph per repo root forever -> 2 check(s) fail
+  ok   MUTATION: computes the block for the record and never appends it — R-1.1's bug, put back -> 6 check(s) fail
+  ok   MUTATION: parses the repo once per hint instead of once per retry -> 1 check(s) fail
+  ok   MUTATION: feeds the second hint the text the first one quoted, so the two rank different symbols for one failure -> 1 check(s) fail
+perceive mutants, fresh process each: 9/9 caught
+perceive mutants: 9/9 caught
+perceive mutants, one process:        9/9 caught
+OK  each mutant is caught by its named check in a fresh process too, so no count here is a leftover from the previous bug

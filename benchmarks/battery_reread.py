@@ -64,6 +64,8 @@ BATTERY = [
     ("benchmarks/dbg_band_check.py", "benchmarks/dbg_band_check.py", 172, 5, "checks"),
     ("benchmarks/router_portable_check.py", "benchmarks/router_portable_check.py",
      20, 5, "checks"),
+    ("benchmarks/graph_perceive_check.py",
+     "benchmarks/graph_perceive_check.py --sweep", 27, 9, "checks"),
     ("flash.debug --suite", "-m flash.debug --suite", 32, None, "checks"),
     ("flash.patches --suite",
      "-m flash.patches --suite benchmarks/tasks/edit_tasks.jsonl", 60, None, "checks"),
@@ -71,7 +73,7 @@ BATTERY = [
      20, None, "oracle"),
 ]
 
-CLAIM = {"checks": 1000, "oracle": 20, "mutants": 42}
+CLAIM = {"checks": 1027, "oracle": 20, "mutants": 51}
 
 
 def run(argv: str) -> str:
@@ -86,7 +88,11 @@ def mutant_count(text: str) -> int:
     `OK MUTATION:` lines, which carry no fraction of their own. graph's sweep is
     the second shape with lowercase `ok` markers *plus* a `12/12 caught`
     summary, so the markers deliberately do not match its pattern — matching
-    both would count graph's mutants twice.
+    both would count graph's mutants twice. `graph_perceive_check.py --sweep` is
+    that same shape a third time (nine `ok   MUTATION:` verdicts plus two
+    `9/9 caught` summaries, one per sweep order); its markers are lowercase for
+    exactly this reason, and the two summaries agreeing on 9 is the run's own
+    claim, not this parser's.
     """
     best = 0
     for line in text.replace("\r", "\n").split("\n"):
