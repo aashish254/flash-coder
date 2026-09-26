@@ -1,5 +1,5 @@
 """Build benchmarks/tasks/dbg_band_tasks.jsonl — the R-4.3 A/B instrument with a
-band wide enough to measure (SPEC §10.5's open instrument, TODO's P2-follow-up).
+band wide enough to measure (the gate R-4.3 leaves open; TODO's P2-follow-up).
 
 Why this exists: every suite the debugger arm was run against was degenerate.
 `dbg_tasks` 8/8 vs 8/8 and `dbg_blind_tasks` 8/8 vs 8/8 are ceilings — the tier
@@ -29,6 +29,13 @@ counts and the surplus of qualifying pairs that were not emitted.
 
     python benchmarks/gen_dbg_band.py            # write the suite
     python benchmarks/gen_dbg_band.py --report   # and the enumeration's bookkeeping
+    python benchmarks/gen_dbg_band.py --recut    # re-select against today's ledger
+
+The ledger half is a FROZEN CUT: with the file already on disk the generator
+re-selects only the band rows at or before the newest `band_ts` the file
+carries, so it stays byte-identical as the ledger grows and the 30 tasks an arm
+cited stay the 30 tasks on disk. `--recut` takes today's whole ledger instead —
+a different instrument, which needs its own A/B.
 
 The generator is deterministic: no RNG, no clock, no model. The ledger rows are
 carried with the timestamp of the run that put them in the band, so a re-cut
@@ -277,11 +284,21 @@ def pairs(base: dict, s: list[tuple[str, str, str]] | None = None) -> list[dict]
     return out
 
 
-def band_from_ledger() -> tuple[list[dict], str]:
-    """The measured half: every task the ledger says took >= 2 small-tier tries."""
+def band_from_ledger(cut: float | None = None) -> tuple[list[dict], str]:
+    """The measured half: every task the ledger says took >= 2 small-tier tries.
+
+    `cut` freezes the window. The ledger grows with every run, so an uncut
+    selection would silently re-number the instrument a measured arm cites — and
+    the A/B on this suite names its 30 tasks. With the file already on disk the
+    generator re-cuts at the newest `band_ts` it carries, which makes a rerun
+    byte-identical however much the ledger has grown; `--recut` takes today's
+    whole ledger instead, and that is a NEW instrument that needs its own A/B.
+    """
     rows = [json.loads(l) for l in LEDGER.read_text().splitlines() if l.strip()]
     best: dict[str, dict] = {}
     for r in rows:
+        if cut is not None and r["ts"] > cut:
+            continue
         if r.get("tier") != BAND["tier"] or bool(r.get("solved")) != BAND["solved"]:
             continue
         # tier "small" is itself the never-escalated record, but a row that also
@@ -311,11 +328,14 @@ def band_from_ledger() -> tuple[list[dict], str]:
         t["band_attempts"] = int(best[tid]["attempts"])
         t["band_ts"] = best[tid]["ts"]
         out.append(t)
-    cut = f"ledger through ts {max(r['ts'] for r in best.values()):.0f}" \
+    note = ("ledger through ts "
+            + f"{max(r['ts'] for r in best.values()):.0f}"
+            + (" (frozen at the cut the file already carries)"
+               if cut is not None else " (today's whole ledger)")) \
         if best else "empty ledger"
     if missing:
         print("in the band but no task row found for: " + ", ".join(missing))
-    return out, cut
+    return out, note
 
 
 def prompt_for(base_brief: str, code: str) -> str:
@@ -327,7 +347,12 @@ def prompt_for(base_brief: str, code: str) -> str:
 
 def main(argv: list[str]) -> int:
     report = "--report" in argv
-    ledger_rows, cut = band_from_ledger()
+    cut = None
+    if OUT.exists() and "--recut" not in argv:
+        prior = [json.loads(l) for l in OUT.read_text().splitlines() if l.strip()]
+        seen = [r["band_ts"] for r in prior if r.get("band_source") == "ledger"]
+        cut = max(seen) if seen else None
+    ledger_rows, cut_note = band_from_ledger(cut)
 
     all_pairs: list[dict] = []
     stats = []
@@ -360,7 +385,7 @@ def main(argv: list[str]) -> int:
     OUT.write_text("".join(json.dumps(r) + "\n" for r in rows))
     gen = len(rows) - len(ledger_rows)
     print(f"wrote {len(rows)} tasks to {OUT.name}: {len(ledger_rows)} from the "
-          f"measured band ({cut}), {gen} generated two-bug blind repairs")
+          f"measured band ({cut_note}), {gen} generated two-bug blind repairs")
     if report:
         for key, ns, np_ in stats:
             print(f"  {key:14s} {ns} single-bug mutants qualify, {np_} two-bug "

@@ -237,8 +237,37 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   solved, **11 had identical attempt counts** and one (`fix01_alias_sort`) went
   from 3 attempts to 2. The discriminating band in these suites is one task
   wide, so the ≥2 gate is undetectable here at any effect size; `P2-follow-up`
-  in `TODO.md` states the instrument that could measure it. `--debug` therefore
-  stays **off by default**.
+  in `TODO.md` states the instrument that could measure it.
+  *The instrument was built and the A/B re-run on it, 2026-09-26: the gate is
+  **MISSED with a denominator that can now see it.***
+  `benchmarks/tasks/dbg_band_tasks.jsonl` is 30 tasks — 18 selected because
+  `ledger.jsonl` records them solved on the small tier at attempts ≥ 2, never
+  shed, and 12 generated into that shape (blind repairs, tests withheld, TWO
+  independent bugs; 172 offline checks + 5 mutants prove the shape, and the
+  suite is a frozen ledger cut so the 30 stay the 30). Its band is wide where
+  the others were not: **15 of the 30 tasks took at least a second attempt**
+  (8 at two, 7 at three) — against one task in the earlier substrate.
+  Arm A 27/30, arm B 25/30, both arms spending 52 attempts, wall 414.5s →
+  463.5s (+11.8%). On the 25 tasks that ran the small tier in **both** arms
+  the score is **25/25 vs 25/25**, and the whole gap is
+  `h12_min_remove_parens` and `mw1_ringbuf`, which reached the
+  escalation boundary under B and were denied by §34.1 at `--allow-big never`
+  — the same shed-tier confound R-6.4's weights arm hit. That decomposition is
+  not an exoneration, and the digest's own footprint is stated at its measured
+  size: it **moved attempts** on two tasks and **moved one outcome**. 28 of 30
+  tasks have identical attempt counts in both arms; `fix01_alias_sort` went
+  3 → 2 (the one effect the earlier substrate also showed, now reproduced, and
+  still no outcome change — it passed either way); `mw1_ringbuf` went 2 → 3,
+  and that third attempt is what put it over the boundary it was denied at; on
+  `h12_min_remove_parens` both arms used 3 attempts and only the traceback
+  arm's third one passed. Net over the run: **zero tasks gained, two lost**,
+  on identical attempt budgets per arm — and at n=1 per task none of
+  those single-task movements can be separated from decode noise, which is
+  exactly why the gate is stated as ≥2 rather than ≥1. A mechanism that changes
+  how many tries a task takes on a band 15 tasks wide and loses more tasks than
+  it wins is a real result, not an instrument failure — so this is booked as a
+  measured miss rather than retried into a shape that flatters it. `--debug`
+  therefore stays **off by default**.
 - **R-4.4 (SHIPPED)** Vision outputs MUST be scored by a pixel oracle with a
   coverage guard so an empty page can never win.
   Vector: `calibrate_visr.py` + `visp` 5/5, `visr` 4/5 with real4 recorded as a
@@ -513,13 +542,14 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
    `python benchmarks/p6_key_check.py` 13 ·
    `python benchmarks/checkpoint_resume_check.py` 35 ·
    `python benchmarks/lora_path_check.py` 31 (+ 14 mutants) ·
+   `python benchmarks/dbg_band_check.py` 172 (+ 5 mutants) ·
    `python -m flash.debug --suite` 32 ·
    `python -m flash.patches --suite benchmarks/tasks/edit_tasks.jsonl` 60 ·
    `python benchmarks/m0_bakeoff.py --dry-run` 20 reference solutions.
-   **Total: 683 selftest / end-to-end / premise checks + 20 oracle
+   **Total: 855 selftest / end-to-end / premise checks + 20 oracle
    verifications (m0_bakeoff's 20 reference solutions, which are the only
-   numbers in that 20 — the 6 ambient and 14 lora mutants are extra to both
-   totals) = 703 green, offline.** Re-read by
+   numbers in that 20 — the 6 ambient, 14 lora and 5 band mutants are extra to
+   both totals) = 875 green, offline.** Re-read by
    `python benchmarks/battery_reread.py`, which holds one line per item above,
    requires the exact fraction each one prints, sums checks/oracle/mutants
    separately, and fails if the tree's sum moves off this page's number. It
@@ -529,7 +559,11 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
    last `n/n` on 2026-09-26 read lora_path_check's `14/14 mutants` as its
    checks and under-counted by 17. Both traps are why the counts below are the
    runs' own printed numbers.
-   (Re-read from the tree 2026-09-26 after
+   (Re-read from the tree 2026-09-26 after the R-4.3 band
+   instrument: +172 for `dbg_band_check` — the shape of the 30-task suite, the
+   two-bug premise of its 13 seeded rows, and that re-generating it is
+   byte-identical while the ledger grows — with 5 mutants of its own, so
+   703→875; before that, the same day after
    R-7.2's live ambient arm: 53→61, of which 6 are mutations that break each
    guarantee on purpose — the git allowlist, the worktree containment guard,
    the oracle itself, the additive-line clause, the newline carrier, and the map

@@ -1,0 +1,66 @@
+[trace] session 20260926-222341-run-suite-e6fe — interrupt me anytime, then: flash resume 20260926-222341-run-suite-e6fe
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 4125.09it/s]
+  [    SMALL] edge02_last_pair       solved=True attempts=1 (3.1s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 4191.51it/s]
+  [    SMALL] fix01_alias_sort       solved=True attempts=3 (16.8s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 4328.98it/s]
+  [     SHED] h06_log_error_windows  solved=False attempts=3 (29.8s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5186.69it/s]
+  [    SMALL] h12_min_remove_parens  solved=True attempts=3 (25.7s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 4149.12it/s]
+  [    SMALL] h16_invoice_tax        solved=True attempts=2 (21.6s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 2578.82it/s]
+  [    SMALL] h17_ini_parse          solved=True attempts=2 (18.5s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 3778.27it/s]
+  [    SMALL] h18_word_search        solved=True attempts=3 (43.8s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 3409.08it/s]
+  [    SMALL] h24_md_table           solved=True attempts=2 (13.3s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 2916.31it/s]
+  [    SMALL] h44_text_wrap          solved=True attempts=2 (15.5s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 3646.52it/s]
+  [    SMALL] h45_phone_letters      solved=True attempts=2 (18.5s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5163.28it/s]
+  [    SMALL] h47_fraction_add       solved=True attempts=2 (7.6s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 4046.39it/s]
+  [    SMALL] mw1_ringbuf            solved=True attempts=2 (36.8s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 2923.77it/s]
+  [     SHED] mw3_registry           solved=False attempts=3 (42.2s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 6052.39it/s]
+  [    SMALL] t05_lru_cache          solved=True attempts=1 (9.4s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 6023.41it/s]
+  [    SMALL] t06_merge_intervals    solved=True attempts=1 (6.9s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5894.56it/s]
+  [     SHED] t15_parse_log          solved=False attempts=3 (28.7s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5799.47it/s]
+  [    SMALL] t19_word_ladder        solved=True attempts=1 (8.2s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5565.20it/s]
+  [    SMALL] t20_safe_divide        solved=True attempts=1 (4.8s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 3753.11it/s]
+  [    SMALL] band01_chunk           solved=True attempts=1 (3.5s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 2482.82it/s]
+  [    SMALL] band02_cumulative      solved=True attempts=1 (4.0s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 2283.65it/s]
+  [    SMALL] band03_dedupe          solved=True attempts=1 (5.8s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 1199.51it/s]
+  [    SMALL] band04_first_pair      solved=True attempts=1 (6.1s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 1530.02it/s]
+  [    SMALL] band05_flatten         solved=True attempts=1 (4.6s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 1793.89it/s]
+  [    SMALL] band06_flatten         solved=True attempts=2 (8.4s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 1771.66it/s]
+  [    SMALL] band07_flatten         solved=True attempts=1 (3.5s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 3237.73it/s]
+  [    SMALL] band08_mean            solved=True attempts=1 (4.6s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 3630.38it/s]
+  [    SMALL] band09_title           solved=True attempts=3 (10.2s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 1254.86it/s]
+  [    SMALL] band10_topk            solved=True attempts=1 (3.6s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 881.57it/s]
+  [    SMALL] band11_window          solved=True attempts=1 (4.5s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 2546.63it/s]
+  [    SMALL] band12_window          solved=True attempts=1 (4.5s)
+
+solved 27/30   small-tier 27, escalated 0   total 414s (avg 13.8s/task)
+[trace] flash trace show 20260926-222341-run-suite-e6fe
+3 task(s) denied escalation by the §34.1 governor (maximum-performance): no shed signal (ac=True, battery=100.0, mem-free=69.0, load/core=0.75)
+   rerun with --allow-big always to force the brain on battery/heat

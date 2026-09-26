@@ -146,6 +146,36 @@ Vision is benchmarked once the text brain is picked (PLAN §M1–M2).
 .venv/bin/python -m flash.cli run-suite --tasks benchmarks/tasks/dbg_tasks.jsonl --debug
 .venv/bin/python -m flash.debug --selftest       # 55 offline checks, incl. the suite's premise
 .venv/bin/python -m flash.debug --suite          # every seeded bug: invisible to the traceback, named by the digest
+.venv/bin/python -m flash.debug --suite benchmarks/tasks/dbg_band_tasks.jsonl   # the same proof for a two-bug task
+
+# The A/B instrument (R-4.3's open gate, TODO's P2 follow-up). Every earlier suite was
+# degenerate for the gate "debug feedback beats traceback feedback by >= 2":
+# dbg_tasks and dbg_blind_tasks are 8/8 ceilings in BOTH arms (attempt 0 solves,
+# so no retry and no feedback is ever sent), and dbg_hard_tasks' band is one task
+# wide. What the gate needs is tasks this tier RETRIES, so the suite is half
+# selected by evidence — every task the ledger records as solved on the small
+# tier at attempts >= 2, never shed — and half grown to that shape: blind
+# repairs with the tests withheld and TWO independent bugs, from a library of 31
+# bug families over 14 correct references. A mutant survives only if the oracle
+# sees it (a raise disqualifies it: the exception names its own line), both
+# causing lines are invisible in the failure text and named by the digest, and
+# each bug still fails the test alone. 30 tasks: 18 measured + 12 generated.
+.venv/bin/python benchmarks/gen_dbg_band.py --report          # ~2s, deterministic, no model
+.venv/bin/python benchmarks/dbg_band_check.py  # 172 checks + 5 mutants: recomputes the band from the ledger
+# arm A (traceback) / arm B (--debug) on it — MEASURED 2026-09-26, AC, small tier,
+# --attempts 3 --allow-big never, one model load per arm:
+.venv/bin/python -m flash.cli run-suite --tasks benchmarks/tasks/dbg_band_tasks.jsonl --attempts 3 --allow-big never --max-tasks 30 [--debug]
+# The band is wide (15 of 30 tasks needed a second or third attempt, against one
+# task on the old substrate), and the gate still misses: A 27/30, B 25/30, both
+# arms 52 attempts, 414.5s -> 463.5s (+11.8%). On the 25 tasks that ran the small
+# tier in BOTH arms it is 25/25 vs 25/25 — the whole two-task gap is two
+# escalations §34.1 denied, the same shed-tier confound as R-6.4's weights arm.
+# The digest's footprint is two tries and one outcome: 28 of 30 attempt counts are
+# identical, fix01_alias_sort went 3 -> 2 (reproduced from the earlier A/B, solved
+# either way), mw1_ringbuf 2 -> 3 and that third try is what crossed the denied
+# escalation, and on h12_min_remove_parens both arms used 3 tries and only the
+# traceback arm's third one passed. Net: 0 tasks gained, 2 lost. Logs
+# benchmarks/results/dbg_band_arm{A,B}.log. --debug stays off by default.
 
 # §33.4 tournament mode (R-3.3): a hard task gets k INDEPENDENT candidates instead of
 # a feedback chain — candidate 0 greedy (so pass@k contains pass@1), the rest sampled

@@ -50,6 +50,7 @@ BATTERY = [
     ("benchmarks/p6_key_check.py", "benchmarks/p6_key_check.py", 13, None, "checks"),
     ("benchmarks/checkpoint_resume_check.py", "benchmarks/checkpoint_resume_check.py", 35, None, "checks"),
     ("benchmarks/lora_path_check.py", "benchmarks/lora_path_check.py", 31, 14, "checks"),
+    ("benchmarks/dbg_band_check.py", "benchmarks/dbg_band_check.py", 172, 5, "checks"),
     ("flash.debug --suite", "-m flash.debug --suite", 32, None, "checks"),
     ("flash.patches --suite",
      "-m flash.patches --suite benchmarks/tasks/edit_tasks.jsonl", 60, None, "checks"),
@@ -57,7 +58,7 @@ BATTERY = [
      20, None, "oracle"),
 ]
 
-CLAIM = {"checks": 683, "oracle": 20, "mutants": 20}
+CLAIM = {"checks": 855, "oracle": 20, "mutants": 25}
 
 
 def run(argv: str) -> str:

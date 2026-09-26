@@ -146,7 +146,7 @@ Rules for this file:
       the traceback and PRESENT in the digest (that last pair is the suite's
       whole premise, and `--selftest` checks it per task).
 - [ ] [V] [L] Arm A: traceback feedback. Arm B: debug feedback. Same tier, same
-      budget → B solves **≥ 2 more**. **RUN on three substrates, NOT MET:**
+      budget → B solves **≥ 2 more**. **RUN on four substrates, NOT MET:**
       * 21 tasks selected from measured first-attempt failure
         (`benchmarks/gen_dbg_hard.py`, from `results/probe/*_one_attempt.log`):
         A **6/21**, B **5/21** — the digest arm lost `h12_min_remove_parens`;
@@ -157,15 +157,49 @@ Rules for this file:
         (`dbg_blind_tasks.jsonl`): A **8/8**, B **8/8**, every task on the first
         greedy attempt — a ceiling, and proof the 7B is not fooled by these
         traps once the code is in front of it.
+      * 30-task **wide-band** substrate (`dbg_band_tasks.jsonl`, built by the
+        box below, frozen ledger cut): A **27/30**, B **25/30**, 52 attempts in
+        each arm, wall 414.5s → 463.5s (+11.8%). **15 of the 30 tasks took a
+        second or third attempt** (8 at two, 7 at three), so this band *can* see
+        a ≥2 difference — and the two-task gap is not a digest *solve*: on the
+        25 tasks that ran the small tier in BOTH arms it is **25/25 vs 25/25**,
+        and the entire delta is `h12_min_remove_parens` and `mw1_ringbuf`
+        reaching the escalation boundary under B and being denied by §34.1 at
+        `--allow-big never` — R-6.4's shed-tier confound again. The digest's
+        footprint is two tries and one outcome: **28 of 30 attempt counts
+        identical**, `fix01_alias_sort` 3 → 2 (the one effect, now reproduced
+        from the tests-shown substrate, solved either way), `mw1_ringbuf` 2 → 3
+        with that third try crossing the denied escalation, and on `h12` both
+        arms used 3 tries with only the traceback arm's third one passing — the
+        same task the 21-task substrate also lost to the digest. Net **0 gained,
+        2 lost**. Logs
+        `benchmarks/results/dbg_band_arm{A,B}.log`, sessions
+        `20260926-222341-run-suite-e6fe` and `20260926-223150-run-suite-4cc6`.
       Why, measured rather than asserted: attempt 0 is greedy and identical in
       both arms, so the digest can only matter on a task that survives to a
-      second retry. Pairing the 12 tasks both arms solved: **11 have identical
-      attempt counts**. The discriminating band in every suite available is one
-      task wide, so a ≥2 gate cannot be observed here at any effect size — the
-      instrument is the limit, not the mechanism (which is verified offline:
-      `flash.debug --suite`, 32/32 causing lines invisible to the traceback and
-      present in the digest). `--debug` therefore stays off by default.
-- [ ] [B] P2-follow-up: build an instrument with a band wide enough to measure.
+      second retry. Pairing the 12 tasks both arms solved on the first
+      substrate: **11 have identical attempt counts**. On the three original
+      substrates the discriminating band was one task wide, so a ≥2 gate could
+      not be observed there at any effect size — the instrument was the limit,
+      not the mechanism (which is verified offline: `flash.debug --suite`,
+      32/32 causing lines invisible to the traceback and present in the digest).
+      The band has since been widened on purpose, to 15 retried tasks, and the
+      gate still misses: the mechanism is verified offline, changes attempt
+      counts on 2 of 30, and does not raise the pass rate. `--debug` therefore
+      stays off by default, now on a measured negative rather than an
+      unmeasurable one.
+- [x] [B] P2-follow-up: build an instrument with a band wide enough to measure.
+      **BUILT 2026-09-26 and used: `benchmarks/gen_dbg_band.py` →
+      `benchmarks/tasks/dbg_band_tasks.jsonl`, 30 tasks, vector
+      `benchmarks/dbg_band_check.py` 172/172 + 5 mutants, and the A/B re-run on
+      it (the box above, fourth substrate).** The recipe was followed with one
+      disclosed reading rule: the ledger has no `escalated` boolean, so "whose
+      tier was small, never escalated" is `tier == "small"` AND `solved` AND
+      `attempts >= 2` AND not `shed` — a row that carries `tier: small` and also
+      a shed verdict contradicts itself and is dropped rather than kept because
+      it is convenient (`gen_dbg_band.band_from_ledger`). An earlier revision of
+      this box claimed the ledger has no tier field; it has one in all 839 rows,
+      the generator has always filtered on it, and the claim was wrong.
       The requirement is a task set where the tier needs **2-3 retries under
       traceback feedback**; it exists in the ledger already. Select from
       `benchmarks/results/ledger.jsonl` the tasks whose recorded attempts ≥ 2
@@ -175,10 +209,25 @@ Rules for this file:
       rather than one). Then re-run this A/B. Do not tune the digest's wording
       against the current suites: with one discriminating task there is nothing
       to tune on, and any apparent gain would be noise.
+      *How it was met:* 18 rows are the ledger's own band, carried with the run
+      that put them there (`band_ts`, a **frozen cut** so re-generating is
+      byte-identical while the ledger grows — proven the hard way, two band
+      tasks arrived between the two runs of this vector and the cut held); 12
+      are generated into that shape from 31 bug families over 14 correct
+      references, and a mutant survives only if the oracle sees it without
+      raising (an exception names its own line, so it cannot be misleading),
+      both causing lines are invisible in the failure text and named by the
+      digest, and each bug still fails the test alone. The A/B was NOT tuned:
+      `--debug`'s wording is untouched from the three earlier substrates, and
+      the gate missed on the wide band exactly as it missed on the narrow one.
 - [x] [B] Docs move together (SPEC R-4.3, README, §33.2 status, Appendix A).
-      Verified: README:108-113, SPEC.md R-4.3 → PARTIAL with the three substrates,
-      PLAN §33.2's close note and the 2026-09-26 Appendix A row. `--debug` is
-      documented as off by default and the open gate is the P2-follow-up box.
+      Verified: README:143-175 (the debugger block plus the band instrument —
+      the earlier README:108-113 citation went stale when this session's
+      battery and ambient blocks were inserted above it, so the numbers moved
+      with the text), SPEC.md R-4.3 → PARTIAL with all four substrates and the
+      wide-band verdict, PLAN §33.2's close note and its Appendix A rows.
+      `--debug` is documented as off by default on a measured negative, and the
+      instrument box below is the closed follow-up.
 
 ## P3 — R-8.1 Speculative decoding (G5: brain ≥ 46 tok/s)
 
