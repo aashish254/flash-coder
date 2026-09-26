@@ -335,12 +335,21 @@ def run_suite_check(path: str | Path | None = None) -> list[tuple[str, bool, str
     traceback the model would otherwise read does NOT contain the line that
     made the value wrong, and the digest does. A task that fails the third
     clause is not misleading, so it does not belong in this suite.
+
+    `blame` is one line or a list of them: a two-bug repair task has to mislead
+    about both causes, so each is checked the same way. Rows without a
+    `seeded`/`blame` pair are measured-band tasks from a written-from-scratch
+    suite — their premise is the ledger record that put them in the band, which
+    `benchmarks/dbg_band_check.py` reads; there is no digest to prove here.
     """
     from flash.harness import diagnose, load_tasks
     rows = load_tasks(str(path or (Path(__file__).resolve().parent.parent
                                    / "benchmarks/tasks/dbg_tasks.jsonl")))
     checks = []
     for t in rows:
+        if not (t.get("seeded") and t.get("blame")):
+            continue
+        blames = t["blame"] if isinstance(t["blame"], list) else [t["blame"]]
         sol_ok, sol_err = diagnose(t["solution"], t["test"])
         checks.append((f"{t['id']}: stored solution passes", sol_ok,
                        sol_err[:70]))
@@ -350,10 +359,11 @@ def run_suite_check(path: str | Path | None = None) -> list[tuple[str, bool, str
         checks.append((f"{t['id']}: seeded bug fails", not bug_ok, ""))
         d = watch(t["seeded"], t["test"])
         fb = d.as_feedback()
-        checks.append((f"{t['id']}: the traceback cannot see the cause",
-                       t["blame"] not in tb, repr(t["blame"])))
-        checks.append((f"{t['id']}: the digest names the cause",
-                       t["blame"] in fb, repr(t["blame"])))
+        for blame in blames:
+            checks.append((f"{t['id']}: the traceback cannot see {blame!r}",
+                           blame not in tb, repr(blame)))
+            checks.append((f"{t['id']}: the digest names {blame!r}",
+                           blame in fb, repr(blame)))
     return checks
 
 
@@ -426,11 +436,15 @@ def run_selftest() -> int:
 
 if __name__ == "__main__":                       # pragma: no cover
     if "--suite" in sys.argv:
-        cs = run_suite_check()
+        i = sys.argv.index("--suite")
+        nxt = sys.argv[i + 1] if i + 1 < len(sys.argv) else None
+        path = None if nxt is None or nxt.startswith("--") else nxt
+        cs = run_suite_check(path)
         bad = [n for n, ok, _ in cs if not ok]
         for n, ok, note in cs:
             print(f"  {'ok  ' if ok else 'FAIL'} {n}" + (f"  [{note}]" if note else ""))
-        print(f"\nflash.debug suite premise: {'FAILS: ' + ', '.join(bad) if bad else 'holds'} "
+        print(f"\nflash.debug suite premise ({path or DBG_TASKS}): "
+              f"{'FAILS: ' + ', '.join(bad) if bad else 'holds'} "
               f"({len(cs) - len(bad)}/{len(cs)})")
         raise SystemExit(1 if bad else 0)
     if "--selftest" in sys.argv:
