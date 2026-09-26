@@ -162,6 +162,11 @@ Vision is benchmarked once the text brain is picked (PLAN §M1–M2).
 .venv/bin/python -m flash.cli resume                   # continue the newest interrupted suite
 .venv/bin/python -m flash.cli trace --selftest         # 30 offline store/replay checks
 .venv/bin/python benchmarks/trace_resume_check.py      # 11 checks: interrupt -> resume, no re-billing
+
+# clean build: no unused imports, no shadowed definitions, no dead assignments
+.venv/bin/python -m pyflakes flash/*.py benchmarks/*.py   # 0 findings (tasks/*_test.py are
+                                                          # program fragments by design - the
+                                                          # candidate supplies their names)
 ```
 
 **Hardware-validated findings** (PLAN Appendix A): retry without rich feedback

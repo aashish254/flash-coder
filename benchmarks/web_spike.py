@@ -47,7 +47,6 @@ Run: .venv/bin/python benchmarks/web_spike.py --fetch-only   # no GPU
 import argparse
 import hashlib
 import html
-import json
 import re
 import subprocess
 import sys

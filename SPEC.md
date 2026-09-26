@@ -315,18 +315,28 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
 ## 6. Verification protocol — how a box gets checked
 
 1. **Offline battery first** (seconds, no models, must be green before any live
-   claim): `flash lsp-selftest` 14 · `flash power --selftest` 22 ·
-   `flash jobs --selftest` 14 · `flash trace --selftest` 30 ·
-   `flash web --selftest` 9 · `python -m flash.grammar --selftest` 47 ·
-   `python -m flash.debug --selftest` 55 ·
+   claim): `python -m flash.harness --selftest` 12 · `flash lsp-selftest` 14 ·
+   `flash power --selftest` 22 · `flash jobs --selftest` 14 ·
+   `flash trace --selftest` 30 · `flash web --selftest` 9 ·
+   `python -m flash.grammar --selftest` 47 · `python -m flash.patches --selftest`
+   37 · `python -m flash.debug --selftest` 55 ·
    `python benchmarks/trace_resume_check.py` 11 ·
+   `python -m flash.debug --suite` 32 ·
+   `python -m flash.patches --suite benchmarks/tasks/edit_tasks.jsonl` 60 ·
    `python benchmarks/m0_bakeoff.py --dry-run` 20 reference solutions.
-   **Total: 202 selftest checks + 20 oracle verifications = 222 green, offline.**
+   **Total: 343 selftest / end-to-end / premise checks + 20 oracle
+   verifications = 363 green, offline** (counted 202 on 2026-09-26, before the
+   oracle and the patch protocol had batteries of their own).
    (The `jobs` line was labelled `learn` until 2026-09-26: `flash learn
    --selftest` dispatches into `flash.jobs`, and `flash/learn.py` has no
    battery of its own. Same 14 checks, wrong owner — the mislabelling made the
    battery look like it covered the router's training code when it covers the
    background scheduler.)
+1b. **Clean build** (no warnings accepted): `python -m pyflakes flash/*.py
+   benchmarks/*.py` → **0 findings**. `benchmarks/tasks/` is out of that scope
+   on purpose — a `*_test.py` there is a program *fragment* (`count_tasks`, the
+   candidate's own name, is undefined until the harness prepends the candidate),
+   so "undefined name" is its correct state, not a defect to silence.
 2. **Live arm** for anything that touches a model, costed explicitly in the PR
    note: minutes, peak GB, battery-vs-AC. The frozen suites are m0 (20),
    m2 (5), mw (6), m3h/m4-m7 held-out families, visp (5), visr (5).

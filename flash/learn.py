@@ -16,8 +16,6 @@ from pathlib import Path
 
 import numpy as np
 
-from flash import ledger
-
 
 def features(row: dict) -> list[float]:
     """Route-time-available features only (no outcome leakage)."""

@@ -15,6 +15,33 @@ Rules for this file:
       → vector: `git status` clean, 72 files, no `.venv` in the index.
       *Done 2026-09-25: commit `0ea2798`.* Unblocks I-1, R-7.2, M15.
 
+## H — Clean build and battery honesty (cross-cutting, runs after every change)
+
+- [x] [V] `python -m pyflakes flash/*.py benchmarks/*.py` → **0 findings**
+      (SPEC §6.1b). Nine pre-existing warnings removed 2026-09-26: dead imports
+      in `grammar`/`learn`/`power` and three benchmark scripts, one placeholder-less
+      f-string block in `vision`, and — the only one that was a real defect —
+      **`ConstrainedSampler.finish` was defined twice** in `flash/grammar.py`
+      (47/47 stayed green because the two bodies were identical, so the shadowing
+      was invisible; a future edit to one of them would have been silently dead).
+      `benchmarks/tasks/*_test.py` is out of scope on purpose: a test file there
+      is a *fragment* whose names come from the candidate code the harness
+      prepends, so pyflakes' "undefined name" is its correct state.
+      Verified with the whole battery after the edits, not just the lint:
+      harness 12 · lsp 14 · power 22 · jobs 14 · trace 30 · web 9 · grammar 47 ·
+      patches 37 · debug 55 · resume 11 · debug premise 32 · edit premise 60 ·
+      m0 dry-run 20 → 363 green.
+- [x] [B] SPEC §6's offline total recomputed from the tree, not remembered:
+      it said **222** while `flash.patches` (37), `flash.harness` (12) and both
+      suite premises (32 + 60) had already shipped — a stale count is a claim
+      about coverage that no longer matches the code. Now **363**, each line
+      named with its command. README's battery gained the harness line and the
+      lint gate; `flash/__init__.py`'s selftest list names `flash.harness` and
+      says where `flash.web`'s battery actually lives (no `__main__`; it runs
+      through `flash web --selftest`).
+- [x] [V] `flash trace --selftest` is 30/30, but README said 29 — the count was
+      written before a check was added. Doc numbers are re-read from a run.
+
 ## P1 — R-4.2 Constrained decoding (malformed output structurally impossible)
 
 - [x] [B] `flash/grammar.py`: character-level DFA (`Contract`) over the output
@@ -342,6 +369,36 @@ Rules for this file:
 
 ## Log
 
+- 2026-09-26 — P4 (R-3.2) run, and the interesting part is not the score: it is
+  that **the control arm was invalid on first principles and I did not see it
+  until it had run.** Edit prompts carried only the change request, never the
+  source, so the whole-file control was answering about a project it had never
+  seen — it "failed nearly everything" and I nearly booked that as the patch
+  arm's win. Stopped the background run, moved the project listing into the
+  stored prompt so both arms read identical material, added a premise check
+  ("the task ships its own project text"), and kept the superseded logs renamed
+  `_v1_blind` rather than deleting them. The matched rerun then showed the arms
+  tied on capability (8/10, both all-first-attempt) and separated only on cost
+  and guarantee — the opposite of what the invalid arm implied.
+- 2026-09-26 — The same live run caught a **VERIFY** defect that no offline test
+  could have: `diagnose()` decided an assert by evaluating its condition, then
+  evaluated each side *again* to print GOT/WANT. For `assert q.pop() == "high"`
+  that produced `GOT: 'high' | WANT: 'high'` for a **failing** assert — feedback
+  that names no difference, on which both arms burned a retry. Now each side is
+  evaluated once and the printed pair *is* the comparison that failed. Two
+  notes: the oracle had **no selftest of its own** before this (12/12 now, and
+  the offline battery count in SPEC §6 was 202 → 343 checks), and I deliberately
+  did **not** re-run the R-3.2 arms after fixing it — the fix changes what a
+  future retry is told, not the measured outcome, and re-running a missed gate
+  until it passes is not evidence.
+- 2026-09-26 — Clause 2 of R-3.2 missed for a reason worth stating to myself:
+  the request said "when the Box is built", the change lived in `Box.__init__`,
+  and the model addressed `Box` — the noun it was handed — while re-typing the
+  class correctly. **The address width follows the noun in the request, not the
+  locus of the change.** I could have reworded the gate to measure the addressed
+  symbol instead of the annotated one and reported 10/10; that reading also
+  makes `*` pass by definition, so I kept the stricter metric and escalated the
+  ambiguity as SPEC §10.6 instead.
 - 2026-09-26 — P1 offline shipped and its live arm run. The live run found
   three defects the offline battery could not: (1) this checkpoint returns
   152064-wide logits over a 151657-token vocabulary, and a table-sized mask
@@ -372,10 +429,6 @@ Rules for this file:
   prompts: 0 malformed, 0 dead ends, 82/84 recoverable by the parser — the two
   misses were answers that opened their block and wrote nothing inside it,
   which is a content failure the mask cannot and should not prevent. The same
-  arm's answers averaged 150-330 tokens where the unconstrained arm consumed
-  the whole 1500-token budget to say less, which is why the latency claim is
-  measured as `--overhead` (ms of mask per decode step) rather than as
-  end-to-end tok/s: the two arms do not generate the same workload.
   arm's answers averaged 150-330 tokens where the unconstrained arm consumed
   the whole 1500-token budget to say less, which is why the latency claim is
   measured as `--overhead` (ms of mask per decode step) rather than as

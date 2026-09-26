@@ -159,16 +159,16 @@ def check_task(html: str, task: dict) -> tuple[bool, str]:
                     f"every `a` rule from your CSS (no color, no "
                     f"text-decoration overrides) so links render blue and "
                     f"underlined by default.\n")
-        err += (f"Typography checklist — inspect the target image and match it "
-                f"EXACTLY: (1) FONT: if the target's text has serifs (small "
-                f"strokes at letter ends, like Times), use `font-family: serif` "
-                f"or no font CSS at all — NOT Arial/sans-serif. Default browser "
-                f"HTML IS serif. (2) LINKS: browser-default links are blue "
-                f"(#0000ee) and UNDERLINED — if the target's links look like "
-                f"that, do not restyle `a` in any way (no color, no "
-                f"text-decoration overrides). (3) SIZES: a default <h1> is 2em "
-                f"serif bold, not 24px sans. When the target looks like plain "
-                f"unstyled HTML, the correct stylesheet is NO stylesheet.")
+        err += ("Typography checklist — inspect the target image and match it "
+                "EXACTLY: (1) FONT: if the target's text has serifs (small "
+                "strokes at letter ends, like Times), use `font-family: serif` "
+                "or no font CSS at all — NOT Arial/sans-serif. Default browser "
+                "HTML IS serif. (2) LINKS: browser-default links are blue "
+                "(#0000ee) and UNDERLINED — if the target's links look like "
+                "that, do not restyle `a` in any way (no color, no "
+                "text-decoration overrides). (3) SIZES: a default <h1> is 2em "
+                "serif bold, not 24px sans. When the target looks like plain "
+                "unstyled HTML, the correct stylesheet is NO stylesheet.")
     return False, err
 
 

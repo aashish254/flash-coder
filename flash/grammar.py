@@ -47,7 +47,7 @@ import copy
 import re
 import time
 import sys
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 
 FENCE = "```"
 HEADER = "# file: "
@@ -556,7 +556,6 @@ class ConstrainedSampler:
         return True
 
     def __call__(self, tokens, logits):
-        import mlx.core as mx
         t0 = time.perf_counter()
         try:
             return self._mask(tokens, logits)
@@ -593,11 +592,6 @@ class ConstrainedSampler:
             pen = self._cast[logits.dtype] = self._penalty.astype(logits.dtype)
         return mx.where(self.masks.allow(self.contract, logits.shape[-1]),
                         logits, pen)
-
-    def finish(self) -> str:
-        """Companion text to append once the turn has ended."""
-        return self.contract.complete()
-
 
     def finish(self) -> str:
         """Companion text to append once the turn has ended."""
