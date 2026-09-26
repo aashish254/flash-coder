@@ -1,0 +1,22 @@
+[trace] session 20260926-110220-run-suite-3a97 — interrupt me anytime, then: flash resume 20260926-110220-run-suite-3a97
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5073.07it/s]
+  [    SMALL] h01_csv_agg            solved=True attempts=1 (9.0s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5656.94it/s]
+  [    SMALL] h02_interval_intersection solved=True attempts=1 (9.6s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 3102.55it/s]
+  [    SMALL] h03_flatten_keys       solved=True attempts=1 (9.1s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 3826.14it/s]
+  [    SMALL] h05_topk_stable        solved=True attempts=1 (5.0s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 3091.62it/s]
+  [     SHED] h04_rle_codec          solved=False attempts=3 (45.0s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 1933.45it/s]
+  [     SHED] h06_log_error_windows  solved=False attempts=3 (37.7s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 1447.92it/s]
+  [    SMALL] h07_strip_parens       solved=True attempts=1 (6.6s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 3708.13it/s]
+  [    SMALL] h08_settle_fees        solved=True attempts=1 (6.3s)
+
+solved 6/8   small-tier 6, escalated 0   total 128s (avg 16.0s/task)
+[trace] flash trace show 20260926-110220-run-suite-3a97
+2 task(s) denied escalation by the §34.1 governor (maximum-performance): no shed signal (ac=True, battery=80.0, mem-free=16.0, load/core=0.6)
+   rerun with --allow-big always to force the brain on battery/heat

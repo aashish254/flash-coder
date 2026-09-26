@@ -150,10 +150,23 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   structural guarantee, not spend. Both arms fail the same two tasks
   (`round()` → banker's rounding; wrong priority order), putting those on tier
   capability rather than protocol.
-- **R-3.3 (OPEN)** Tournament mode (§33.4): k candidates under the power
+- **R-3.3 (SHIPPED)** Tournament mode (§33.4): k candidates under the power
   governor's width cap, scored by the oracle, best-of-k adopted.
   Vector: on the hard family (h-tasks), best-of-3 beats single-attempt pass rate
   by ≥ 8 points at equal or lower total token spend, on AC power.
+  *Run 2026-09-26, 8 h-tasks, small tier, `--allow-big never`, AC width 4:*
+  in-arm on matched input (candidate 0 = the single attempt), pass@1 **5/7 →
+  best-of-3 6/7 = +14 pts** ✓; spend clause ✓ — both arms 12 generations,
+  tournament **3 330** tokens vs chain **5 559** (−40%), wall +5%. Suite level
+  7/8 vs chain 6/8; that delta is one task and single-run swings are ±2, so
+  the in-arm figure is the one the gate rests on. Candidate 0 is always greedy
+  (pass@k contains pass@1); adoption is first-pass; ranking only chooses the
+  surfaced diagnostic (6/7 real hard-task failures die at assert 1, so the
+  value is pass@k, not ranking). The width clamp is the AC-only enforcement:
+  a battery launch clamped to 2 was stopped and kept as non-evidence, and one
+  mid-run `low-power` probe declined the tournament per-task with the reason
+  in the route record. `python -m flash.tourney --selftest` 16/16; logs under
+  `benchmarks/results/tourney/`.*
 
 ### D. VERIFY — the oracle is the product
 
@@ -164,7 +177,8 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   evaluated twice, so a *failing* assert could report `GOT: 'high' |
   WANT: 'high'` and the retry got feedback that named no difference.
   Vector: `m0_bakeoff.py --dry-run` 20/20; `python -m flash.harness --selftest`
-  **12/12**, including a counting call whose printed GOT must be the value the
+  **20/20** (the original 12 plus the 8 `score()` ranking checks added for
+  R-3.3, which keep `diagnose == score's verdict` proven), including a counting call whose printed GOT must be the value the
   comparison used, and the seeded e09 task now reporting `GOT: 'low' |
   WANT: 'high'` where the shipped probe reported no difference.
 - **R-4.2 (SHIPPED, one budget missed)** Malformed model output MUST be
@@ -315,18 +329,21 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
 ## 6. Verification protocol — how a box gets checked
 
 1. **Offline battery first** (seconds, no models, must be green before any live
-   claim): `python -m flash.harness --selftest` 12 · `flash lsp-selftest` 14 ·
+   claim): `python -m flash.harness --selftest` 20 · `flash lsp-selftest` 14 ·
    `flash power --selftest` 22 · `flash jobs --selftest` 14 ·
    `flash trace --selftest` 30 · `flash web --selftest` 9 ·
    `python -m flash.grammar --selftest` 47 · `python -m flash.patches --selftest`
    37 · `python -m flash.debug --selftest` 55 ·
+   `python -m flash.tourney --selftest` 16 ·
    `python benchmarks/trace_resume_check.py` 11 ·
    `python -m flash.debug --suite` 32 ·
    `python -m flash.patches --suite benchmarks/tasks/edit_tasks.jsonl` 60 ·
    `python benchmarks/m0_bakeoff.py --dry-run` 20 reference solutions.
-   **Total: 343 selftest / end-to-end / premise checks + 20 oracle
-   verifications = 363 green, offline** (counted 202 on 2026-09-26, before the
-   oracle and the patch protocol had batteries of their own).
+   **Total: 367 selftest / end-to-end / premise checks + 20 oracle
+   verifications = 387 green, offline** (re-read from the tree 2026-09-26 after
+   R-3.3: harness 12→20 with the `score()` ranking checks, and the new `tourney`
+   line; before that 363, and before that 202, when the oracle and the patch
+   protocol had no batteries of their own).
    (The `jobs` line was labelled `learn` until 2026-09-26: `flash learn
    --selftest` dispatches into `flash.jobs`, and `flash/learn.py` has no
    battery of its own. Same 14 checks, wrong owner — the mislabelling made the

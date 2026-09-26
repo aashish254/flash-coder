@@ -328,9 +328,50 @@ Rules for this file:
       checks incl. the "probes pass but full-test gate fails" case); whole
       battery re-run green (14/22/14/30/47/37/55/9/16 + 32 + 60 premise +
       11 resume + 20 dry-run), pyflakes 0 findings.
-- [ ] [V] [L] Hard family (h-tasks): best-of-3 beats single-attempt by ≥ 8 points
-      at ≤ the same total token spend, on AC.
-- [ ] [B] Docs move together.
+- [x] [V] [L] Hard family (h-tasks): best-of-3 beats single-attempt by ≥ 8 points
+      at ≤ the same total token spend, on AC. **MET, as measured on matched input.**
+      *Run 2026-09-26, 8 h-tasks, small tier, `--allow-big never`, AC
+      (maximum-performance, width 4), both arms `tee`-logged:*
+      * **B (`--tournament 3`): suite 7/8.** 7 of 8 tasks were tournament-eligible;
+        in-arm, on identical prompts and one model load: pass@1 (candidate 0)
+        **5/7 → best-of-3 6/7 = +14 pts** (gate ≥ 8) ✓. The gained task is
+        `h06_log_error_windows` — candidates 0 and 1 died on assert 1/3, candidate
+        2 passed (`[0/3,0/3,P] adopted=2`).
+        `benchmarks/results/tourney/armB_tourney3.log`, session
+        `20260926-105917-run-suite-6386`.
+      * **A (chain, `--attempts 3`, same flags): suite 6/8** — the chain arm lost
+        `h06` after 3 feedback attempts. Suite-level delta +12.5 pts.
+        `armA_chain3.log`, session `20260926-110220-run-suite-3a97`.
+      * **Spend ✓:** both arms 12 generations; B **3 330** tokens (1 412 prompt +
+        1 918 completion) vs A **5 559** (3 894 + 1 665) — 40% less, because a
+        chain retry re-sends the prompt *plus* the growing feedback, while a
+        candidate re-sends only the prompt and the arm exits at the first pass.
+        Wall 135s vs 128s (+5%).
+      * Stated honestly, three ways the number could be over-read. (1) The
+        suite-level delta is exactly **one task**, and single-run swings of ±2
+        are documented (Appendix A) — the defensible figure is the **in-arm**
+        one, where both numbers come from the same load and the same prompts.
+        (2) The design input proved ranking is nearly inert (6/7 real failures
+        die at assert 1 — `benchmarks/fail_position_check.py`, output above in
+        the §33.4 module docstring) and the run confirmed it: `passed` chose
+        nothing here, a passing candidate did. The mechanism's value is pass@k.
+        (3) A first launch went out **while the machine was on battery** and the
+        governor clamped to width 2 (best-of-2); the arm was stopped after 2
+        tasks and kept as `armB_tourney3_PARTIAL_battery_width2.log` — not
+        evidence, a demonstration that the AC-only clamp is real.
+      * Live bonus: at h03 the mid-run probe read `low-power` for one task, and
+        `eligible()` declined the tournament per-task (`tour_why` in the route
+        record: "governor width 1 cannot run 2+ candidates"), so that task ran
+        the feedback chain and solved on attempt 1. The refusal reason made the
+        anomaly answerable from the trace alone, no re-run — §33.6 working.
+- [x] [B] Docs move together.
+      *Done 2026-09-26:* SPEC R-3.3 → SHIPPED with the in-arm numbers and the
+      one-task-delta caveat; SPEC §6 battery re-read from the tree (harness
+      12→**20**, new `flash.tourney` **16** line, total 363→**387**); README's
+      battery + `--tournament` usage; `flash/__init__.py` §33.4 row and
+      selftest list; PLAN §33.4 status paragraph + Appendix A row.
+      Re-verified against the tree after the doc edits: whole battery green
+      and `python -m pyflakes flash/*.py benchmarks/*.py` → 0 findings.
 
 ## P6 — R-2.3 confidence from verification + R-6.3 label hygiene
 
@@ -387,6 +428,21 @@ Rules for this file:
 
 ## Log
 
+- 2026-09-26 — P5 (R-3.3) ran and the gate MET, with two facts I want on record
+  because they are easy to over-read. First, **the first launch went out while
+  the machine was on battery** (the `power --json` probe was minutes stale); the
+  governor clamped the tournament to width 2 and I stopped the arm after 2
+  tasks, keeping the log as `armB_tourney3_PARTIAL_battery_width2.log` — not
+  evidence, a demonstration that the AC-only rule bites. Second, the **gate's
+  honest number is the in-arm one**: candidate 0 vs best-of-k on the same load,
+  same prompts, same model — +14 pts (5/7 → 6/7). The suite-level B-vs-A delta
+  is also +1 task (7/8 vs 6/8), but that sits inside the documented ±2 single-run
+  swing, so it corroborates and does not carry the claim. What the run did
+  prove about the mechanism: `h06_log_error_windows` died at assert 1/3 for the
+  greedy candidate AND for all three chain attempts, then a sampled candidate
+  passed it — variance where feedback got nothing. And the design pre-check
+  held exactly: 6/7 real hard-task failures die at the first assert, so
+  `passed` ranked nothing anywhere; adoption-by-pass is the whole mechanism.
 - 2026-09-26 — P4 (R-3.2) run, and the interesting part is not the score: it is
   that **the control arm was invalid on first principles and I did not see it
   until it had run.** Edit prompts carried only the change request, never the

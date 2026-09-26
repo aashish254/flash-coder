@@ -14,13 +14,16 @@ Plan: ../PLAN.md (v3.8). This package grows milestone by milestone:
                                      as a per-step token mask, `--constrain`)
   §33.1 ACT: flash.patches          (symbol-precise edits: '# edit: file ::
                                      Symbol' -> the AST's own lines, `--edit`)
+  §33.4: flash.tourney              (tournament mode: k independent candidates,
+                                     oracle-scored, width-clamped by the
+                                     governor, `--tournament`)
   Phase-4: flash.web                (knowledge as a tool: fetch+sha1-cache+
                                      bge-ranked excerpts, §25a3, §33.9)
   M0b: flash.vision                 (screenshot -> HTML through the VLM)
 
 Every subsystem ships an offline deterministic selftest:
   python -m flash.harness | flash.lsp | flash.power | flash.jobs | flash.trace
-             | flash.grammar | flash.patches | flash.debug
+             | flash.grammar | flash.patches | flash.debug | flash.tourney
   (flash.web's runs through `flash web --selftest`; it has no __main__.)
 """
 

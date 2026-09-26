@@ -92,7 +92,7 @@ Vision is benchmarked once the text brain is picked (PLAN §M1–M2).
 # An assert whose side mutates is therefore reported honestly (`q.pop() == "high"` on a
 # failing assert says GOT: 'low' | WANT: 'high', not GOT == WANT for a difference that
 # was really there).
-.venv/bin/python -m flash.harness --selftest        # 12 offline checks on the oracle
+.venv/bin/python -m flash.harness --selftest        # 20 offline checks on the oracle
 .venv/bin/python benchmarks/m0_bakeoff.py --dry-run # 20/20 reference solutions pass
 
 # §33.1 symbol perception: AST discovery + a live language server (jedi/pylsp).
@@ -140,6 +140,18 @@ Vision is benchmarked once the text brain is picked (PLAN §M1–M2).
 .venv/bin/python -m flash.cli run-suite --tasks benchmarks/tasks/dbg_tasks.jsonl --debug
 .venv/bin/python -m flash.debug --selftest       # 55 offline checks, incl. the suite's premise
 .venv/bin/python -m flash.debug --suite          # every seeded bug: invisible to the traceback, named by the digest
+
+# §33.4 tournament mode (R-3.3): a hard task gets k INDEPENDENT candidates instead of
+# a feedback chain — candidate 0 greedy (so pass@k contains pass@1), the rest sampled
+# from per-candidate seeds, each scored by the oracle, first pass adopted and the arm
+# exits. The power governor's width (4/2/1 by profile) is the AC-only clamp: on
+# battery or in a low-power blip the tournament degenerates to the plain single
+# attempt, per task, with the refusal reason in the route record. Off by default
+# (--tournament 1); single-file tasks only — multi-file/edit tasks keep the chain.
+.venv/bin/python -m flash.cli run-suite --tasks benchmarks/tasks/m3_hard_tasks.jsonl --tournament 3
+.venv/bin/python -m flash.tourney --selftest     # 16 offline checks: schedule, clamp, adoption, trace record
+# measured 2026-09-26 on the 8 h-tasks, small tier: pass@1 5/7 -> best-of-3 6/7 (+14
+# pts, in-arm on matched input), suite 7/8 vs chain 6/8, at 3330 tokens vs 5559.
 
 # §34.1 power governor — every run asks the machine before loading a model
 .venv/bin/python -m flash.cli power                    # profile, state, allowed vs shed

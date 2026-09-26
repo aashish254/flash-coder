@@ -1,0 +1,10 @@
+[trace] session 20260926-104635-run-suite-73a4 — interrupt me anytime, then: flash resume 20260926-104635-run-suite-73a4
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 3442.97it/s]
+  [    SMALL] h01_csv_agg            solved=True attempts=1 (9.0s)  k=2/3 width=2 gens=1 [P] adopted=0 (clamped to the governor's width 2)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5016.44it/s]
+  [    SMALL] h02_interval_intersection solved=True attempts=1 (9.0s)  k=2/3 width=2 gens=1 [P] adopted=0 (clamped to the governor's width 2)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 665.29it/s]
+  [    SMALL] h03_flatten_keys       solved=True attempts=1 (10.1s)  k=2/3 width=2 gens=1 [P] adopted=0 (clamped to the governor's width 2)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 4910.09it/s]
+  [    SMALL] h05_topk_stable        solved=True attempts=1 (5.1s)  k=2/3 width=2 gens=1 [P] adopted=0 (clamped to the governor's width 2)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 4325.51it/s]
