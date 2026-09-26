@@ -379,8 +379,27 @@ Rules for this file:
       suite flakiness (not model probability).
 - [ ] [V] [L] Seeded subtle-bug suite: offered on ≥ 90% of outputs that would
       fail hidden tests, < 1 false escalation per 20 routine tasks.
-- [ ] [V] [offline] `trainable()` exclusion audit: AUC on excluded-only re-fit ==
-      AUC on all-minus-override re-fit (no signal lost).
+- [x] [V] [offline] `trainable()` exclusion audit: AUC on excluded-only re-fit ==
+      AUC on all-minus-override re-fit (no signal lost). **MET within measurement
+      precision, and the precision is stated.**
+      *Run 2026-09-26, `benchmarks/trainable_audit.py` (log:
+      `benchmarks/results/p6/trainable_audit.log`): fit A = 314 trainable-only
+      rows; fit B = 370 rows minus the *mandated* policy exclusions only
+      (`routed=big(...)`, `tier=shed`) — B therefore keeps exactly the 56 vision
+      rows A drops, and the audit measures trainable()'s one exclusion beyond
+      the hygiene minimum. Shared honest eval: 66 held-out rows (m4–m7,
+      tier∈{small,big,failed}, none big-routed), 10 positive.*
+      *Pooled AUC: A **0.618**, B **0.736**; difference −0.118 with a bootstrap
+      95% interval **[−0.369, +0.099]** over 4 000 replicates — the gap does not
+      separate from zero, so no measurable signal is lost; at 10 positives a
+      true gap of up to ~0.37 could also hide here, and that is stated rather
+      than smoothed. m7 reports n/a on purpose: its honest-label pool has one
+      class only (its big rows are all gate-routed, excluded as policy).*
+      *Cost note (box is marked offline but this crossed the line): 69 prompts
+      were not in the embedding cache, so one 7B load ran forward passes only —
+      no generation, no outcomes; the selftest (16/16: AUC ranks/ties/empty,
+      set-definitions, bootstrap band contains zero for identical fits and
+      excludes it for a true separation) needs no model.*
 - [ ] [B] Docs move together (SPEC R-2.3, R-6.3).
 
 ## P7 — R-5.3 task-granular recovery → R-5.4 M16 chaos

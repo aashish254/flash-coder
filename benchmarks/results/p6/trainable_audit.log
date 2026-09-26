@@ -1,0 +1,7 @@
+ledger: 543 rows | fit A (trainable): 314 | fit B (all minus policy rows): 370 | B keeps 56 row(s) A excludes (tier: ['vision'])
+eval: 66 held-out rows (10 positive) over 4 families
+fit A trainable-only     314 rows   pooled AUC = 0.618   m4:0.741  m5:0.700  m6:0.394  m7:n/a
+fit B all-minus-policy   370 rows   pooled AUC = 0.736   m4:0.612  m5:1.000  m6:0.879  m7:n/a
+
+difference (A - B): pooled -0.118, bootstrap 95% interval [-0.369, +0.099] over 4000 replicates on 66 eval rows
+VERDICT: the gap does not separate from zero at this eval size — the two re-fits are the same AUC within measurement precision, and the exclusion demonstrably costs no SIGNAL yet. The eval holds few positives; state the precision, not just the point.
