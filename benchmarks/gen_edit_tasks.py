@@ -306,8 +306,15 @@ TASKS = [
 
 
 def build() -> list[dict]:
-    """One task record per change request, plus its reference-solved project."""
-    from flash.patches import Patch, apply_patches, changed_lines, outside_lines
+    """One task record per change request, plus its reference-solved project.
+
+    The stored `prompt` is the whole input the model sees — project listing,
+    request, test — so the patch arm and the whole-file control are shown
+    identical material and differ only in the answer format they are asked
+    for. That is what makes their A/B a protocol comparison.
+    """
+    from flash.patches import (Patch, apply_patches, changed_lines, describe,
+                               outside_lines)
 
     tasks, notes = [], []
     for spec in TASKS:
@@ -322,11 +329,16 @@ def build() -> list[dict]:
                                 res.files[target["file"]])
         notes.append(f"{spec['id']}: {len(changed)} line(s) changed inside "
                      f"{target['symbol']}")
+        prompt = (f"The project is below, with the real text of every file.\n\n"
+                  f"{describe(workspace)}\n\n"
+                  f"Requested change: {spec['prompt']}\n\n"
+                  f"The test that must pass afterwards:\n"
+                  f"```python\n{spec['test'].rstrip()}\n```")
         tasks.append({
             "id": spec["id"],
             "edit": True,
             "multi": True,
-            "prompt": spec["prompt"],
+            "prompt": prompt,
             "files": workspace,
             "target": target,
             "fix": spec["fix"],

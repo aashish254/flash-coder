@@ -95,6 +95,27 @@ Vision is benchmarked once the text brain is picked (PLAN §M1–M2).
 .venv/bin/python -m flash.cli symbols --path benchmarks/fixtures          # whole tree (AST)
 .venv/bin/python -m flash.cli lsp-selftest                                # 14 offline checks
 
+# §33.1 ACT leg — symbol-precise edits: a change request is answered with patches that
+# name a SYMBOL, and the AST's own lines are what gets replaced. Everything outside the
+# addressed range is copied, never re-typed, so an edit cannot drift into a neighbouring
+# definition. Out-of-range, ambiguous or overlapping addresses are REFUSED (the retry is
+# told why and the project keeps its previous content). Off by default; --edit turns it on
+# for a task that ships a project.
+.venv/bin/python -m flash.cli run "..." --test t.py --context src/ --edit
+.venv/bin/python -m flash.cli run-suite --tasks benchmarks/tasks/edit_tasks.jsonl --edit
+.venv/bin/python -m flash.patches --selftest     # 37 offline checks, incl. the loop arm
+.venv/bin/python -m flash.patches --suite benchmarks/tasks/edit_tasks.jsonl  # the suite's premise
+
+#   the patch protocol (one header + one fenced block per symbol):
+#     # edit: cart.py :: Cart.total_cents
+#     ```python
+#     @property
+#     def total_cents(self):
+#         return sum(l.line_cost() for l in self.lines)
+#     ```
+#   `Container.name` for a method, `L12-L18` for one statement, `*` for a whole file
+#   (which the run report counts, because needing it is the thing patches avoid).
+
 # §33.3 constrained decoding: the output contract becomes a per-step token mask, so a
 # fence without its '# file:' header, prose before the first header, a path outside the
 # declared file set, or a block that could never be finished cannot be emitted at all.
@@ -131,7 +152,7 @@ Vision is benchmarked once the text brain is picked (PLAN §M1–M2).
 .venv/bin/python -m flash.cli trace                    # list sessions: outcome, tokens, wall time
 .venv/bin/python -m flash.cli trace <sid> --task r03_bulk_rule   # replay one task's decisions
 .venv/bin/python -m flash.cli resume                   # continue the newest interrupted suite
-.venv/bin/python -m flash.cli trace --selftest         # 29 offline store/replay checks
+.venv/bin/python -m flash.cli trace --selftest         # 30 offline store/replay checks
 .venv/bin/python benchmarks/trace_resume_check.py      # 11 checks: interrupt -> resume, no re-billing
 ```
 

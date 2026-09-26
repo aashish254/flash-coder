@@ -730,6 +730,8 @@ def main() -> int:
                    help="R-4.2: omit to keep the resumed session's setting")
     p.add_argument("--debug", action="store_true", default=None,
                    help="R-4.3: omit to keep the resumed session's setting")
+    p.add_argument("--edit", action="store_true", default=None,
+                   help="R-3.2: omit to keep the resumed session's setting")
     p.add_argument("--trace-full", action="store_true")
     p.set_defaults(fn=cmd_resume)
 

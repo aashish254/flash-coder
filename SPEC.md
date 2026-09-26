@@ -113,10 +113,43 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
 - **R-3.1 (SHIPPED)** Multi-file answers MUST round-trip through the
   `# file:` contract with per-file persistence and targeted repair.
   Vector: `run-suite --tasks benchmarks/tasks/mw_tasks.jsonl` at 6/6.
-- **R-3.2 (OPEN)** Edits SHOULD be symbol-precise patches, not text guessing
-  (PLAN §33.1 ACT bullet — the one piece of §33.1 not shipped).
-  Vector: on a 10-change suite, symbol-precise edits need ≤ 1 attempt for
-  ≥ 8 and never rewrite a line outside the target symbol's range.
+- **R-3.2 (PARTIAL — clause 1 MET, clause 2 NOT MET)** Edits SHOULD be
+  symbol-precise patches, not text guessing (PLAN §33.1 ACT bullet).
+  Shipped: `flash/patches.py` (`--edit`) — `# edit: <file> :: <Symbol>` or
+  `L<a>-<b>` or `*`, plus one fenced block. The AST owns the replaced span
+  (decorators included, so dropping `@property` is impossible), a column-0
+  replacement is re-indented to the symbol's real nesting, and bytes outside
+  the addressed range are copied rather than regenerated. Every failure mode
+  is a refusal with a reason and an unchanged project: unknown symbol, ambiguous
+  address, backwards/EOF/straddling range, overlapping set, file not in the
+  project, replacement that does not parse, replacement that loses the symbol it
+  addressed. Offline: `python -m flash.patches --selftest` **37/37** (7 of them
+  drive the loop's patch arm against a scripted generator, so the wiring is
+  proven without charging a model); `--suite` **60/60** premise checks over
+  `benchmarks/tasks/edit_tasks.jsonl` (each task ships its own project text, so
+  both arms read identical input, fails as seeded, passes on the reference patch,
+  and that patch fits inside one symbol).
+  Vector, measured 2026-09-26 — small tier, greedy first attempt,
+  `--allow-big never`, 10 tasks, two arms on the same input:
+  * **clause 1 MET**: **8/10 solved, all 8 within 1 attempt** (gate: ≥ 8 in ≤ 1);
+    0 refusals, 0 whole-file rewrites. `benchmarks/results/edits/arm_edit_small.log`.
+  * **clause 2 NOT MET**: **7 lines touched outside the annotated symbol**
+    (gate: 0), all from one task. `arm_free_small.log` is the matched control at
+    the same 8/10.
+  Cause, from trace `20260926-060927-run-suite-526b`: the request named the
+  class (`Box`), the change lives in `Box.__init__`; the model addressed the
+  noun it was given and re-typed the class correctly. **The address width
+  follows the noun in the request, not the locus of the change** — so clause 2
+  is ambiguous in exactly this case (outside the annotated symbol, inside the
+  addressed one), which is escalated as §10.6 rather than redefined here.
+  Cost, stated precisely: the patch arm is **2.7× faster** (6.0 vs 16.3 s/task)
+  and decodes **3.6× fewer tokens** per generation (51 vs 184) at a *slightly
+  higher* total token count (8169 vs 7845) — a patch prompt carries ~160 tokens
+  of protocol and re-sends the project every attempt. On 4-bit Apple-Silicon
+  decode the binding cost is steps, not tokens, so the win is wall clock and the
+  structural guarantee, not spend. Both arms fail the same two tasks
+  (`round()` → banker's rounding; wrong priority order), putting those on tier
+  capability rather than protocol.
 - **R-3.3 (OPEN)** Tournament mode (§33.4): k candidates under the power
   governor's width cap, scored by the oracle, best-of-k adopted.
   Vector: on the hard family (h-tasks), best-of-3 beats single-attempt pass rate
@@ -369,3 +402,22 @@ the honest label is *a very good local loop with instrumentation*.
    number by nothing, so no Python-side work closes the gap — only accepting a
    read-back lag, which would put the exactness of the guarantee at risk for
    the first token after every fence closes.
+6. **R-3.2's clause 2 says "outside the target symbol's range" without saying
+   which symbol.** Measured 2026-09-26: the one clause-2 violation (7 lines) is
+   a change the request named by its class (`Box`) while the edit lived in
+   `Box.__init__`; the model addressed `Box`, re-typed the rest of the class
+   byte-correctly, and every line it touched is inside the *addressed* symbol
+   and outside the *annotated* one. Two readings, both defensible: (a) annotated
+   — the suite's `target.symbol` is the contract, so the run misses the gate;
+   (b) addressed — whatever the model put in the header defines the range, so
+   the run is 10/10 and the mechanism has no remaining violation. (a) keeps the
+   metric falsifiable and charges the model for naming the wrong width; (b)
+   measures only the tool's splice discipline, which is already proven by
+   construction and so is not news. I kept (a) and left the gate unmet. Related,
+   and the reason (b) is not free: under (b) a model could address `*` and pass
+   clause 2 by definition — the whole-file count only stays honest because it is
+   reported separately, not because the audit forbids it. The alternative that
+   sidesteps the ambiguity is a stricter prompt rule ("address the smallest
+   symbol that owns the lines you need to change"), already in `PROTOCOL`; it
+   held on 9/10 tasks, which is evidence for the rule rather than for reading
+   (b). This changes an acceptance criterion, so it is the user's call.

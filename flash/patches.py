@@ -49,6 +49,9 @@ PROTOCOL = (
     "      ```python\n      <complete new definition>\n      ```\n"
     "* address a function, method or class as its bare name, or "
     "`Container.method` for a method;\n"
+    "* address the SMALLEST symbol that owns the lines you need to change — a "
+    "method, not the class around it, and never a whole file to change one "
+    "line inside it;\n"
     "* write a symbol's replacement at column 0 — it is re-indented to the "
     "symbol's real nesting from the address, so you do not have to match the "
     "file's indentation;\n"
@@ -463,12 +466,14 @@ def workspace_from_dir(root: str | Path, limit: int = 20) -> dict[str, str]:
 
 
 def edit_prompt(task: dict) -> str:
-    workspace = {k: v for k, v in task["files"].items()}
-    return (f"The project is below, with the real text of every file.\n\n"
-            f"{describe(workspace)}\n\n"
-            f"Requested change: {task['prompt']}\n\n"
-            f"{PROTOCOL}\n\nThe test that must pass afterwards:\n"
-            f"```python\n{task['test'].rstrip()}\n```")
+    """The shared request plus the patch protocol.
+
+    The project listing and the test already live in `task["prompt"]`, because
+    the whole-file control (R-3.2's A/B) is shown exactly the same material and
+    only told a different answer format — a protocol comparison has to hold the
+    input still.
+    """
+    return f"{task['prompt']}\n\n{PROTOCOL}"
 
 
 def refusal_feedback(err: str) -> str:
@@ -513,6 +518,11 @@ def run_premise(tasks_path: str | Path, verbose: bool = True) -> int:
     for t in tasks:
         tid = t["id"]
         src = t["files"].get(t["target"]["file"], "")
+        ships = all(f"# file: {n}" in t["prompt"] and body.rstrip() in t["prompt"]
+                    for n, body in t["files"].items())
+        check(f"{tid}: the task ships its own project text in the prompt "
+              "(both arms read the same input)", ships,
+              f"{len(t['files'])} file(s), {len(t['prompt'])} chars")
         defs = find_defs(definitions(src), t["target"]["symbol"])
         check(f"{tid}: the target symbol exists to be addressed", bool(defs),
               str(defs[0]) if defs else f"not in {t['target']['file']}")

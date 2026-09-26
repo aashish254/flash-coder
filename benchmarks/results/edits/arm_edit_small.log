@@ -1,0 +1,27 @@
+[trace] session 20260926-060927-run-suite-526b — interrupt me anytime, then: flash resume 20260926-060927-run-suite-526b
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 4795.32it/s]
+  [    SMALL] e01_title_case         solved=True attempts=1 (4.2s) patches=1 refused=0 whole=0 outside=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5527.71it/s]
+  [    SMALL] e02_render_truncate    solved=True attempts=1 (5.4s) patches=1 refused=0 whole=0 outside=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 4931.25it/s]
+  [    SMALL] e03_keep_apostrophes   solved=True attempts=1 (4.3s) patches=1 refused=0 whole=0 outside=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 4692.78it/s]
+  [    SMALL] e04_box_min_width      solved=True attempts=1 (6.4s) patches=1 refused=0 whole=0 outside=7
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 3757.96it/s]
+  [    SMALL] e05_available_minus_reserved solved=True attempts=1 (4.2s) patches=1 refused=0 whole=0 outside=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5020.45it/s]
+  [     SHED] e06_tax_rounds_half_up solved=False attempts=2 (10.8s) patches=1 refused=0 whole=0 outside=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5250.17it/s]
+  [    SMALL] e07_reorder_threshold  solved=True attempts=1 (3.6s) patches=1 refused=0 whole=0 outside=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 4356.46it/s]
+  [    SMALL] e08_add_refuses_negative solved=True attempts=1 (4.6s) patches=1 refused=0 whole=0 outside=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 4724.50it/s]
+  [     SHED] e09_pop_by_priority    solved=False attempts=2 (10.1s) patches=1 refused=0 whole=0 outside=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5350.64it/s]
+  [    SMALL] e10_clock_never_negative solved=True attempts=1 (5.9s) patches=1 refused=0 whole=0 outside=0
+
+solved 8/10   small-tier 8, escalated 0   total 60s (avg 6.0s/task)
+[R-3.2] 8/10 edit(s) solved in <=1 attempt (gate: >= 8)   7 line(s) touched outside the target symbol (gate: 0)   0 whole-file rewrite(s)   0 refusal round(s)
+[trace] flash trace show 20260926-060927-run-suite-526b
+2 task(s) denied escalation by the §34.1 governor (low-power): on battery (23.0%); battery below 25%
+   rerun with --allow-big always to force the brain on battery/heat

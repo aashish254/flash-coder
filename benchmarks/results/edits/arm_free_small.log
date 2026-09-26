@@ -1,0 +1,26 @@
+[trace] session 20260926-061127-run-suite-060f — interrupt me anytime, then: flash resume 20260926-061127-run-suite-060f
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 4339.43it/s]
+  [    SMALL] e01_title_case         solved=True attempts=1 (11.0s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5420.55it/s]
+  [    SMALL] e02_render_truncate    solved=True attempts=1 (11.8s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5073.07it/s]
+  [    SMALL] e03_keep_apostrophes   solved=True attempts=1 (10.9s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 4653.44it/s]
+  [    SMALL] e04_box_min_width      solved=True attempts=1 (11.0s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5099.80it/s]
+  [    SMALL] e05_available_minus_reserved solved=True attempts=1 (12.7s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 4673.61it/s]
+  [     SHED] e06_tax_rounds_half_up solved=False attempts=2 (25.7s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5534.19it/s]
+  [    SMALL] e07_reorder_threshold  solved=True attempts=1 (12.4s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 4924.18it/s]
+  [    SMALL] e08_add_refuses_negative solved=True attempts=1 (13.2s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 4199.44it/s]
+  [     SHED] e09_pop_by_priority    solved=False attempts=2 (35.5s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 4591.75it/s]
+  [    SMALL] e10_clock_never_negative solved=True attempts=1 (18.4s)
+
+solved 8/10   small-tier 8, escalated 0   total 163s (avg 16.3s/task)
+[trace] flash trace show 20260926-061127-run-suite-060f
+2 task(s) denied escalation by the §34.1 governor (low-power): on battery (18.0%); battery below 25%
+   rerun with --allow-big always to force the brain on battery/heat

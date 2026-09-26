@@ -1,0 +1,8 @@
+[trace] session 20260926-055805-run-suite-1906 — interrupt me anytime, then: flash resume 20260926-055805-run-suite-1906
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 4883.41it/s]
+  [     SHED] e01_title_case         solved=False attempts=2 (22.3s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 4893.54it/s]
+  [     SHED] e02_render_truncate    solved=False attempts=2 (37.9s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 4777.11it/s]
+  [     SHED] e03_keep_apostrophes   solved=False attempts=2 (30.8s)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5628.26it/s]

@@ -195,13 +195,81 @@ Rules for this file:
 
 ## P4 — R-3.2 Symbol-precise edits (§33.1's ACT leg)
 
-- [ ] [B] Emit/apply range-addressed patches: LSP+AST give (file, symbol, range);
+- [x] [B] Emit/apply range-addressed patches: LSP+AST give (file, symbol, range);
       patch replaces a symbol body, never a text guess.
-- [ ] [V] [offline] Selftest: an out-of-range or overlapping patch is refused.
-- [ ] [B] 10-change suite (`benchmarks/tasks/edit_tasks.jsonl`).
+      `flash/patches.py`: `# edit: <file> :: <Symbol>` (or `L12-L18`, or `*`) +
+      one fenced block. The AST owns the span — decorators included, so dropping
+      `@property` is impossible — a column-0 replacement is re-indented to the
+      symbol's real nesting, and the bytes outside the addressed range are
+      copied, not regenerated.
+- [x] [V] [offline] Selftest: an out-of-range or overlapping patch is refused.
+      `python -m flash.patches --selftest` → **37/37**, and the refusals are
+      enumerated rather than sampled: unknown symbol (names what the file does
+      define), ambiguous address (names both candidates), range past EOF, range
+      running backwards, range straddling two symbols, overlapping patch, file
+      not in the project, replacement that does not parse, replacement that
+      loses the symbol it addressed. A voided set changes nothing, so a retry
+      never repairs the tool's output instead of the model's change.
+      7 of the 37 drive the **loop's** patch arm with a scripted generator
+      (`--wire`): a refusal costs an attempt and reaches the retry as text, an
+      accepted set reproduces the reference project, a patch on one module
+      leaves its sibling byte-identical.
+- [x] [B] 10-change suite (`benchmarks/tasks/edit_tasks.jsonl`).
+      `benchmarks/gen_edit_tasks.py`: three projects (prose / shop / shift),
+      ten requests, targets spanning a module function, a method, a
+      constructor, a decorated property, a class-level constant and a
+      statement-level body change. `python -m flash.patches --suite …` →
+      **60/60 premise checks**: every task ships its own project text in the
+      prompt (so both arms read identical input), fails its test as seeded,
+      passes on the reference patch, and that patch fits inside one symbol.
 - [ ] [V] [L] ≥ 8 changes solved in ≤ 1 attempt, and 0 edits touch lines outside
-      the target symbol's range.
-- [ ] [B] Docs move together.
+      the target symbol's range. **Clause 1 MET, clause 2 NOT MET.**
+      Small tier (`Qwen2.5-Coder-7B-4bit`), greedy first attempt,
+      `--allow-big never`, 10 tasks, both arms on the same input:
+      * **patches (`--edit`): 8/10 solved, all 8 on the first attempt**, 6.0 s/task,
+        51 completion tokens per generation, 0 refusals, 0 whole-file rewrites,
+        **7 lines touched outside the annotated symbol (gate 0)** —
+        `benchmarks/results/edits/arm_edit_small.log`.
+      * **whole-file control: 8/10 solved, all 8 on the first attempt**, 16.3 s/task,
+        184 completion tokens per generation —
+        `benchmarks/results/edits/arm_free_small.log`.
+      What the comparison actually shows, stated precisely: the patch arm is
+      **2.7× faster** and decodes **3.6× fewer tokens**, at a *slightly higher
+      total token count* (8169 vs 7845) because a patch prompt carries the
+      protocol text (~160 tokens/generation) and re-sends the project every
+      attempt. On this hardware tokens are not the binding cost, decode steps
+      are, so the win is wall-clock and the guarantee, not spend.
+      Both arms fail the same two tasks (e06 rounds tax with `round()` →
+      banker's rounding; e09 keeps the wrong priority order), which puts those
+      two on tier capability rather than protocol.
+      Clause 2's single cause is one task, and it is worth reading: e04's
+      request says "…clamped to 1 **when the Box is built**" and the change
+      lives in `Box.__init__`; the model addressed `Box` — the noun in the
+      request — and re-typed the whole class correctly (its exact output is in
+      the trace `20260926-060927-run-suite-526b`). **The address width follows
+      the noun in the request, not the locus of the change.** That is a real
+      limit of the mechanism, not a transcription bug, and it makes
+      "the target symbol's range" ambiguous in exactly this case: the lines are
+      outside the annotated symbol and inside the addressed one. Escalated as
+      SPEC §10.6 rather than reworded here.
+- [x] [B] Docs move together. SPEC R-3.2 → PARTIAL with both clauses and the
+      measured numbers, SPEC §10.6 (annotated vs addressed symbol), PLAN
+      §33.1's ACT sentence + Appendix A row, README's patch-protocol block,
+      `flash/__init__.py` map. Re-verified against the tree: `--selftest` 37/37,
+      `--suite` premise 60/60, README names both counts.
+- [ ] [B] P4-follow-up — the GOT/WANT probe double-evaluates a stateful assert.
+      `diagnose()` evaluates the whole condition and then evaluates each side
+      AGAIN to print its values, so an assert whose condition mutates
+      (`q.pop() == "high"`) hands the retry feedback that names no difference.
+      Reproduced offline in one line (`q.pop()` twice → `GOT: <eval error> pop
+      from empty list` on an assert about the *second* element) and seen live on
+      `e09_pop_by_priority`, where both arms were told `GOT: 'high' |
+      WANT: 'high'` for a failing assert and both burned their second attempt
+      on it. Fix: for an `a == b` condition, evaluate `a` and `b` once into
+      temporaries and compare the stored values, so the printed GOT/WANT *are*
+      the comparison that failed. Falsifiable check: an assert on a
+      side-effecting call must report the value it actually got, and the side
+      effect must happen exactly once.
 
 ## P5 — R-3.3 Tournament mode (G2, AC-only)
 

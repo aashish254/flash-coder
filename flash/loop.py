@@ -39,6 +39,15 @@ RETRY_EDITS = (
     "project above, with that symbol's complete new definition in the block."
 )
 
+# R-3.2's control arm: the same project and the same request, answered by
+# re-typing every file. Both arms read an identical prompt (the task ships it),
+# so the only difference between them is the answer format.
+WHOLE_FILE_PROTOCOL = (
+    "Reply with the ENTIRE project: every file again, complete, each as a "
+    "fenced block whose first line is exactly \"# file: <name>\". Do not "
+    "describe the change — return the files."
+)
+
 
 @dataclass
 class Attempt:
@@ -261,6 +270,7 @@ def _solve_edits(model, tokenizer, task: dict, max_attempts: int,
                 kind = "test"
         outside = outside_lines(before, result, task.get("target") or {})
         trace.event("patch", task_id=task["id"], attempt=attempt_i, ok=ok,
+                    kind=kind,
                     applied=len(result.applied), refused=len(result.refusals),
                     whole=result.whole_rewrites, outside=outside,
                     addresses=[f"{a.patch.file}:{a.patch.address}"
@@ -287,6 +297,8 @@ def solve(model, tokenizer, task: dict, max_attempts: int = 3,
           edit: bool | None = None) -> SolveResult:
     if (EDIT if edit is None else edit) and task.get("edit"):
         return _solve_edits(model, tokenizer, task, max_attempts, max_tokens)
+    if task.get("edit"):
+        task = dict(task, prompt=task["prompt"] + "\n\n" + WHOLE_FILE_PROTOCOL)
     if task.get("multi"):               # multi-file answers are 2x+ longer;
         max_tokens = max(max_tokens, 2048)   # 1024 truncates mid-file (live: mw4)
     t0 = time.perf_counter()
