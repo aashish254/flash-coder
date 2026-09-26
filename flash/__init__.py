@@ -15,7 +15,11 @@ Plan: ../PLAN.md (v3.8). This package grows milestone by milestone:
   §33.3: flash.grammar              (constrained decoding: the output contract
                                      as a per-step token mask, `--constrain`)
   §33.1 ACT: flash.patches          (symbol-precise edits: '# edit: file ::
-                                     Symbol' -> the AST's own lines, `--edit`)
+                                     Symbol' -> the AST's own lines, `--edit`;
+                                     an address wider than the change is
+                                     narrowed to the runs that differ, so a
+                                     class header cannot re-emit an untouched
+                                     method)
   §33.4: flash.tourney              (tournament mode: k independent candidates,
                                      oracle-scored, width-clamped by the
                                      governor, `--tournament`)

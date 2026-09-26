@@ -9,11 +9,13 @@ Why ranges instead of text:
   * a text-guessed edit makes the model re-type a whole file, and every
     re-typed line is a chance to change something that was not the request —
     an import, a docstring, the other method in the same class;
-  * the bytes outside the addressed range are copied, not regenerated, so
-    "did this edit touch something it shouldn't?" is decidable by
-    construction, and `outside_lines()` measures the demand side of it: how
-    many lines the model asked to change that are NOT in the symbol the
-    change actually lives in;
+  * the bytes outside the addressed range are copied, not regenerated — and an
+    address that names a class is narrowed to the members whose bytes actually
+    differ (`narrow`), because the noun in a request is not always where the
+    change lives — so "did this edit touch something it shouldn't?" is
+    decidable by construction, and `outside_lines()` measures the demand side
+    of it: how many lines outside the symbol the change lives in were
+    regenerated;
   * a refused patch costs nothing: the workspace keeps its previous content
     and the retry gets a diagnostic naming the refusal, instead of a
     half-edited file that fails for a different reason.
@@ -114,6 +116,19 @@ class Applied:
     end: int
     col: int            # 0-based nesting the replacement is restored to
     lines: int          # lines of the file this patch owns
+    #: The sub-ranges `apply_patches` actually spliced, or None when the patch
+    #: was never run through it (then the whole owned span is assumed). An
+    #: address names the NOUN in a request, which is often a class when the
+    #: change lives in one method — narrowing keeps that over-wide address from
+    #: re-emitting a sibling that did not change. See `narrow`.
+    spans: tuple[tuple[int, int], ...] | None = None
+
+    @property
+    def regenerated(self) -> int:
+        """Lines of the file whose bytes this patch wrote."""
+        if self.spans is None:
+            return self.end - self.start + 1
+        return sum(e - s + 1 for s, e in self.spans)
 
 
 @dataclass
@@ -131,8 +146,13 @@ class ApplyResult:
         return sum(1 for a in self.applied if a.patch.kind == "whole")
 
     def summary(self) -> str:
-        bits = [f"{a.patch.file}:{a.patch.address} L{a.start}-L{a.end}"
-                for a in self.applied]
+        bits = []
+        for a in self.applied:
+            span = f"L{a.start}-L{a.end}"
+            owned = a.end - a.start + 1
+            if a.spans is not None and a.regenerated < owned:
+                span += f" [{a.regenerated} of {owned} lines rewritten]"
+            bits.append(f"{a.patch.file}:{a.patch.address} {span}")
         return ", ".join(bits) if bits else "nothing applied"
 
 
@@ -291,9 +311,74 @@ def resolve(patch: Patch, src: str) -> Applied:
 
 
 def splice(src: str, start: int, end: int, replacement: str) -> str:
-    """Replace lines [start..end] and copy every other line verbatim."""
+    """Replace lines [start..end] and copy every other line verbatim.
+
+    `end == start - 1` replaces no line, which inserts `replacement` before
+    `start` — the coordinate form `narrow` uses for a pure insertion.
+    """
     _, lines = _bounds(src)
     return "\n".join(lines[:start - 1] + replacement.split("\n") + lines[end:])
+
+
+def narrow(src: str, start: int, end: int, body: str) -> list[tuple[int, int, str]]:
+    """The sub-splices that achieve the same file as one wide splice.
+
+    An address names the noun in the request, and the noun is often a class
+    where the change lives in one of its methods: e04's "clamp the width when
+    the Box is built" was answered with `# edit: box.py :: Box` and a correct
+    re-type of the whole class. Splicing that range re-emits every sibling
+    method from the model's text, so a line outside the symbol the change
+    belongs in has been regenerated even when it happens to come back
+    identical — which is the exact drift this protocol exists to make
+    impossible, and the reason R-3.2's clause 2 could not be met while the
+    measure counted the addressed span.
+
+    So the applier diffs the owned block against the replacement and splices
+    only the runs whose bytes differ, copying every other line of the block
+    out of the file. A sibling that really did change is still spliced, and
+    still counted by `outside_lines`; a sibling that did not is not touched.
+    The resulting text is byte-identical to the wide splice either way — proven
+    by a selftest check, because a narrowing that changed the file would be a
+    different edit than the one that was asked for.
+
+    Runs come back in file order as (start, end, text); a run of pure insertions
+    has end == start - 1, which is the form `splice` reads as "insert before
+    this line".
+    """
+    _, lines = _bounds(src)
+    block = lines[start - 1:end]
+    repl = body.split("\n")
+    ops = difflib.SequenceMatcher(None, block, repl, autojunk=False).get_opcodes()
+    runs: list[tuple[int, int, str]] = []
+    cur: list[tuple[str, int, int, int, int]] = []
+    for op in list(ops) + [("equal", 0, 0, 0, 0)]:    # the sentinel flushes one
+        if op[0] != "equal":
+            cur.append(op)
+            continue
+        if cur:
+            runs.append((start + cur[0][1],
+                         start + cur[-1][2] - 1,
+                         "\n".join(repl[cur[0][3]:cur[-1][4]])))
+            cur = []
+    return runs
+
+
+def _touched(a: Applied, runs: list[tuple[int, int, str]]) -> tuple[tuple[int, int], ...]:
+    """The line ranges a narrowed splice actually rewrote.
+
+    A run of pure insertions (s > e) rewrites no existing line at all, so it is
+    charged to the line it lands in FRONT OF, clamped into the block the patch
+    owns. Two consequences, both stated rather than smoothed over: a patch that
+    addresses the member itself can never be charged for its own inserted line
+    (the insertion point is inside the block by construction), and an
+    over-wide class-level address that appends a line to one member is charged
+    the blank line it precedes — one line conservative, in the direction the
+    audit exists to watch.
+    """
+    out: list[tuple[int, int]] = []
+    for s, e, _ in runs:
+        out.append((s, e) if e >= s else (min(s, a.end), min(s, a.end)))
+    return tuple(out)
 
 
 def _names(src: str) -> set[tuple[str, str]]:
@@ -368,7 +453,14 @@ def apply_patches(workspace: dict[str, str], patches: list[Patch]) -> ApplyResul
         for a in sorted(resolved, key=lambda x: -x.start):
             body = (normalise(a.patch.body, a.col) if a.patch.kind == "symbol"
                     else a.patch.body)
-            new = splice(new, a.start, a.end, body)
+            if a.patch.kind == "whole":
+                new = splice(new, a.start, a.end, body)
+                a.spans = ((a.start, a.end),)
+                continue
+            runs = narrow(new, a.start, a.end, body)
+            for s, e, text in sorted(runs, key=lambda x: -x[0]):
+                new = splice(new, s, e, text)
+            a.spans = _touched(a, runs)
         for a in resolved:
             try:
                 check_result(a.patch, src0, new)
@@ -406,9 +498,17 @@ def outside_lines(workspace: dict[str, str], result: ApplyResult,
                   target: dict) -> int:
     """Lines this patch set changed that are NOT inside the symbol the change
     belongs in. This is R-3.2's "never rewrite a line outside the target
-    symbol's range", measured on what the model asked for — the splice itself
-    cannot touch outside, which is exactly why the number is worth printing:
-    a run that leans on `# edit: file :: *` scores here, not in the pass rate.
+    symbol's range", measured on what the applier actually regenerated — the
+    splice itself cannot reach outside its owned range, which is exactly why
+    the number is worth printing: a run that leans on `# edit: file :: *`
+    scores here, not in the pass rate.
+
+    It counts what was rewritten, not what was addressed: an address that names
+    a class because the request named the class is narrowed to the members that
+    differ (see `narrow`), so a sibling the model merely re-typed correctly is
+    copied out of the file and scores nothing, while a sibling it changed is
+    spliced and scores. Both halves are pinned by checks, because an audit that
+    only ever reports zero is worse than no audit.
     """
     src = workspace.get(target.get("file", ""), "")
     if not src:
@@ -417,13 +517,17 @@ def outside_lines(workspace: dict[str, str], result: ApplyResult,
     allowed = set(range(hits[0].start, hits[0].end + 1)) if hits else set()
     total = 0
     for a in result.applied:
-        if a.patch.file == target["file"]:
-            if a.patch.kind == "whole":
-                total += len(set(changed_lines(workspace[a.patch.file],
-                                               result.files[a.patch.file]))
-                             - allowed)
-            else:
-                total += len(set(range(a.start, a.end + 1)) - allowed)
+        if a.patch.file != target["file"]:
+            continue
+        if a.patch.kind == "whole":
+            total += len(set(changed_lines(workspace[a.patch.file],
+                                           result.files[a.patch.file]))
+                         - allowed)
+            continue
+        touched: set[int] = set()
+        for s, e in (a.spans if a.spans is not None else [(a.start, a.end)]):
+            touched |= set(range(s, e + 1))
+        total += len(touched - allowed)
     return total
 
 
@@ -773,6 +877,95 @@ def run_selftest(verbose: bool = True) -> int:
     check("audit: changed_lines finds the one line that differs",
           changed_lines(cart, cart.replace("TAX = 8", "TAX = 10")) == [6],
           str(changed_lines(cart, cart.replace("TAX = 8", "TAX = 10"))))
+
+    # 6b. an address WIDER than the change — e04's failure shape
+    retype = (
+        'class Cart:\n'
+        '    TAX = 10\n\n'
+        '    def __init__(self):\n'
+        '        self.items = []\n\n'
+        '    @property\n'
+        '    def total(self):\n'
+        '        return sum(self.items)\n\n'
+        '    def with_tax(self, rate=None):\n'
+        '        r = self.TAX if rate is None else rate\n'
+        '        return cents(self.total * r / 100)'
+    )
+    tax = {"file": "cart.py", "symbol": "Cart.TAX"}
+    wide = apply_patches(ws, [Patch("cart.py", "Cart", retype)])
+    check("audit: the request named the class and the change lives in one member "
+          "— a class-wide address now scores ZERO outside lines, because the "
+          "applier copied every sibling it did not have to write",
+          wide.ok and outside_lines(ws, wide, tax) == 0
+          and wide.applied[0].spans == ((6, 6),),
+          f"{outside_lines(ws, wide, tax)} line(s), spans {wide.applied[0].spans}")
+    check("...and the narrowed splice writes the SAME file as the wide one: "
+          "narrowing changes the tool's provenance, never the edit",
+          wide.files["cart.py"] == splice(cart, 5, 17, retype),
+          wide.summary())
+    check("audit: the summary reports what was rewritten, not what was addressed",
+          "[1 of 13 lines rewritten]" in wide.summary(), wide.summary())
+    shrunk = retype.replace("    def __init__(self):\n        self.items = []",
+                            "    def __init__(self): pass").replace(
+        "return sum(self.items)", "return sum(self.items) + 1")
+    shrink = apply_patches(ws, [Patch("cart.py", "Cart", shrunk)])
+    check("audit: runs splice BOTTOM-UP, because a run that changes the line "
+          "count moves every later run's coordinates under itself — three runs "
+          "here, one of them two lines collapsed into one",
+          shrink.ok and len(shrink.applied[0].spans) == 3
+          and shrink.files["cart.py"] == splice(cart, 5, 17, shrunk),
+          f"spans {shrink.applied[0].spans}")
+    sibling = apply_patches(
+        ws, [Patch("cart.py", "Cart",
+                   retype.replace("return sum(self.items)",
+                                  "return sum(self.items) + 1"))])
+    check("audit: a sibling the model DID change is still spliced and still "
+          "scores — an audit that can only report zero is worse than no audit",
+          sibling.ok and outside_lines(ws, sibling, tax) == 1
+          and sibling.applied[0].spans == ((6, 6), (13, 13)),
+          f"{outside_lines(ws, sibling, tax)} line(s), "
+          f"spans {sibling.applied[0].spans}")
+    noop = apply_patches(ws, [Patch("cart.py", "Cart",
+                                    "\n".join(cart.split("\n")[4:17]))])
+    check("audit: a verbatim re-type of the addressed class splices NOTHING and "
+          "scores nothing — `spans` empty is not the same fact as `spans` absent",
+          noop.ok and noop.applied[0].spans == ()
+          and noop.files["cart.py"] == cart
+          and outside_lines(ws, noop, tax) == 0,
+          f"spans {noop.applied[0].spans}")
+    added = apply_patches(ws, [Patch("cart.py", "Cart.__init__",
+                                     "def __init__(self):\n"
+                                     "    self.items = []\n"
+                                     "    self.kind = \"cart\"")])
+    check("audit: a line ADDED at the end of a precisely addressed member scores "
+          "nothing — the insertion point is inside the block the patch owns, so "
+          "narrowing does not make the audit stricter than it was",
+          added.ok and added.applied[0].spans == ((9, 9),)
+          and outside_lines(ws, added, {"file": "cart.py",
+                                        "symbol": "Cart.__init__"}) == 0,
+          f"spans {added.applied[0].spans}")
+    tail = apply_patches(ws, [Patch("cart.py", "Cart", retype.replace(
+        "TAX = 10", "TAX = 8").replace(
+        "        self.items = []",
+        "        self.items = []\n        self.kind = \"cart\""))])
+    check("audit: the same insertion under the OVER-WIDE class address is charged "
+          "the blank line it precedes — one line conservative, which is the "
+          "direction an audit has to err in",
+          tail.ok and tail.applied[0].spans == ((10, 10),)
+          and outside_lines(ws, tail, {"file": "cart.py",
+                                       "symbol": "Cart.__init__"}) == 1,
+          f"spans {tail.applied[0].spans}")
+    newone = apply_patches(ws, [Patch("cart.py", "Cart", retype.replace(
+        "TAX = 10", "TAX = 8").replace(
+        "    @property\n",
+        "    def shout(self):\n        return \"hi\"\n\n    @property\n"))])
+    check("...and a NEW sibling method under that address scores too (it is "
+          "indistinguishable from the case above at line granularity, and both "
+          "score)",
+          newone.ok and outside_lines(ws, newone,
+                                      {"file": "cart.py",
+                                       "symbol": "Cart.__init__"}) == 1,
+          f"spans {newone.applied[0].spans}")
 
     # 7. a range patch inside a body is the most precise edit there is
     inner = apply_patches(ws, [Patch("cart.py", "L15-L15",

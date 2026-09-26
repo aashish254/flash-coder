@@ -109,7 +109,8 @@ Vision is benchmarked once the text brain is picked (PLAN §M1–M2).
 .venv/bin/python -m flash.harness --selftest        # 20 offline checks on the oracle
 .venv/bin/python benchmarks/m0_bakeoff.py --dry-run # 20/20 reference solutions pass
 
-# All 23 offline vectors above in one command, summed from the fraction each run
+# All 27 offline vectors in this file (26 check-summing + m0_bakeoff's oracle) in
+# one command, summed from the fraction each run
 # PRINTS (never an exit code, never a phrase grep — see SPEC §6 for the two
 # capture traps that rule is there to prevent). Fails if the tree's total moves
 # off SPEC §6's number. `--quick ambient lora` re-runs only named lines.
@@ -125,13 +126,16 @@ Vision is benchmarked once the text brain is picked (PLAN §M1–M2).
 
 # §33.1 ACT leg — symbol-precise edits: a change request is answered with patches that
 # name a SYMBOL, and the AST's own lines are what gets replaced. Everything outside the
-# addressed range is copied, never re-typed, so an edit cannot drift into a neighbouring
-# definition. Out-of-range, ambiguous or overlapping addresses are REFUSED (the retry is
+# addressed range is copied, never re-typed — and an address wider than the change (a
+# class named where the edit lives in one method) is narrowed to the runs whose bytes
+# actually differ, so a sibling the model left alone is not re-emitted from its text. The
+# run report says which: `[1 of 13 lines rewritten]`. Out-of-range, ambiguous or
+# overlapping addresses are REFUSED (the retry is
 # told why and the project keeps its previous content). Off by default; --edit turns it on
 # for a task that ships a project.
 .venv/bin/python -m flash.cli run "..." --test t.py --context src/ --edit
 .venv/bin/python -m flash.cli run-suite --tasks benchmarks/tasks/edit_tasks.jsonl --edit
-.venv/bin/python -m flash.patches --selftest     # 37 offline checks, incl. the loop arm
+.venv/bin/python -m flash.patches --selftest     # 46 offline checks, incl. the loop arm
 .venv/bin/python -m flash.patches --suite benchmarks/tasks/edit_tasks.jsonl  # the suite's premise
 
 #   the patch protocol (one header + one fenced block per symbol):

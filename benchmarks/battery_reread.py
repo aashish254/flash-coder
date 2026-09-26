@@ -37,7 +37,7 @@ BATTERY = [
     ("flash trace --selftest", "-m flash.cli trace --selftest", 30, None, "checks"),
     ("flash web --selftest", "-m flash.cli web --selftest", 9, None, "checks"),
     ("flash.grammar --selftest", "-m flash.grammar --selftest", 47, None, "checks"),
-    ("flash.patches --selftest", "-m flash.patches --selftest", 37, None, "checks"),
+    ("flash.patches --selftest", "-m flash.patches --selftest", 46, None, "checks"),
     ("flash.debug --selftest", "-m flash.debug --selftest", 55, None, "checks"),
     ("flash.tourney --selftest", "-m flash.tourney --selftest", 16, None, "checks"),
     ("flash.confidence --selftest", "-m flash.confidence --selftest", 29, None, "checks"),
@@ -63,7 +63,7 @@ BATTERY = [
      20, None, "oracle"),
 ]
 
-CLAIM = {"checks": 944, "oracle": 20, "mutants": 30}
+CLAIM = {"checks": 953, "oracle": 20, "mutants": 30}
 
 
 def run(argv: str) -> str:

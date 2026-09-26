@@ -241,25 +241,64 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   is a refusal with a reason and an unchanged project: unknown symbol, ambiguous
   address, backwards/EOF/straddling range, overlapping set, file not in the
   project, replacement that does not parse, replacement that loses the symbol it
-  addressed. Offline: `python -m flash.patches --selftest` **37/37** (7 of them
-  drive the loop's patch arm against a scripted generator, so the wiring is
-  proven without charging a model); `--suite` **60/60** premise checks over
-  `benchmarks/tasks/edit_tasks.jsonl` (each task ships its own project text, so
-  both arms read identical input, fails as seeded, passes on the reference patch,
-  and that patch fits inside one symbol).
-  Vector, measured 2026-09-26 — small tier, greedy first attempt,
-  `--allow-big never`, 10 tasks, two arms on the same input:
+  addressed. An address WIDER than the change is narrowed before it is written
+  (`narrow`): the applier diffs the owned block against the replacement and
+  splices only the runs whose bytes differ, bottom-up, copying every other line
+  of the block out of the file — so `# edit: box.py :: Box` cannot re-emit a
+  sibling method that happens to be unchanged. A sibling that really did change
+  is still spliced and still counted. `outside_lines` therefore measures lines
+  whose BYTES were regenerated, not lines inside the addressed span, and the run
+  report says so (`[1 of 13 lines rewritten]`). Offline:
+  `python -m flash.patches --selftest` **46/46** (7 of them drive the loop's
+  patch arm against a scripted generator, so the wiring is proven without
+  charging a model; 9 more pin the narrowing — byte-identity with the wide
+  splice, a count-changing run before another, a real sibling drift that must
+  still score, a verbatim re-type that must write nothing); `--suite` **60/60**
+  premise checks over `benchmarks/tasks/edit_tasks.jsonl` (each task ships its
+  own project text, so both arms read identical input, fails as seeded, passes
+  on the reference patch, and that patch fits inside one symbol).
+  Vector, measured 2026-09-26 and re-measured 2026-09-27 after the narrowing —
+  small tier, greedy first attempt, `--allow-big never`, 10 tasks, two arms on
+  the same input:
   * **clause 1 MET**: **8/10 solved, all 8 within 1 attempt** (gate: ≥ 8 in ≤ 1);
     0 refusals, 0 whole-file rewrites. `benchmarks/results/edits/arm_edit_small.log`.
   * **clause 2 NOT MET**: **7 lines touched outside the annotated symbol**
-    (gate: 0), all from one task. `arm_free_small.log` is the matched control at
-    the same 8/10.
-  Cause, from trace `20260926-060927-run-suite-526b`: the request named the
-  class (`Box`), the change lives in `Box.__init__`; the model addressed the
+    (gate: 0), all from one task → **1 line** after the narrowing, from a
+    different task. `arm_free_small.log` is the matched control at the same
+    8/10; the narrowed arm is `arm_edit_small_narrow.log` and, with the model's
+    raw text on record, `arm_edit_small_narrow_full.log` (traces
+    `20260927-023150-run-suite-7ba6`, `20260927-023330-run-suite-cde5` — the two
+    agree per task to 0.1 s, so the residue reproduces).
+  e04's cause, from trace `20260926-060927-run-suite-526b`: the request named
+  the class (`Box`), the change lives in `Box.__init__`; the model addressed the
   noun it was given and re-typed the class correctly. **The address width
-  follows the noun in the request, not the locus of the change** — so clause 2
-  is ambiguous in exactly this case (outside the annotated symbol, inside the
-  addressed one), which is escalated as §10.6 rather than redefined here.
+  follows the noun in the request, not the locus of the change.** All 7 of those
+  lines were this and nothing else — the class came back byte-identical apart
+  from `__init__`, so the tool had been regenerating text it needed no part of.
+  Replaying that day's exact greedy text (`prompt_tokens 550`,
+  `completion_tokens 74`, address `box.py:Box`, captured with `--trace-full`)
+  through both modules side by side measures **7 → 0** at identical bytes: the
+  new summary reads `box.py:Box L4-L13 [1 of 10 lines rewritten]`, one line
+  because only the clamp line differs. The
+  narrowing is the fix for that, and it is a mechanism change, not a re-roll:
+  the shipped tool now writes a different set of bytes than the 2026-09-26 arm
+  did, which is why the arm was run again (contrast P4-follow-up in TODO, whose
+  fix changed only future retries and was deliberately NOT re-measured).
+  The **1 line that is left is a different fact**, and `--trace-full` names it:
+  e09 (unsolved) sent two patches. Its `TaskQueue.pop` block was verbatim the
+  text already in the file — narrowed to zero runs, nothing written, 0 lines
+  charged. Its `TaskQueue.push` block added a real `self._items.sort()`, a line
+  the request never asked for and the annotated symbol does not own. Running
+  that same text through both modules side by side measures the change precisely:
+  HEAD's `outside_lines` reports **2** for it (the whole addressed `push` span),
+  the tree reports **1** (the line the insertion lands after), the run's own
+  summary says `taskq.py:TaskQueue.push L8-L9 [1 of 2 lines rewritten]` and
+  `taskq.py:TaskQueue.pop L11-L14 [0 of 4 lines rewritten]`, and both write byte-
+  identical text. So the remaining line is the model
+  solving the requested behaviour in a member the request never named — content,
+  not bytes the tool re-emitted. It is the same §10.6 ambiguity, now with the
+  mechanism's contribution at zero and only the reading of "target symbol"
+  standing between 1 and 0.
   Cost, stated precisely: the patch arm is **2.7× faster** (6.0 vs 16.3 s/task)
   and decodes **3.6× fewer tokens** per generation (51 vs 184) at a *slightly
   higher* total token count (8169 vs 7845) — a patch prompt carries ~160 tokens
@@ -743,7 +782,7 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
    `flash power --selftest` 22 · `flash jobs --selftest` 20 ·
    `flash trace --selftest` 30 · `flash web --selftest` 9 ·
    `python -m flash.grammar --selftest` 47 · `python -m flash.patches --selftest`
-   37 · `python -m flash.debug --selftest` 55 ·
+   46 · `python -m flash.debug --selftest` 55 ·
    `python -m flash.tourney --selftest` 16 ·
    `python -m flash.confidence --selftest` 29 ·
    `python -m flash.sandbox --selftest` 34 ·
@@ -762,10 +801,10 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
    `python -m flash.debug --suite` 32 ·
    `python -m flash.patches --suite benchmarks/tasks/edit_tasks.jsonl` 60 ·
    `python benchmarks/m0_bakeoff.py --dry-run` 20 reference solutions.
-   **Total: 944 selftest / end-to-end / premise checks + 20 oracle
+   **Total: 953 selftest / end-to-end / premise checks + 20 oracle
    verifications (m0_bakeoff's 20 reference solutions, which are the only
    numbers in that 20 — the 6 ambient, 14 lora, 5 band and 5 router-portability
-   mutants are extra to both totals) = 964 green, offline.** Re-read by
+   mutants are extra to both totals) = 973 green, offline.** Re-read by
    `python benchmarks/battery_reread.py`, which holds one line per item above,
    requires the exact fraction each one prints, sums checks/oracle/mutants
    separately, and fails if the tree's sum moves off this page's number. It
@@ -775,6 +814,16 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
    last `n/n` on 2026-09-26 read lora_path_check's `14/14 mutants` as its
    checks and under-counted by 17. Both traps are why the counts below are the
    runs' own printed numbers.
+   (Updated 2026-09-27, after R-3.2's narrowing: **+9** in
+   `flash.patches --selftest` (37→46) — an over-wide address must land
+   byte-identical to the wide splice it replaces, a count-changing run before
+   another must still splice in the right place (this is the check that made the
+   top-down-splice mutant visible), a verbatim re-type must write nothing, and a
+   sibling the model DID change must still be spliced and must still score.
+   `--suite` stays 60/60 and the whole battery's total moves with this line alone
+   (964→**973**). Re-read from the tree the same day, on AC at 0.33 load/core:
+   `battery_reread` prints `checks 953  oracle 20  §6 total 973  mutants 30` with
+   all 27 lines on the OK list, and pyflakes reports 0 findings.)
    (Updated 2026-09-27, after R-9.2's sandbox: **+34** for
    `flash.sandbox --selftest` — the hostile-candidate vector in four refusal
    shapes, the ranking half of the clause (`1/2`, and a `GOT/WANT/ERROR` line for
@@ -950,3 +999,14 @@ the honest label is *a very good local loop with instrumentation*.
    symbol that owns the lines you need to change"), already in `PROTOCOL`; it
    held on 9/10 tasks, which is evidence for the rule rather than for reading
    (b). This changes an acceptance criterion, so it is the user's call.
+   *Update 2026-09-27, after `narrow` shipped: the ambiguity is smaller than it
+   looked, and the gate is still unmet for a reason that is NOT the ambiguity.
+   6 of the 7 lines were the tool regenerating an unchanged sibling, and that
+   shape no longer exists — the splice writes only the runs whose bytes differ.
+   Re-measured on the same 10 tasks: clause 2 is **1 line**, and it is e09's
+   model-written `self._items.sort()` inside `TaskQueue.push`, a member the
+   request never named, on a task the arm failed anyway. Reading (b) scores that
+   0; reading (a) scores 1. So the choice is now exactly "may a model solve the
+   requested behaviour by changing a sibling member?" — nothing about it depends
+   on the tool's width any more, and the mechanism's own contribution is 0 on
+   both readings. I have still not switched the gate to (b).*

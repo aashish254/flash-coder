@@ -279,17 +279,37 @@ Rules for this file:
       symbol's real nesting, and the bytes outside the addressed range are
       copied, not regenerated.
 - [x] [V] [offline] Selftest: an out-of-range or overlapping patch is refused.
-      `python -m flash.patches --selftest` → **37/37**, and the refusals are
+      `python -m flash.patches --selftest` → **46/46**, and the refusals are
       enumerated rather than sampled: unknown symbol (names what the file does
       define), ambiguous address (names both candidates), range past EOF, range
       running backwards, range straddling two symbols, overlapping patch, file
       not in the project, replacement that does not parse, replacement that
       loses the symbol it addressed. A voided set changes nothing, so a retry
       never repairs the tool's output instead of the model's change.
-      7 of the 37 drive the **loop's** patch arm with a scripted generator
+      7 of the 46 drive the **loop's** patch arm with a scripted generator
       (`--wire`): a refusal costs an attempt and reaches the retry as text, an
       accepted set reproduces the reference project, a patch on one module
       leaves its sibling byte-identical.
+- [x] [B] An address WIDER than the change is narrowed before it is written
+      (`narrow`, for clause 2's e04 shape). The applier diffs the owned block
+      against the replacement and splices only the runs whose bytes differ,
+      bottom-up, copying every other line of the block out of the file — so
+      `# edit: box.py :: Box` cannot re-emit a sibling method the change does
+      not live in. `outside_lines` now reports lines whose BYTES were
+      regenerated rather than lines inside the addressed span, and
+      `Applied.spans` keeps "never narrowed" (`None`) apart from "rewrote
+      nothing" (`()`) because those are different facts. Nine checks pin the
+      shape, three of them the ones a lazy version would skip: the narrowed
+      splice must land **byte-identical** to the wide one (a narrowing that
+      changed the file is a different edit than the one asked for), a
+      count-changing run must still land in the right place when another run
+      follows it (this is the check that made a top-down-splicing mutant
+      visible — the other eight were all line-count-preserving and every one of
+      them passed), and a sibling the model DID change must still be spliced and
+      must still score, because an audit that can only ever report zero is
+      worse than no audit. A verbatim re-type writes nothing at all.
+      Mutation-checked against this narrowing: **9 mutants, all caught**, tree
+      checksum-verified restored (`ac6e6831eeea`) after each.
 - [x] [B] 10-change suite (`benchmarks/tasks/edit_tasks.jsonl`).
       `benchmarks/gen_edit_tasks.py`: three projects (prose / shop / shift),
       ten requests, targets spanning a module function, a method, a
@@ -299,9 +319,11 @@ Rules for this file:
       prompt (so both arms read identical input), fails its test as seeded,
       passes on the reference patch, and that patch fits inside one symbol.
 - [ ] [V] [L] ≥ 8 changes solved in ≤ 1 attempt, and 0 edits touch lines outside
-      the target symbol's range. **Clause 1 MET, clause 2 NOT MET.**
-      Small tier (`Qwen2.5-Coder-7B-4bit`), greedy first attempt,
-      `--allow-big never`, 10 tasks, both arms on the same input:
+      the target symbol's range. **Clause 1 MET, clause 2 NOT MET at 1 line
+      (was 7) — the box stays open, and the line left is not the same kind of
+      line as the seven.**
+      2026-09-26, before `narrow`. Small tier (`Qwen2.5-Coder-7B-4bit`), greedy
+      first attempt, `--allow-big never`, 10 tasks, both arms on the same input:
       * **patches (`--edit`): 8/10 solved, all 8 on the first attempt**, 6.0 s/task,
         51 completion tokens per generation, 0 refusals, 0 whole-file rewrites,
         **7 lines touched outside the annotated symbol (gate 0)** —
@@ -318,7 +340,7 @@ Rules for this file:
       Both arms fail the same two tasks (e06 rounds tax with `round()` →
       banker's rounding; e09 keeps the wrong priority order), which puts those
       two on tier capability rather than protocol.
-      Clause 2's single cause is one task, and it is worth reading: e04's
+      Clause 2's single cause was one task, and it is worth reading: e04's
       request says "…clamped to 1 **when the Box is built**" and the change
       lives in `Box.__init__`; the model addressed `Box` — the noun in the
       request — and re-typed the whole class correctly (its exact output is in
@@ -328,11 +350,50 @@ Rules for this file:
       "the target symbol's range" ambiguous in exactly this case: the lines are
       outside the annotated symbol and inside the addressed one. Escalated as
       SPEC §10.6 rather than reworded here.
+      2026-09-27, re-measured after `narrow` shipped (this is a mechanism change
+      — the tool now writes a different set of bytes — so the old 7 no longer
+      describes what is installed, which is the opposite case from P4's
+      fix-future-retries-and-do-not-re-measure):
+      **8/10 solved, all 8 on the first attempt** (clause 1 still MET), 4.0 s/task,
+      0 refusals, 0 whole-file rewrites, **1 line outside the target symbol** —
+      `arm_edit_small_narrow.log`, and identically
+      `arm_edit_small_narrow_full.log` with `--trace-full` (traces
+      `…-7ba6` / `…-cde5`; per-task timings agree to 0.1 s, so the residue
+      reproduces rather than being one hot retry's luck).
+      The remaining line, from the model's own text: e09 (unsolved) sent two
+      patches. `TaskQueue.pop` came back **verbatim** — zero differing runs,
+      nothing written, zero charged — and `TaskQueue.push` gained a real
+      `self._items.sort()`, a line in a member the request never named.
+      Both halves of the 7 → 1 were then measured rather than inferred, by
+      replaying each day's captured greedy text through HEAD's module and the
+      tree's side by side:
+      * e04: **7 → 0** at identical bytes, `summary()` reading
+        `box.py:Box L4-L13 [1 of 10 lines rewritten]` — one line, because only
+        the clamp line differs. Same text on both days (`prompt_tokens 550`,
+        `completion_tokens 74`, address `box.py:Box`), so this is a matched
+        before/after on one model output, not two samples.
+      * e09: **2 → 1** (`taskq.py:TaskQueue.push L8-L9 [1 of 2 lines
+        rewritten]`, `taskq.py:TaskQueue.pop L11-L14 [0 of 4 lines rewritten]`).
+      HEAD charges the whole addressed span; the tree charges only the lines
+      whose bytes it wrote. What is left is therefore the model solving the
+      behaviour somewhere other than the annotated symbol — content, not
+      regeneration. Under §10.6's reading (b) that is a 0 and the
+      gate passes; the reading was not switched, so it does not.
 - [x] [B] Docs move together. SPEC R-3.2 → PARTIAL with both clauses and the
       measured numbers, SPEC §10.6 (annotated vs addressed symbol), PLAN
       §33.1's ACT sentence + Appendix A row, README's patch-protocol block,
       `flash/__init__.py` map. Re-verified against the tree: `--selftest` 37/37,
       `--suite` premise 60/60, README names both counts.
+- [x] [B] Docs move together for the narrowing. SPEC R-3.2's box (both clauses
+      re-measured, the mechanism named, §10.6's residue restated as a model
+      choice rather than a tool artifact), SPEC §10.6's update paragraph, SPEC §6
+      (`flash.patches --selftest` 37 → 46, total 964 → 973), PLAN §33.1's ACT
+      sentence + a new Appendix A row, README's ACT block + its stale "23 offline
+      vectors" corrected to the 27 listed, `flash/__init__.py` map.
+      Re-verified against the tree: `--selftest` **46/46**, `--suite` **60/60**,
+      `battery_reread` re-read the same day on AC at 0.33 load/core printing
+      `checks 953  oracle 20  §6 total 973  mutants 30` with all 27 lines OK,
+      pyflakes 0.
 - [x] [B] P4-follow-up — the GOT/WANT probe double-evaluated a stateful assert.
       `diagnose()` evaluated the whole condition and then evaluated each side
       AGAIN to print its values, so an assert whose condition mutates
