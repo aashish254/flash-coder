@@ -25,6 +25,11 @@ Plan: ../PLAN.md (v3.8). This package grows milestone by milestone:
                                      conversation and sandbox state, flushed per
                                      16 tokens so `flash resume` continues inside
                                      a task instead of restarting it)
+  §27.3/R-6.4: flash.train          (the weights leg of the flywheel: mine the
+                                     agent's own oracle-verified outcomes into a
+                                     train/valid dataset split by task id, fit
+                                     LoRA inside §34.3's budget, and regenerate a
+                                     suite from a dataset's own task ids)
   Phase-4: flash.web                (knowledge as a tool: fetch+sha1-cache+
                                      bge-ranked excerpts, §25a3, §33.9)
   M0b: flash.vision                 (screenshot -> HTML through the VLM)
@@ -32,7 +37,7 @@ Plan: ../PLAN.md (v3.8). This package grows milestone by milestone:
 Every subsystem ships an offline deterministic selftest:
   python -m flash.harness | flash.lsp | flash.power | flash.jobs | flash.trace
              | flash.grammar | flash.patches | flash.debug | flash.tourney
-             | flash.confidence | flash.checkpoint
+             | flash.confidence | flash.checkpoint | flash.train
   (flash.web's runs through `flash web --selftest`; it has no __main__.)
 """
 

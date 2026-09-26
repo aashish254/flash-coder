@@ -332,10 +332,50 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   4 000 replicates — the gap does not separate from zero, so no measurable
   signal is lost. The precision is part of the claim: at 10 positives a true
   gap of up to ~0.37 could hide here.*
-- **R-6.4 (OPEN)** One component MUST be shown to improve by learning, not by
-  editing (gate for §27 autopoiesis, G9).
+- **R-6.4 (OPEN — first arm measured, gate MISSED)** One component MUST be shown
+  to improve by learning, not by editing (gate for §27 autopoiesis, G9).
   Vector: a documented before/after on a frozen suite for skills, memory or
   weights — whichever lands first — with I-2's harness gate satisfied.
+  *Weights arm measured 2026-09-26 on m0 (20 tasks, AC, `--attempts 2`,
+  `--allow-big never`), the adapter fit on 34 verified rows over 12 tasks and
+  promoted at step 16 of 128 (best valid loss 0.2237):*
+
+  | arm | m0 solved | tier split | s/task |
+  |---|---|---|---|
+  | base `Qwen2.5-Coder-7B-Instruct-4bit` | 18/20 | 18 small, 2 shed | 7.0 |
+  | `+lora:v1` | **16/20, twice** | 16 small, 4 shed | 72.6 / 87.8 |
+  | `+lora:v1-shuffled` (control) | 19/20 | 19 small, 1 shed | 7.7 |
+
+  The gate misses on both halves of I-2: the trained arm does not beat the frozen
+  harness (−2 tasks) and it costs ~10x the seconds. The control — same shapes,
+  same rank, same config, values permuted inside each tensor — scores *higher*
+  than the trained adapter, so nothing in this measurement attributes to what was
+  learned rather than to an adapter being present. Two mechanisms, both measured
+  rather than assumed:
+
+  1. every extra failure in the trained arm is a **shed-tier** loss: it escalates
+     4 tasks where the base escalates 2, the §34.1 governor denies them on this
+     box, and shed-tier solves none. On the 16 tasks that did run the small tier
+     the trained arm is 16/16, exactly the base model's rate on its own 18;
+  2. after the answer ends the trained weights **degenerate into `!!!!`
+     repetition**, and mlx's `generate` is called with no stop list, so an
+     attempt burns its whole 1024-token budget at 15.6 tok/s (66s) to ship a 147
+     -token answer. That is a defect in the weights, not a cost of the adapter
+     path: the control decodes at the same rate and stops normally, and a
+     one-process probe of load time, time-to-first-token and steady rate found no
+     adapter-path cost at all (0.7–1.1s load, 202–286ms TTFT, 14–18 tok/s across
+     base, `v1` and both controls).
+
+  The in-distribution arm — "did it learn at all?",
+  `flash train --suite-from-dataset` on the 12 tasks the weights were fit on —
+  has **no headroom by construction**: the base model already solves 12/12 of
+  them, because the mining law (§27.3) admits only oracle-verified successes, and
+  those are tasks this router already passes. So no pass rate on this dataset can
+  rise. Closing R-6.4 needs rows the current tier *fails* — the store does hold
+  failed attempts followed by the oracle's complaint (12 of the 48 mined rows are
+  such a repair turn), but every one of them ends in a task this router
+  eventually passed — or a component with measured headroom: skills or memory
+  rather than weights.*
 
 ### G. PRODUCT SHELL
 
@@ -398,23 +438,28 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
 
 1. **Offline battery first** (seconds, no models, must be green before any live
    claim): `python -m flash.harness --selftest` 20 · `flash lsp-selftest` 14 ·
-   `flash power --selftest` 22 · `flash jobs --selftest` 14 ·
+   `flash power --selftest` 22 · `flash jobs --selftest` 20 ·
    `flash trace --selftest` 30 · `flash web --selftest` 9 ·
    `python -m flash.grammar --selftest` 47 · `python -m flash.patches --selftest`
    37 · `python -m flash.debug --selftest` 55 ·
    `python -m flash.tourney --selftest` 16 ·
    `python -m flash.confidence --selftest` 21 ·
    `python -m flash.checkpoint --selftest` 31 ·
+   `python -m flash.train --selftest` 36 ·
    `python benchmarks/trace_resume_check.py` 11 ·
    `python benchmarks/confidence_wiring_check.py` 30 ·
    `python benchmarks/subtle_premise_check.py` 52 ·
    `python benchmarks/p6_key_check.py` 13 ·
    `python benchmarks/checkpoint_resume_check.py` 35 ·
+   `python benchmarks/lora_path_check.py` 31 (+ 14 mutants) ·
    `python -m flash.debug --suite` 32 ·
    `python -m flash.patches --suite benchmarks/tasks/edit_tasks.jsonl` 60 ·
    `python benchmarks/m0_bakeoff.py --dry-run` 20 reference solutions.
-   **Total: 549 selftest / end-to-end / premise checks + 20 oracle
-   verifications = 569 green, offline** (re-read from the tree 2026-09-26 after
+   **Total: 622 selftest / end-to-end / premise checks + 20 oracle
+   verifications = 642 green, offline** (re-read from the tree 2026-09-26 after
+   R-6.4's offline half: +36 the dataset law and the slice loop, +31 the LoRA
+   path vector with its 14 mutants, and `jobs` 14→20 with the LoRA gate's
+   decision; before that 549, re-read after
    R-5.3: +31 checkpoint storage, +35 the real-`kill -9` recovery vector; before
    that 503, re-read after
    R-2.3: +21 confidence, +30 wiring, +52 seeded-suite premise, +13 key premise;
@@ -489,7 +534,8 @@ the honest label is *a very good local loop with instrumentation*.
 | Watts/task (G6 energy) | `powermetrics` needs sudo | tokens + seconds per task in the trace |
 | M16 24h chaos | needs a 24h window | offline kill/resume checks (11/11 suite-granular + 31/31 frame storage + 35/35 task-granular recovery, each with a real `kill -9`) |
 | M17 feel test | needs 10 developers | dogfood transcript discipline |
-| Phase-1/2 training, LoRA | hours of compute + AC idle windows | `jobs.py` gate shipped; experiment queued at P8 |
+| R-6.4's weights arm (first run measured) | the flywheel's own data law: the mined rows are tasks the current tier already solves, so a pass rate on them cannot rise (base 12/12 in-distribution). Not a compute or AC-idle shortage — a dataset whose negatives are what the router fails | a training pass whose rows are failures-with-repairs, or the gate re-aimed at skills/memory where headroom is measured |
+| Phase-1/2 training, LoRA | hours of compute + AC idle windows | `jobs.py` gate shipped and mutation-checked; one 48-step fit run end to end, paused/resumed under a real `kill -9` |
 
 ## 10. Judgment calls in this spec the user may want to overrule
 

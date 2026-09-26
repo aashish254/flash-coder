@@ -185,7 +185,38 @@ Vision is benchmarked once the text brain is picked (PLAN §M1–M2).
 .venv/bin/python -m flash.cli learn --check            # may it run right now? (exit 1 = refused)
 .venv/bin/python -m flash.cli learn                    # refit the router inside the 15-min budget
 .venv/bin/python -m flash.cli learn --status           # checkpoint: how far it got, what is next
-.venv/bin/python -m flash.cli learn --selftest         # 14 offline gate + resume checks
+.venv/bin/python -m flash.cli learn --selftest         # 20 offline gate + resume checks
+
+# R-6.4 §27.3 layer 3 — learn from the agent's own verified outcomes (LoRA on mlx-lm)
+# The data law is the product: only oracle-verified, closing attempts become rows, in
+# ChatML with a dangling generation header, and every id in a frozen scoring suite is
+# excluded from the training pool — counted, and proven by reading the written artifact
+# back rather than trusting a counter. Training runs inside the same idle+AC gate as the
+# router refit, in slices, so a `kill -9` between two slices resumes at the banked step.
+# Every checkpoint is measured on the valid split and the BEST one is promoted to the
+# adapter root, so `iters_done` (how far it trained) never equals `promoted_step` (which
+# weights shipped).
+.venv/bin/python -m flash.train --dataset --held-out benchmarks/tasks/m0_tasks.jsonl  # mine + split + write
+.venv/bin/python -m flash.train --dry-run --held-out benchmarks/tasks/m0_tasks.jsonl  # the counts, write nothing
+.venv/bin/python -m flash.train --suite-from-dataset --split train   # the in-distribution arm's suite
+.venv/bin/python -m flash.train --selftest             # 36 checks: the data law, the slices, the promote
+.venv/bin/python -m flash.cli learn --lora --adapter v1 --force      # fit under the gate (--force = AC only)
+.venv/bin/python -m flash.cli run-suite --tasks benchmarks/tasks/m0_tasks.jsonl \
+  --adapter benchmarks/results/adapters/v1             # score an arm that carries the adapter
+# The adapter directory a run names must hold weights: a name with no
+# adapters.safetensors raises instead of quietly running the base model, because a
+# before/after where both sides are the before is the most convincing wrong number
+# this project can print. Every ledger row says which model decided it
+# (`"small": "…-4bit+lora:v1"`, `"big"` never carries one).
+.venv/bin/python benchmarks/lora_shuffle_control.py    # build the control: same shapes, values permuted
+.venv/bin/python benchmarks/lora_path_check.py         # 31 checks + 14 mutants: gate, resume, leakage, identity, job name, arm denominator
+# MEASURED 2026-09-26, m0 (20 tasks, AC): base 18/20 · +lora:v1 16/20 (twice) · the
+# shuffled control 19/20. I-2's gate MISSED and is recorded as a negative in SPEC §5
+# R-6.4 and §9's register: the trained arm's extra losses are all shed-tier escalations
+# the governor denied, and its weights repeat '!!!!' past the end of the answer, so an
+# attempt decodes its full 1024-token budget for a 147-token answer (~10x seconds).
+# The in-distribution arm has no headroom by construction — the base model already
+# solves 12/12 of the tasks the rows were mined from.
 
 # §33.6/§33.7 observability, replay, resume — the trace session IS the snapshot
 .venv/bin/python -m flash.cli run-suite --trace-full   # also store exact prompts/outputs

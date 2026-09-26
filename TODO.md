@@ -524,10 +524,34 @@ Rules for this file:
 
 ## P8 — R-6.4 first learned self-improvement (G9) + LoRA
 
-- [ ] [B] LoRA experiment path inside `jobs.py`'s AC+idle gate.
+- [x] [B] LoRA experiment path inside `jobs.py`'s AC+idle gate. (`flash train`
+      mines the verified-outcome dataset behind a split law — train/valid by task
+      id, so no task straddles — and `flash learn --lora` fits and promotes an
+      adapter inside §34.3's budget, resumable, and raising rather than promoting
+      a fit that produced no weights. Vectors RUN: `flash.train --selftest` 36/36,
+      `benchmarks/lora_path_check.py` 31/31 with 14/14 mutants defeated,
+      `flash learn --selftest` 14→20 with the LoRA gate's decision, and a real
+      48-step fit taken end to end and paused/resumed under `kill -9`.)
 - [ ] [V] [L] Before/after on a frozen suite for one named component (skills,
       memory or weights — whichever lands first), I-2 gate satisfied: the changed
       component beats the frozen harness.
+      **Weights arm measured 2026-09-26 and the gate MISSES.** m0's 20 tasks, AC,
+      `--attempts 2`, `--allow-big never`: base **18/20** at 7.0 s/task,
+      `+lora:v1` **16/20 twice** (identical failure set) at 72.6 / 87.8 s/task,
+      shuffled-weight control **19/20** at 7.7 s/task — the control beats the
+      trained adapter, so the number attributes to nothing learned. Both halves
+      of I-2 miss: −2 tasks and ~10× the seconds. Mechanisms, measured not
+      assumed: every extra loss is **shed-tier** (4 escalations denied by §34.1
+      where base has 2; on the 16 tasks that did run the small tier the adapter
+      is 16/16), and after the answer ends the trained weights **degenerate into
+      `!!!!` repetition** with no stop list, so one attempt burns its full
+      1024-token budget at 15.6 tok/s. The adapter path itself is clean: load
+      0.7–1.1s, TTFT 202–286ms, 14–18 tok/s across base, `v1` and both controls.
+      **And the next arm cannot rise either**: §27.3's law admits only
+      oracle-verified *successes*, so the base model already solves 12/12 of the
+      12 tasks the weights were fit on — the in-distribution question has zero
+      headroom by construction. Closing R-6.4 needs rows the current tier *fails*
+      or a component with headroom (skills, memory).
 - [ ] [B] Docs move together.
 
 ## P9 — Product shell and adoption
