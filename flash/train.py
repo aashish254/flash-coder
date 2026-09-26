@@ -776,6 +776,13 @@ def run_selftest(verbose: bool = True) -> int:
               "v1" not in got, str(got))
         check("an id the suites cannot supply is reported, not skipped",
               missing == ["c1"], str(missing))
+        _, n2, _ = suite_from_dataset("train", dataset=ds, tasks_dir=td,
+                                      verbose=False)
+        check("writing into the directory it scans is not a feedback loop: a "
+              "second run reads its own output and produces the same file",
+              n2 == n and p.read_text().splitlines() == ["{\"id\": \"a1\", \"prompt\": \"p\"}",
+                                                          "{\"id\": \"a2\", \"prompt\": \"p\"}"],
+              f"{n2} row(s) on the second pass")
         pv, nv, missing_v = suite_from_dataset("valid", dataset=ds,
                                                tasks_dir=td, verbose=False)
         got_v = [json.loads(l)["id"] for l in pv.read_text().splitlines()]
