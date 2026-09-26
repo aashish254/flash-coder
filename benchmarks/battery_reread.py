@@ -44,6 +44,7 @@ BATTERY = [
     ("flash.sandbox --selftest", "-m flash.sandbox --selftest", 34, None, "checks"),
     ("flash.checkpoint --selftest", "-m flash.checkpoint --selftest", 31, None, "checks"),
     ("flash.train --selftest", "-m flash.train --selftest", 36, None, "checks"),
+    ("flash.graph --selftest", "-m flash.graph --selftest --mutants", 44, 12, "checks"),
     ("flash.ambient --selftest", "-m flash.ambient --selftest", 61, 6, "checks"),
     ("benchmarks/trace_resume_check.py", "benchmarks/trace_resume_check.py", 11, None, "checks"),
     ("benchmarks/confidence_wiring_check.py", "benchmarks/confidence_wiring_check.py", 35, None, "checks"),
@@ -63,7 +64,7 @@ BATTERY = [
      20, None, "oracle"),
 ]
 
-CLAIM = {"checks": 953, "oracle": 20, "mutants": 30}
+CLAIM = {"checks": 997, "oracle": 20, "mutants": 42}
 
 
 def run(argv: str) -> str:
@@ -73,9 +74,13 @@ def run(argv: str) -> str:
 
 
 def mutant_count(text: str) -> int:
-    """How many mutants a run says it defeated. Two house styles print this:
+    """How many mutants a run says it defeated. Three house styles print this:
     lora_path_check's `mutations: 14/14` summary line, and ambient's six
-    `OK MUTATION:` lines, which carry no fraction of their own."""
+    `OK MUTATION:` lines, which carry no fraction of their own. graph's sweep is
+    the second shape with lowercase `ok` markers *plus* a `12/12 caught`
+    summary, so the markers deliberately do not match its pattern — matching
+    both would count graph's mutants twice.
+    """
     best = 0
     for line in text.replace("\r", "\n").split("\n"):
         if not re.search(r"mutation|mutant|defeated", line, re.I):

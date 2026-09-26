@@ -1019,7 +1019,48 @@ here rather than folded into P6's confidence work.
 
 ## Backlog (OPEN, not scheduled; each needs ledger demand to earn a slot)
 
-- [ ] R-1.3 knowledge graph (`flash graph <symbol>` blast radius < 200ms)
+- [x] R-1.3 knowledge graph (`flash graph <symbol>` blast radius < 200ms)
+      *Run 2026-09-27, `python -m flash.graph --selftest --mutants` → **44/44 +
+      12/12 mutants**, and `python -m pyflakes flash/*.py benchmarks/*.py` → 0
+      findings. `flash/graph.py` is AST-only (no embedding, no vector store):
+      nodes are functions/classes/modules/module-level constants, edges are
+      calls/reads/imports/inheritance, and each edge carries the file, line and
+      source text that proves it plus the `via` label of the rule that bound it.
+      The clause's own repo answers in **0.1 ms** of the 200 ms budget, and that
+      is stated as a weakness rather than banked — five files cannot bound a
+      budget — so the same check also runs on a generated 401-file repo (5377
+      nodes, 10058 edges) where depth-3 blast costs **29–106 ms cold** across the
+      runs taken. Three judgement calls went the honest way and each has a named
+      mutant: an attribute name matching two symbols becomes **no edge** (but is
+      still counted in `blind_spots()`, so a hole cannot be silently dropped),
+      `json.dumps` and `list.append` are boundaries not holes, and parameters are
+      locals not callers. The 11th mutant is the one that justifies the instrument
+      size: it replaces the cached reverse index with a scan of every edge per hop,
+      which the budget check catches at 443–943 ms on 400 files and would NOT catch
+      on the fixtures repo, where the scan measured *faster* than the index
+      (0.08 ms vs 0.11 ms). That is why the wide repo's size is part of the gate.
+      Incremental `merge()` is checked by hash (re-extracts exactly the one changed
+      file; a second pass over the wide repo re-extracts nothing) and the shrink
+      guard is checked against its worst case — a scan of an empty directory may
+      not delete 5377 nodes. The LSP seam is wired, not stubbed: `live_upgrade`
+      asks jedi about this pass's own blind spots and reports what it settled
+      (measured 1 asked, 1 settled), deliberately outside the 200 ms clause — and
+      with no server answering it returns `no language server answered` rather than
+      raising, which is a check without a mutant because the sweep passes
+      `live=False` on purpose (twelve mutants cannot each start a server).
+      Writing the README is what found a real defect: the claim "the nearest
+      addresses are offered" had no witness, so pinning it meant trying a needle
+      like `Cart.` — whose last dotted component is the EMPTY string, a substring
+      of every symbol — and watching it offer five arbitrary nodes as neighbours.
+      That is the mirror image of the failure the absence answer exists to avoid,
+      now guarded in `nearest()` and covered from both directions (wrong list, and
+      no list invented).
+      Battery: `flash.graph --selftest` joins SPEC §6's re-read at 44 checks + 12
+      mutants, moving the tree's printed totals to 997 + 20 = **1017 green,
+      offline**, 42 mutants.*
+- [ ] R-1.3b feed the graph's subgraph into `loop.py`'s PERCEIVE context
+      (PLAN §28.2 step 3). The graph and its CLI answer ship; the agent does not
+      yet consult it unprompted.
 - [ ] R-1.4 second language for perception (choose from ledger evidence)
 - [ ] R-8.2 latent compute — adopt only on a measured ≥ 20% token saving
 - [ ] G6 watts/task (blocked: `powermetrics` needs sudo)

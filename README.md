@@ -109,7 +109,7 @@ Vision is benchmarked once the text brain is picked (PLAN §M1–M2).
 .venv/bin/python -m flash.harness --selftest        # 20 offline checks on the oracle
 .venv/bin/python benchmarks/m0_bakeoff.py --dry-run # 20/20 reference solutions pass
 
-# All 27 offline vectors in this file (26 check-summing + m0_bakeoff's oracle) in
+# All 28 offline vectors in this file (27 check-summing + m0_bakeoff's oracle) in
 # one command, summed from the fraction each run
 # PRINTS (never an exit code, never a phrase grep — see SPEC §6 for the two
 # capture traps that rule is there to prevent). Fails if the tree's total moves
@@ -123,6 +123,30 @@ Vision is benchmarked once the text brain is picked (PLAN §M1–M2).
 .venv/bin/python -m flash.cli refs total_cents --path benchmarks/fixtures
 .venv/bin/python -m flash.cli symbols --path benchmarks/fixtures          # whole tree (AST)
 .venv/bin/python -m flash.cli lsp-selftest                                # 14 offline checks
+
+# §28/R-1.3 knowledge graph — the AST-only answer to "what breaks if I change this?".
+# No embedding and no vector store: nodes are functions/classes/modules/constants, edges
+# are calls/reads/imports/inheritance, and every edge carries the line and source text
+# that proves it plus the rule that bound it. The honest part is the floor: a name that
+# matches two symbols becomes NO edge but is still COUNTED as a blind spot, so an empty
+# answer cannot read as a clean one, and a symbol the graph does not have is reported
+# ABSENT with the nearest addresses offered. `--live` asks the language server about this
+# pass's own blind spots (outside the <200 ms clause, on purpose). Re-scan by hash
+# re-extracts only changed files, and will not drop nodes for files the scan never
+# covered. Not yet wired: the loop does not consult this on its own (TODO R-1.3b).
+.venv/bin/python -m flash.cli graph bulk_discount_cents --path benchmarks/fixtures
+.venv/bin/python -m flash.cli graph Cart.subtotal_cents --path benchmarks/fixtures --depth 2 --json
+#   ...and the seam to the live server, which is slow on purpose (a server starts up) and
+#   therefore counted outside the budget: it settles the blind spots THIS pass reported.
+.venv/bin/python -m flash.cli graph bulk_discount_cents --path benchmarks/fixtures --live
+#   the two ways an answer can be thin, both said out loud: a symbol nobody reaches
+#   prints `0 symbol(s) reach it (nobody)` rather than nothing, and a symbol the graph
+#   does not have prints `symbol not in the graph` and exits 1 — with
+#   `no node named that; nearest addresses: …` when one shares text, e.g.
+#   `.venv/bin/python -m flash.cli graph Cart.subtot --path benchmarks/fixtures`.
+#   The trailing `?` line counts uses this pass could not place, so the number above it
+#   reads as a floor and not as a census.
+.venv/bin/python -m flash.graph --selftest --mutants   # 44 offline checks + 12 mutants
 
 # §33.1 ACT leg — symbol-precise edits: a change request is answered with patches that
 # name a SYMBOL, and the AST's own lines are what gets replaced. Everything outside the

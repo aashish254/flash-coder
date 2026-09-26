@@ -6,6 +6,15 @@ Plan: ../PLAN.md (v3.8). This package grows milestone by milestone:
       flash.decide + flash.cli      (System One decision fabric, PLAN §32)
   M2: flash.context + flash.lsp     (repo perception: skeleton, symbols, refs)
       flash.perceive                (one file's static diagnostics as an oracle)
+      §28/R-1.3: flash.graph         (the knowledge graph, AST-only and no vector
+                                     store: nodes are functions/classes/modules/
+                                     constants, every edge carries the line and
+                                     text that proves it plus the rule that bound
+                                     it; `flash graph <symbol>` names the callers a
+                                     change would break under the clause's 200 ms,
+                                     `merge()` re-extracts only changed files, and
+                                     `--live` lets the language server settle the
+                                     graph's own blind spots)
       flash.route                   (the cheapest tier that can solve this task)
       flash.harness                 (multi-WRITER: '# file:' -> file sets)
   M3: flash.ledger + flash.learn    (outcome flywheel + learned router)
@@ -58,7 +67,7 @@ Every subsystem ships an offline deterministic selftest:
   python -m flash.harness | flash.lsp | flash.power | flash.jobs | flash.trace
              | flash.grammar | flash.patches | flash.debug | flash.tourney
              | flash.confidence | flash.checkpoint | flash.train | flash.ambient
-             | flash.sandbox
+             | flash.sandbox | flash.graph
   (flash.web's runs through `flash web --selftest`; it has no __main__.)
 """
 

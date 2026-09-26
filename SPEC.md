@@ -84,10 +84,59 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   answerable, with the AST owning kinds and the server owning resolution.
   Vector: `flash find total_cents --path benchmarks/fixtures`,
   `flash refs …`, checks 3 and 9 of `lsp-selftest`.
-- **R-1.3 (OPEN)** The knowledge graph (PLAN §28) SHOULD supply architecture
+- **R-1.3 (SHIPPED)** The knowledge graph (PLAN §28) SHOULD supply architecture
   context (call/import graph, blast radius) alongside the LSP's live truth.
   Vector: a `flash graph <symbol>` answer that names the N callers a change
   would break, computed under 200ms for the fixtures repo.
+  *`flash/graph.py` builds it from AST alone — no embedding, no vector store.
+  Nodes are functions, classes, modules and module-level constants; edges are
+  calls, reads, imports and inheritance, and **every edge carries the file, line
+  and source text that proves it** plus the `via` label of the rule that bound it
+  (`own-scope`, `import-alias`, `enclosing-class`, `inherited`, `qualified-name`,
+  `unique-attribute`). A name that resolves to two symbols becomes no edge, but it
+  is **counted**: `blind_spots()` is the graph's honest floor, and
+  `external()` separates a real hole from a boundary like `json.dumps`.
+  `merge()` re-extracts only changed files and refuses to drop nodes for files a
+  scan never covered — the shrink guard is checked against the worst case, an
+  empty directory.
+  Vector, measured (`python -m flash.graph --selftest`, 2026-09-27): the fixtures
+  repo answers `flash graph bulk_discount_cents` in **0.1 ms** against the
+  clause's 200 ms; because five files are a thin instrument, the same check runs
+  against a generated **400-service-module repo** (401 files, 5377 nodes, 10058
+  edges) where a depth-3 blast radius costs **29–106 ms cold** across the runs
+  taken, after a 0.6–0.9 s build. **44/44 checks + 12/12 mutants.** Two of the
+  checks exist because this page made a claim the code had no witness for: an
+  ABSENT answer must name the addresses it DOES have once the needle shares text
+  (`Cart.subtot` → `cart.py::Cart.subtotal_cents`), and it must invent nothing for
+  a needle with no textual neighbour — which is how the `Cart.` defect was found,
+  since the empty name after the dot is a substring of every symbol and the answer
+  offered five arbitrary nodes as "nearest". Both directions are mutation-covered:
+  offering the wrong list, and the sweep's last mutant, which replaces the cached
+  reverse index with a scan of every edge per hop and requires the budget check to
+  notice; it does, 443–943 ms.
+  The clause's other half, "alongside the LSP's live truth", is wired inside the
+  graph rather than left as prose: `--live` hands `live_upgrade` this pass's OWN
+  blind spots and lets jedi settle them (measured 1 asked, 1 settled, `total_cents`
+  → 3 sites), timed outside the 200 ms clause on purpose, because a server has to
+  start up. I-4 holds by construction here: the answer path imports stdlib and
+  `flash.patches` only, `flash.lsp` is imported lazily inside `--live`, and a dead
+  server comes back as `no language server answered` instead of raising.
+  *One deviation from PLAN §28.3's route, stated rather than buried: Phase 1 said
+  "depend on Graphify directly (don't rebuild)". Graphify is real
+  (github.com/Graphify-Labs/graphify) but is not in this venv — `requirements.txt`
+  carries mlx-lm and python-lsp-server only — and the deterministic AST pass §28.1
+  describes was built in-repo (1614 lines, `ast` alone). The reason: R-1.3's vector
+  is an answer under 200 ms, and the four properties that make the plan's graph
+  worth having (provenance per edge, no vector store, incremental merge, shrink
+  guard) are each pinned by a check here, so the vector is met without adding an
+  extractor that runs code of its own. The place where comparing against Graphify
+  would actually decide something is §28.2 step 3's subgraph injection, and that is
+  the box this write-up leaves open (TODO R-1.3b) — the dependency question moves
+  there rather than being answered by silence.*
+  *What is NOT wired: `loop.py`'s PERCEIVE context does not inject the subgraph
+  yet (that is PLAN §28.2 step 3), so the answer ships as the CLI text and
+  `--json`, not as automatically-supplied context inside a run. Recorded rather
+  than glossed; the bookkeeping box is TODO's R-1.3b.*
 - **R-1.4 (OPEN)** Perception MUST extend to the second language of real work
   (TypeScript or SQL — pick by ledger evidence, not taste).
   Vector: R-1.1..1.2 equivalents pass on a fixture tree in that language.
@@ -788,6 +837,7 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
    `python -m flash.sandbox --selftest` 34 ·
    `python -m flash.checkpoint --selftest` 31 ·
    `python -m flash.train --selftest` 36 ·
+   `python -m flash.graph --selftest --mutants` 44 (+ 12 mutants) ·
    `python -m flash.ambient --selftest` 61 (+ 6 mutations) ·
    `python benchmarks/trace_resume_check.py` 11 ·
    `python benchmarks/confidence_wiring_check.py` 35 ·
@@ -801,10 +851,10 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
    `python -m flash.debug --suite` 32 ·
    `python -m flash.patches --suite benchmarks/tasks/edit_tasks.jsonl` 60 ·
    `python benchmarks/m0_bakeoff.py --dry-run` 20 reference solutions.
-   **Total: 953 selftest / end-to-end / premise checks + 20 oracle
+   **Total: 997 selftest / end-to-end / premise checks + 20 oracle
    verifications (m0_bakeoff's 20 reference solutions, which are the only
-   numbers in that 20 — the 6 ambient, 14 lora, 5 band and 5 router-portability
-   mutants are extra to both totals) = 973 green, offline.** Re-read by
+   numbers in that 20 — the 6 ambient, 14 lora, 5 band, 5 router-portability and
+   12 graph mutants are extra to both totals) = 1017 green, offline.** Re-read by
    `python benchmarks/battery_reread.py`, which holds one line per item above,
    requires the exact fraction each one prints, sums checks/oracle/mutants
    separately, and fails if the tree's sum moves off this page's number. It
@@ -814,6 +864,22 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
    last `n/n` on 2026-09-26 read lora_path_check's `14/14 mutants` as its
    checks and under-counted by 17. Both traps are why the counts below are the
    runs' own printed numbers.
+   (Updated 2026-09-27, after R-1.3's knowledge graph: **+44** for
+   `python -m flash.graph --selftest --mutants` — the clause's named answer (the
+   callers a change would break, with the file/line/text that proves each one) plus
+   the two halves that are easy to fake and are therefore checked as refusals: a
+   name matching two symbols must become NO edge, and yet still be counted in
+   `blind_spots()`; and a symbol the graph does not have must come back ABSENT with
+   nearest addresses, never as an empty answer that reads clean. Its 12 mutants join
+   the extra-to-both-totals sum (**30 → 42**), so **973 → 1017**, moving this line
+   alone. Re-read from the tree the same day: `battery_reread` prints
+   `checks 997  oracle 20  §6 total 1017  mutants 42` with all 28 lines on the OK
+   list (raw witness: `benchmarks/results/battery_reread_graph_20260927.log`, the
+   first §6 re-read whose full output is kept), pyflakes 0 findings. One battery
+   detail worth writing down, because it nearly double-counted: graph prints its
+   mutant sweep with lowercase `ok MUTATION:` markers *and* a `12/12 caught`
+   summary, and `mutant_count` counts only the summary — had it matched ambient's
+   uppercase marker shape as well, graph would have entered the sum twice.)
    (Updated 2026-09-27, after R-3.2's narrowing: **+9** in
    `flash.patches --selftest` (37→46) — an over-wide address must land
    byte-identical to the wide splice it replaces, a count-changing run before

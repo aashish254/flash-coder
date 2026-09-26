@@ -1053,6 +1053,13 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--file", default=None, help="alias for the positional file")
     p.set_defaults(fn=cmd_symbols)
 
+    from flash import graph as _graph      # R-1.3/PLAN §28: flags defined once
+    p = sub.add_parser("graph", help="§28/R-1.3: knowledge-graph blast radius — "
+                                   "which symbols a change reaches, each with the "
+                                   "call/import edge that proves it, under 200ms")
+    _graph.add_flags(p)
+    p.set_defaults(fn=_graph.dispatch)
+
     p = sub.add_parser("lsp-selftest", help="§33.1: deterministic perception checks")
     p.set_defaults(fn=cmd_lsp_selftest)
 
