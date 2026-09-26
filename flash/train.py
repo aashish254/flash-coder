@@ -48,6 +48,7 @@ ROOT = Path(__file__).resolve().parent.parent
 TRACE_DIR = ROOT / "benchmarks" / "results" / "traces"
 DATASET_DIR = ROOT / "benchmarks" / "results" / "datasets"
 ADAPTER_DIR = ROOT / "benchmarks" / "results" / "adapters"
+TASK_DIR = ROOT / "benchmarks" / "tasks"
 
 OPEN = "<" + "|im_start|" + ">"
 CLOSE = "<" + "|im_end|" + ">"
@@ -534,6 +535,59 @@ def build_dataset(held_out=None, out_name: str = "ledger-verified",
     return rows, stats, out
 
 
+def suite_from_dataset(split: str = "train", dataset=None, tasks_dir=None,
+                       out=None, verbose: bool = True):
+    """A tasks file holding exactly the ids one side of the dataset was built from.
+
+    R-6.4's held-out arm answers "did it transfer?". This answers the question
+    before it: "did it learn at all?" — run the adapter on the tasks it was
+    trained on and compare with the base model. The answer means memory, not
+    generalisation, and saying so is the whole point of putting it behind a flag
+    instead of a default; an in-distribution pass rate must never be reachable
+    by forgetting to pass `--tasks`.
+
+    `dataset` is the built dataset directory and `tasks_dir` the suite folder,
+    each resolved from the tree at call time — the ids come from that
+    directory's manifest, so a check can aim this at a temp dataset without
+    touching the shipped one.
+    """
+    ds = Path(dataset or (DATASET_DIR / "ledger-verified"))
+    tdir = Path(tasks_dir or TASK_DIR)
+    man = json.loads((ds / "manifest.json").read_text())
+    ids = set(man[f"{split}_task_ids"])
+    if not ids:
+        raise ValueError(f"manifest at {ds} names no '{split}' tasks")
+    out = Path(out or (tdir / f"r64_{split}_from_dataset.jsonl"))
+    rows, seen, dupes = [], {i for i in ids}, 0
+    for path in sorted(tdir.glob("*.jsonl")):
+        for line in path.read_text().splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                t = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if t.get("id") in ids:
+                # An id lives in more than one suite file, and a duplicated row
+                # would silently double that task's weight in the pass rate — so
+                # this file holds one row per id, in first-file order.
+                if t["id"] not in seen:
+                    dupes += 1
+                    continue
+                rows.append(t)
+                seen.discard(t["id"])
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text("\n".join(json.dumps(t) for t in rows) + "\n")
+    if verbose:
+        print(f"[train] {split} side: {len(rows)} task(s)"
+              + (f", {dupes} duplicate row(s) dropped" if dupes else "")
+              + f" -> {out}"
+              + (f"; {len(seen)} id(s) appear in no suite file: {sorted(seen)}"
+                 if seen else ""))
+    return out, len(rows), sorted(seen)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--dataset", action="store_true",
@@ -543,11 +597,24 @@ def main() -> int:
     ap.add_argument("--held-out", action="append", default=[],
                     help="a tasks file whose ids MUST NOT be trained on "
                          "(repeatable). The frozen suite R-6.4 scores on.")
-    ap.add_argument("--out", default="ledger-verified")
+    ap.add_argument("--out", default="ledger-verified",
+                    help="the dataset directory name under benchmarks/results/"
+                         "datasets: written by --dataset, read by "
+                         "--suite-from-dataset")
+    ap.add_argument("--suite-from-dataset", action="store_true",
+                    help="write the tasks file for one side of the built dataset "
+                         "(the in-distribution arm: memory, not transfer)")
+    ap.add_argument("--split", default="train", choices=("train", "valid"))
+    ap.add_argument("--suite-out", default=None)
     ap.add_argument("--selftest", action="store_true")
     a = ap.parse_args()
     if a.selftest:
         return run_selftest()
+    if a.suite_from_dataset:
+        _, n, missing = suite_from_dataset(split=a.split,
+                                           dataset=DATASET_DIR / a.out,
+                                           out=a.suite_out)
+        return 0 if n and not missing else 1
     if a.dataset or a.dry_run:
         _, _, out = build_dataset(held_out=a.held_out, out_name=a.out,
                                   dry_run=a.dry_run)
@@ -681,6 +748,53 @@ def run_selftest(verbose: bool = True) -> int:
         check("the manifest names the tasks on each side of the split",
               sorted(man["train_task_ids"] + man["valid_task_ids"])
               == ["a1", "a2", "c1"], str(man["train_task_ids"]))
+
+    # the in-distribution suite generator: it reads the artifact's manifest, so
+    # a wrong rule hands an arm a file that silently over- or under-weights
+    # tasks — and an id it cannot supply must be said out loud
+    with tempfile.TemporaryDirectory() as d:
+        ds = Path(d) / "ds"
+        ds.mkdir()
+        ids = ["a1", "a2", "c1"]
+        (ds / "manifest.json").write_text(json.dumps(
+            {"train_task_ids": ids, "valid_task_ids": ["v1", "v2"]}))
+        td = Path(d) / "tasks"
+        td.mkdir()
+        # a1 lives in two suite files; c1 in none; v1 is the other side's id
+        (td / "1_suite.jsonl").write_text("\n".join(
+            json.dumps({"id": i, "prompt": "p"}) for i in ["a1", "a2", "v1"]) + "\n")
+        (td / "2_suite.jsonl").write_text(
+            json.dumps({"id": "a1", "prompt": "p"}) + "\n")
+        p, n, missing = suite_from_dataset("train", dataset=ds, tasks_dir=td,
+                                           verbose=False)
+        got = [json.loads(l)["id"] for l in p.read_text().splitlines()]
+        check("the in-distribution file holds one row per trained id, so a task "
+              "that lives in two suite files cannot count twice",
+              sorted(got) == ["a1", "a2"] and len(got) == len(set(got)) == n,
+              f"{got} n={n}")
+        check("the other side of the split stays out of the in-distribution file",
+              "v1" not in got, str(got))
+        check("an id the suites cannot supply is reported, not skipped",
+              missing == ["c1"], str(missing))
+        pv, nv, missing_v = suite_from_dataset("valid", dataset=ds,
+                                               tasks_dir=td, verbose=False)
+        got_v = [json.loads(l)["id"] for l in pv.read_text().splitlines()]
+        check("the valid side names its own tasks and nothing the train side had",
+              got_v == ["v1"] and nv == 1 and not set(got_v) & set(got),
+              f"{got_v} {missing_v}")
+        check("a valid side with an id no suite file supplies is reported too — "
+              "--suite-from-dataset exits nonzero on either gap",
+              nv == 1 and missing_v == ["v2"], str(missing_v))
+        (ds / "manifest.json").write_text(json.dumps(
+            {"train_task_ids": [], "valid_task_ids": ["v1"]}))
+        try:
+            suite_from_dataset("train", dataset=ds, tasks_dir=td, verbose=False)
+            raised = ""
+        except ValueError as exc:
+            raised = str(exc)
+        check("an empty side of the split raises rather than writing a suite "
+              "whose every row would be a task nobody trained on",
+              "names no 'train' tasks" in raised, raised)
     # three shapes that must never become training rows, each isolated so its
     # own counter is the evidence
     with tempfile.TemporaryDirectory() as d:

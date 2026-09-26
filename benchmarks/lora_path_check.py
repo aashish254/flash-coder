@@ -1,12 +1,14 @@
 """R-6.4's offline vector: the LoRA arm's gate, its resume position, the
-leakage rule and the adapter's identity — each one mutation-checked.
+leakage rule, the adapter's identity, the job's own name and the arm's own
+denominator — each one mutation-checked.
 
 `flash.train --selftest` covers the data law and the slice loop; `flash.jobs
 --selftest` covers the gate's decision. Neither covers the path BETWEEN them,
 which is where R-6.4's claim lives: a job that is gated, resumable,
-leakage-free and loadable under a name that means what it says. Each of those
-four properties is inverted by one line, and every inversion produces a
-plausible-looking number rather than an error:
+leakage-free and loadable under a name that means what it says, reached by a
+command that names the right job, scored on a suite built from the artifact.
+Each of those properties is inverted by one line, and every inversion produces
+a plausible-looking number rather than an error:
 
   gate      a training run that starts while the user is typing costs battery
             and warm memory, and the machine's idle state decides — not the
@@ -22,13 +24,20 @@ plausible-looking number rather than an error:
             where both sides are the before. So a named adapter with no weights
             raises, the resolved directory must reach `mlx_lm.load`, and the
             label must name the adapter that actually ran.
+  cli       two different jobs sharing one checkpoint name means one destroys
+            the other's staleness watermark and reads its step count as its own
+            resume position;
+  suite     the in-distribution arm asks "did it learn at all?", and its
+            denominator comes from the shipped manifest: a task that lives in
+            two suite files must not count twice, and the valid side must not
+            be handed the train ids.
 
-Nine of these guarantees are then broken on purpose: the same group run against
-a mutated copy of `jobs.py`, `train.py` or `loop.py` must fail exactly the
-checks that mutation defeats. A gate no mutation trips is not a gate; where a
-mutation legitimately breaks a neighbour (opening the gate also removes the
-refusal a resume check depends on), the cascade is named in the expectation so
-it is stated rather than hidden.
+Fourteen of these guarantees are then broken on purpose: the same group run
+against a mutated copy of `jobs.py`, `train.py`, `loop.py` or `cli.py` must fail
+exactly the checks that mutation defeats. A gate no mutation trips is not a
+gate; where a mutation legitimately breaks a neighbour (opening the gate also
+removes the refusal a resume check depends on), the cascade is named in the
+expectation so it is stated rather than hidden.
 
 Not covered, stated so: the real mlx calls (`default_slice`/`valid_loss`) need
 Metal and belong to the live arm, and the shipped-dataset checks require
@@ -57,6 +66,7 @@ for _p in (str(ROOT), str(ROOT / "benchmarks")):
 from flash import cli, jobs, loop, power, train as tr                 # noqa: E402
 
 DATASET = ROOT / "benchmarks" / "results" / "datasets" / "ledger-verified"
+TASKS = ROOT / "benchmarks" / "tasks"
 # The suites R-6.4 may score on: SPEC §6.2's frozen list. None of their ids may
 # appear in a training row.
 EVAL_SUITES = ("m0_tasks.jsonl", "m2_tasks.jsonl", "mw_tasks.jsonl",
@@ -429,6 +439,86 @@ def group_leak(TR, tmp: Path) -> list:
     return res
 
 
+# ------------------------------------------- the in-distribution arm's suite
+
+def group_suite(TR, tmp: Path) -> list:
+    """The file the "did it learn at all?" arm runs on, built from the artifact.
+
+    `suite_from_dataset` reads the shipped manifest, so this group is the only
+    place the arm's denominator is checked against the weights that actually
+    exist. Two inversions produce a plausible wrong number here: a task that
+    lives in two suite files counting twice, and a split key that silently
+    hands the valid side the train ids.
+
+    The mutant copies live under a temp directory, so their own `ROOT` points
+    away from the tree: the two module constants are aimed back at it, which is
+    also what lets the group run the real `main()` without a subprocess.
+    """
+    res: list = []
+    real = (TR.TASK_DIR, TR.DATASET_DIR)
+    TR.TASK_DIR, TR.DATASET_DIR = TASKS, DATASET.parent
+    try:
+        return _suite_checks(TR, tmp, res)
+    finally:
+        TR.TASK_DIR, TR.DATASET_DIR = real
+
+
+def _suite_checks(TR, tmp: Path, res: list) -> list:
+    if not (DATASET / "manifest.json").exists():
+        ck(res, "suite: no shipped dataset, so the in-distribution arm has no "
+                "denominator", False,
+           f"build it first: python -m flash.train --dataset --held-out "
+           f"<frozen suite> (expected {DATASET})")
+        return res
+    man = json.loads((DATASET / "manifest.json").read_text())
+    tr_ids, va_ids = set(man["train_task_ids"]), set(man["valid_task_ids"])
+    ev: set = set()
+    for name in EVAL_SUITES:
+        ev |= suite_ids(name)
+
+    def build(split):
+        out = tmp / f"{split}_from_dataset.jsonl"
+        _, n, missing = TR.suite_from_dataset(split, out=out, verbose=False)
+        rows = [json.loads(l) for l in out.read_text().splitlines() if l.strip()]
+        return out, n, missing, {r["id"] for r in rows}, rows
+
+    _, n, missing, got, rows = build("train")
+    ck(res, "suite: the train side is one row per trained id — a task that lives "
+            "in two suite files cannot count twice in the pass rate",
+       not missing and n == len(rows) == len(got) == len(tr_ids) and got == tr_ids,
+       f"n={n} rows={len(rows)} ids={len(got)} trained={len(tr_ids)} "
+       f"missing={missing}")
+    ck(res, "suite: the in-distribution file holds zero ids from any frozen "
+            "scoring suite, so a high number there can only mean memory",
+       len(got) == len(tr_ids) and not (got & ev),
+       f"{len(got)} of {len(tr_ids)} id(s), overlap={sorted(got & ev)}")
+    _, nv, _, vgot, vrows = build("valid")
+    ck(res, "suite: the two sides of the split name different tasks, so "
+            "'it memorised the train rows' is not readable as 'it memorised "
+            "validation'",
+       nv == len(vrows) == len(vgot) == len(va_ids) and vgot == va_ids
+       and not (vgot & got), f"valid n={nv} ids={len(vgot)} shared={sorted(vgot & got)}")
+
+    import contextlib
+    import io
+    out = tmp / "cli_side.jsonl"
+    argv = sys.argv
+    buf = io.StringIO()
+    sys.argv = ["flash.train", "--suite-from-dataset", "--split", "train",
+                "--suite-out", str(out)]
+    try:
+        with contextlib.redirect_stdout(buf):
+            rc = TR.main()
+    finally:
+        sys.argv = argv
+    printed = buf.getvalue()
+    ck(res, "suite: `flash train --suite-from-dataset` is a real command — it "
+            "runs, reports its own count and exits 0",
+       rc == 0 and out.exists() and f"{len(tr_ids)} task(s)" in printed,
+       f"rc={rc} out={out.exists()} {printed.strip()[:90]}")
+    return res
+
+
 # ------------------------------------------------------ the adapter's identity
 
 class FakeMlx:
@@ -590,6 +680,44 @@ MUTATIONS = (
      '    kind = args.kind or ("lora-fit" if args.lora else "router-fit")\n',
      '    kind = args.kind or "router-fit"\n',
      ("`flash learn --lora` writes its checkpoint under its own job name",)),
+    ("the in-distribution file counts a task once per suite file it appears in",
+     "suite", "flash/train.py",
+     '                if t["id"] not in seen:\n                    dupes += 1\n'
+     '                    continue\n',
+     '                if False:\n                    dupes += 1\n'
+     '                    continue\n',
+     ("suite: the train side is one row per trained id — a task that lives "
+      "in two suite files cannot count twice in the pass rate",
+      # the valid side is built by the same loop, so its count inflates too
+      "suite: the two sides of the split name different tasks, so "
+      "'it memorised the train rows' is not readable as 'it memorised "
+      "validation'",
+      # and the command's own printed count is the row count, which is what
+      # the CLI check reads
+      "suite: `flash train --suite-from-dataset` is a real command — it "
+      "runs, reports its own count and exits 0")),
+    ("the valid side is handed the train ids", "suite", "flash/train.py",
+     '    ids = set(man[f"{split}_task_ids"])\n',
+     '    ids = set(man["train_task_ids"])\n',
+     ("suite: the two sides of the split name different tasks, so "
+      "'it memorised the train rows' is not readable as 'it memorised "
+      "validation'",)),
+    ("the file holds every task EXCEPT the trained ones", "suite",
+     "flash/train.py", '            if t.get("id") in ids:\n',
+     '            if t.get("id") not in ids:\n',
+     ("suite: the train side is one row per trained id — a task that lives "
+      "in two suite files cannot count twice in the pass rate",
+      "suite: the in-distribution file holds zero ids from any frozen "
+      "scoring suite, so a high number there can only mean memory",
+      "suite: the two sides of the split name different tasks, so "
+      "'it memorised the train rows' is not readable as 'it memorised "
+      "validation'",
+      "suite: `flash train --suite-from-dataset` is a real command — it "
+      "runs, reports its own count and exits 0")),
+    ("--suite-from-dataset is parsed but never dispatched", "suite",
+     "flash/train.py", '    if a.suite_from_dataset:\n', '    if False:\n',
+     ("suite: `flash train --suite-from-dataset` is a real command — it "
+      "runs, reports its own count and exits 0",)),
 )
 
 
@@ -602,6 +730,8 @@ def run_group(name: str, mods: dict, tmp: Path, jobs_mut=None, train_mut=None):
         return group_leak(mods["train"], tmp)
     if name == "cli":
         return group_cli(mods["cli"], tmp)
+    if name == "suite":
+        return group_suite(mods["train"], tmp)
     return group_identity(mods["loop"], tmp)
 
 
@@ -619,7 +749,7 @@ def main() -> int:
     mods = {"jobs": jobs, "train": tr, "loop": loop, "cli": cli}
     results: list = []
     with tempfile.TemporaryDirectory() as d:
-        for g in ("gate", "kill", "leak", "identity", "cli"):
+        for g in ("gate", "kill", "leak", "identity", "cli", "suite"):
             results += run_group(g, mods, Path(d) / g)
     w = max(len(n) for n, _, _ in results)
     for name, ok, detail in results:
