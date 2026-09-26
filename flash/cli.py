@@ -301,7 +301,7 @@ def _run_suite(params: dict, sid: str | None = None) -> int:
     task_end record, so an interrupted run resumes at the next unfinished
     task without re-running (or re-billing) the ones already done.
     """
-    from flash import trace
+    from flash import checkpoint, trace
     from flash.harness import load_tasks
     from flash.loop import solve_routed
     import flash.loop as loop
@@ -322,11 +322,18 @@ def _run_suite(params: dict, sid: str | None = None) -> int:
     done = trace.positions(sid) if sid else {}
     if sid:
         trace.attach(sid, cmd="run-suite", params=params)
+        # R-5.3: the session's own frame is the task-level snapshot. Naming it
+        # here, before the first line prints, is what lets the notice tell the
+        # user which task a resume will CONTINUE rather than only restart.
+        checkpoint.arm(sid)
+        left = checkpoint.pending(sid)
         print(f"[trace] resuming {sid} — {len(done)} task(s) already settled, "
-              f"{len(tasks) - len([t for t in tasks if t['id'] in done])} to go",
+              f"{len(tasks) - len([t for t in tasks if t['id'] in done])} to go"
+              + (f"; task {left} is mid-flight and resumes inside" if left else ""),
               flush=True)
     else:
         sid = trace.open_session("run-suite", cmd="run-suite", params=params)
+        checkpoint.arm(sid)
         print(f"[trace] session {sid} — interrupt me anytime, then: "
               f"flash resume {sid}", flush=True)
 
@@ -435,6 +442,10 @@ def _run_suite(params: dict, sid: str | None = None) -> int:
                         attempts=r.n_attempts, seconds=r.seconds, routed=routed,
                         hidden_ok=hid,
                         **_patch_fields(r), **_tour_fields(r), **_conf_fields(r))
+            # Only now is the task's history in the trace, so only now may its
+            # frame go: clearing it before the record lands would turn a kill in
+            # that window into a task that restarts from nothing.
+            checkpoint.finish()
             solved += r.solved
             small_n += tier == "small"
             big_n += tier == "big"
@@ -448,10 +459,19 @@ def _run_suite(params: dict, sid: str | None = None) -> int:
                   f"({r.seconds}s)" + _patch_note(r) + _tour_note(r) + _conf_note(r),
                   flush=True)
     except KeyboardInterrupt:
+        left = checkpoint.pending(sid)
         print(f"\ninterrupted after {ran} task(s). {len(done) + ran} of {len(tasks)} "
-              f"are settled; nothing written to the ledger is lost.\n"
-              f"  continue:  flash resume {sid}", flush=True)
+              f"are settled; nothing written to the ledger is lost."
+              + (f"\n  task {left} was mid-generation: its partial answer and its "
+                 f"sandbox state are checkpointed, so the resume continues it"
+                 if left else "")
+              + f"\n  continue:  flash resume {sid}", flush=True)
         return 130
+    finally:
+        # Recovery is armed per suite, never per process: leaving it armed would
+        # let a later command in the same interpreter write a dead session's
+        # frame. Disarm runs on every exit, including the interrupt above.
+        checkpoint.disarm()
     n = len(tasks)
     trace.close_session(solved=solved, tasks=n, ran=ran)
     print(f"\nsolved {solved}/{n}   small-tier {small_n}, escalated {big_n}   "

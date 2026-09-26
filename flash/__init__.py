@@ -20,6 +20,11 @@ Plan: ../PLAN.md (v3.8). This package grows milestone by milestone:
   §34.2: flash.confidence           (prospective confidence from verification
                                      evidence: static + coverage + hash-seed
                                      reruns + edge probes, `--confidence`)
+  §33.7/R-5.3: flash.checkpoint     (task-granular recovery: the in-flight
+                                     generation's text, token ids, retry
+                                     conversation and sandbox state, flushed per
+                                     16 tokens so `flash resume` continues inside
+                                     a task instead of restarting it)
   Phase-4: flash.web                (knowledge as a tool: fetch+sha1-cache+
                                      bge-ranked excerpts, §25a3, §33.9)
   M0b: flash.vision                 (screenshot -> HTML through the VLM)
@@ -27,6 +32,7 @@ Plan: ../PLAN.md (v3.8). This package grows milestone by milestone:
 Every subsystem ships an offline deterministic selftest:
   python -m flash.harness | flash.lsp | flash.power | flash.jobs | flash.trace
              | flash.grammar | flash.patches | flash.debug | flash.tourney
+             | flash.confidence | flash.checkpoint
   (flash.web's runs through `flash web --selftest`; it has no __main__.)
 """
 

@@ -195,6 +195,34 @@ Vision is benchmarked once the text brain is picked (PLAN §M1–M2).
 .venv/bin/python -m flash.cli trace --selftest         # 30 offline store/replay checks
 .venv/bin/python benchmarks/trace_resume_check.py      # 11 checks: interrupt -> resume, no re-billing
 
+# R-5.3 task-granular recovery — a kill inside a task resumes INSIDE the task
+# §33.7 made an interrupted suite resumable, which left a gap exactly one task
+# wide: the generation in flight was thrown away and the task restarted from
+# attempt 0. flash/checkpoint.py closes it. While a suite is armed, every
+# decoded token of the in-flight generation is folded into a frame keyed by
+# (task, arm, stage, attempt) and flushed every 16 tokens through a temp+fsync+
+# rename, together with the retry conversation and the multi-file `merged` union
+# — so a resume prefills the text a dead process already paid for, restores the
+# attempts it already settled, and never re-runs an arm the dead run exhausted.
+# A `flash run` (no session armed) stays on mlx_lm.generate, byte for byte.
+.venv/bin/python -m flash.cli resume                   # names the mid-flight task it continues
+.venv/bin/python -m flash.checkpoint --selftest        # 31 checks: identity, flush, atomicity under real kill -9
+.venv/bin/python benchmarks/checkpoint_resume_check.py # 35 checks: kill -9 a live run-suite, resume it, only the span continues
+.venv/bin/python benchmarks/live_checkpoint_arm.py --tasks 3   # LIVE: kill -9 a real 7B mid-decode, resume, diff vs a control run
+# measured 2026-09-26, offline with the model scripted and everything else real:
+# the resume's prompt began at the dead run's last durable 64 characters and
+# decoded only the remaining 125 of 189; the killed task settled at attempts=1;
+# a span killed TWICE settled at attempts=1 carrying 128 characters from two dead
+# processes; the multi-file task passed only because the dead run's file union
+# came back; a big-tier kill skipped the small tier the dead run had exhausted.
+# Live, same day, 7B on AC: the kill landed 3.5s in with 16 tokens durable, the
+# resumed attempt produced a byte-identical answer (prompt_tokens 94 vs the
+# control's 78 — grown by exactly those 16) in 455ms where the cold run spent
+# 960ms decoding the same 22 tokens, the ledger agreeing at task granularity
+# (1.3s resumed vs 1.8s cold, one row per task across the kill and its resume),
+# and the untouched tasks changed nothing. The arm prints that comparison itself:
+# it re-runs the same argv with no kill and sha1-compares every answer.
+
 # clean build: no unused imports, no shadowed definitions, no dead assignments
 .venv/bin/python -m pyflakes flash/*.py benchmarks/*.py   # 0 findings (tasks/*_test.py are
                                                           # program fragments by design - the

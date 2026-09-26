@@ -31,9 +31,9 @@ scripted generator, so the wiring is proven without charging a model.
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 
-from flash import trace
+from flash import checkpoint, trace
 from flash.harness import Score, extract_code, score
 from flash.perceive import format_errors, static_check
 
@@ -158,12 +158,17 @@ def score_candidate(code: str, test: str, timeout: int = 15) -> Score:
 
 
 def run(model, tokenizer, task: dict, requested_k: int = 3,
-        max_tokens: int = 1024, width: int = 4, temp: float = TEMP) -> Result:
+        max_tokens: int = 1024, width: int = 4, temp: float = TEMP,
+        stage: str = "small") -> Result:
     """Fire up to `k` candidates at one task and let the oracle pick.
 
     Stops at the first candidate that passes — a task the greedy answer already
     solves costs one generation, exactly what the single attempt cost, so the
     arm is only ever more expensive on tasks the plain attempt would have lost.
+
+    R-5.3: the candidate list IS this arm's state, so a resumed run picks up at
+    the candidate that was in flight with every already-scored candidate in
+    hand — a kill after candidate 1 does not buy candidate 0's generation again.
     """
     from flash import loop as loop_mod    # late: loop imports us in its policy
 
@@ -172,7 +177,17 @@ def run(model, tokenizer, task: dict, requested_k: int = 3,
     res = Result(task_id=task["id"], solved=False, adopted=-1,
                  requested_k=requested_k, k=k, width=width, why=why)
     messages = [{"role": "user", "content": task["prompt"]}]
-    for i in range(k):
+    start = 0
+    f = checkpoint.owns(task["id"], "tourney", stage)
+    if f is not None:
+        start = f.attempt
+        res.candidates = [Candidate(**d) for d in f.done]
+    for i in range(start, k):
+        # The candidate index is this arm's attempt index: `_generate` keys its
+        # span on (task, attempt), and a candidate IS a tournament attempt.
+        checkpoint.begin(task["id"], "tourney", stage, i, messages=messages,
+                         max_tokens=max_tokens,
+                         done=[asdict(c) for c in res.candidates])
         g0 = time.perf_counter()
         # candidate 0 greedy, the rest sampled with a per-candidate seed: the
         # seeds are what makes them different ANSWERS rather than one answer
@@ -190,6 +205,7 @@ def run(model, tokenizer, task: dict, requested_k: int = 3,
         if s.ok:
             res.solved, res.adopted = True, i
             break
+    # Nothing passing leaves adopted=-1, which is what `surfaced` then ranks.
     res.seconds = round(time.perf_counter() - t0, 1)
     trace.event("tournament", task_id=task["id"], requested_k=requested_k,
                 k=k, width=width, solved=res.solved, adopted=res.adopted,

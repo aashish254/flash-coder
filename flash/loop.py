@@ -8,11 +8,11 @@ the loop itself, before any fancy planning exists.
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 
 from flash.harness import diagnose, extract_code
 from flash.perceive import format_errors, static_check
-from flash import trace
+from flash import checkpoint, trace
 
 FIX_TEMPLATE = (
     "Your previous code failed its tests.\n\n```python\n{code}\n```\n\n"
@@ -103,6 +103,7 @@ def _generate(model, tokenizer, messages: list[dict], max_tokens: int,
               contract=None) -> str:
     from mlx_lm import generate
     from mlx_lm.sample_utils import make_sampler
+    from flash import checkpoint
     prompt = tokenizer.apply_chat_template(messages, tokenize=False,
                                            add_generation_prompt=True)
     # attempt 1 greedy (deterministic); retries sample — otherwise feedback
@@ -122,12 +123,46 @@ def _generate(model, tokenizer, messages: list[dict], max_tokens: int,
     if contract is not None:
         from flash.grammar import ConstrainedSampler
         guard = ConstrainedSampler(contract, tokenizer)
+    # R-5.3: this is the one place a dead run's work comes back. `resume` folds
+    # whatever the killed process had already decoded into the prompt, so the
+    # continuation is conditioned on that text and never re-decodes it; the ids
+    # are replayed into the mask so the DFA stands where the kill left it.
+    cont = checkpoint.resume(task_id, attempt, prompt, temp=temp, seed=seed,
+                             contract=None if contract is None else
+                             {"mode": contract.mode,
+                              "names": list(contract.names)})
+    # (prefix to prefill, the whole answer text already decoded, its token cost)
+    carried, resumed = ("", 0) if cont is None else (cont[1], cont[2])
+    if cont is not None:
+        prompt = cont[0]
+        max_tokens = max(int(max_tokens) - cont[2], 0)
+        if guard is not None:
+            guard.consume(checkpoint.pending_ids(task_id, attempt))
+    span = checkpoint.active(task_id, attempt) is not None
     t0 = time.perf_counter()
-    out = generate(model, tokenizer, prompt=prompt, max_tokens=max_tokens,
-                   verbose=False, sampler=sampler,
-                   logits_processors=[guard] if guard else None)
+    # A checkpointed span streams, because a recovery that only writes its
+    # checkpoint when the answer is finished has nothing to recover. Unarmed,
+    # this stays on mlx's `generate` — which is a loop over `stream_generate`
+    # concatenating `response.text` (mlx_lm/generate.py), so the two paths
+    # cannot disagree on bytes; only the armed run pays the per-token hook.
+    if not span or max_tokens == 0:
+        out = (generate(model, tokenizer, prompt=prompt, max_tokens=max_tokens,
+                        verbose=False, sampler=sampler,
+                        logits_processors=[guard] if guard else None)
+               if max_tokens else "")
+    else:
+        from mlx_lm import stream_generate
+        out = ""
+        for r in stream_generate(model, tokenizer, prompt=prompt,
+                                 max_tokens=max_tokens, sampler=sampler,
+                                 logits_processors=[guard] if guard else None):
+            out += r.text
+            checkpoint.note(r.token, r.text, t0)
+    if span:
+        checkpoint.fold(task_id, attempt)
     if guard is not None:
         out = out + guard.finish()     # deterministic repair of a cut block
+    out = carried + out
     trace.event("generate", task_id=task_id or None, attempt=attempt, temp=temp,
                 max_tokens=max_tokens, ms=round((time.perf_counter() - t0) * 1000),
                 prompt_tokens=trace.n_tokens(tokenizer, prompt),
@@ -135,6 +170,8 @@ def _generate(model, tokenizer, messages: list[dict], max_tokens: int,
                 constrained=guard is not None,
                 mask_steps=guard.steps if guard else None,
                 mask_breaches=guard.illegal_picks if guard else None,
+                resumed_tokens=resumed or None,
+                checkpointed=span or None,
                 prompt=prompt if trace.CAPTURE else None,
                 output=out if trace.CAPTURE else None)
     return out
@@ -222,7 +259,7 @@ def _debug_feedback(task: dict, code: str, merged: dict[str, str],
 
 
 def _solve_edits(model, tokenizer, task: dict, max_attempts: int,
-                 max_tokens: int) -> SolveResult:
+                 max_tokens: int, stage: str = "small") -> SolveResult:
     """R-3.2's ACT leg: answer a change request with patches, not files.
 
     The workspace is state, exactly like the multi-file loop's `merged` dict:
@@ -240,10 +277,26 @@ def _solve_edits(model, tokenizer, task: dict, max_attempts: int,
     workspace = dict(task["files"])
     messages = [{"role": "user", "content": edit_prompt(task)}]
     code = ""
-    for attempt_i in range(max_attempts):
+    start = 0
+    f = checkpoint.owns(task["id"], "edits", stage)
+    if f is not None:
+        # The patched workspace is the expensive part of this arm — an accepted
+        # patch set is a project, and rebuilding it means re-generating the
+        # attempt that made it.
+        start = f.attempt
+        messages = list(f.messages) or messages
+        res.attempts = [Attempt(**d) for d in f.done]
+        workspace = dict((f.state or {}).get("workspace") or workspace)
+        code = f.state.get("code") or ""
+    for attempt_i in range(start, max_attempts):
+        checkpoint.begin(task["id"], "edits", stage, attempt_i,
+                         messages=messages, max_tokens=max_tokens,
+                         state={"workspace": workspace, "code": code},
+                         done=[asdict(a) for a in res.attempts])
         out = _generate(model, tokenizer, messages, max_tokens,
                         temp=0.0 if attempt_i == 0 else 0.7, seed=attempt_i,
                         task_id=task["id"], attempt=attempt_i)
+
         vt0 = time.perf_counter()
         before = dict(workspace)
         patches = parse_patches(out)
@@ -302,9 +355,11 @@ def solve(model, tokenizer, task: dict, max_attempts: int = 3,
           max_tokens: int = 1024,
           constrain: bool | None = None,
           debug: bool | None = None,
-          edit: bool | None = None) -> SolveResult:
+          edit: bool | None = None,
+          stage: str = "small") -> SolveResult:
     if (EDIT if edit is None else edit) and task.get("edit"):
-        return _solve_edits(model, tokenizer, task, max_attempts, max_tokens)
+        return _solve_edits(model, tokenizer, task, max_attempts, max_tokens,
+                            stage=stage)
     if task.get("edit"):
         task = dict(task, prompt=task["prompt"] + "\n\n" + WHOLE_FILE_PROTOCOL)
     if task.get("multi"):               # multi-file answers are 2x+ longer;
@@ -316,12 +371,35 @@ def solve(model, tokenizer, task: dict, max_attempts: int = 3,
     expected: list[str] | None = None            # multi: file set from attempt 1
     merged: dict[str, str] = {}                  # multi: per-file persistent state
     repair: list[str] | None = None              # multi: files a retry must fix
-    for attempt_i in range(max_attempts):
+    # R-5.3: if a suite adopted this arm's frame, the dead run's attempts are
+    # already paid for — their verdicts, the conversation they built and the
+    # multi-file union all come back off it, and the chain restarts at the
+    # attempt that was in flight instead of at attempt 0.
+    start = 0
+    f = checkpoint.owns(task["id"], "chain", stage)
+    if f is not None:
+        start = f.attempt
+        messages = list(f.messages) or messages
+        res.attempts = [Attempt(**d) for d in f.done]
+        st = f.state or {}
+        merged = dict(st.get("merged") or {})
+        expected, repair = st.get("expected"), st.get("repair")
+        code = st.get("code") or ""
+    for attempt_i in range(start, max_attempts):
+        # The boundary write is what makes a between-attempt kill cheap: it
+        # names the attempt about to start, so everything before it is settled
+        # work the resume reads back rather than re-decodes.
+        checkpoint.begin(task["id"], "chain", stage, attempt_i,
+                         messages=messages, max_tokens=max_tokens,
+                         state={"merged": merged, "expected": expected,
+                                "repair": repair, "code": code},
+                         done=[asdict(a) for a in res.attempts])
         out = _generate(model, tokenizer, messages, max_tokens,
                         temp=0.0 if attempt_i == 0 else 0.7, seed=attempt_i,
                         task_id=task["id"], attempt=attempt_i,
                         contract=_contract_for(task, expected, repair,
                                                constrain))
+
         vt0 = time.perf_counter()
         kind = "test"
         if task.get("multi"):                       # M2: coordinated file set
@@ -406,7 +484,7 @@ def solve(model, tokenizer, task: dict, max_attempts: int = 3,
 
 
 def _tourney_arm(model, tokenizer, task: dict, requested_k: int,
-                 width: int, max_tokens: int) -> SolveResult:
+                 width: int, max_tokens: int, stage: str = "small") -> SolveResult:
     """R-3.3's small tier: k independent candidates, oracle-picked, shaped like
     a SolveResult so the policy, the ledger and `resume` need no special case.
 
@@ -416,7 +494,7 @@ def _tourney_arm(model, tokenizer, task: dict, requested_k: int,
     """
     from flash import tourney
     tr = tourney.run(model, tokenizer, task, requested_k=requested_k,
-                     max_tokens=max_tokens, width=width)
+                     max_tokens=max_tokens, width=width, stage=stage)
     res = SolveResult(task_id=tr.task_id, solved=tr.solved,
                       seconds=tr.seconds, tournament=tr.fields())
     for c in tr.candidates:
@@ -560,6 +638,12 @@ def solve_routed(small_repo: str, big_repo: str, task: dict, root,
     from flash.route import route_task, tier_name
 
     task = enrich_task(task, root, max_chars)
+    # R-5.3: adopt whatever the dead session left on THIS task before any arm
+    # runs, so the chain/patch/tournament below sees a resumed span instead of
+    # starting a cold one. A frame naming another task is left on disk alone:
+    # its own task will pick it up when the loop reaches it.
+    if checkpoint.armed():
+        checkpoint.handoff(checkpoint.session(), task["id"])
     entry = {"task_id": task["id"], "prompt": task["prompt"][:300],
              "ctx": bool(task.get("context")),
              "small": small_repo.split("/")[-1], "big": big_repo.split("/")[-1]}
@@ -623,7 +707,8 @@ def solve_routed(small_repo: str, big_repo: str, task: dict, root,
             # repair budget a reactive path would still have left (mw4 needed a
             # 3rd attempt: syntax fixed on 2, one-char semantic bug on 3).
             extra = 1 if task.get("multi") else 0
-            r = solve(model, tok, task, big_attempts + extra, max_tokens)
+            r = solve(model, tok, task, big_attempts + extra, max_tokens,
+                      stage="big")
             del model, tok
             mx.clear_cache()
             tier = "big" if r.solved else "failed"
@@ -635,9 +720,23 @@ def solve_routed(small_repo: str, big_repo: str, task: dict, root,
                            "seconds": r.seconds})
             return r, tier, routed
 
-    r_small = (_tourney_arm(model, tok, task, tournament, caps.tournament_width,
-                            max_tokens)
-               if tour_ok else solve(model, tok, task, small_attempts, max_tokens))
+    # R-5.3, the part that is not about tokens: a frame that names the big tier
+    # means the dead run had ALREADY exhausted the small one. Re-running the
+    # small tier would spend the generations the checkpoint exists to avoid —
+    # and, since one session holds one frame, it would overwrite the very state
+    # the big tier resumes from. So the escalation is taken as settled.
+    f = checkpoint.current()
+    if f is not None and f.task_id == task["id"] and f.stage == "big":
+        entry["resumed"] = "big"
+        r_small = SolveResult(task_id=task["id"], solved=False)
+        trace.event("resume", task_id=task["id"], stage="big",
+                    reason="the dead run had already failed the small tier")
+    else:
+        r_small = (_tourney_arm(model, tok, task, tournament,
+                                caps.tournament_width, max_tokens, stage="small")
+                   if tour_ok else
+                   solve(model, tok, task, small_attempts, max_tokens,
+                         stage="small"))
     entry.update(tournament_fields(r_small))
     if r_small.solved:
         with_conf(r_small)
@@ -663,7 +762,10 @@ def solve_routed(small_repo: str, big_repo: str, task: dict, root,
     trace.event("escalation", task_id=task["id"], denied=False, tier="big",
                 reason=f"small failed after {r_small.n_attempts} attempt(s)")
     model, tok = load(big_repo)
-    r_big = solve(model, tok, task, big_attempts, max_tokens)
+    # stage="big" is not decoration: the frame identity is (task, arm, stage,
+    # attempt), and a big tier that labels itself small both clobbers the small
+    # tier's frame and makes the `resumed == "big"` skip above unreachable.
+    r_big = solve(model, tok, task, big_attempts, max_tokens, stage="big")
     del model, tok
     mx.clear_cache()
     r_big.attempts = r_small.attempts + r_big.attempts   # full audit trail

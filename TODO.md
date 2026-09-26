@@ -468,15 +468,59 @@ Rules for this file:
 
 ## P7 — R-5.3 task-granular recovery → R-5.4 M16 chaos
 
-- [ ] [B] Checkpoint in-flight task: partial generation + sandbox state.
-- [ ] [V] [offline] Kill/resume check extended to mid-task (`--resume` does not
-      regenerate attempt 1 of the interrupted task).
-- [ ] [V] [L] Real `kill -9` between two tokens of a live `run-suite`, then
-      `flash resume` → in-flight task completes.
+- [x] [B] Checkpoint in-flight task: partial generation + sandbox state.
+      **Built 2026-09-26 as `flash/checkpoint.py`** — one frame per armed session
+      keyed by (task, arm, stage, attempt), holding the chat-templated prompt,
+      the pending and cumulative decoded text, the token ids (for R-4.2's mask
+      replay), the sampler settings, the retry conversation and the caller's
+      sandbox state (`merged` file union, targeted-repair list); flushed every
+      16 tokens through temp+fsync+rename, with `arm()` sweeping the orphaned
+      temps a kill between write and rename leaves. `flash.resume` adopts the
+      frame only when it names the task being solved. 31/31 offline checks,
+      including two real `kill -9` races (0 torn reads in ~35k parent reads).
+- [x] [V] [offline] Kill/resume check extended to mid-task (`--resume` does not
+      regenerate attempt 1 of the interrupted task). **Ran 2026-09-26:
+      `benchmarks/checkpoint_resume_check.py` 35/35**, seven scenarios, each a
+      real SIGKILL on a real `flash run-suite` child resumed by a fresh process
+      with only the model scripted — mid-generation, repeat kill inside one span,
+      mid-chain, multi-file sandbox union, tournament candidate, big tier,
+      inertness. Measured: the resume's prompt begins at the dead run's last
+      durable 64 characters and decodes only the remaining 125 of 189; the killed
+      task settles `attempts=1`. Stable over five consecutive clean runs (the
+      fifth is its line in the P7 docs re-read below), and
+      deleting the carried text fails 15 of the 35 (mutation-checked).
+- [x] [V] [L] Real `kill -9` between two tokens of a live `run-suite`, then
+      `flash resume` → in-flight task completes. **Ran 2026-09-26**
+      (`benchmarks/live_checkpoint_arm.py`, 7B small tier, m0's first 3 tasks,
+      AC maximum-performance, `--allow-big never`; log
+      `benchmarks/results/p7/live_arm_7b_kill_resume.log`). The signal landed
+      3.5s in, inside t01's attempt 0, 16 tokens / 62 characters durable;
+      `flash resume` settled it `solved=True attempts=1 tier=small`, suite 3/3
+      in 15s. The arm then runs the same argv with no kill and prints both
+      sessions from their own records: all three answers **byte-identical**
+      (sha1, `--trace-full`), t01 `completion_tokens 22/22`, `prompt_tokens 94
+      vs 78` — grown by exactly the 16 carried tokens — 455ms of decode against
+      the control's 960ms, and the ledgers agreeing at task granularity (1.3s
+      resumed vs 1.8s cold, one row per task across the kill and its resume);
+      t02/t03 show `resumed=None` and cost the same in both runs. Run twice:
+      the earlier pass printed 456ms against a 968ms control.
 - [ ] [V] [L] M16: 24h window with random kills, memory pressure, network loss,
       thermal load → 0 data loss, every session closed-or-resumable, no torn
       ledger lines. *(Needs a scheduled 24h window — see SPEC §9.)*
-- [ ] [B] Docs move together.
+- [x] [B] Docs move together. **Moved 2026-09-26:** SPEC R-5.3 → SHIPPED (the
+      offline paragraph carries the 31/31 + 35/35, the seven scenarios, the
+      64-carried/125-of-189 measurement, the 15-of-35 mutation and the two
+      defects the vector found, then a "Not covered, stated so" clause and the
+      live arm's numbers), SPEC §6's battery re-read from the tree **503 → 569
+      green** (checkpoint storage 31, recovery vector 35) with each command
+      named, SPEC §9's M16 interim now reading "11/11 suite-granular + 31/31
+      frame storage + 35/35 task-granular recovery", README's R-5.3 command
+      block (`resume`, `checkpoint --selftest`, the two check scripts, the live
+      arm), `flash/__init__.py`'s module map and selftest list, PLAN §33.7's
+      status paragraph and an Appendix A row. §6 also gained the capture trap
+      this re-read hit: a grep for "checks passed" drops `grammar` 47 and
+      `debug` 55, which print a bare fraction, so the first pass collected 214
+      of 316 and looked like a clean run while missing 102 checks.
 
 ## P8 — R-6.4 first learned self-improvement (G9) + LoRA
 

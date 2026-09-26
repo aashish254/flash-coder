@@ -254,11 +254,49 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   granularity, resume without re-billing settled work, and store its own
   parameters.
   Vector: `benchmarks/trace_resume_check.py` 11/11.
-- **R-5.3 (OPEN)** Recovery MUST reach task granularity: a partial generation
+- **R-5.3 (SHIPPED)** Recovery MUST reach task granularity: a partial generation
   and the sandbox state of the in-flight task are checkpointed, so SIGKILL
   mid-task resumes inside the task.
   Vector: `kill -9` a live `run-suite` between two tokens, `flash resume`, and
   the in-flight task completes without regenerating its first attempt.
+  *Offline 2026-09-26: `python -m flash.checkpoint --selftest` 31/31 (frame
+  identity, flush cadence, atomic durability under two real `kill -9` races —
+  0 torn reads in 35k parent reads) and
+  `python benchmarks/checkpoint_resume_check.py` **35/35**, seven scenarios, each
+  a real SIGKILL on a real `flash run-suite` child resumed by a fresh process
+  with only the model scripted: mid-generation, repeat-kill (two crashes in one
+  span), mid-chain, multi-file sandbox union, tournament candidate, big tier,
+  inertness. Measured, not asserted: the resume's prompt carried the dead run's
+  last durable 64 characters and decoded only the remaining 125 of 189; the
+  killed task settled with `attempts=1`, and the repeat-kill span settled with
+  one attempt after three processes. Stable over five consecutive clean runs
+  (the fifth is this requirement's line in the §6 battery re-read below);
+  deleting the carried text from the resume fails 15 of the 35, so the gates
+  have teeth. Two defects were found BY the vector: the reactive escalation
+  labelled its big-tier frame `small` (which made the "skip the exhausted small
+  tier" branch unreachable), and a second kill inside one generation carried
+  only its own newest fragment, losing the first — `flash.checkpoint`'s
+  composition check now pins the cumulative contract.*
+  Not covered, stated so: the patch arm (R-3.2) shares the begin/owns/restore
+  shape but is not killed separately; R-4.2's mask replay is rebuilt from
+  checkpointed ids and checked at the DFA level only (`grammar --selftest`);
+  R-5.4's 24h gate stays open (§9).
+  *Live 2026-09-26 (`benchmarks/live_checkpoint_arm.py`, 7B small tier, m0's
+  first 3 tasks, AC maximum-performance, `--allow-big never`, log
+  `benchmarks/results/p7/live_arm_7b_kill_resume.log`): `kill -9` landed 3.5s
+  into the run, inside t01's attempt 0, with 16 tokens / 62 characters durable;
+  `flash resume` settled it `solved=True attempts=1 tier=small` and the whole
+  suite 3/3 in 15s. The arm then runs the same argv with no kill and prints the
+  two sessions side by side from their own records: the resumed answer is
+  **byte-identical** to the control's (sha1 over `--trace-full` outputs, all
+  three tasks), `completion_tokens 22/22`, `prompt_tokens 94 vs 78` — the prompt
+  grew by exactly the 16 tokens the checkpoint carried — and that attempt decoded
+  in **455ms against the control's 960ms**. At task granularity the ledger
+  agrees: the resumed t01 records 1.3s where the control's cold t01 records 1.8s,
+  and the killed-plus-resumed session leaves exactly one row per task, so nothing
+  was double-billed. t02/t03 are untouched (`resumed=None`, their spans cost the
+  same in both runs), so the recovery costs the rest of the suite nothing.
+  Run twice that day; the earlier one printed 456ms against a 968ms control.*
 - **R-5.4 (OPEN)** A 24h chaos run MUST end with zero data loss and every
   session resumable (gate M16).
   Vector: random kills, memory pressure, network loss and thermal load for 24h;
@@ -366,15 +404,19 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
    37 · `python -m flash.debug --selftest` 55 ·
    `python -m flash.tourney --selftest` 16 ·
    `python -m flash.confidence --selftest` 21 ·
+   `python -m flash.checkpoint --selftest` 31 ·
    `python benchmarks/trace_resume_check.py` 11 ·
    `python benchmarks/confidence_wiring_check.py` 30 ·
    `python benchmarks/subtle_premise_check.py` 52 ·
    `python benchmarks/p6_key_check.py` 13 ·
+   `python benchmarks/checkpoint_resume_check.py` 35 ·
    `python -m flash.debug --suite` 32 ·
    `python -m flash.patches --suite benchmarks/tasks/edit_tasks.jsonl` 60 ·
    `python benchmarks/m0_bakeoff.py --dry-run` 20 reference solutions.
-   **Total: 483 selftest / end-to-end / premise checks + 20 oracle
-   verifications = 503 green, offline** (re-read from the tree 2026-09-26 after
+   **Total: 549 selftest / end-to-end / premise checks + 20 oracle
+   verifications = 569 green, offline** (re-read from the tree 2026-09-26 after
+   R-5.3: +31 checkpoint storage, +35 the real-`kill -9` recovery vector; before
+   that 503, re-read after
    R-2.3: +21 confidence, +30 wiring, +52 seeded-suite premise, +13 key premise;
    before that 387, after R-3.3: harness 12→20 with the `score()` ranking checks
    and the new `tourney` line; and before that 202, when the oracle and the patch
@@ -389,6 +431,11 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
    nothing — 9 checks silently dropped from a re-read that trusted its own exit
    code. Re-reads here must check the printed count, not `rc`. Guarded
    2026-09-26; every other battery already ran under both forms.)
+   (A re-read that greps for "checks passed" silently drops two lines: `grammar`
+   and `debug` print a bare `47/47` / `55/55`. The 2026-09-26 re-read first
+   collected 214 from twelve commands because those two matched nothing and read
+   as blank rather than as failures — the same class of hole as `web`'s, reached
+   from the capture side instead of the exit-code side.)
 1b. **Clean build** (no warnings accepted): `python -m pyflakes flash/*.py
    benchmarks/*.py` → **0 findings**. `benchmarks/tasks/` is out of that scope
    on purpose — a `*_test.py` there is a program *fragment* (`count_tasks`, the
@@ -440,7 +487,7 @@ the honest label is *a very good local loop with instrumentation*.
 | Speculative decoding on the brain (R-8.1) | the draft-verify path faults the Metal command buffer on the 30B MoE target, with a vocabulary-matched draft and at two batch sizes; and on the dense target where it does run it is 40% slower | an upstream mlx/Metal fix plus a re-run, or a draft small enough that verification is not the bottleneck — G5 then needs a different mechanism |
 | §34.1 16GB co-residency arm | this box is 32GB, single-user | profiles + shed evidence on battery |
 | Watts/task (G6 energy) | `powermetrics` needs sudo | tokens + seconds per task in the trace |
-| M16 24h chaos | needs a 24h window | offline kill/resume checks (11/11) |
+| M16 24h chaos | needs a 24h window | offline kill/resume checks (11/11 suite-granular + 31/31 frame storage + 35/35 task-granular recovery, each with a real `kill -9`) |
 | M17 feel test | needs 10 developers | dogfood transcript discipline |
 | Phase-1/2 training, LoRA | hours of compute + AC idle windows | `jobs.py` gate shipped; experiment queued at P8 |
 

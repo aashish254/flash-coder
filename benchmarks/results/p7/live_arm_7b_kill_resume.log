@@ -1,0 +1,40 @@
+[arm] profile=maximum-performance ac=no shed signal (ac=True, battery=64.0, mem-free=87.0, load/core=0.25) width=4
+[arm] session 20260926-162036-run-suite-7851 live
+[arm] KILLED mid-generation: task=t01_reverse_words arm=chain stage=small attempt=0 decoded=16 tokens kept=62 chars (frame seq=3)
+[arm] kill landed 3.5s into the run
+  [    SMALL] t01_reverse_words      solved=True attempts=1 (1.3s)
+
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]
+Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 2589.25it/s]
+  [    SMALL] t02_two_sum            solved=True attempts=1 (3.1s)
+
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]
+Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 1801.85it/s]
+  [    SMALL] t03_is_palindrome      solved=True attempts=1 (2.4s)
+
+solved 3/3   small-tier 3, escalated 0   total 7s (avg 2.3s/task)
+[trace] flash trace show 20260926-162036-run-suite-7851
+
+[arm] === what the t01_reverse_words attempt 0 span cost, per process ===
+  dead process: 16 tokens decoded, 62 characters durable at its last flush
+  generate (attempt 0): ms=455 prompt_tokens=94 completion_tokens=22 checkpointed=True resumed_tokens=16
+  the resume's prompt IS the cold prompt plus the dead text: True (366 + 62 chars → 428 chars handed to mlx)
+  answer tokens: 22 total, 16 carried in over the prompt, 6 actually decoded this time in 455ms — a cold restart of this attempt decodes all 22 again
+[arm] === the session's task_end records ===
+  t01_reverse_words          solved=True tier=small attempts=1
+  t02_two_sum                solved=True tier=small attempts=1
+  t03_is_palindrome          solved=True tier=small attempts=1
+[arm] frame left behind after the resumed run: none
+[arm] resume exit=0 total wall 15s
+
+[arm] VERDICT: the in-flight task resumed INSIDE its span
+
+[arm] === control run (no kill), same argv ===
+[arm] control session 20260926-162051-run-suite-d277 closed rc=0
+
+task                 answer-sha1  attempts   task s killed|control   span ms killed|control   tokens completion|prompt|resumed
+t01_reverse_words    True        1/1       1.3s|1.8s      455|960   completion=22/22 prompt=94/78 resumed=16
+t02_two_sum          True        1/1       3.1s|3.1s      2308|2317   completion=64/64 prompt=72/72 resumed=None
+t03_is_palindrome    True        1/1       2.4s|2.4s      1537|1608   completion=39/39 prompt=65/65 resumed=None
+
+[arm] one ledger row per task across the kill and its resume (the killed process wrote no task_end): 3 tasks in the resumed session, 3 in the control
