@@ -83,6 +83,10 @@ class SolveResult:
     solved: bool
     attempts: list[Attempt] = field(default_factory=list)
     seconds: float = 0.0
+    # R-3.3: the flash.tourney.Result behind this run when the tournament arm
+    # replaced the small-tier chain, else None. The CLI reads it for the ledger
+    # and the suite line, so the candidate table survives the return trip.
+    tournament: "object | None" = None
 
     @property
     def n_attempts(self) -> int:
@@ -397,6 +401,30 @@ def solve(model, tokenizer, task: dict, max_attempts: int = 3,
     return res
 
 
+def _tourney_arm(model, tokenizer, task: dict, requested_k: int,
+                 width: int, max_tokens: int) -> SolveResult:
+    """R-3.3's small tier: k independent candidates, oracle-picked, shaped like
+    a SolveResult so the policy, the ledger and `resume` need no special case.
+
+    The mask (R-4.2) is not applied here: no arm measured in SPEC combines the
+    two, and a tournament whose candidates are all shaped by one DFA is not a
+    tournament of independent draws (SPEC §10.4).
+    """
+    from flash import tourney
+    tr = tourney.run(model, tokenizer, task, requested_k=requested_k,
+                     max_tokens=max_tokens, width=width)
+    res = SolveResult(task_id=tr.task_id, solved=tr.solved,
+                      seconds=tr.seconds, tournament=tr.fields())
+    for c in tr.candidates:
+        res.attempts.append(Attempt(code=c.code, ok=c.ok, err=c.err))
+    return res
+
+
+def tournament_fields(r: SolveResult) -> dict:
+    """The tournament's ledger/trace fields, or {} when the chain ran."""
+    return {} if r.tournament is None else {"tournament": r.tournament}
+
+
 def solve_with_escalation(small_repo: str, big_repo: str, task: dict,
                           small_attempts: int = 2, big_attempts: int = 2,
                           max_tokens: int = 1024) -> tuple[SolveResult, str]:
@@ -440,10 +468,24 @@ def _load_router():
     return _ROUTER
 
 
+def fail_output(r: SolveResult) -> str:
+    """The diagnostic a loss is reported with.
+
+    For a tournament it is the candidate that got furthest, not the last one
+    drawn — that is the only thing the ranking is for (§33.4), and a record
+    that names the wrong near-miss misleads whatever reads it next.
+    """
+    if r.tournament is not None:
+        i = r.tournament["surfaced"]
+        return (r.attempts[i].err if i < len(r.attempts) else "")[-200:]
+    return (r.attempts[-1].err if r.attempts else "")[-200:]
+
+
 def solve_routed(small_repo: str, big_repo: str, task: dict, root,
                  small_attempts: int = 2, big_attempts: int = 2,
                  max_tokens: int = 1024, max_chars: int = 4000,
-                 threshold: float = 0.5, allow_big: str = "auto"
+                 threshold: float = 0.5, allow_big: str = "auto",
+                 tournament: int = 1
                  ) -> tuple[SolveResult, str, str]:
     """The full policy: PERCEIVE(repo skeleton) -> ROUTE -> small -> reactive ESC.
 
@@ -456,6 +498,14 @@ def solve_routed(small_repo: str, big_repo: str, task: dict, root,
     sheds the brain when the machine is hot, on battery or under memory
     pressure — the task then stays unsolved and the ledger says why; "always"
     is the benchmark override; "never" is battery-only single-track.
+
+    `tournament` (R-3.3) replaces the small tier's chain with k independent,
+    oracle-scored candidates — but only where a tournament is actually a
+    tournament. With the governor at width 1 there are no independent draws to
+    pick between, and the attempt budget buys more as a feedback repair that
+    names a failing assert than as a second sample of the same distribution;
+    so width 1 keeps the chain. Multi-file and edit tasks keep the chain too
+    (a candidate is a whole project there, not an answer).
     """
     import mlx.core as mx
     from mlx_lm import load
@@ -490,11 +540,18 @@ def solve_routed(small_repo: str, big_repo: str, task: dict, root,
 
     # §33.6: the whole routing decision is one replayable record — what the
     # router said, what the governor allowed, and which tier actually ran.
+    # R-3.3's eligibility is part of that decision, and its refusal reason
+    # goes in the record: a reader must be able to tell "tournament off" from
+    # "tournament asked for and declined by the width cap".
+    from flash import tourney
+    tour_ok, tour_why = tourney.eligible(tournament, caps.tournament_width, task)
     trace.event("route", task_id=task["id"], routed=routed,
                 route_p=None if route_p is None else round(route_p, 4),
                 profile=caps.profile, allow_big=allow_big,
                 big_allowed=big_ok, multi=bool(task.get("multi")),
-                why=None if big_ok else big_why)
+                tournament=tournament, tournament_used=tour_ok,
+                why=None if big_ok else big_why,
+                tour_why=tour_why or None)
 
     if routed.startswith("big"):             # rare, high-precision: go direct
         if not big_ok:                       # the governor outranks the router
@@ -515,13 +572,16 @@ def solve_routed(small_repo: str, big_repo: str, task: dict, root,
             mx.clear_cache()
             tier = "big" if r.solved else "failed"
             if not r.solved:                 # diagnose big-direct failures too
-                entry["fail_output"] = r.attempts[-1].err[-200:]
+                entry["fail_output"] = fail_output(r)
             ledger.record({**entry, "tier": tier, "routed": routed,
                            "solved": r.solved, "attempts": r.n_attempts,
                            "seconds": r.seconds})
             return r, tier, routed
 
-    r_small = solve(model, tok, task, small_attempts, max_tokens)
+    r_small = (_tourney_arm(model, tok, task, tournament, caps.tournament_width,
+                            max_tokens)
+               if tour_ok else solve(model, tok, task, small_attempts, max_tokens))
+    entry.update(tournament_fields(r_small))
     if r_small.solved:
         ledger.record({**entry, "tier": "small", "routed": routed,
                        "solved": True, "attempts": r_small.n_attempts,
@@ -537,7 +597,7 @@ def solve_routed(small_repo: str, big_repo: str, task: dict, root,
         del model, tok
         mx.clear_cache()
         return r_small, "shed", routed
-    entry["fail_output"] = r_small.attempts[-1].err[-200:]   # feature: WHY small failed
+    entry["fail_output"] = fail_output(r_small)   # feature: WHY small failed
     del model, tok
     mx.clear_cache()                         # hot-swap: free before big loads
 

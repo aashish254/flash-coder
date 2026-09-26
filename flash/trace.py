@@ -26,7 +26,7 @@ MAX_ERR = 400
 
 _CUR: dict = {"sid": None, "seq": 0, "path": None}
 
-_BLOBS = ("prompt", "output", "err", "detail")
+_BLOBS = ("prompt", "output", "err", "detail", "verdicts", "scores")
 
 
 def new_id(label: str) -> str:
@@ -179,7 +179,8 @@ def summarize(sid: str, dir: str | Path | None = None) -> dict:
 _ORDER = ("cmd", "label", "tier", "routed", "route_p", "profile", "allow_big",
           "big_allowed", "attempt", "temp", "max_tokens", "prompt_tokens",
           "completion_tokens", "ok", "kind", "solved", "attempts", "files",
-          "multi", "denied", "why", "reason", "ms", "seconds", "resumed",
+          "multi", "tournament", "tournament_used", "requested_k", "k", "width",
+          "gens", "adopted", "denied", "why", "reason", "ms", "seconds", "resumed",
           "tasks", "ran")
 
 

@@ -308,8 +308,26 @@ Rules for this file:
 
 ## P5 — R-3.3 Tournament mode (G2, AC-only)
 
-- [ ] [B] k-candidate sampling under the governor's width cap, oracle-scored,
+- [x] [B] k-candidate sampling under the governor's width cap, oracle-scored,
       best-of-k adopted.
+      *Done 2026-09-26 (offline half): `flash/tourney.py` — candidate 0 greedy
+      (so pass@k contains pass@1), the rest sampled per-seed, first-pass
+      adoption, early exit, ranking only chooses the surfaced diagnostic;
+      `power.tournament_width` (4/2/1 by profile) is the AC-only clamp;
+      `loop._tourney_arm` replaces the small-tier chain only when
+      `tourney.eligible` says yes (width ≥ 2, single-file, k ≥ 2) and the
+      refusal reason rides the route record. `harness.score()` is the new
+      ranking oracle (passes-count + first failure), with `diagnose` now a
+      projection of it — proven equal by a check. `--tournament K` on
+      run/run-suite/resume; the suite summary prints pass@1 vs best-of-k and
+      generations spent, and resume replays the candidate table from the trace
+      without re-charging a model.
+      Vector: `python -m flash.tourney --selftest` **16/16** (schedule, clamp,
+      adoption, ties, STATIC refusal, real h-task reference adopted, trace
+      event); `python -m flash.harness --selftest` **20/20** (8 new `score`
+      checks incl. the "probes pass but full-test gate fails" case); whole
+      battery re-run green (14/22/14/30/47/37/55/9/16 + 32 + 60 premise +
+      11 resume + 20 dry-run), pyflakes 0 findings.
 - [ ] [V] [L] Hard family (h-tasks): best-of-3 beats single-attempt by ≥ 8 points
       at ≤ the same total token spend, on AC.
 - [ ] [B] Docs move together.

@@ -196,26 +196,32 @@ def cmd_run(args) -> int:
     sid = trace.open_session("run", cmd="run", params={"prompt": args.prompt[:200],
                                                        "small": args.small,
                                                        "big": args.big,
-                                                       "allow_big": args.allow_big})
+                                                       "allow_big": args.allow_big,
+                                                       "tournament": args.tournament})
     r, tier, routed = solve_routed(args.small, args.big, task, ROOT,
                                    small_attempts=args.attempts,
                                    big_attempts=args.attempts,
                                    max_tokens=args.max_tokens,
-                                   allow_big=args.allow_big)
+                                   allow_big=args.allow_big,
+                                   tournament=args.tournament)
     trace.event("task_end", task_id=task["id"], solved=r.solved, tier=tier,
-                attempts=r.n_attempts, seconds=r.seconds, routed=routed)
+                attempts=r.n_attempts, seconds=r.seconds, routed=routed,
+                **loop.tournament_fields(r))
     trace.close_session(solved=r.solved)
     print(f"routed={routed} tier={tier}")
     print("--- code ---")
     print(r.attempts[-1].code)
     print(f"--- solved={r.solved} attempts={r.n_attempts} ({r.seconds}s) ---")
+    if r.tournament is not None:
+        from flash import tourney
+        print("[R-3.3] " + tourney.describe(r.tournament))
     print(f"[trace] replay this run:  flash trace show {sid}")
     return 0 if r.solved else 1
 
 
 SUITE_PARAMS = ("small", "big", "tasks", "with_context", "attempts", "max_tasks",
                 "max_tokens", "max_chars", "threshold", "allow_big", "constrain",
-                "debug", "edit")
+                "debug", "edit", "tournament")
 
 
 def _patch_attempt(r):
@@ -239,6 +245,20 @@ def _patch_fields(r) -> dict:
     a = _patch_attempt(r)
     return {} if a is None else {"patch_refused": a.refused, "patch_whole": a.whole,
                                  "patch_outside": a.outside}
+
+
+def _tour_fields(r) -> dict:
+    """R-3.3's task_end fields: the candidate table, so a resumed run reports
+    the tournament it already ran without re-charging a model for it."""
+    from flash import loop
+    return loop.tournament_fields(r)
+
+
+def _tour_note(r) -> str:
+    if r.tournament is None:
+        return ""
+    from flash import tourney
+    return "  " + tourney.describe(r.tournament)
 
 
 def _run_suite(params: dict, sid: str | None = None) -> int:
@@ -295,6 +315,23 @@ def _run_suite(params: dict, sid: str | None = None) -> int:
         whole_n += d.get("patch_whole") or 0
         refused_n += d.get("patch_refused") or 0
 
+    # R-3.3's: the greedy candidate's own verdict is arm A measured INSIDE arm B
+    # — same temp, same seed 0, same prompt — so the pass@k − pass@1 delta comes
+    # out of one run and the two arms cannot drift apart on input they did not
+    # share. Both numbers are the small tier's own, so escalation to the brain
+    # cannot be mistaken for the tournament's contribution.
+    tour_n = tour_c0 = tour_best = tour_gens = 0
+
+    def _count_tourney(d):
+        nonlocal tour_n, tour_c0, tour_best, tour_gens
+        t = d.get("tournament")
+        if not t or not t.get("scores"):
+            return
+        tour_n += 1
+        tour_c0 += bool(t["scores"][0]["ok"])
+        tour_best += any(bool(s["ok"]) for s in t["scores"])
+        tour_gens += t.get("gens") or 0
+
     try:
         for t in tasks:
             if t["id"] in done:
@@ -305,6 +342,7 @@ def _run_suite(params: dict, sid: str | None = None) -> int:
                 shed_n += d.get("tier") == "shed"
                 total += d.get("seconds") or 0.0
                 _count_edits(d, d.get("attempts"))
+                _count_tourney(d)
                 print(f"  [{'CACHED' if d.get('solved') else str(d.get('tier', 'failed')).upper():>9}] "
                       f"{t['id']:<22} solved={d.get('solved')} (already in session, "
                       f"not re-run)", flush=True)
@@ -314,20 +352,22 @@ def _run_suite(params: dict, sid: str | None = None) -> int:
                                            big_attempts=params["attempts"],
                                            max_tokens=params["max_tokens"],
                                            threshold=params["threshold"],
-                                           allow_big=params["allow_big"])
+                                           allow_big=params["allow_big"],
+                                           tournament=params.get("tournament") or 1)
             ran += 1
             trace.event("task_end", task_id=t["id"], solved=r.solved, tier=tier,
                         attempts=r.n_attempts, seconds=r.seconds, routed=routed,
-                        **_patch_fields(r))
+                        **_patch_fields(r), **_tour_fields(r))
             solved += r.solved
             small_n += tier == "small"
             big_n += tier == "big"
             shed_n += tier == "shed"
             total += r.seconds
             _count_edits(_patch_fields(r), r.n_attempts)
+            _count_tourney(_tour_fields(r))
             print(f"  [{('SHED' if tier == 'shed' else 'ESC->BIG' if tier == 'big' else tier.upper()):>9}] "
                   f"{t['id']:<22} solved={r.solved} attempts={r.n_attempts} "
-                  f"({r.seconds}s)" + _patch_note(r), flush=True)
+                  f"({r.seconds}s)" + _patch_note(r) + _tour_note(r), flush=True)
     except KeyboardInterrupt:
         print(f"\ninterrupted after {ran} task(s). {len(done) + ran} of {len(tasks)} "
               f"are settled; nothing written to the ledger is lost.\n"
@@ -343,6 +383,11 @@ def _run_suite(params: dict, sid: str | None = None) -> int:
               f"{outside_n} line(s) touched outside the target symbol "
               f"(gate: 0)   {whole_n} whole-file rewrite(s)   "
               f"{refused_n} refusal round(s)")
+    if tour_n:
+        pts = 100.0 * (tour_best - tour_c0) / tour_n
+        print(f"[R-3.3] {tour_n} tournament task(s): pass@1 "
+              f"{tour_c0}/{tour_n}  best-of-k {tour_best}/{tour_n}  "
+              f"(+{pts:.0f} pts, gate: >= 8)   {tour_gens} generation(s) spent")
     print(f"[trace] flash trace show {sid}")
     if shed_n:
         from flash import power
@@ -677,6 +722,11 @@ def main() -> int:
                    help="R-3.2: answer a change request with symbol-addressed "
                         "patches (# edit: file :: Symbol) that replace exactly the "
                         "lines the AST owns, instead of re-typing whole files")
+    p.add_argument("--tournament", type=int, default=1, metavar="K",
+                   help="R-3.3: replace the small tier's feedback chain with K "
+                        "independent candidates (candidate 0 greedy, the rest "
+                        "sampled), oracle-scored, first-pass adopted; clamped "
+                        "to the governor's width (1 = off)")
     p.add_argument("--trace-full", action="store_true",
                    help="§33.6: also store the exact prompts and outputs, so the "
                         "run can be re-fed to a model")
@@ -708,6 +758,9 @@ def main() -> int:
                    help="R-4.3: execution digest in the retry feedback")
     p.add_argument("--edit", action="store_true",
                    help="R-3.2: symbol-addressed patches on edit tasks")
+    p.add_argument("--tournament", type=int, default=1, metavar="K",
+                   help="R-3.3: best-of-K candidates on single-file tasks, "
+                        "oracle-scored (1 = off; clamped to the governor's width)")
     p.add_argument("--trace-full", action="store_true",
                    help="§33.6: store exact prompts/outputs too, for re-feeding")
     p.set_defaults(fn=cmd_run_suite)
@@ -732,6 +785,8 @@ def main() -> int:
                    help="R-4.3: omit to keep the resumed session's setting")
     p.add_argument("--edit", action="store_true", default=None,
                    help="R-3.2: omit to keep the resumed session's setting")
+    p.add_argument("--tournament", type=int, default=None, metavar="K",
+                   help="R-3.3: omit to keep the resumed session's setting")
     p.add_argument("--trace-full", action="store_true")
     p.set_defaults(fn=cmd_resume)
 

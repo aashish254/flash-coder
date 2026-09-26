@@ -10,6 +10,7 @@ import json
 import re
 import subprocess
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 
 TASKS_FILE = Path(__file__).resolve().parent.parent / "benchmarks" / "tasks" / "m0_tasks.jsonl"
@@ -79,18 +80,25 @@ def diagnose_files(files: dict[str, str], test: str, timeout: int = 15) -> tuple
     substitute <TMPDIR> in the test's sys.path bootstrap, then reuse the exact
     same GOT/WANT assert-probing as single-file (one oracle for both shapes).
     """
+    s = score_files(files, test, timeout)
+    return s.ok, s.err[:400]
+
+
+def score_files(files: dict[str, str], test: str, timeout: int = 15) -> Score:
+    """The same ranking for a file set as `score()` gives one file."""
     import tempfile
     if not files:
-        return False, "no files extracted (expected '# file: path.py' headers)"
+        return Score(False, 0, 0,
+                     "no files extracted (expected '# file: path.py' headers)")
     with tempfile.TemporaryDirectory() as d:
         root = Path(d).resolve()
         for rel, src in files.items():
             dest = (root / rel).resolve()
             if root not in dest.parents:          # path-escape guard
-                return False, f"unsafe file path: {rel}"
+                return Score(False, 0, 0, f"unsafe file path: {rel}")
             dest.parent.mkdir(parents=True, exist_ok=True)
             dest.write_text(src)
-        return diagnose("", test.replace("<TMPDIR>", str(root)), timeout)
+        return score("", test.replace("<TMPDIR>", str(root)), timeout)
 
 
 def _hoist_path_bootstrap(test: str) -> tuple[str, str]:
@@ -192,17 +200,31 @@ def diagnose(code: str, test: str, timeout: int = 15) -> tuple[bool, str]:
     signal that makes error-feedback retry actually converge (PLAN §33.1:
     better oracle -> fewer blind retries).
     """
-    # Prefix-replay: probe each TOP-LEVEL assert by replaying the exact test
-    # prefix up to it, then swapping the assert for a GOT/WANT probe. This
-    # preserves (a) state mutation between asserts and (b) asserts nested in
-    # try/except blocks — both of which naive line-splitting corrupts (found
-    # live: t05 stateful LRU, t20 try/except 'assert False').
+    s = score(code, test, timeout)
+    return s.ok, s.err[:400]
+
+
+def _probes(code: str, test: str,
+            timeout: int) -> tuple[list[tuple[bool, str]], int, bool] | None:
+    """One probe per TOP-LEVEL assert, in order, stopping at the first failure.
+
+    Returns `(records, total, ran_all)`, or None when the test has no top-level
+    assert — then there is nothing to probe individually and the caller runs the
+    whole test instead. `records` is every passing probe plus, when one failed,
+    that failure as its last entry.
+
+    Prefix-replay: each assert is decided by replaying the exact test prefix up
+    to it, then swapping the assert for a GOT/WANT probe. This preserves (a)
+    state mutation between asserts and (b) asserts nested in try/except blocks —
+    both of which naive line-splitting corrupts (found live: t05 stateful LRU,
+    t20 try/except 'assert False').
+    """
     boot, body = _hoist_path_bootstrap(test)
     raw = [l for l in body.splitlines() if l.strip()]
     idx = [i for i, l in enumerate(raw) if l.startswith("assert")]
-    if not idx:                          # all checks inside blocks: run whole
-        return run_test(code, test, timeout)
-
+    if not idx:
+        return None
+    recs: list[tuple[bool, str]] = []
     for i in idx:
         a = raw[i]
         # assert-with-message: `assert cond, "why"` — the probe must eval
@@ -225,15 +247,50 @@ def diagnose(code: str, test: str, timeout: int = 15) -> tuple[bool, str]:
         try:
             r = subprocess.run([sys.executable, "-I", "-c", prog],
                                capture_output=True, text=True, timeout=timeout)
-            if r.returncode != 0:
-                info = " | ".join(l for l in r.stdout.splitlines()
-                                  if l.startswith(("FAILING_ASSERT", "GOT", "WANT", "ERROR")))
-                tail = r.stderr.strip().splitlines()[-1] if r.stderr.strip() else ""
-                return False, (info or tail or f"failed: {a}")[:400]
         except subprocess.TimeoutExpired:
-            return False, f"timeout>{timeout}s on: {a}"
-    # probes only cover top-level asserts; gate on the full test once
-    return run_test(code, test, timeout)
+            return recs + [(False, f"timeout>{timeout}s on: {a}")], len(idx), False
+        if r.returncode != 0:
+            info = " | ".join(l for l in r.stdout.splitlines()
+                              if l.startswith(("FAILING_ASSERT", "GOT", "WANT", "ERROR")))
+            tail = r.stderr.strip().splitlines()[-1] if r.stderr.strip() else ""
+            return recs + [(False, info or tail or f"failed: {a}")], len(idx), False
+        recs.append((True, ""))
+    return recs, len(idx), True
+
+
+@dataclass
+class Score:
+    """The oracle's full verdict: pass/fail, and how far the candidate got.
+
+    `passed`/`total` rank candidates that ALL fail, which is what a tournament
+    (§33.4) needs and a boolean cannot express: 'which assert did it die on' is
+    the difference between a candidate that half-understands the task and one
+    that merely parses.
+    """
+    ok: bool
+    passed: int
+    total: int
+    err: str = ""
+
+
+def score(code: str, test: str, timeout: int = 15) -> Score:
+    """VERIFY for ranking: every top-level assert decided, first failure named.
+
+    Probing stops at the first failure because the real run stops there too — a
+    later assert's prefix would have to replay past a failure that aborts it —
+    so `passed` means "how far it got before the test would have stopped".
+    """
+    probed = _probes(code, test, timeout)
+    if probed is None:                   # all checks inside blocks: run whole
+        ok, err = run_test(code, test, timeout)
+        return Score(ok, 0, 0, "" if ok else err)
+    recs, total, ran_all = probed
+    if ran_all:
+        # probes only cover top-level asserts; the full test stays the gate, so
+        # a non-assert failure (a crash after the last probe) cannot look green
+        ok, err = run_test(code, test, timeout)
+        return Score(ok, total, total, "" if ok else err)
+    return Score(False, len(recs) - 1, total, recs[-1][1])
 
 
 # ------------------------------------------------------------------- selftest
@@ -327,6 +384,38 @@ def run_selftest() -> int:
     # a file path that escapes the tmp package is refused, not written
     ok, err = diagnose_files({"../evil.py": "X = 1\n"}, "assert 1 == 1\n")
     ck("path-escape guard refuses an out-of-tree file", not ok and "unsafe" in err, err)
+
+    # --- score(): the ranking signal a tournament (§33.4) needs
+    test3 = "assert f(2) == 4\nassert f(3) == 9\nassert f(4) == 16\n"
+    s = score("def f(x):\n    return x * x\n", test3)
+    ck("score: a fully correct candidate is ok with every assert passed",
+       s.ok and s.passed == 3 and s.total == 3 and s.err == "",
+       f"{s.passed}/{s.total} err={s.err!r}")
+    s = score("def f(x):\n    return x + 2\n", test3)          # right for 2 only
+    ck("score: dying on the 2nd of 3 asserts scores 1/3",
+       not s.ok and s.passed == 1 and s.total == 3, f"{s.passed}/{s.total} {s.err}")
+    s = score("def f(x):\n    return 0\n", test3)
+    ck("score: dying on the first assert scores 0/3",
+       not s.ok and s.passed == 0 and s.total == 3, f"{s.passed}/{s.total} {s.err}")
+    s = score("def f(x):\n    return x*#\n", "assert f(2) == 4\n")
+    ck("score: an unparsable candidate scores below every running one",
+       not s.ok and s.passed == 0, f"{s.passed}/{s.total} {s.err}")
+    # every probe passing but the test failing is NOT green: the full test stays
+    # the gate (a crash after the last assert is invisible to the probes)
+    s = score("def f(x):\n    return x\n", "assert f(2) == 2\nraise SystemExit('boom')\n")
+    ck("score: probes all pass but the full test gate still fails it",
+       not s.ok and s.total == 1, f"ok={s.ok} {s.passed}/{s.total} err={s.err[:60]!r}")
+    s = score("def f(x):\n    return x * x\n",
+              "try:\n    assert f(3) == 9\nexcept AssertionError:\n    pass\n")
+    ck("score: a test with no top-level assert still gets a verdict", s.ok,
+       f"{s.passed}/{s.total}")
+    s = score_files({"m.py": "X = 1\n"},
+                    "import sys; sys.path.insert(0, '<TMPDIR>')\nfrom m import X\n"
+                    "assert X == 1\nassert X == 2\n")
+    ck("score_files ranks a file set the same way",
+       not s.ok and s.passed == 1 and s.total == 2, f"{s.passed}/{s.total} {s.err}")
+    ck("diagnose stays exactly score's verdict",
+       diagnose("def f(x):\n    return x + 2\n", test3) == (False, score("def f(x):\n    return x + 2\n", test3).err[:400]))
 
     for name, ok, note in checks:
         print(f"  {'OK  ' if ok else 'FAIL'} {name}" + (f"  [{note}]" if not ok and note else ""))
