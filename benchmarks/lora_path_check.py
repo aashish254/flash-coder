@@ -54,7 +54,7 @@ for _p in (str(ROOT), str(ROOT / "benchmarks")):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
-from flash import jobs, loop, power, train as tr                   # noqa: E402
+from flash import cli, jobs, loop, power, train as tr                 # noqa: E402
 
 DATASET = ROOT / "benchmarks" / "results" / "datasets" / "ledger-verified"
 # The suites R-6.4 may score on: SPEC §6.2's frozen list. None of their ids may
@@ -493,6 +493,51 @@ def group_identity(L, tmp: Path) -> list:
     return res
 
 
+# ------------------------------------------------------------------ the CLI
+
+def group_cli(CLI, tmp: Path) -> list:
+    """`learn --lora` and the router refit share one checkpoint directory, so the
+    job's NAME is the only thing that keeps the two apart — and a shared name
+    means a LoRA run reads the router's step count as its resume position."""
+    res: list = []
+    from flash import jobs as J
+    ap = CLI.build_parser()
+    calls: list = []
+    real = (J.run_lora, J.run_fit)
+
+    def spy_lora(small, **kw):
+        calls.append(("lora", kw))
+        return "[learn] LoRA spy ran"
+
+    def spy_fit(small, **kw):
+        calls.append(("fit", kw))
+        return "[learn] refit spy ran"
+
+    J.run_lora, J.run_fit = spy_lora, spy_fit
+    try:
+        rc = CLI.cmd_learn(ap.parse_args(
+            ["learn", "--lora", "--adapter", "probe", "--steps", "8"]))
+        kinds = [kw.get("kind") for _, kw in calls]
+        ck(res, "`flash learn --lora` writes its checkpoint under its own job name",
+           rc == 0 and [t for t, _ in calls] == ["lora"] and kinds == ["lora-fit"],
+           f"{[t for t, _ in calls]} kinds={kinds}")
+        ck(res, "and the experiment flags reach the trainer, not just the name",
+           calls[0][1]["adapter_name"] == "probe" and calls[0][1]["steps_total"] == 8,
+           str({k: calls[0][1][k] for k in ("adapter_name", "steps_total")}))
+        calls.clear()
+        CLI.cmd_learn(ap.parse_args(["learn"]))
+        ck(res, "`flash learn` alone still refits the router under ITS name",
+           [t for t, _ in calls] == ["fit"]
+           and calls[0][1]["kind"] == "router-fit", str(calls))
+        calls.clear()
+        CLI.cmd_learn(ap.parse_args(["learn", "--lora", "--kind", "custom"]))
+        ck(res, "--kind still overrides the derived name",
+           calls and calls[0][1]["kind"] == "custom", str(calls))
+    finally:
+        J.run_lora, J.run_fit = real
+    return res
+
+
 # ---------------------------------------------------------------- mutations
 
 MUTATIONS = (
@@ -541,6 +586,10 @@ MUTATIONS = (
      "flash/loop.py", '    return model_label(repo, "")\n',
      '    return model_label(repo)\n',
      ("the small tier is labelled with the adapter it ran, the brain with none",)),
+    ("learn --lora writes under the router's job name", "cli", "flash/cli.py",
+     '    kind = args.kind or ("lora-fit" if args.lora else "router-fit")\n',
+     '    kind = args.kind or "router-fit"\n',
+     ("`flash learn --lora` writes its checkpoint under its own job name",)),
 )
 
 
@@ -551,6 +600,8 @@ def run_group(name: str, mods: dict, tmp: Path, jobs_mut=None, train_mut=None):
         return group_kill(mods["jobs"], tmp, jobs_mut, train_mut)
     if name == "leak":
         return group_leak(mods["train"], tmp)
+    if name == "cli":
+        return group_cli(mods["cli"], tmp)
     return group_identity(mods["loop"], tmp)
 
 
@@ -565,10 +616,10 @@ def mutant(tmp: Path, tag: str, rel: str, anchor: str, repl: str) -> Path:
 
 
 def main() -> int:
-    mods = {"jobs": jobs, "train": tr, "loop": loop}
+    mods = {"jobs": jobs, "train": tr, "loop": loop, "cli": cli}
     results: list = []
     with tempfile.TemporaryDirectory() as d:
-        for g in ("gate", "kill", "leak", "identity"):
+        for g in ("gate", "kill", "leak", "identity", "cli"):
             results += run_group(g, mods, Path(d) / g)
     w = max(len(n) for n, _, _ in results)
     for name, ok, detail in results:

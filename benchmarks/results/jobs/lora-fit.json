@@ -1,0 +1,16 @@
+{
+  "kind": "lora-fit",
+  "stage": "done",
+  "eligible": true,
+  "embedded": 0,
+  "total": 128,
+  "rows": 543,
+  "trained_n": 543,
+  "iters_done": 16,
+  "iters_total": 128,
+  "adapter": "/Users/aashish/BEST PROJECT/flash-coder/benchmarks/results/adapters/v1",
+  "detail": "root weights = step 16 (48 trained), best loss 0.2237, stopped: overfit \u2014 2 checkpoint(s) worse than step 16 (its loss 0.2237)",
+  "wall_s": 150.76,
+  "reason": "",
+  "updated": 1790425744.079376
+}

@@ -110,14 +110,12 @@
     "rows": 48,
     "tasks": 16
   },
-  "train_rows": 40,
+  "train_rows": 34,
   "train_task_ids": [
     "cov01_invoice_tax",
-    "cov02_report_sum",
     "e01_title_case",
     "e02_render_truncate",
     "e03_keep_apostrophes",
-    "e04_box_min_width",
     "e05_available_minus_reserved",
     "e07_reorder_threshold",
     "e08_add_refuses_negative",
@@ -127,11 +125,13 @@
     "mask02_leftovers",
     "seed02_shared_name"
   ],
-  "train_tasks": 14,
-  "valid_rows": 8,
+  "train_tasks": 12,
+  "valid_rows": 14,
   "valid_task_ids": [
+    "cov02_report_sum",
+    "e04_box_min_width",
     "edge01_mean_guard",
     "seed01_tag_order"
   ],
-  "valid_tasks": 2
+  "valid_tasks": 4
 }

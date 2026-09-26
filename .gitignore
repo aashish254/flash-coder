@@ -14,3 +14,9 @@ benchmarks/cache/
 benchmarks/results/census/arm_*.log
 benchmarks/results/census/arms.out
 benchmarks/results/census/r42_100*.log
+
+# R-6.4: LoRA weights are a 46MB-per-checkpoint artifact that `flash learn
+# --lora` regenerates from the committed dataset, and the checkpoint dirs hold
+# five of them per run. The small jsons (adapter_config, train_record) stay in
+# the tree: they are what an arm cites when it names its weights.
+benchmarks/results/adapters/**/*.safetensors

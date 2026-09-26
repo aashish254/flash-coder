@@ -736,12 +736,17 @@ def cmd_lsp_selftest(args) -> int:
 def cmd_learn(args) -> int:
     """§34.3: background learning, gated on AC + idle user, resumable."""
     from flash import jobs
+    # The job's name is derived from the job, not from a default: `--lora` and
+    # the router refit share one checkpoint directory, and a LoRA run that wrote
+    # under 'router-fit' both destroyed the router's staleness watermark and
+    # read the router's step count as its own resume position.
+    kind = args.kind or ("lora-fit" if args.lora else "router-fit")
     if args.selftest:
         return jobs.run_selftest()
     if args.status:
-        st = jobs.load_state(args.kind)
+        st = jobs.load_state(kind)
         if st is None:
-            print(f"no checkpoint for job '{args.kind}' — it has never run")
+            print(f"no checkpoint for job '{kind}' — it has never run")
             return 0
         print(json.dumps(st.to_dict(), indent=2))
         return 0
@@ -755,12 +760,11 @@ def cmd_learn(args) -> int:
         msg = jobs.run_lora(args.small, dataset_dir=args.dataset or None,
                             adapter_name=args.adapter, steps_total=args.steps,
                             slice_iters=args.slice_iters, patience=args.patience,
-                            budget_s=args.budget, force=args.force,
-                            kind=args.kind)
+                            budget_s=args.budget, force=args.force, kind=kind)
         print(msg)
         return 0 if "refused" not in msg and "no dataset" not in msg else 1
     msg = jobs.run_fit(args.small, budget_s=args.budget, chunk=args.chunk,
-                       force=args.force, kind=args.kind)
+                       force=args.force, kind=kind)
     print(msg)
     return 0 if "refused" not in msg else 1
 
@@ -784,7 +788,8 @@ def cmd_bench(args) -> int:
                             *args.bench_args])
 
 
-def main() -> int:
+def build_parser() -> argparse.ArgumentParser:
+    """Every command in one object, so a check can parse without dispatching."""
     ap = argparse.ArgumentParser(prog="flash", description="Flash Coder CLI (M1)")
     sub = ap.add_subparsers(dest="cmd", required=True)
 
@@ -1028,7 +1033,9 @@ def main() -> int:
     p.add_argument("--chunk", type=int, default=8, help="prompts per checkpoint flush")
     p.add_argument("--force", action="store_true",
                    help="override the idle/AC gate (explicit foreground use)")
-    p.add_argument("--kind", default="router-fit")
+    p.add_argument("--kind", default=None,
+                   help="the checkpoint name; omit it and the job names itself "
+                        "(router-fit, or lora-fit with --lora)")
     p.add_argument("--status", action="store_true", help="print the last checkpoint")
     p.add_argument("--check", action="store_true", help="only answer: may it run now?")
     p.add_argument("--min-new", type=int, default=10)
@@ -1057,7 +1064,11 @@ def main() -> int:
     p.add_argument("bench_args", nargs=argparse.REMAINDER)
     p.set_defaults(fn=cmd_bench)
 
-    args = ap.parse_args()
+    return ap
+
+
+def main() -> int:
+    args = build_parser().parse_args()
     return args.fn(args)
 
 

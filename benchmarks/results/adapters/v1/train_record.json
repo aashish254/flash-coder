@@ -1,0 +1,30 @@
+{
+  "adapter": "/Users/aashish/BEST PROJECT/flash-coder/benchmarks/results/adapters/v1",
+  "best_loss": 0.2237,
+  "best_step": 16,
+  "dataset": "/Users/aashish/BEST PROJECT/flash-coder/benchmarks/results/datasets/ledger-verified",
+  "evals": [
+    [
+      16,
+      0.2237
+    ],
+    [
+      32,
+      0.277
+    ],
+    [
+      48,
+      0.6129
+    ]
+  ],
+  "gate": "forced (--force): idle/AC gate bypassed by an explicit call",
+  "iters_done": 48,
+  "patience": 2,
+  "promoted_step": 16,
+  "slice_iters": 16,
+  "start_step": 0,
+  "steps_total": 128,
+  "stopped": "overfit \u2014 2 checkpoint(s) worse than step 16 (its loss 0.2237)",
+  "train_rows": 34,
+  "wall_s": 150.76
+}
