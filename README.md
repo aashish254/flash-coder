@@ -64,6 +64,20 @@ Vision is benchmarked once the text brain is picked (PLAN §M1–M2).
 # run-suite then auto-refits the router every 10 new ledger rows (self-improvement):
 .venv/bin/python -m flash.cli run-suite                          # reactive-only (default, proven)
 .venv/bin/python -m flash.cli run-suite --threshold 0.5          # enable learned gate
+# A router bundle belongs to ONE model: the PCA basis and the logistic fit are a
+# function of that model's hidden states. Since 2026-09-26 the embedding cache is
+# keyed by the weights that filled it, every bundle records the repo and the
+# pooling it was fit on, the live probe is embedded with THAT pool, and a
+# dimension mismatch returns no score with a reason instead of raising inside the
+# loop. The reason it is stated loudly: the fit pooled the last token and the
+# serve path pooled the mean, so median |ΔP| across 106 cached prompts is 0.297
+# (0.180 -> 0.511) and 47/106 would have been big-directed at cutoff 0.5 that the
+# fit's own pool would not have. 316 of the 621 ledger rows whose prompt is
+# cached reproduce exactly from the mean pool and 0 from the pool the fit used —
+# the recorded route_p column is the wrong pool's output, measured not assumed.
+# `python benchmarks/router_pool_audit.py` (offline once both pools are cached)
+# prints it; `python benchmarks/router_portable_check.py` is the 20+5 vector.
+.venv/bin/python benchmarks/router_pool_audit.py     # pooling skew, no generation
 
 # M2 multi-WRITER: tasks with "multi": true write coordinated file sets
 # (contract: fenced blocks headed '# file: name.py'; fenceless '# file:' splits and

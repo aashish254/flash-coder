@@ -101,6 +101,29 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   leave-suite-out AUC is 0.569.
   Vector: `flash router-fit` prints LOO precision and a held-out AUC
   **≥ 0.75** on a fresh suite before `run-suite --threshold 0.5` becomes default.
+  *Generalization has two parts, and the second was broken until 2026-09-26: a
+  bundle is a function of ONE model's hidden states, so it must refuse a probe
+  from another model instead of scoring it. `flash/learn.py` now keys the
+  embedding cache by the weights that produced it
+  (`prompt_embeddings_last_<repo>.npz`, the unlabeled legacy file adopted once on
+  first use), stamps `small_repo`/`pool` into every bundle, embeds the live probe
+  with the pool the fit used, and `route_score()` returns `None` plus a reason on
+  a width mismatch instead of raising inside the loop. Vector:
+  `benchmarks/router_portable_check.py` 20/20 + 5/5 mutants.*
+  *What the audit found was worse than a crash, and it was silent: the fit pooled
+  the LAST token and `embed_text`'s default pooled MEAN, so every live `route_p`
+  came from a differently-pooled vector than the one the logistic fit was trained
+  on. Measured on the 106 prompts cached for this model
+  (`benchmarks/router_pool_audit.py`, forward passes only): median |ΔP| **0.297**,
+  median P 0.180 → 0.511, and **47 of 106** decisions would have been
+  big-directed at cutoff 0.5 that the fit's own pool would not have. Corroborated
+  from the ledger rather than asserted: of 621 rows whose prompt is cached, **316
+  reproduce exactly from the mean pool of the bundle on disk and 0 from the pool
+  it was fit on**; the other 305 match neither, so they predate the current fit —
+  a silent refit is a second confound this audit names instead of folding in. No
+  recorded pass rate moved, because the gate is disarmed at
+  `run-suite`'s default `--threshold 1.1`; the damage is a wrong `route_p` column
+  and a wrong answer for anyone who ran `--threshold 0.5`.*
 - **R-2.3 (PARTIAL — mechanism shipped, both gate clauses missed)** The
   prospective confidence signal (§34.2) MUST come from verification evidence —
   static diagnostics, coverage, suite flakiness — not the model's own probability.
@@ -543,13 +566,14 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
    `python benchmarks/checkpoint_resume_check.py` 35 ·
    `python benchmarks/lora_path_check.py` 31 (+ 14 mutants) ·
    `python benchmarks/dbg_band_check.py` 172 (+ 5 mutants) ·
+   `python benchmarks/router_portable_check.py` 20 (+ 5 mutants) ·
    `python -m flash.debug --suite` 32 ·
    `python -m flash.patches --suite benchmarks/tasks/edit_tasks.jsonl` 60 ·
    `python benchmarks/m0_bakeoff.py --dry-run` 20 reference solutions.
-   **Total: 855 selftest / end-to-end / premise checks + 20 oracle
+   **Total: 875 selftest / end-to-end / premise checks + 20 oracle
    verifications (m0_bakeoff's 20 reference solutions, which are the only
-   numbers in that 20 — the 6 ambient, 14 lora and 5 band mutants are extra to
-   both totals) = 875 green, offline.** Re-read by
+   numbers in that 20 — the 6 ambient, 14 lora, 5 band and 5 router-portability
+   mutants are extra to both totals) = 895 green, offline.** Re-read by
    `python benchmarks/battery_reread.py`, which holds one line per item above,
    requires the exact fraction each one prints, sums checks/oracle/mutants
    separately, and fails if the tree's sum moves off this page's number. It
@@ -559,7 +583,13 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
    last `n/n` on 2026-09-26 read lora_path_check's `14/14 mutants` as its
    checks and under-counted by 17. Both traps are why the counts below are the
    runs' own printed numbers.
-   (Re-read from the tree 2026-09-26 after the R-4.3 band
+   (Re-read from the tree 2026-09-26 after the learned router's portability fix:
+   +20 for `router_portable_check` — the embedding cache keyed by the weights
+   that produced it, one model's bundle refusing another model's width, and
+   serve-time pooling matching fit-time pooling — with 5 mutants of its own (a
+   cache that ignores the model, a bundle that keeps no labels, a score that
+   trusts any width, a serve path that pools mean, a cache path that is optional
+   again), so 875→895; before that, the same day after the R-4.3 band
    instrument: +172 for `dbg_band_check` — the shape of the 30-task suite, the
    two-bug premise of its 13 seeded rows, and that re-generating it is
    byte-identical while the ledger grows — with 5 mutants of its own, so

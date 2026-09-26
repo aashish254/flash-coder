@@ -31,7 +31,33 @@ def features(row: dict) -> list[float]:
     ]
 
 
-EMB_CACHE = Path(__file__).resolve().parent.parent / "benchmarks" / "results" / "prompt_embeddings_last.npz"
+RESULTS = Path(__file__).resolve().parent.parent / "benchmarks" / "results"
+# The cache is keyed by the model that produced the vectors, not only by the
+# prompt: an embedding is a function of (weights, text), and a second model
+# reading the first model's file gets plausible-looking vectors of the wrong
+# width. Every site derives the name from this function, so no caller can
+# hand back the old shared path by mistake.
+POOL = "last"
+
+# Pre-keying artifact: every fit to date ran on this one model, so the single
+# un-suffixed file IS its cache. Adopted rather than ignored — leaving it
+# readable at a shared name would put the contamination back.
+LEGACY_REPO = "mlx-community/Qwen2.5-Coder-7B-Instruct-4bit"
+LEGACY_EMB_CACHE = RESULTS / f"prompt_embeddings_{POOL}.npz"
+
+
+def emb_cache_path(small_repo: str, pool: str = POOL) -> Path:
+    slug = re.sub(r"[^A-Za-z0-9.]+", "-", small_repo).strip("-")
+    return RESULTS / f"prompt_embeddings_{pool}_{slug}.npz"
+
+
+def ensure_cache_path(small_repo: str, pool: str = POOL) -> Path:
+    path = emb_cache_path(small_repo, pool)
+    if (LEGACY_EMB_CACHE.exists() and not path.exists()
+            and small_repo == LEGACY_REPO):
+        LEGACY_EMB_CACHE.rename(path)
+    return path
+
 
 
 def trainable(row: dict) -> bool:
@@ -63,14 +89,17 @@ def embed_text(model, tok, text: str, max_len: int = 512, pool: str = "mean") ->
 
 
 
-def load_cache(path: Path = EMB_CACHE) -> dict:
+def load_cache(path: Path | None = None) -> dict:
+    if path is None:
+        raise TypeError("load_cache needs the embedding cache for ONE model — "
+                        "pass learn.emb_cache_path(repo)")
     if Path(path).exists():
         z = np.load(path)
         return {k: z[k] for k in z.files}
     return {}
 
 
-def save_cache(cache: dict, path: Path = EMB_CACHE) -> None:
+def save_cache(cache: dict, path: Path) -> None:
     """Atomic flush: a kill mid-write must not corrupt the shared embedding
     cache (the ledger rule applies to artifacts too — §33.9 invariant 1).
 
@@ -85,7 +114,7 @@ def save_cache(cache: dict, path: Path = EMB_CACHE) -> None:
     os.replace(tmp, path)
 
 
-def embed_backfill(prompts: list[str], embed_fn, cache_path: Path = EMB_CACHE,
+def embed_backfill(prompts: list[str], embed_fn, cache_path: Path,
                    chunk: int = 8, budget_s: float | None = None,
                    clock=time.monotonic, on_progress=None) -> tuple[dict, list[str]]:
     """Embed the missing prompts in CHUNKS, flushing the cache after each one.
@@ -123,6 +152,7 @@ def embed_prompts(rows: list[dict], small_repo: str, max_len: int = 512,
     from mlx_lm import load
     import mlx.core as mx
 
+    cache_path = ensure_cache_path(small_repo)
     task_dir = Path(__file__).resolve().parent.parent / "benchmarks" / "tasks"
     id2prompt = {}
     for f in sorted(task_dir.glob("*.jsonl")):
@@ -139,21 +169,22 @@ def embed_prompts(rows: list[dict], small_repo: str, max_len: int = 512,
             kept.append(r)
 
     prompts = [r["prompt"] for r in kept]
-    already = load_cache()
+    already = load_cache(cache_path)
     need = [p for p in dict.fromkeys(prompts) if p not in already]
     if need:
         model, tok = load(small_repo)         # load once, reuse for every prompt
 
         def embed_fn(p):
-            return embed_text(model, tok, p, max_len, pool="last")
+            return embed_text(model, tok, p, max_len, pool=POOL)
 
-        cache, remaining = embed_backfill(prompts, embed_fn, budget_s=budget_s)
+        cache, remaining = embed_backfill(prompts, embed_fn, cache_path=cache_path,
+                                          budget_s=budget_s)
         del model, tok
         mx.clear_cache()
         if remaining:
             raise RuntimeError(f"embedding budget spent: {len(remaining)} prompt(s) "
                                f"still unembedded — rerun to resume")
-    return np.stack([load_cache()[p] for p in prompts]), kept
+    return np.stack([load_cache(cache_path)[p] for p in prompts]), kept
 
 
 def pca(X: np.ndarray, k: int) -> np.ndarray:
@@ -206,14 +237,63 @@ def loo_report(X: np.ndarray, rows: list[dict], title: str) -> str:
 ROUTER_FILE = Path(__file__).resolve().parent.parent / "benchmarks" / "results" / "router.npz"
 
 
-def fit_router(rows: list[dict], X: np.ndarray, k: int = 8) -> dict:
-    """Full fit on all rows: PCA(k) + logistic regression. Returns the bundle."""
+def fit_router(rows: list[dict], X: np.ndarray, k: int = 8,
+               small_repo: str = "", pool: str = POOL) -> dict:
+    """Full fit on all rows: PCA(k) + logistic regression. Returns the bundle.
+
+    The bundle records which model's hidden states it was fit on and how they
+    were pooled, because both are properties of the *vectors*, not of the
+    task: a 7B bundle applied to a 1.5B model is a dimension error, and a
+    mean-pooled probe against a last-pooled fit is a silent skew that scores
+    every prompt wrong without raising anything.
+    """
     y = np.array([1.0 if r["tier"] != "small" else 0.0 for r in rows])
     xmu = X.mean(0)
     _, _, vt = np.linalg.svd(X - xmu, full_matrices=False)
     Xp = (X - xmu) @ vt[:k].T
     w, mu, sd = fit_matrix(Xp, y)
-    return {"w": w, "mu": mu, "sd": sd, "vt": vt[:k], "xmu": xmu}
+    return {"w": w, "mu": mu, "sd": sd, "vt": vt[:k], "xmu": xmu,
+            "small_repo": np.array(small_repo), "pool": np.array(pool)}
+
+
+def bundle_labels(bundle: dict) -> tuple[str, str]:
+    """(model repo, pooling) this bundle was fit with, or 'unlabeled'.
+
+    Bundles fit before the labels existed read back as 'unlabeled'; the caller
+    still gets the dimension check, which is the part that cannot be guessed.
+    """
+    def one(key: str, fall: str) -> str:
+        v = bundle.get(key)
+        return fall if v is None else (str(v) or fall)
+    return one("small_repo", "unlabeled"), one("pool", "unlabeled")
+
+
+def probe_pool(bundle: dict) -> str:
+    """How a serve-time embedding must be pooled to match this fit.
+
+    A bundle predating the label was fit `last` — that is the only pooling the
+    fit sites have ever used — so the missing label is read as that fact rather
+    than as a licence to score with the caller's default, which is what made the
+    old serve path pool `mean` under a `last` fit.
+    """
+    _, pool = bundle_labels(bundle)
+    return POOL if pool == "unlabeled" else pool
+
+
+
+def route_score(bundle: dict, emb: np.ndarray) -> tuple[float | None, str]:
+    """P(needs-big) for one embedding, or (None, why-not) for another model's.
+
+    Returning the refusal rather than raising is the point: the loop degrades
+    to the static route and records the reason, so a suite run on a tier the
+    router has never seen costs one score, not the run.
+    """
+    d = int(np.asarray(bundle["xmu"]).shape[0])
+    if len(emb) != d:
+        repo, pool = bundle_labels(bundle)
+        return None, (f"router fit for {repo} at dim {d} cannot score a "
+                      f"{len(emb)}-dim embedding")
+    return score(bundle, emb), ""
 
 
 def save_router(bundle: dict, path: Path = ROUTER_FILE) -> None:
@@ -252,10 +332,19 @@ def autofit_if_stale(small_repo: str, min_new: int = 10) -> str | None:
     rows = [r for r in ledger.load() if r.get("tier") not in ("vision", "shed")]
     bundle = load_router()
     trained_n = int(bundle["n_rows"]) if bundle is not None and "n_rows" in bundle else 0
-    if len(rows) - trained_n < min_new:
+    stale = len(rows) - trained_n >= min_new
+    # A tier switch is staleness of a different kind: the bundle is fresh in rows
+    # and useless anyway, because its vectors came from another model's hidden
+    # states. Refitting is what makes the router real for the new tier; refusing
+    # to would leave every task recording a dimension refusal.
+    fit_repo, _ = bundle_labels(bundle) if bundle is not None else ("", "")
+    switched = bool(fit_repo) and fit_repo != "unlabeled" and fit_repo != small_repo
+    if not (stale or switched):
         return None
     fit_rows = [r for r in rows if trainable(r)]
     X, kept = embed_prompts(fit_rows, small_repo)
-    save_router({**fit_router(kept, X), "n_rows": np.array(len(rows))})
-    return (f"[autofit] router refit on {len(kept)} labeled outcomes "
-            f"(+{len(rows) - trained_n} new ledger rows)")
+    save_router({**fit_router(kept, X, small_repo=small_repo),
+                 "n_rows": np.array(len(rows))})
+    why = (f"+{len(rows) - trained_n} new ledger rows" if stale else
+           f"tier switch: {fit_repo} -> {small_repo}")
+    return (f"[autofit] router refit on {len(kept)} labeled outcomes ({why})")

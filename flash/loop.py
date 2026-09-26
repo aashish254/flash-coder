@@ -718,12 +718,23 @@ def solve_routed(small_repo: str, big_repo: str, task: dict, root,
 
     # Learned router (M3): score from outcomes-trained bundle. Zero extra model
     # load — the small tier is already resident, so the embedding is ~free.
+    # The bundle is model-specific: it holds one model's PCA basis, pooled one
+    # particular way, so the probe is embedded the way the fit embedded (a
+    # mean-pooled probe against a last-pooled fit scores every prompt wrong in
+    # silence) and a dimension mismatch refuses instead of raising.
     route_p = None
+    route_why = None
     router = _load_router()
     if router is not None:
-        from flash.learn import embed_text, score
-        route_p = score(router, embed_text(model, tok, task["prompt"]))
-        entry["route_p"] = round(route_p, 3)
+        from flash.learn import bundle_labels, embed_text, probe_pool, route_score
+        fit_repo, _ = bundle_labels(router)
+        pool = probe_pool(router)
+        route_p, why = route_score(router, embed_text(model, tok, task["prompt"],
+                                                      pool=pool))
+        route_why = why or None
+        if route_p is not None:
+            entry["route_p"] = round(route_p, 3)
+            entry["route_by"] = f"{fit_repo}/{pool}"
     if route_p is not None and route_p >= threshold:
         routed = "big(learned)"                # outcome-trained big shortcut
 
@@ -743,6 +754,7 @@ def solve_routed(small_repo: str, big_repo: str, task: dict, root,
     conf_ok, conf_why = confidence_eligible(confidence, task)
     trace.event("route", task_id=task["id"], routed=routed,
                 route_p=None if route_p is None else round(route_p, 4),
+                route_why=route_why,
                 profile=caps.profile, allow_big=allow_big,
                 big_allowed=big_ok, multi=bool(task.get("multi")),
                 tournament=tournament, tournament_used=tour_ok,

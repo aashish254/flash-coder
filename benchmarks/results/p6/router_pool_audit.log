@@ -1,0 +1,42 @@
+106 prompt(s) of 578 trainable row(s) have a cached last-pool vector; bundle dim 3584, labels ('unlabeled', 'unlabeled')
+both pools already cached — no model load needed
+
+P(need-big) with the pool the fit used : median 0.180 mean 0.290
+P(need-big) with the old serve-time pool: median 0.511 mean 0.499
+|difference| : median 0.297  mean 0.291  max 0.496
+decisions at cutoff 0.5: 47 would have big-directed that the fix would not, 5 the other way (of 106 prompt(s))
+decisions at cutoff 0.85: 0 would have big-directed that the fix would not, 5 the other way (of 106 prompt(s))
+
+n=106 latest recorded route_p vs this bundle: |Δ| last-pool median 0.293 (within 0.001: 0/106), mean-pool median 0.004 (within 0.001: 48/106)
+every ledger row whose prompt is cached, classified by which pool of this bundle reproduces its route_p (tolerance 0.001):
+  mean      316 row(s), recorded 09-23…+09-26
+  last     0 rows
+  both     0 rows
+  neither   305 row(s), recorded 09-23…+09-26
+  -> 316/621 cached route_p row(s) are reproduced by the MEAN pool of this bundle — the wrong pool, which is the skew this fix removes; 305 match neither pool, so they predate the fit on disk and pooling cannot be blamed for them
+
+per suite file  (>=0.83 counts under each pool; flips@0.5 = up/down):
+  p6_tasks               n=23   last 0.177 -> mean 0.430   >=0.83 0->0/23   flips 6/1
+  dbg_hard_tasks         n=21   last 0.215 -> mean 0.555   >=0.83 3->0/21   flips 9/2
+  m0_tasks               n=20   last 0.178 -> mean 0.474   >=0.83 0->0/20   flips 9/0
+  dbg_band_tasks         n=18   last 0.181 -> mean 0.522   >=0.83 1->0/18   flips 7/1
+  dbg_blind_tasks        n=8    last 0.244 -> mean 0.480   >=0.83 0->0/8   flips 1/0
+  dbg_tasks              n=8    last 0.148 -> mean 0.353   >=0.83 0->0/8   flips 1/0
+  m3_hard_tasks          n=8    last 0.183 -> mean 0.568   >=0.83 0->0/8   flips 4/0
+  m3b_hard_tasks         n=8    last 0.196 -> mean 0.560   >=0.83 0->0/8   flips 6/1
+  m4_heldout_tasks       n=8    last 0.184 -> mean 0.549   >=0.83 0->0/8   flips 5/0
+  m5_heldout_tasks       n=8    last 0.168 -> mean 0.537   >=0.83 1->0/8   flips 6/0
+  m6_heldout_tasks       n=8    last 0.173 -> mean 0.575   >=0.83 1->0/8   flips 7/0
+  m7_heldout_tasks       n=8    last 0.169 -> mean 0.585   >=0.83 0->0/8   flips 7/0
+  r64_train_from_dataset n=8    last 0.259 -> mean 0.406   >=0.83 1->0/8   flips 0/0
+  subtle_tasks           n=8    last 0.146 -> mean 0.390   >=0.83 0->0/8   flips 0/1
+  dbg_fix_tasks          n=7    last 0.722 -> mean 0.504   >=0.83 1->0/7   flips 1/2
+  edit_tasks             n=3    last 0.774 -> mean 0.510   >=0.83 1->0/3   flips 0/0
+  mw_tasks               n=3    last 0.475 -> mean 0.443   >=0.83 1->0/3   flips 0/1
+  m2_tasks               n=1    last 0.403 -> mean 0.313   >=0.83 0->0/1   flips 0/0
+
+m7_heldout_tasks rows in this cached population: 8 (h41_edit_distance, h42_binary_gap, h43_tictactoe_winner, h44_text_wrap, h45_phone_letters, h46_zigzag_convert, h47_fraction_add, h48_zeller_dow)
+  m7 scored now: last-pool median 0.169, mean-pool median 0.585; the ledger's own recorded route_p for those prompts: [0.513, 0.594, 0.677, 0.841, 0.849, 0.864, 0.877, 0.882]
+  n=8 latest recorded route_p vs this bundle: |Δ| last-pool median 0.657 (within 0.001: 0/8), mean-pool median 0.268 (within 0.001: 1/8)
+  read: >=0.83 on this bundle is 0/16 pool-prompt pairs, so the recorded 0.83s are not this bundle's output at all. The m7 note predates the current fit, and pooling cannot re-attribute it in either direction.
+The gate is DISARMED at run-suite's default --threshold 1.1, so no recorded pass rate moved; what the skew produced is a wrong column in the ledger (route_p) and a wrong answer for anyone who passed --threshold 0.5.

@@ -515,6 +515,65 @@ Rules for this file:
       now MET (within the stated precision) and its Appendix A row records the
       −0.118 / [−0.369, +0.099] figure and the forward-pass-only cost.
 
+## P6b — the learned router must survive a model switch (R-2.2)
+
+Found by the 1.5B pilot: switching `--small` made the shipped router crash. Both
+failures were correctness bugs in code already marked SHIPPED, so both are booked
+here rather than folded into P6's confidence work.
+
+- [x] [V] The prompt-embedding cache is (weights, text)-keyed, not text-keyed.
+      **Fixed 2026-09-26:** `learn.emb_cache_path(repo)` puts the repo in the
+      filename (`prompt_embeddings_last_<repo-slug>.npz`),
+      `ensure_cache_path()` adopts the unlabeled legacy file exactly once and only
+      for the repo it was built with, and `load_cache()`/`embed_backfill()` now
+      REQUIRE a path — a call that could not say which model's cache it meant
+      raises before it reads anything.
+- [x] [V] A bundle knows what it was fit on, and refuses what it cannot score.
+      `fit_router()` stamps `small_repo` and `pool` into the npz;
+      `bundle_labels()`/`probe_pool()` read them with an `unlabeled` fallback;
+      `route_score()` returns `(None, reason)` on a width mismatch instead of
+      broadcasting — that broadcast was the crash, and inside `solve_routed` it
+      would have killed every task in a suite.
+- [x] [V] Serve-time pooling equals fit-time pooling. `flash/loop.py` embeds the
+      live probe with `probe_pool(bundle)`, and `autofit_if_stale()` refits on a
+      tier switch as well as on staleness, so a resumed suite cannot quietly score
+      a 7B's weights with a 1.5B's basis.
+- [x] [V] Vector: `benchmarks/router_portable_check.py` **20/20 checks + 5/5
+      mutants defeated by exactly their checks** (a cache that ignores the model,
+      a bundle that keeps no labels, a score that trusts any width, a serve path
+      that pools mean, a cache path that is optional again). Wired into
+      `battery_reread`; §6 re-read from the tree **855 → 875 checks /
+      875 → 895 green / 25 → 30 mutants**, all 25 lines printed OK, pyflakes 0.
+- [x] [V] The skew that was hiding behind the crash, MEASURED. The fit pooled the
+      last token, `embed_text`'s default pooled the mean, so every live `route_p`
+      came from a differently-pooled vector.
+      `benchmarks/router_pool_audit.py` (forward passes only, re-runnable with no
+      model load once both pools are cached; log
+      `benchmarks/results/p6/router_pool_audit.log`): over the 106 prompts cached
+      for the 7B, median |ΔP| **0.297**, median P **0.180 → 0.511**, and **47/106**
+      decisions would have been big-directed at cutoff 0.5 that the fit's own pool
+      would not have — the distributional separation the router exists to provide
+      is gone. Corroborated from the system under test rather than asserted: of
+      621 ledger rows whose prompt is cached, **316 reproduce exactly from the mean
+      pool of the bundle on disk and 0 from the pool it was fit on**; the other 305
+      match neither, so a silent background refit owns those rows and pooling
+      cannot be blamed for them. Suite attribution comes from the task files (a
+      shared id counts in each file that carries it), and the m7 question the
+      finding was aimed at is answered honestly: 8 m7 prompts are in the population,
+      the bundle on disk scores them at last 0.169 / mean 0.585 with **0/16
+      pool-prompt pairs ≥ 0.83**, while the ledger recorded 0.513–0.882 for them —
+      so §34's "every m7 prompt ≥ 0.83" note predates this fit and this audit
+      CANNOT re-attribute it in either direction. Nothing was harmed: the gate is
+      disarmed at `run-suite`'s default `--threshold 1.1`, so no recorded pass rate
+      moved — the damage is a wrong `route_p` column and a wrong answer for anyone
+      who ran `--threshold 0.5`.
+- [ ] [L] Re-run the 1.5B pilot now that the crash is fixed: does a weaker tier
+      produce answers that pass the visible oracle and fail the held-out key?
+      Without a non-empty recall denominator R-2.3's ≥ 90% clause is untestable at
+      any n.
+- [ ] [B] Empty-denominator refusal in the arm printer: a recall line whose
+      denominator is 0 must print `NOT MEASURABLE`, never a percentage.
+
 ## P7 — R-5.3 task-granular recovery → R-5.4 M16 chaos
 
 - [x] [B] Checkpoint in-flight task: partial generation + sandbox state.

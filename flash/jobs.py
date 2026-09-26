@@ -152,7 +152,7 @@ def run_fit(small_repo: str, budget_s: float = BUDGET_S, chunk: int = CHUNK,
     """
     from flash import learn
 
-    cache_path = Path(cache_path or learn.EMB_CACHE)
+    cache_path = Path(cache_path or learn.ensure_cache_path(small_repo))
     router_path = Path(router_path or learn.ROUTER_FILE)
     t0 = time.monotonic()
     if rows is None:
@@ -182,7 +182,7 @@ def run_fit(small_repo: str, budget_s: float = BUDGET_S, chunk: int = CHUNK,
         from mlx_lm import load
         import mlx.core as mx
         model, tok = load(small_repo)
-        embed_fn = lambda p: learn.embed_text(model, tok, p, pool="last")  # noqa: E731
+        embed_fn = lambda p: learn.embed_text(model, tok, p, pool=learn.POOL)  # noqa: E731
 
     st.stage = "embedding"
     save_state(st, jobs_dir)
@@ -212,7 +212,8 @@ def run_fit(small_repo: str, budget_s: float = BUDGET_S, chunk: int = CHUNK,
     st.stage = "fitting"
     save_state(st, jobs_dir)
     X = np.stack([cache[p] for p in prompts])
-    bundle = {**learn.fit_router(rows, X), "n_rows": np.array(len(rows))}
+    bundle = {**learn.fit_router(rows, X, small_repo=small_repo),
+              "n_rows": np.array(len(rows))}
     learn.save_router(bundle, router_path)
     st.stage = "done"
     st.trained_n = len(rows)

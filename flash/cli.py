@@ -79,7 +79,7 @@ def cmd_router_fit(args) -> int:
     X, kept = embed_prompts(rows, args.small)
     print(loo_report(pca(X, k=8), kept, "embeddings+pca8"))
     from flash.learn import fit_router, save_router
-    save_router(fit_router(kept, X))
+    save_router(fit_router(kept, X, small_repo=args.small))
     print("\nrouter bundle saved -> benchmarks/results/router.npz "
           "(solve_routed: big-direct when P(need-big) >= 0.5)")
 

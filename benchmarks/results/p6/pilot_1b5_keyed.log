@@ -1,0 +1,24 @@
+[trace] session 20260926-230338-run-suite-33c5 — interrupt me anytime, then: flash resume 20260926-230338-run-suite-33c5
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 2548.87it/s]
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/Users/aashish/BEST PROJECT/flash-coder/flash/cli.py", line 1084, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "/Users/aashish/BEST PROJECT/flash-coder/flash/cli.py", line 1080, in main
+    return args.fn(args)
+           ^^^^^^^^^^^^^
+  File "/Users/aashish/BEST PROJECT/flash-coder/flash/cli.py", line 537, in cmd_run_suite
+    return _run_suite(params, sid)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aashish/BEST PROJECT/flash-coder/flash/cli.py", line 433, in _run_suite
+    r, tier, routed = solve_routed(params["small"], params["big"], t, ROOT,
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aashish/BEST PROJECT/flash-coder/flash/loop.py", line 725, in solve_routed
+    route_p = score(router, embed_text(model, tok, task["prompt"]))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/aashish/BEST PROJECT/flash-coder/flash/learn.py", line 237, in score
+    xp = (emb - bundle["xmu"]) @ bundle["vt"].T
+          ~~~~^~~~~~~~~~~~~~~
+ValueError: operands could not be broadcast together with shapes (1536,) (3584,) 
