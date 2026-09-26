@@ -1,0 +1,54 @@
+[trace] session 20260926-141119-run-suite-d086 — interrupt me anytime, then: flash resume 20260926-141119-run-suite-d086
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 2313.60it/s]
+  [    SMALL] cov01_invoice_tax      solved=True attempts=1 (6.4s)  [R-2.3] offer=YES static=0 cov=0.15(2/13) seeds=PPP edges=0 (coverage: 2/13 lines executed)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 3659.95it/s]
+  [    SMALL] cov02_report_sum       solved=True attempts=1 (5.5s)  [R-2.3] offer=no static=0 cov=0.57(4/7) seeds=PPP edges=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 3379.78it/s]
+  [    SMALL] seed01_tag_order       solved=True attempts=1 (3.7s)  [R-2.3] offer=no static=0 cov=0.80(4/5) seeds=PPP edges=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5932.54it/s]
+  [    SMALL] seed02_shared_name     solved=True attempts=1 (3.2s)  [R-2.3] offer=no static=0 cov=0.75(3/4) seeds=PPP edges=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 2969.30it/s]
+  [    SMALL] edge01_mean_guard      solved=True attempts=1 (2.4s)  [R-2.3] offer=no static=0 cov=0.67(2/3) seeds=PPP edges=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 2683.50it/s]
+  [    SMALL] edge02_last_pair       solved=True attempts=1 (2.7s)  [R-2.3] offer=no static=0 cov=0.67(2/3) seeds=PPP edges=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 2391.73it/s]
+  [    SMALL] mask01_bucket_sign     solved=True attempts=1 (4.0s)  [R-2.3] offer=no static=0 cov=1.00(8/8) seeds=PPP edges=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 2366.69it/s]
+  [    SMALL] mask02_leftovers       solved=True attempts=1 (3.4s)  [R-2.3] offer=no static=0 cov=1.00(3/3) seeds=PPP edges=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 3010.99it/s]
+  [    SMALL] t01_reverse_words      solved=True attempts=1 (2.0s)  [R-2.3] offer=no static=0 cov=1.00(1/1) seeds=PPP edges=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 3563.22it/s]
+  [    SMALL] t02_two_sum            solved=True attempts=1 (3.8s)  [R-2.3] offer=no static=0 cov=0.86(6/7) seeds=PPP edges=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 3061.04it/s]
+  [    SMALL] t03_is_palindrome      solved=True attempts=1 (2.9s)  [R-2.3] offer=no static=0 cov=1.00(2/2) seeds=PPP edges=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 6004.25it/s]
+  [    SMALL] t04_fizzbuzz           solved=True attempts=1 (3.3s)  [R-2.3] offer=no static=0 cov=1.00(1/1) seeds=PPP edges=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 2449.15it/s]
+  [    SMALL] t06_merge_intervals    solved=True attempts=1 (5.4s)  [R-2.3] offer=no static=0 cov=1.00(10/10) seeds=PPP edges=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 2235.37it/s]
+  [    SMALL] t07_binary_search      solved=True attempts=1 (4.9s)  [R-2.3] offer=no static=0 cov=1.00(9/9) seeds=PPP edges=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 3461.28it/s]
+  [    SMALL] t08_valid_parens       solved=True attempts=1 (4.7s)  [R-2.3] offer=no static=0 cov=0.90(9/10) seeds=PPP edges=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 2589.08it/s]
+  [    SMALL] t09_max_subarray       solved=True attempts=1 (3.8s)  [R-2.3] offer=YES static=0 cov=1.00(6/6) seeds=PPP edges=1 (edges: max_subarray([]) -> IndexError: list index out of range)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 2228.12it/s]
+  [    SMALL] t10_climb_stairs       solved=True attempts=1 (3.9s)  [R-2.3] offer=no static=0 cov=0.83(5/6) seeds=PPP edges=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 2565.67it/s]
+  [    SMALL] t11_group_anagrams     solved=True attempts=1 (4.3s)  [R-2.3] offer=no static=0 cov=1.00(7/7) seeds=PPP edges=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 3340.60it/s]
+  [    SMALL] t12_json_flatten       solved=True attempts=1 (4.4s)  [R-2.3] offer=no static=0 cov=1.00(7/7) seeds=PPP edges=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 2937.42it/s]
+Fetching 14 files:   0%|          | 0/14 [00:00<?, ?it/s]Fetching 14 files: 100%|██████████| 14/14 [00:00<00:00, 4040.48it/s]
+  [ ESC->BIG] t14_topk_frequent      solved=True attempts=3 (10.4s)  [R-2.3] offer=no static=0 cov=1.00(3/3) seeds=PPP edges=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 3275.09it/s]
+  [    SMALL] t16_lis_length         solved=True attempts=1 (6.2s)  [R-2.3] offer=no static=0 cov=0.93(13/14) seeds=PPP edges=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 2380.87it/s]
+  [    SMALL] t19_word_ladder        solved=True attempts=1 (6.7s)  [R-2.3] offer=no static=0 cov=0.81(13/16) seeds=PPP edges=0
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 2350.48it/s]
+  [    SMALL] t20_safe_divide        solved=True attempts=1 (4.1s)  [R-2.3] offer=no static=0 cov=1.00(5/5) seeds=PPP edges=0
+
+solved 23/23   small-tier 22, escalated 1   total 102s (avg 4.4s/task)
+[R-2.3] 2/23 answer(s) carried evidence; recall on would-fail-hidden 0/0 (gate: >= 90%), 2 false offer(s) over 23 hidden-accepted answer(s) (gate: < 1 per 20)
+        gate's own population (rows tagged routine): recall 0/0 (>= 90%), 1 false offer(s) over 15 hidden-accepted of 15 task(s) (< 1 per 20)
+[trace] flash trace show 20260926-141119-run-suite-d086
+rc=0

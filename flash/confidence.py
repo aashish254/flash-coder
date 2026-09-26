@@ -308,8 +308,8 @@ def _probe_calls(code: str, test: str) -> list:
 
 def edge_probe(code: str, test: str, budget: int = EDGE_BUDGET_S) -> list:
     """Crash/hang evidence from adversarial arguments of the declared shape.
-    Returns [(function, args-repr, exception-or-HANG)]; an empty list means
-    every probed call survived — which is evidence, not absence of bugs."""
+    Returns [(function, arguments as written, exception-or-HANG)]; an empty list
+    means every probed call survived — which is evidence, not absence of bugs."""
     calls = _probe_calls(code, test)
     if not calls:
         return []
@@ -360,13 +360,17 @@ for name, args in CALLS:
     fn = getattr(answer, name, None)
     if fn is None:
         continue
+    # The log carries the call as it would be WRITTEN, not the repr of the arg
+    # list: `f([[]])` reads as a nested list when the argument was an empty
+    # list, and a reason string nobody can read is not evidence.
+    shown = ", ".join(map(repr, args))[:60]
     signal.alarm({budget})
     try:
         fn(*args)
     except Hang:
-        events.append([name, repr(args)[:60], "HANG", "", ""])
+        events.append([name, shown, "HANG", "", ""])
     except BaseException as e:                      # noqa: BLE001 — triage is the job
-        events.append([name, repr(args)[:60], type(e).__name__, str(e)[:80],
+        events.append([name, shown, type(e).__name__, str(e)[:80],
                        _raise_line(e)])
     finally:
         signal.alarm(0)
@@ -560,9 +564,13 @@ def run_selftest() -> int:
        and not _counts_as_guard("ValueError", "raise ValueError('bad')")
        and _counts_as_guard("HANG", ""))
     ck("_filtered: the child's raw log becomes the events, with the reason string",
-       _filtered([["f", "[[]]", "IndexError", "list index out of range", "return v[1]"],
-                  ["g", "[0]", "ValueError", "nope", "raise ValueError('nope')"]])
-       == [["f", "[[]]", "IndexError: list index out of range"]])
+       _filtered([["f", "[]", "IndexError", "list index out of range", "return v[1]"],
+                  ["g", "0", "ValueError", "nope", "raise ValueError('nope')"]])
+       == [["f", "[]", "IndexError: list index out of range"]])
+    s = evaluate(_ANS_NO_GUARD, _T_NO_GUARD)
+    ck("an edge reason prints the call as written — mean([]), not mean([[]])",
+       any("mean([])" in r for r in s.reasons)
+       and not any("[[]]" in r for r in s.reasons), "; ".join(s.reasons))
 
     s = evaluate("def f(:\n    pass\n", "assert True\n")
     ck("unparsable answer is a static error, offered without any subprocess",

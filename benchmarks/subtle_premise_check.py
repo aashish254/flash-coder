@@ -147,9 +147,10 @@ def main() -> int:
        not [o for o in offers if o[1] != ["edges"]],
        str([o for o in offers if o[1] != ["edges"]]))
     ck(f"the whole of the {len(offers)}/{n_ref} routine offer list is one real crash, "
-       "named — not a phantom the probe invented",
+       "named as the call it was — not a phantom the probe invented",
        len(offers) == 1 and offers[0][1] == ["edges"]
-       and "IndexError" in offers[0][2] and "[[]]" in offers[0][2],
+       and "IndexError" in offers[0][2]
+       and "max_subarray([])" in offers[0][2] and "[[]]" not in offers[0][2],
        str(offers))
     print("       note: §34.2's < 1-per-20 clause is about escalations a human "
           "rejects; this one is a reference that raises IndexError on an empty "

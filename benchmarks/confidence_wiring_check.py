@@ -42,8 +42,19 @@ FIXTURES = {
     "w03_noguard": (ANS_NO_GUARD, T_NO_GUARD,
                     "try:\n    mean([])\n    assert False, 'empty input accepted'\n"
                     "except ValueError:\n    pass\n", True),
+    # The same three answers with §34.2's populations declared, arranged so the
+    # blended figure and the routine-only figure CANNOT agree: one false offer
+    # lives on a seeded-subtle row, one recall on a routine row.
+    "w04_subtle_false": (ANS_UNCOVERED, T_UNCOVERED,
+                         "assert slugify('A B C') == 'a-b-c'\n", True),
+    "w05_routine_caught": (ANS_NO_GUARD, T_NO_GUARD,
+                           "assert mean([2, 4]) == 99\n", True),
+    "w06_routine_clean": (ANS_CLEAN, T_CLEAN, "assert total_cents(4) == 100\n", False),
 }
-IDS = list(FIXTURES)
+GATES = {"w04_subtle_false": "subtle", "w05_routine_caught": "routine",
+         "w06_routine_clean": "routine"}
+IDS = list(FIXTURES)[:3]
+POP_IDS = list(FIXTURES)[3:]
 CHECKS: list[tuple[str, bool, str]] = []
 
 
@@ -186,6 +197,34 @@ def main() -> int:
                str(sorted(trace.positions(sid3)[IDS[0]])))
             ck("mutation: muted, the gate line disappears — so the line IS the signal",
                "[R-2.3]" not in out3 and len(stub.calls) == 3)
+            ck("report: an untagged suite prints one population, not two",
+               "gate's own population" not in out3 and "gate's own population" not in out)
+
+            # --------------------------------- the gate's own population split
+            pop_file = Path(d) / "populations.jsonl"
+            pop_file.write_text("".join(
+                json.dumps({"id": t, "prompt": f"task {t}", "test": FIXTURES[t][1],
+                            "hidden": FIXTURES[t][2],
+                            **({"gate": GATES[t]} if t in GATES else {})}) + "\n"
+                for t in POP_IDS + IDS))
+            stub.calls.clear()
+            buf4 = io.StringIO()
+            with redirect_stdout(buf4):
+                cli._run_suite(params_for(pop_file, True), None)
+            out4 = buf4.getvalue()
+            blend = [l for l in out4.splitlines() if l.startswith("[R-2.3]")][0]
+            own = [l for l in out4.splitlines() if "gate's own population" in l]
+            ck("report: the blended line counts every keyed answer, tagged or not",
+               "4/6 answer(s) carried evidence" in blend
+               and "2 false offer(s) over 4 hidden-accepted" in blend, blend)
+            ck("report: the routine-only line counts ONLY rows tagged routine — the "
+               "subtle row's false offer is named, not folded into the clause",
+               len(own) == 1 and "recall 1/1" in own[0]
+               and "0 false offer(s) over 1 hidden-accepted of 2 task(s)" in own[0],
+               own[0] if own else "")
+            ck("mutation: the split does not move the goalposts — same run, the "
+               "blended figure is the stricter one",
+               own and "2 false" in blend and "0 false" in own[0])
         finally:
             loop.solve_routed = real
             trace.DIR = old_dir

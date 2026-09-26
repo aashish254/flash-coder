@@ -101,12 +101,32 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   leave-suite-out AUC is 0.569.
   Vector: `flash router-fit` prints LOO precision and a held-out AUC
   **≥ 0.75** on a fresh suite before `run-suite --threshold 0.5` becomes default.
-- **R-2.3 (OPEN)** The prospective confidence signal (§34.2) MUST come from
-  verification evidence — static diagnostics, coverage, suite flakiness — not
-  the model's own probability.
+- **R-2.3 (PARTIAL — mechanism shipped, both gate clauses missed)** The
+  prospective confidence signal (§34.2) MUST come from verification evidence —
+  static diagnostics, coverage, suite flakiness — not the model's own probability.
+  Shipped: `flash/confidence.py` (`--confidence`) judges the answer the visible
+  oracle already accepted, from four streams — static errors, the share of its
+  statement lines the visible tests executed, the visible verdict re-run under
+  three `PYTHONHASHSEED`s, and shape-typed adversarial calls that crash or hang.
   Vector: on a seeded subtle-bug suite, the fallback is offered on ≥ 90% of
   outputs that would fail hidden tests, with < 1 false escalation per 20
   routine tasks.
+  *Offline 2026-09-26: `flash.confidence --selftest` 21/21, wiring
+  `benchmarks/confidence_wiring_check.py` 30/30, seeded-suite premise
+  `benchmarks/subtle_premise_check.py` 52/52 (recall 6/6 on the would-fail
+  answers, each class fired by its own stream), differential-key premise
+  `benchmarks/p6_key_check.py` 13/13. Stated limit: the two masked-value cases
+  are NOT offered and cannot be — no stream reaches a wrong value on a line that
+  ran, in a field the visible asserts never read.*
+  *Live 2026-09-26, 7B small tier, 23 tasks, AC maximum-performance, 102s,
+  23/23 solved: **recall clause not measurable — its denominator is empty**
+  (0 of 23 answers fails its held-out key, so ≥ 90% of nothing is untested, not
+  passed); **false-offer clause missed by one offer**: 1 false offer over 15
+  hidden-accepted routine answers (1 per 15, gate < 1 per 20), 2 over 23 blended.
+  The one routine false offer is `max_subarray([]) -> IndexError` on an answer
+  whose own reference raises the same way — the edge stream calling a crash the
+  spec itself admits a finding. Closing this needs a population that actually
+  produces hidden failures (harder tasks or a weaker tier), not a softer key.*
 
 ### C. ACT — generate, then edit precisely
 
@@ -258,12 +278,22 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   and MUST resume from its checkpoint.
   Vector: `flash learn --selftest` 14/14; live `flash learn --check` → refused
   on battery with the reason.
-- **R-6.3 (OPEN)** Label hygiene MUST be preserved as the ledger grows: rows
-  produced under a shed, forced or benchmark-override policy are labelled
-  honestly and excluded where they would self-amplify.
+- **R-6.3 (MET, within stated precision)** Label hygiene MUST be preserved as
+  the ledger grows: rows produced under a shed, forced or benchmark-override
+  policy are labelled honestly and excluded where they would self-amplify.
   Vector: a re-fit trained only on `trainable()` rows, evaluated on a held-out
   family, reports the same AUC as a re-fit trained on all rows *minus* the
   override rows — i.e. the exclusion is not costing signal.
+  *Run 2026-09-26, `benchmarks/trainable_audit.py` (16/16 offline, log
+  `benchmarks/results/p6/trainable_audit.log`): fit A = 314 `trainable()` rows,
+  fit B = 370 rows minus only the *mandated* policy exclusions, so B keeps
+  exactly the 56 vision rows A drops and the audit measures trainable()'s one
+  exclusion beyond the hygiene minimum. Shared honest eval pool: 66 held-out
+  rows (m4–m7, none big-routed), 10 positives. Pooled AUC **0.618 vs 0.736**;
+  difference −0.118 with a bootstrap 95% interval **[−0.369, +0.099]** over
+  4 000 replicates — the gap does not separate from zero, so no measurable
+  signal is lost. The precision is part of the claim: at 10 positives a true
+  gap of up to ~0.37 could hide here.*
 - **R-6.4 (OPEN)** One component MUST be shown to improve by learning, not by
   editing (gate for §27 autopoiesis, G9).
   Vector: a documented before/after on a frozen suite for skills, memory or
@@ -335,20 +365,30 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
    `python -m flash.grammar --selftest` 47 · `python -m flash.patches --selftest`
    37 · `python -m flash.debug --selftest` 55 ·
    `python -m flash.tourney --selftest` 16 ·
+   `python -m flash.confidence --selftest` 21 ·
    `python benchmarks/trace_resume_check.py` 11 ·
+   `python benchmarks/confidence_wiring_check.py` 30 ·
+   `python benchmarks/subtle_premise_check.py` 52 ·
+   `python benchmarks/p6_key_check.py` 13 ·
    `python -m flash.debug --suite` 32 ·
    `python -m flash.patches --suite benchmarks/tasks/edit_tasks.jsonl` 60 ·
    `python benchmarks/m0_bakeoff.py --dry-run` 20 reference solutions.
-   **Total: 367 selftest / end-to-end / premise checks + 20 oracle
-   verifications = 387 green, offline** (re-read from the tree 2026-09-26 after
-   R-3.3: harness 12→20 with the `score()` ranking checks, and the new `tourney`
-   line; before that 363, and before that 202, when the oracle and the patch
+   **Total: 483 selftest / end-to-end / premise checks + 20 oracle
+   verifications = 503 green, offline** (re-read from the tree 2026-09-26 after
+   R-2.3: +21 confidence, +30 wiring, +52 seeded-suite premise, +13 key premise;
+   before that 387, after R-3.3: harness 12→20 with the `score()` ranking checks
+   and the new `tourney` line; and before that 202, when the oracle and the patch
    protocol had no batteries of their own).
    (The `jobs` line was labelled `learn` until 2026-09-26: `flash learn
    --selftest` dispatches into `flash.jobs`, and `flash/learn.py` has no
    battery of its own. Same 14 checks, wrong owner — the mislabelling made the
    battery look like it covered the router's training code when it covers the
    background scheduler.)
+   (`web` was the one battery that ran ONLY through `flash.cli`: `python -m
+   flash.web --selftest` had no `__main__` guard, so it exited 0 printing
+   nothing — 9 checks silently dropped from a re-read that trusted its own exit
+   code. Re-reads here must check the printed count, not `rc`. Guarded
+   2026-09-26; every other battery already ran under both forms.)
 1b. **Clean build** (no warnings accepted): `python -m pyflakes flash/*.py
    benchmarks/*.py` → **0 findings**. `benchmarks/tasks/` is out of that scope
    on purpose — a `*_test.py` there is a program *fragment* (`count_tasks`, the

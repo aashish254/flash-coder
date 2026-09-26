@@ -17,6 +17,9 @@ Plan: ../PLAN.md (v3.8). This package grows milestone by milestone:
   §33.4: flash.tourney              (tournament mode: k independent candidates,
                                      oracle-scored, width-clamped by the
                                      governor, `--tournament`)
+  §34.2: flash.confidence           (prospective confidence from verification
+                                     evidence: static + coverage + hash-seed
+                                     reruns + edge probes, `--confidence`)
   Phase-4: flash.web                (knowledge as a tool: fetch+sha1-cache+
                                      bge-ranked excerpts, §25a3, §33.9)
   M0b: flash.vision                 (screenshot -> HTML through the VLM)

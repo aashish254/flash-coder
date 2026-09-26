@@ -375,10 +375,65 @@ Rules for this file:
 
 ## P6 — R-2.3 confidence from verification + R-6.3 label hygiene
 
-- [ ] [B] Prospective confidence signal from static diagnostics / coverage /
-      suite flakiness (not model probability).
+- [x] [B] Prospective confidence signal from static diagnostics / coverage /
+      suite flakiness (not model probability). **Shipped** as
+      `flash/confidence.py` + `--confidence` on `run`/`run-suite`/`resume`: four
+      streams judge the answer the visible oracle already accepted — static
+      errors, the share of the answer's statement lines the visible tests
+      executed, the visible verdict re-run under `PYTHONHASHSEED` 0/1/7, and
+      shape-typed adversarial calls that crash or hang. The offer and every
+      number behind it ride the ledger (`conf_static` … `conf_reasons`) and the
+      trace. **Run 2026-09-26:** `flash.confidence --selftest` **21/21**,
+      `benchmarks/confidence_wiring_check.py` **30/30**,
+      `benchmarks/subtle_premise_check.py` **52/52**,
+      `benchmarks/p6_key_check.py` **13/13**, pyflakes 0. Two premises the
+      battery re-proves every run, because both were learned by being wrong
+      first: `-I` silently disables `PYTHONHASHSEED` (the seeded re-runs use
+      `-s`), and a probe that ignores the argument's shape reports an answer's
+      crash on input it was never asked to take (8/20 correct references offered
+      before shape typing; 1/20 after).
 - [ ] [V] [L] Seeded subtle-bug suite: offered on ≥ 90% of outputs that would
       fail hidden tests, < 1 false escalation per 20 routine tasks.
+      **NOT MET, and one clause is unmeasurable rather than passed.**
+      *Live arm 2026-09-26, Qwen2.5-Coder-7B-4bit, `benchmarks/tasks/p6_tasks.jsonl`
+      (8 seeded-subtle + 15 differential-keyed routine), AC maximum-performance,
+      `--confidence --trace-full`, 23/23 solved in 102s (22 small tier, 1
+      escalated), session `20260926-141119-run-suite-d086`, log
+      `benchmarks/results/p6/live_arm_7b_keyed.log`:*
+      `[R-2.3] 2/23 answer(s) carried evidence; recall on would-fail-hidden 0/0
+      (gate: >= 90%), 2 false offer(s) over 23 hidden-accepted answer(s)
+      (gate: < 1 per 20)` / `gate's own population (rows tagged routine): recall
+      0/0 (>= 90%), 1 false offer(s) over 15 hidden-accepted of 15 task(s)`.*
+      *Recall clause: **empty denominator** — every one of the 23 answers
+      survives its held-out key (the 7B answered the seeded-subtle tasks
+      correctly, and the keyed routine tasks correctly), so ≥ 90% of zero is
+      untested, not met. Measured offline instead, where the would-fail answers
+      exist by construction: **6/6 = 100%** recall on the seeded answers the
+      hidden tests sink (`subtle_premise_check`), with the two masked-value
+      cases declared blind and *staying* blind.*
+      False-offer clause: **missed by a single offer** — 1 over 15 routine
+      (1 per 15 against < 1 per 20), 2 over 23 blended. The extra offer is on a
+      seeded-subtle answer whose unexecuted branch is true evidence, so the
+      routine-only figure is the clause's own; both are printed.*
+      *The one routine false offer is `max_subarray([]) -> IndexError` on an
+      answer whose own reference raises the same way, and the differential key
+      records that crash as the expectation — the edge stream calling a
+      spec-admitted crash a finding. What would close this, and is NOT done here:
+      a population that produces real hidden failures (harder tasks, or the 4B
+      tier) to give recall a denominator, and a second live arm at n ≥ 40 to
+      give the false-offer clause any resolution.*
+      *Void data, kept for the record: the two arms run before 13:35 against a
+      `p6_tasks.jsonl` whose keys were broken (`gen_p6_key.observe` never
+      interpolated the function name, so every probe "raised NameError")
+      reported recall 2/17. Those 17 hidden-failures were the generator, not the
+      model; the `hidden_ok` in sessions `20260926-130301-*` and
+      `20260926-130853-*` is non-evidence (the ledger's own rows are clean —
+      `hidden_ok` never left the trace), and their logs are renamed
+      `benchmarks/results/p6/live_arm_7b{_full}_VOID_keys.log`. A third arm
+      (`20260926-133556-*`) died at the 30B load on `[METAL] Insufficient
+      Memory` and was superseded rather than resumed for the same reason.
+      `p6_key_check.py`'s mutation clause puts that bug back and proves the
+      generator now refuses to write.*
 - [x] [V] [offline] `trainable()` exclusion audit: AUC on excluded-only re-fit ==
       AUC on all-minus-override re-fit (no signal lost). **MET within measurement
       precision, and the precision is stated.**
@@ -400,7 +455,16 @@ Rules for this file:
       no generation, no outcomes; the selftest (16/16: AUC ranks/ties/empty,
       set-definitions, bootstrap band contains zero for identical fits and
       excludes it for a true separation) needs no model.*
-- [ ] [B] Docs move together (SPEC R-2.3, R-6.3).
+- [x] [B] Docs move together (SPEC R-2.3, R-6.3). **Moved 2026-09-26:**
+      SPEC R-2.3 → PARTIAL (mechanism shipped, both clauses missed, with the
+      live numbers and the empty-denominator reading stated), SPEC §6's battery
+      re-read from the tree **387 → 503 green** (confidence 21, wiring 30,
+      seeded-suite premise 52, key premise 13), README's §34.2 command block,
+      `flash/__init__.py`'s module map, PLAN §34.2 status line and an Appendix A
+      row that carries the void-key arms as non-evidence. R-6.3's docs move here
+      rather than with `dbdd7bf`, which touched only this file: its SPEC status is
+      now MET (within the stated precision) and its Appendix A row records the
+      −0.118 / [−0.369, +0.099] figure and the forward-pass-only cost.
 
 ## P7 — R-5.3 task-granular recovery → R-5.4 M16 chaos
 

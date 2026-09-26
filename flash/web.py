@@ -324,3 +324,10 @@ def run_selftest() -> int:
     print(f"\nweb selftest: {len(checks) - n_bad}/{len(checks)} checks pass")
     return 1 if n_bad else 0
 
+
+if __name__ == "__main__":                       # pragma: no cover
+    import sys
+    if "--selftest" in sys.argv or len(sys.argv) == 1:
+        raise SystemExit(run_selftest())
+    print(__doc__)
+

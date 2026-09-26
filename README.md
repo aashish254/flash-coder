@@ -153,6 +153,26 @@ Vision is benchmarked once the text brain is picked (PLAN §M1–M2).
 # measured 2026-09-26 on the 8 h-tasks, small tier: pass@1 5/7 -> best-of-3 6/7 (+14
 # pts, in-arm on matched input), suite 7/8 vs chain 6/8, at 3330 tokens vs 5559.
 
+# §34.2 prospective confidence (R-2.3): the escalation offer comes from EXECUTION
+# evidence, not the model's probability (which m7 measured dead at AUC 0.569). Four
+# streams run on the answer the visible tests already accepted: static errors, the
+# share of the answer's own statement lines those tests EXECUTED, its verdict re-run
+# under three PYTHONHASHSEEDs, and adversarial calls shaped by the task's own test —
+# where only an accident counts, never a `raise` the answer wrote itself. The report
+# line prints the offer beside the held-out verdict, and the two gate clauses keep
+# their own denominators (recall over answers the hidden tests sink, false offers
+# over the ones they float, routine rows split out because the <1-per-20 clause is
+# about routine tasks). Seconds of subprocess, no model; off by default on a suite,
+# on by default for a single `run` (before that answer ships to you).
+.venv/bin/python -m flash.cli run-suite --tasks benchmarks/tasks/p6_tasks.jsonl --confidence
+.venv/bin/python -m flash.confidence --selftest   # 21 offline checks, no model
+# measured 2026-09-26, 7B over 23 keyed tasks: every answer survived its held-out
+# key, so the >=90% recall clause had an EMPTY denominator (not a pass), and the
+# false-escalation clause was missed by one offer in 15 routine answers. Offline,
+# on the seeded subtle-bug suite where would-fail answers exist by construction,
+# recall is 6/6 — and the two masked-value bugs stay unoffered, which is the
+# documented blind spot, not a surprise.
+
 # §34.1 power governor — every run asks the machine before loading a model
 .venv/bin/python -m flash.cli power                    # profile, state, allowed vs shed
 .venv/bin/python -m flash.cli power --json             # machine-readable

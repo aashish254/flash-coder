@@ -371,10 +371,16 @@ def _run_suite(params: dict, sid: str | None = None) -> int:
     # as unkeyed rather than silently inflating the denominator.
     conf_n = conf_offers = conf_fails = conf_pass = 0
     conf_caught = conf_false = 0
+    # And against DIFFERENT populations: the spec's clause is "< 1 false
+    # escalation per 20 ROUTINE tasks", so a row tagged `gate` in the task file
+    # is mirrored here. An offer on a seeded-subtle answer is true evidence
+    # about an under-tested answer, not the false escalation the clause fears.
+    rt_n = rt_fails = rt_caught = rt_pass = rt_false = 0
 
-    def _count_conf(d):
+    def _count_conf(d, gate=None):
         nonlocal conf_n, conf_offers, conf_fails, conf_pass
         nonlocal conf_caught, conf_false
+        nonlocal rt_n, rt_fails, rt_caught, rt_pass, rt_false
         if "conf_offer" not in d:
             return
         conf_n += 1
@@ -389,6 +395,12 @@ def _run_suite(params: dict, sid: str | None = None) -> int:
             else (conf_fails, conf_pass + 1)
         conf_caught += offer and not h        # recalled a would-fail-hidden answer
         conf_false += offer and bool(h)       # offered an answer hidden accepts
+        if gate == "routine":
+            rt_n += 1
+            rt_fails += not h
+            rt_pass += bool(h)
+            rt_caught += offer and not h
+            rt_false += offer and bool(h)
 
     try:
         for t in tasks:
@@ -401,7 +413,7 @@ def _run_suite(params: dict, sid: str | None = None) -> int:
                 total += d.get("seconds") or 0.0
                 _count_edits(d, d.get("attempts"))
                 _count_tourney(d)
-                _count_conf(d)
+                _count_conf(d, t.get("gate"))
                 print(f"  [{'CACHED' if d.get('solved') else str(d.get('tier', 'failed')).upper():>9}] "
                       f"{t['id']:<22} solved={d.get('solved')} (already in session, "
                       f"not re-run)", flush=True)
@@ -430,7 +442,7 @@ def _run_suite(params: dict, sid: str | None = None) -> int:
             total += r.seconds
             _count_edits(_patch_fields(r), r.n_attempts)
             _count_tourney(_tour_fields(r))
-            _count_conf({**_conf_fields(r), "hidden_ok": hid})
+            _count_conf({**_conf_fields(r), "hidden_ok": hid}, t.get("gate"))
             print(f"  [{('SHED' if tier == 'shed' else 'ESC->BIG' if tier == 'big' else tier.upper()):>9}] "
                   f"{t['id']:<22} solved={r.solved} attempts={r.n_attempts} "
                   f"({r.seconds}s)" + _patch_note(r) + _tour_note(r) + _conf_note(r),
@@ -465,6 +477,13 @@ def _run_suite(params: dict, sid: str | None = None) -> int:
               + ("" if conf_fails + conf_pass else
                  "   [this suite has no hidden tests: the evidence is reported, "
                  "not scored]"))
+        if rt_n and rt_n != conf_n:
+            # The clause's own population, named separately rather than blended
+            # with rows it was never about.
+            print(f"        gate's own population (rows tagged routine): "
+                  f"recall {rt_caught}/{rt_fails} (>= 90%), {rt_false} false "
+                  f"offer(s) over {rt_pass} hidden-accepted of {rt_n} task(s) "
+                  f"(< 1 per 20)")
     print(f"[trace] flash trace show {sid}")
     if shed_n:
         from flash import power
