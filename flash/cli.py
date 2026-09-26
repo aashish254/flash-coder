@@ -190,6 +190,7 @@ def cmd_run(args) -> int:
         task["edit"] = True
         task["multi"] = True
     trace.CAPTURE = args.trace_full
+    loop.ADAPTER = args.adapter or ""
     loop.CONSTRAIN = args.constrain
     loop.DEBUG = args.debug
     loop.EDIT = args.edit
@@ -197,6 +198,7 @@ def cmd_run(args) -> int:
                                                        "small": args.small,
                                                        "big": args.big,
                                                        "allow_big": args.allow_big,
+                                                       "adapter": args.adapter,
                                                        "tournament": args.tournament,
                                                        "confidence": args.confidence})
     r, tier, routed = solve_routed(args.small, args.big, task, ROOT,
@@ -225,7 +227,7 @@ def cmd_run(args) -> int:
 
 SUITE_PARAMS = ("small", "big", "tasks", "with_context", "attempts", "max_tasks",
                 "max_tokens", "max_chars", "threshold", "allow_big", "constrain",
-                "debug", "edit", "tournament", "confidence")
+                "debug", "edit", "tournament", "confidence", "adapter")
 
 
 def _patch_attempt(r):
@@ -306,6 +308,9 @@ def _run_suite(params: dict, sid: str | None = None) -> int:
     from flash.loop import solve_routed
     import flash.loop as loop
 
+    # R-6.4: one brain for the whole run, and it is the adapter the SESSION
+    # recorded — a resumed suite must not quietly switch weights mid-suite.
+    loop.ADAPTER = params.get("adapter") or ""
     loop.CONSTRAIN = bool(params.get("constrain"))   # R-4.2 output mask
     loop.DEBUG = bool(params.get("debug"))           # R-4.3 execution digest
     loop.EDIT = bool(params.get("edit"))             # R-3.2 symbol-precise patches
@@ -744,6 +749,16 @@ def cmd_learn(args) -> int:
         ok, why = jobs.eligibility(force=args.force, min_new=args.min_new)
         print(("eligible: " if ok else "refused: ") + ("; ".join(why) or "gate open"))
         return 0 if ok else 1
+    if args.lora:
+        # R-6.4: the same gate over the heavier job — weights instead of a
+        # router. Nothing here loads a model until the gate has opened.
+        msg = jobs.run_lora(args.small, dataset_dir=args.dataset or None,
+                            adapter_name=args.adapter, steps_total=args.steps,
+                            slice_iters=args.slice_iters, patience=args.patience,
+                            budget_s=args.budget, force=args.force,
+                            kind=args.kind)
+        print(msg)
+        return 0 if "refused" not in msg and "no dataset" not in msg else 1
     msg = jobs.run_fit(args.small, budget_s=args.budget, chunk=args.chunk,
                        force=args.force, kind=args.kind)
     print(msg)
@@ -851,6 +866,11 @@ def main() -> int:
                         "adversarial arguments, then print what that evidence "
                         "backs. Seconds of subprocess, no model (--no-confidence "
                         "to skip)")
+    p.add_argument("--adapter", default=None, metavar="DIR",
+                   help="R-6.4: LoRA directory to load over the SMALL tier (the "
+                        "brain stays base). Its name goes on the ledger row and "
+                        "every trace event, and an adapter with no weights is an "
+                        "error, not a fall back to the base model")
     p.add_argument("--trace-full", action="store_true",
                    help="§33.6: also store the exact prompts and outputs, so the "
                         "run can be re-fed to a model")
@@ -889,6 +909,11 @@ def main() -> int:
                    help="R-2.3: run §34.2's four evidence streams on every "
                         "surfaced answer and report offers alongside the hidden "
                         "verdicts (off: ~5 subprocesses per task)")
+    p.add_argument("--adapter", default=None, metavar="DIR",
+                   help="R-6.4: LoRA directory to load over the SMALL tier (the "
+                        "brain stays base). Its name goes on every ledger row and "
+                        "trace event, and an adapter with no weights is an error, "
+                        "not a fall back to the base model")
     p.add_argument("--trace-full", action="store_true",
                    help="§33.6: store exact prompts/outputs too, for re-feeding")
     p.set_defaults(fn=cmd_run_suite)
@@ -917,6 +942,8 @@ def main() -> int:
                    help="R-3.3: omit to keep the resumed session's setting")
     p.add_argument("--confidence", action="store_true", default=None,
                    help="R-2.3: omit to keep the resumed session's setting")
+    p.add_argument("--adapter", default=None,
+                   help="R-6.4: omit to keep the resumed session's adapter")
     p.add_argument("--trace-full", action="store_true")
     p.set_defaults(fn=cmd_resume)
 
@@ -993,7 +1020,8 @@ def main() -> int:
     p = sub.add_parser("lsp-selftest", help="§33.1: deterministic perception checks")
     p.set_defaults(fn=cmd_lsp_selftest)
 
-    p = sub.add_parser("learn", help="§34.3: gated, resumable background router refit")
+    p = sub.add_parser("learn", help="§34.3: gated, resumable background learning "
+                                     "(router refit; --lora for weights)")
     p.add_argument("--small", default=DEFAULT_MODEL)
     p.add_argument("--budget", type=float, default=900.0,
                    help="wall-clock cap per invocation; the rest resumes next idle window")
@@ -1004,6 +1032,18 @@ def main() -> int:
     p.add_argument("--status", action="store_true", help="print the last checkpoint")
     p.add_argument("--check", action="store_true", help="only answer: may it run now?")
     p.add_argument("--min-new", type=int, default=10)
+    p.add_argument("--lora", action="store_true",
+                   help="train the LoRA adapter instead of refitting the router")
+    p.add_argument("--dataset", default="",
+                   help="dataset dir (default: benchmarks/results/datasets/ledger-verified)")
+    p.add_argument("--adapter", default="self-improve",
+                   help="adapter name; weights land in benchmarks/results/adapters/<name>")
+    p.add_argument("--steps", type=int, default=256,
+                   help="total optimizer steps for the experiment")
+    p.add_argument("--slice-iters", type=int, default=32,
+                   help="steps per slice: what a kill costs, and the eval interval")
+    p.add_argument("--patience", type=int, default=3,
+                   help="non-improving checkpoints before the run stops")
     p.add_argument("--selftest", action="store_true")
     p.set_defaults(fn=cmd_learn)
 

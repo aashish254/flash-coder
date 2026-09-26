@@ -44,12 +44,17 @@ CHUNK = 8                  # prompts per embedding flush
 @dataclass
 class JobState:
     kind: str = "router-fit"
-    stage: str = "queued"          # queued|embedding|paused|fitting|done|refused
+    stage: str = "queued"          # queued|embedding|training|paused|fitting|done|refused
     eligible: bool = False
     embedded: int = 0
     total: int = 0
     rows: int = 0
     trained_n: int = 0
+    iters_done: int = 0            # lora: optimizer steps banked
+    iters_total: int = 0           # lora: the step budget asked for
+    adapter: str = ""              # lora: the directory the weights live in
+    detail: str = ""               # lora: the last slice, in words
+    adapter: str = ""              # lora: which directory holds the weights
     wall_s: float = 0.0
     reason: str = ""
     updated: float = 0.0
@@ -223,6 +228,120 @@ def ledger_trainable(row: dict) -> bool:
     return trainable(row)
 
 
+# --------------------------------------------------------------- LoRA job
+
+LORA_STEPS = 256           # one overnight experiment's worth of steps
+LORA_SLICE = 32            # steps between checkpoints: what a kill can cost
+LORA_PATIENCE = 3          # non-improving checkpoints before the run stops
+
+
+def run_lora(small_repo: str, dataset_dir=None, adapter_name: str = "self-improve",
+             steps_total: int = LORA_STEPS, slice_iters: int = LORA_SLICE,
+             patience: int = LORA_PATIENCE, budget_s: float = BUDGET_S,
+             force: bool = False, kind: str = "lora-fit", verbose: bool = True,
+             jobs_dir: Path | None = None, adapter_dir=None, train_fn=None,
+             rows: list[dict] | None = None,
+             state: power.SystemState | None = None) -> str:
+    """One gated, resumable LoRA fit on the agent's own verified outcomes (R-6.4).
+
+    The gate is the same `eligibility()` the router refit uses, and it runs
+    BEFORE anything is imported or written: refused here means zero training
+    calls and an untouched adapter directory. §34.3's acceptance test is that
+    the machine's idle state decides, not the caller's intention.
+
+    What it does then is hand the whole step budget to `flash.train.train_lora`,
+    which owns the slice loop, the validation measurement and the early stop —
+    this function owns only the gate, the priority, the wall clock and the
+    position the next idle window resumes from. `on_progress` fires once per
+    slice, so a `kill -9` costs at most `slice_iters` steps of work.
+
+    `train_fn` is injectable so the gate, the resume position and the pause are
+    checkable offline without a model; production leaves it None.
+    """
+    from flash import train as tr
+
+    t0 = time.monotonic()
+    ds = Path(dataset_dir or (tr.DATASET_DIR / "ledger-verified"))
+    n_train = len(tr.read_jsonl(ds / "train.jsonl"))
+    if not n_train:
+        return (f"[learn] no dataset at {ds} — build it first: "
+                f"python -m flash.train --dataset --held-out <frozen suite>")
+    ad = Path(adapter_dir or (tr.ADAPTER_DIR / adapter_name))
+
+    ledger_rows = ([r for r in ledger.load()
+                    if r.get("tier") not in ("vision", "shed")]
+                   if rows is None else rows)
+    prev = load_state(kind, jobs_dir)
+    start = prev.iters_done if prev and prev.stage in ("training", "paused") else 0
+    st = JobState(kind=kind, rows=len(ledger_rows), iters_done=start,
+                  iters_total=steps_total, total=steps_total, adapter=str(ad))
+
+    ok, why = eligibility(force=force, rows=ledger_rows, state=state,
+                          trained_n=(prev.trained_n if prev else 0))
+    st.eligible = ok
+    st.reason = "; ".join(why)
+    if not ok:
+        # A refusal records the refusal; it does not erase the position. A job
+        # that was PAUSED stays paused — its weights are still on disk at that
+        # step — and only says that this attempt was refused. Rewriting the
+        # stage would make the next idle window start from cold while believing
+        # it had never begun, which is how an overnight run silently becomes two.
+        if prev and prev.kind == st.kind and prev.stage in ("paused", "training"):
+            st.stage = prev.stage
+            st.iters_done, st.iters_total = prev.iters_done, prev.iters_total
+            st.adapter, st.trained_n = prev.adapter, prev.trained_n
+        else:
+            st.stage = "refused"
+        st.wall_s = round(time.monotonic() - t0, 2)
+        save_state(st, jobs_dir)
+        return f"[learn] refused: {st.reason}"
+    if verbose:
+        print(f"[learn] LoRA eligible ({st.reason or 'gate open'}); "
+              f"{steps_total} step(s) from step {start}, budget {budget_s:.0f}s")
+        print(f"[learn] {lower_priority()}")
+
+    def _progress(done, detail):
+        st.stage = "training"
+        st.iters_done = done
+        st.detail = detail
+        save_state(st, jobs_dir)
+
+    rec = (train_fn or tr.train_lora)(
+        repo=small_repo, dataset_dir=ds, adapter_dir=ad, steps_total=steps_total,
+        start_step=start, slice_iters=slice_iters, eval_every=slice_iters,
+        patience=patience, budget_s=budget_s, verbose=verbose,
+        on_progress=_progress)
+    # `iters_done` is the position a resume loads, so it is the step whose
+    # weights are at the adapter root — usually the best-measured one, which is
+    # behind the last step trained. Naming them apart is what stops a resumed
+    # job from claiming a position its shipped weights never reached.
+    st.iters_done = rec["promoted_step"]
+    st.detail = (f"root weights = step {rec['promoted_step']} "
+                 f"({rec['iters_done']} trained), best loss {rec['best_loss']}, "
+                 f"stopped: {rec['stopped']}")
+    st.wall_s = round(time.monotonic() - t0, 2)
+    # the record belongs next to the weights it describes: an arm that loads this
+    # adapter later must be able to see which step was promoted, and why
+    (ad / "train_record.json").write_text(json.dumps(
+        {**rec, "dataset": str(ds), "adapter": str(ad), "train_rows": n_train,
+         "slice_iters": slice_iters, "patience": patience,
+         "gate": st.reason or "gate open"},
+        indent=2, sort_keys=True))
+    if rec["stopped"] == "budget" and rec["iters_done"] < steps_total:
+        st.stage = "paused"
+        save_state(st, jobs_dir)
+        return (f"[learn] LoRA paused after {st.wall_s}s: {rec['iters_done']}/"
+                f"{steps_total} step(s) — rerun to resume "
+                f"(checkpoint: {state_path(kind, jobs_dir)})")
+    st.stage = "done"
+    st.trained_n = len(ledger_rows)
+    st.reason = ""
+    save_state(st, jobs_dir)
+    return (f"[learn] LoRA on {n_train} verified row(s): {rec['iters_done']} "
+            f"step(s) in {st.wall_s}s, best valid loss {rec['best_loss']} at step "
+            f"{rec['best_step']} ({rec['stopped']}) -> {ad}")
+
+
 # ---------------------------------------------------------------- selftest
 
 def run_selftest(verbose: bool = True) -> int:
@@ -314,6 +433,76 @@ def run_selftest(verbose: bool = True) -> int:
         p.mkdir(parents=True)
         (p / "x.json").write_text("{not json")
         check("state: corrupt checkpoint degrades to None", load_state("x", p) is None)
+
+    # ---- the LoRA job: the same gate over the heavier arm (R-6.4)
+    with tempfile.TemporaryDirectory() as d:
+        d = Path(d)
+        ds = d / "ds"
+        ds.mkdir()
+        (ds / "train.jsonl").write_text(json.dumps(
+            {"messages": [{"role": "user", "content": "q"},
+                          {"role": "assistant", "content": "a"}]}) + "\n")
+        (ds / "valid.jsonl").write_text((ds / "train.jsonl").read_text())
+        ad, jobs_p = d / "ad", d / "jobs"
+        calls: list = []
+
+        def fake_train(**kw):
+            calls.append(kw)
+            root = Path(kw["adapter_dir"])
+            root.mkdir(parents=True, exist_ok=True)
+            (root / "adapters.safetensors").write_bytes(b"w")
+            if kw.get("on_progress"):
+                kw["on_progress"](kw["start_step"] + kw["slice_iters"], "one slice")
+            return {"iters_done": kw["start_step"] + kw["slice_iters"],
+                    "steps_total": kw["steps_total"],
+                    "start_step": kw["start_step"],
+                    "promoted_step": kw["start_step"] + kw["slice_iters"],
+                    "best_step": kw["start_step"] + kw["slice_iters"],
+                    "best_loss": 1.25, "evals": [], "stopped": "steps", "wall_s": 1.0}
+
+        msg = run_lora("", dataset_dir=ds, adapter_name="t", steps_total=64,
+                       slice_iters=16, force=False, verbose=False, jobs_dir=jobs_p,
+                       adapter_dir=ad, train_fn=fake_train,
+                       state=state(on_ac=False, battery_pct=40.0),
+                       rows=[{}] * 30)
+        check("gate: on battery the LoRA job refuses and makes zero training calls",
+              "refused" in msg and not calls and not ad.exists(), f"{msg} "
+              f"{len(calls)} call(s)")
+        msg = run_lora("", dataset_dir=ds, steps_total=64, slice_iters=16,
+                       verbose=False, jobs_dir=jobs_p, adapter_dir=ad,
+                       train_fn=fake_train, state=state(), rows=[{}] * 30)
+        st_l = load_state("lora-fit", jobs_p)
+        check("gate: idle + AC opens it, and the slice budget reaches the trainer",
+              "LoRA on 1" in msg and st_l.stage == "done"
+              and calls[0]["steps_total"] == 64, msg)
+        check("the record next to the weights names the step that was promoted",
+              json.loads((ad / "train_record.json").read_text())["promoted_step"]
+              == 16, (ad / "train_record.json").read_text()[:60])
+        # a paused job resumes at its banked step, and the gate still decides
+        save_state(JobState(kind="lora-fit", stage="paused", iters_done=48,
+                            iters_total=64, trained_n=0), jobs_p)
+        calls.clear()
+        msg = run_lora("", dataset_dir=ds, steps_total=64, slice_iters=16,
+                       verbose=False, jobs_dir=jobs_p, adapter_dir=ad,
+                       train_fn=fake_train, state=state(idle_seconds=3.0),
+                       rows=[{}] * 30)
+        check("gate: a RESUMING job is still refused while the user is typing",
+              "refused" in msg and not calls and "idle=3s" in msg, msg)
+        calls.clear()
+        msg = run_lora("", dataset_dir=ds, steps_total=64, slice_iters=16,
+                       verbose=False, jobs_dir=jobs_p, adapter_dir=ad,
+                       train_fn=fake_train, state=state(), rows=[{}] * 30)
+        check("resume: the banked step is where training continues from",
+              calls and calls[0]["start_step"] == 48
+              and load_state("lora-fit", jobs_p).iters_done == 64,
+              f"{calls[0]['start_step'] if calls else '-'} | {msg}")
+        # no dataset is a refusal with an explanation, not a crash
+        calls.clear()
+        msg = run_lora("", dataset_dir=d / "nowhere", jobs_dir=jobs_p,
+                       adapter_dir=ad, train_fn=fake_train, state=state(),
+                       rows=[{}] * 30)
+        check("no dataset: it says what to run instead of loading a model",
+              "no dataset" in msg and "--held-out" in msg and not calls, msg)
 
     n_ok = sum(ok for _, ok, _ in checks)
     if verbose:

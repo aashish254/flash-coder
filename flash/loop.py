@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import asdict, dataclass, field
+from pathlib import Path
 
 from flash.harness import diagnose, extract_code
 from flash.perceive import format_errors, static_check
@@ -520,7 +521,7 @@ def solve_with_escalation(small_repo: str, big_repo: str, task: dict,
     import mlx.core as mx
     from mlx_lm import load
 
-    model, tok = load(small_repo)
+    model, tok = load_model(small_repo)
     r_small = solve(model, tok, task, max_attempts=small_attempts,
                     max_tokens=max_tokens)
     if r_small.solved:
@@ -539,6 +540,66 @@ def solve_with_escalation(small_repo: str, big_repo: str, task: dict,
 
 
 _ROUTER = "unset"
+
+
+ADAPTER = ""
+
+
+def adapter_path(name: str | None = None) -> str | None:
+    """Resolve the adapter this run carries, or None for the base model.
+
+    `name=None` means "whatever the run was told to carry" (the module's
+    ADAPTER, set from --adapter the way CONSTRAIN and EDIT are set from the same
+    parameters); `name=""` means base model explicitly, which is what the brain
+    is loaded as.
+
+    A name that holds no weights raises rather than falling back. An "after" arm
+    that quietly loaded the base model would print the most convincing wrong
+    number this project can generate: a before/after where both sides are the
+    before.
+    """
+    p = (ADAPTER if name is None else name).strip()
+    if not p:
+        return None
+    if not (Path(p) / "adapters.safetensors").exists():
+        raise FileNotFoundError(
+            f"adapter {p} holds no adapters.safetensors — refusing to run the "
+            f"base model under this name")
+    return p
+
+
+def load_model(repo: str, adapter: str | None = None):
+    """mlx load for one tier, with that tier's adapter on top when it has one.
+
+    Only the small tier is ever adapter-carrying: these weights were fit on the
+    small model's own verified outcomes, and a 7B's LoRA over the 30B brain is a
+    different claim from the one R-6.4 makes.
+    """
+    from mlx_lm import load
+
+    ad = adapter_path(adapter)
+    return load(repo, adapter_path=ad) if ad else load(repo)
+
+
+def model_label(repo: str, adapter: str | None = None) -> str:
+    """The name a ledger row or trace event carries for this model."""
+    from flash.train import label_for
+
+    return label_for(repo, adapter_path(adapter))
+
+
+def small_label(repo: str) -> str:
+    return model_label(repo)
+
+
+def big_label(repo: str) -> str:
+    """The brain's name: always base, whatever the small tier carries.
+
+    `""` rather than None, so a run that DOES carry an adapter still records
+    the 30B as itself — otherwise the label would claim an adapter mlx was never
+    asked to load.
+    """
+    return model_label(repo, "")
 
 
 def _load_router():
@@ -646,10 +707,13 @@ def solve_routed(small_repo: str, big_repo: str, task: dict, root,
         checkpoint.handoff(checkpoint.session(), task["id"])
     entry = {"task_id": task["id"], "prompt": task["prompt"][:300],
              "ctx": bool(task.get("context")),
-             "small": small_repo.split("/")[-1], "big": big_repo.split("/")[-1]}
+             # the label is the model that made the decision, adapter included:
+             # a ledger row that says "7B" for a 7B+lora is a wrong attribution,
+             # not a shorthand one.
+             "small": small_label(small_repo), "big": big_label(big_repo)}
     st, caps = power.governor(power.peak_gb(small_repo))
     entry["profile"] = caps.profile
-    model, tok = load(small_repo)
+    model, tok = load_model(small_repo)
     routed = tier_name(route_task(model, tok, task))
 
     # Learned router (M3): score from outcomes-trained bundle. Zero extra model
