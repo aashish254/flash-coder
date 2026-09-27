@@ -2,7 +2,7 @@
 #
 # The default sdist for this project was 272 KB and 27 files: the `flash` package,
 # LICENSE, README, PKG-INFO — and **zero** `benchmarks/`. That is a package whose
-# every published number (1,114 checks, 20 oracle verifications, 83 mutation gates)
+# every published number (1,119 checks, 20 oracle verifications, 85 mutation gates)
 # its own installer cannot re-run, which is the one thing this project claims to be.
 # So the verification surface ships with the source.
 #

@@ -1203,6 +1203,36 @@ here rather than folded into P6's confidence work.
       `site-packages`/`dist-packages`, and `site_install()` builds exactly that
       directory to gate it. Live repeat in a package-only tree, from a directory
       holding neither `flash/` nor `benchmarks/`: four sentences, zero tracebacks.
+- [x] [B] [V] [offline] R-7.10c the wheel-refusal table is swept, not remembered:
+      every module that exposes a `run_selftest` is found in a package-only copy and
+      must either be tabled or be on a named machine-state list.
+      **Closed 2026-09-27: `backend-free checks: 42/42 passed`,
+      `backend-free mutants: 10/10 gates defeated by exactly their checks`, and the
+      §6 re-read printed `checks 1119  oracle 20  §6 total 1139  mutants 85` with all
+      33 lines OK in a measured 15 min 9 s
+      (`benchmarks/results/battery_reread_r710c_20260927.log`).**
+      The table of four was correct for four and silent about the other twelve, and
+      the R-7.5 rerun proved it mattered: on the same wheel install
+      `python -m flash.tourney --selftest` exited **1** with `FileNotFoundError` —
+      its task path was resolved against the **caller's cwd**, so it was broken in a
+      clone as well — and `python -m flash.lsp --selftest` exited **1** with
+      `ValueError: substring not found`, three frames of AST work away from the
+      missing fixture and naming no path at all. Both are fixed (`_DATA_ROOT` +
+      `vector_refusal`, so the table is six) and both now print 16/16 and 22/22 from
+      a foreign cwd in a clone. The vector: `pkg_only_copy()` copies `flash/` to a
+      temp dir with no `benchmarks/` next to it, `selftest_mods()` discovers the
+      module list by AST off the **copy's sources**, `run_in_copy()` runs each one
+      from a cwd that holds neither tree, and any death is re-run in a second copy
+      with the data symlinked back in — passes-with-data is a data-dependence that
+      must be tabled, fails-either-way is this box's state and is allowed only on a
+      three-entry named list (`ambient`, `power`, `sandbox`). Three new gates (spine,
+      untabled, machine-state) and two new mutants. The first mutant run printed
+      **0 checks failing**, because the planted module had no `if __name__ ==
+      "__main__"` tail and `python -m … --selftest` on such a module imports it and
+      exits 0; the probe gained the tail and the spine gate gained "every swept
+      module was dispatched", which is the difference between *did not crash* and
+      *ran*. On the closing run: **16 swept, 6 refused, refusals == the table's
+      keys**.
 - [ ] [V] [L] R-7.3 voice: real-microphone arm, VAD barge-in, ≥ 90% command
       recognition over 50 utterances.
 - [ ] [V] [L] M17 feel test: ≥ 7 of 10 developers keep it after a week.

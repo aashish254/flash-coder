@@ -1013,7 +1013,9 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   resolved by
   `parse_args([cmd])` against the real parser under a swallowed stderr — never by
   dispatching, because a documented `flash run` would create a worktree and a
-  documented `flash selftest --all` would take eight minutes — and the gate that the
+  documented `flash selftest --all` would take a measured quarter of an hour (the §6
+  re-read of the same vectors took **15 min 9 s** on 2026-09-27) — and the gate that
+  the
   collector is not blind is paid for by planting a command nobody wrote and requiring
   the existence check to reject it.
   **The packaging files were added the same day, and they were not idle for a
@@ -1124,6 +1126,37 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   `lib/python3.11/site-packages/flash` directory, plus the 8th mutant putting the
   interpreter back and requiring the gate to notice; both green in this session, and
   the wheel venv re-printing `installed copy` is in R-7.5's rerun witness.
+- **R-7.10c (CLOSED 2026-09-27)** The refusal table was a list of four, and a list
+  is only as good as the measurement that says it is complete. Re-running R-7.5's
+  wheel shape found two more modules that read the data tree and were not on it:
+  `python -m flash.tourney --selftest` exited **1** with `FileNotFoundError` because
+  its one real h-task was named by a path resolved against the **caller's cwd** (so it
+  was broken in a clone too, for anyone who ran it from another directory), and
+  `python -m flash.lsp --selftest` exited **1** with `ValueError: substring not
+  found` — three layers of AST work away from the absent fixture, naming no path at
+  all, which is the error text a "look for a missing file" classifier would miss.
+  Both now go through `doctor.vector_refusal` like the other four (the table is six,
+  and tourney's task path is anchored at `_DATA_ROOT`), and the clause's verification
+  stopped being a list: `benchmarks/backend_free_check.py` copies `flash/` into a temp
+  directory that carries **no** `benchmarks/`, discovers every module in the copy with
+  a `run_selftest` **from the copy's own sources**, runs each one as a stranger would,
+  and classifies every death by re-running it in a second copy with the data
+  symlinked back in. Passes only when the data is there ⇒ data-dependent ⇒ must be
+  tabled. Fails either way ⇒ this box's state, and it is on a three-entry named list
+  (`ambient`'s wall-clock budget, `power`'s governor read, `sandbox`'s memory rlimit)
+  rather than skipped — the checked-exemption shape R-7.4's residue floor uses. A
+  non-tabled failure is re-run in the bare copy first, because a data-dependence is
+  deterministic and a timing budget is not: on the run that closed this box
+  **16 modules were swept, 6 refused, and the refusals equalled the table's keys**.
+  The spine gate also requires every swept module to carry the `__main__` tail that
+  makes `python -m` reach it — a hole the first version of this gate had, and found by
+  its own mutant: the planted probe initially had no `__main__`, so `python -m` on it
+  returned 0, the sweep called that a pass, and the mutation printed **0 checks
+  failing**. Vector: **42 checks + 10 mutants** (`backend-free checks: 42/42 passed`,
+  `10/10 gates defeated by exactly their checks`), the new mutant writing a real
+  data-reading, unguarded, selftest-exposing module into `flash/` and requiring the
+  sweep to name it. Cost of the sweep is stated rather than hidden: this vector went
+  from seconds to ~2 min and the §6 battery from ~8 min to a measured **15 min 9 s**.
 - **R-7.3 (OPEN)** Hands-free control (voice) at the measured spike latency:
   command-to-ack ~4.8s. Vector: real-microphone arm of the spike with VAD
   barge-in, ≥ 90% command recognition over 50 utterances.
@@ -1314,16 +1347,16 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
    `python benchmarks/graph_perceive_check.py --sweep` 33 (+ 12 mutants) ·
    `python benchmarks/hint_ab_check.py` 14 (+ 8 mutants) ·
    `python benchmarks/portable_paths_check.py` 15 (+ 7 mutants) ·
-   `python benchmarks/backend_free_check.py` 37 (+ 8 mutants) ·
+   `python benchmarks/backend_free_check.py` 42 (+ 10 mutants) ·
    `python benchmarks/documented_commands_check.py` 8 (+ 5 mutants) ·
    `python -m flash.debug --suite` 32 ·
    `python -m flash.patches --suite benchmarks/tasks/edit_tasks.jsonl` 60 ·
    `python benchmarks/m0_bakeoff.py --dry-run` 20 reference solutions.
-   **Total: 1114 selftest / end-to-end / premise checks + 20 oracle
+   **Total: 1119 selftest / end-to-end / premise checks + 20 oracle
    verifications (m0_bakeoff's 20 reference solutions, which are the only
    numbers in that 20 — the 6 ambient, 15 lora, 5 band, 5 router-portability,
-   12 graph, 12 graph-perceive, 8 hint-ab, 7 path-portability, 8 backend-free and
-   5 documented-command mutants are extra to both totals, 83 in all) = 1134 green,
+   12 graph, 12 graph-perceive, 8 hint-ab, 7 path-portability, 10 backend-free and
+   5 documented-command mutants are extra to both totals, 85 in all) = 1139 green,
    offline.** Read those two
    numbers with care: CHECKS and TOTAL are different columns, and this page has
    been quoted wrongly by its own notes before — R-1.1b's checks count (1052) was
@@ -1417,6 +1450,29 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
    a sweep, not an enumeration, is what stops a *new* module growing a top-level
    backend import and still printing green. That gate was added, planted-file mutant
    and all, which is why the line is 30 and not 29.)
+   (Updated 2026-09-27, when R-7.10c closed: **+5 checks and +2 mutants** on
+   `python benchmarks/backend_free_check.py` (**37 → 42**, **8 → 10**) — the sweep
+   that measures the refusal table instead of trusting it, its spine gate, its
+   machine-state gate, and the two mutants that plant an unguarded data-reading
+   selftest and drop an entry from the table. **1114 → 1119** checks, mutants
+   **83 → 85**, §6 total **1134 → 1139**, with the line count unchanged at **33**
+   for the same reason as last time: the new gates went into a vector that already
+   had a line. The sweep is what found the two product bugs the table of four had
+   missed — one selftest resolved its task file against the caller's working
+   directory and so raised `FileNotFoundError` on a wheel install, and another died
+   three frames away from the absent directory with `ValueError: substring not
+   found`, an error that names no path at all. Both now anchor on the package and
+   refuse with rc 2 through the table, which is why the table has six keys.
+   The sweep's own first mutant printed **0 checks failing**, and the reason is in
+   R-7.10c: a module with no executable tail answers `python -m … --selftest` by
+   importing and exiting 0, which the gate had been counting as a pass. The spine
+   gate now requires every swept module to have been dispatched.
+   This run's re-read printed `checks 1119  oracle 20  §6 total 1139  mutants 85`
+   with all **33** lines on the OK list, on a tree that took **15 min 9 s** to
+   re-read — the sweep is not free, and README carries the measured figure rather
+   than the earlier estimate (raw witness
+   `benchmarks/results/battery_reread_r710c_20260927.log`, which carries 0 host
+   paths and so leaves `RECORD_RESIDUE` at 411.)
    (Updated 2026-09-27, when R-7.9, R-7.10 and R-7.10b closed: **+2 checks and +1
    mutant** on `python benchmarks/lora_path_check.py` (**31 → 33**, **14 → 15**) for
    `--dry-run`, **+1 check and +1 mutant** on

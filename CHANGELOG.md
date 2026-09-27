@@ -130,6 +130,29 @@ versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   repeat in a package-only tree where all four print the sentence and none prints a
   traceback. The gate that requires the same guards to say *nothing* when the four
   paths are present is what keeps this from being a vector that refuses to run.
+- **R-7.10c** the refusal table was a list of four, and a list cannot grow a
+  data-dependence on its own. Two more selftests were found broken on a
+  package-only install by sweeping the table instead of trusting it:
+  `flash.tourney --selftest` resolved its task file against the **caller's working
+  directory** and died with `FileNotFoundError`, and `flash.lsp --selftest` read the
+  minishop fixture and died three frames away from the absent directory with
+  `ValueError: substring not found` — an error that names no path, which is exactly
+  what a user reads as a broken product. Both now anchor on the package and refuse
+  through `doctor.vector_refusal()`, and the table has six keys. The sweep
+  (`benchmarks/backend_free_check.py`) copies `flash/` to a temp dir with no
+  `benchmarks/`, discovers every module with a module-level `run_selftest` from the
+  copy's sources, runs each from a foreign cwd, and classifies any death by
+  re-running it in a second copy with the data symlinked back in: passes-with-data
+  is data-dependence and must be tabled, fails-either-way is machine state and is on
+  a named three-entry allow-list. **16 modules were swept, 6 refused, and the
+  refusals equalled the table's keys.** Its first mutant printed **0 checks
+  failing** because the planted module had no `if __name__ == "__main__"` tail, so
+  `python -m … --selftest` imported and exited 0 — the spine gate now requires every
+  swept module to have been dispatched. Five checks and two mutants added:
+  **`backend-free checks: 42/42 passed`**, **`backend-free mutants: 10/10 gates
+  defeated by exactly their checks`**, §6 **1119 checks + 20 oracle verifications =
+  1139** with **85** mutants, re-read in a measured **15 min 9 s**
+  (`benchmarks/results/battery_reread_r710c_20260927.log`).
 - `benchmarks/portable_paths_check.py` now takes a `flock` on a per-checkout lock
   file and exits 2 rather than running twice at once. Found by a §6 battery run
   that printed **BAD … defeated 0 mutants, not 7** while every gate still said
@@ -207,8 +230,8 @@ for the release that TODO #32 tags once R-7.5 closes. Its counts are the
 tree's printed ones as of the last §6 re-read, and `flash/__init__.py` still says
 `__version__ = "0.0.1"`, so a wheel built today would be labelled 0.0.1.
 
-A local, verify-first coding agent for Apple Silicon, with 1,114 offline checks +
-20 oracle verifications + 83 mutation gates, and a `SPEC.md` that records which of
+A local, verify-first coding agent for Apple Silicon, with 1,119 offline checks +
+20 oracle verifications + 85 mutation gates, and a `SPEC.md` that records which of
 its own gates measured NO.
 
 ### Added — perception

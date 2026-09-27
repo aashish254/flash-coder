@@ -24,7 +24,7 @@ fraction, and a last-line grep read one vector's `14/14 mutants` summary as if
 it were its check count, under-counting the published total by 17 while looking
 clean.
 
-So the totals in the README (`1,114 checks + 20 oracle verifications + 83
+So the totals in the README (`1,119 checks + 20 oracle verifications + 85
 mutation gates`) come from the line `battery_reread` prints, and the file holds
 one entry per §6 item with the exact fraction that item must print. When the
 numbers disagree, the run reports the disagreement out loud. It has: one CLAIM
@@ -67,6 +67,15 @@ The mutants catch documentation drift too. `SPEC.md` once named a throwaway file
 that only exists while a mutation is applied; the documented-command vector's
 existence gate failed the run over it, and the sentence moved rather than the
 gate.
+
+And a mutant can reveal that the *gate* is the broken part. R-7.10c's sweep plants
+a module that reads a `benchmarks/` file with no refusal, and its first version
+printed **0 checks failing** — because the planted module had no
+`if __name__ == "__main__"` tail, so `python -m flash._zz_data_probe --selftest`
+imported it, ignored the flag and exited 0, which the sweep had been recording as
+a pass. The probe gained the tail and the sweep gained a spine gate that requires
+every swept module to have been dispatched, because "it did not crash" and "it ran"
+are different claims.
 
 ## 4. Label measured, projected and gated — and publish the misses
 

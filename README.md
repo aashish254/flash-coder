@@ -7,7 +7,7 @@ again — no API key, no container, nothing leaving the machine.
 Two things about this repo are load-bearing, and both are visible in the files:
 
 - **Every claim is a printed number.** The offline verification battery is
-  **1,114 checks + 20 oracle verifications + 83 mutation gates**, and `SPEC.md` §6
+  **1,119 checks + 20 oracle verifications + 85 mutation gates**, and `SPEC.md` §6
   records why the totals come from the fraction each run *prints* — never an exit
   code, never a phrase grep — after both of those shortcuts produced a wrong total
   that looked clean on this project's own output.
@@ -59,10 +59,15 @@ lines, the same printed totals, and the same refusal (rc 2, naming the path) whe
 there is no battery to run.
 
 That refusal is the rule for every vector that reads the data tree beside `flash/`.
-A wheel install carries no `benchmarks/`, so `python -m flash.graph --selftest`,
-`flash.grammar`, `flash.debug` and `flash.patches` print one sentence naming the path
-they need and exit 2 rather than raising `FileNotFoundError` for a file inside
-`site-packages` — run them from a clone or an unpacked sdist (SPEC R-7.10).
+A wheel install carries no `benchmarks/`, so the six selftests that do — `graph`,
+`grammar`, `debug`, `patches`, `tourney` and `lsp` — print one sentence naming the
+path they need and exit 2 rather than raising `FileNotFoundError` for a file inside
+`site-packages` (SPEC R-7.10). That list is not kept by hand: the same vector copies
+`flash/` to a temp directory that carries no data tree, runs every module in the copy
+that exposes a selftest, and classifies each death by re-running it with the data
+symlinked back in — which is how `flash.tourney`'s cwd-relative task path and
+`flash.lsp`'s `ValueError: substring not found` joined the refusals instead of
+escaping the gate (SPEC R-7.10c). Run them from a clone or an unpacked sdist.
 
 ## First run
 
@@ -221,7 +226,7 @@ Vision is benchmarked once the text brain is picked (PLAN §M1–M2).
 # PRINTS (never an exit code, never a phrase grep — see SPEC §6 for the two
 # capture traps that rule is there to prevent). Fails if the tree's total moves
 # off SPEC §6's number. `--quick ambient lora` re-runs only named lines.
-.venv/bin/python benchmarks/battery_reread.py       # ~2 min, no models
+.venv/bin/python benchmarks/battery_reread.py       # 15 min measured 2026-09-27
 .venv/bin/python -m flash.cli selftest --all        # the same thing, by name
 .venv/bin/python -m flash.cli doctor                # nine answers about THIS install
 .venv/bin/python -m flash.cli --version             # flash <__version__>, no stale copy
@@ -353,10 +358,14 @@ Vision is benchmarked once the text brain is picked (PLAN §M1–M2).
 # a CHILD process, all 26 submodules of `flash` still import and the only thing that
 # raises is the call that needs a forward pass. The sweep is enumerated, not named, and
 # its mutant plants a real backend-importing submodule on disk to prove it. R-7.10's half:
-# the four selftests that read `benchmarks/` beside the package are run against a synthetic
+# the six selftests that read `benchmarks/` beside the package are run against a synthetic
 # wheel-shaped root and must come back rc 2 with one sentence and no traceback — and a
 # sibling gate points the same guards at a tree that HAS the data and requires silence.
-.venv/bin/python benchmarks/backend_free_check.py            # 37 checks + 8 mutants
+# R-7.10c's half: that six is measured, not remembered — the package is copied to a temp
+# directory with no data tree, every module in it with a selftest is run there, and a death
+# is called data-dependence only if the selftest passes once `benchmarks/` is symlinked back
+# in. Two real bugs came out of that sweep on its first run; its mutant plants a seventh.
+.venv/bin/python benchmarks/backend_free_check.py            # 42 checks + 10 mutants
 # Every `flash …` line printed anywhere in this repo — README, CONTRIBUTING, SPEC, docs
 # and the two published workflows' `run:` blocks — is parsed against the real argparse
 # parser, without dispatching, so this file and the pipeline on the front page cannot

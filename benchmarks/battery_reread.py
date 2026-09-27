@@ -76,7 +76,7 @@ BATTERY = [
     ("benchmarks/portable_paths_check.py", "benchmarks/portable_paths_check.py",
      15, 7, "checks"),
     ("benchmarks/backend_free_check.py", "benchmarks/backend_free_check.py",
-     37, 8, "checks"),
+     42, 10, "checks"),
     ("benchmarks/documented_commands_check.py",
      "benchmarks/documented_commands_check.py", 8, 5, "checks"),
     ("flash.debug --suite", "-m flash.debug --suite", 32, None, "checks"),
@@ -86,7 +86,7 @@ BATTERY = [
      20, None, "oracle"),
 ]
 
-CLAIM = {"checks": 1114, "oracle": 20, "mutants": 83}
+CLAIM = {"checks": 1119, "oracle": 20, "mutants": 85}
 
 
 def run(argv: str) -> str:

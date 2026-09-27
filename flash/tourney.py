@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import asdict, dataclass, field
+from pathlib import Path
 
 from flash import checkpoint, trace
 from flash.harness import Score, extract_code, score
@@ -234,18 +235,20 @@ def _resp(*names: str) -> list[str]:
 
 
 HARD_TASKS = "benchmarks/tasks/m3_hard_tasks.jsonl"
+_DATA_ROOT = Path(__file__).resolve().parent.parent
 
 
 def run_wiring(verbose: bool = True, into: list | None = None,
-               hard_tasks: str = HARD_TASKS) -> int:
+               hard_tasks: str | Path | None = None) -> int:
     """The whole tournament with no model: a scripted generator stands in for
     the samples, so what is under test is the mechanism — order, early exit,
     adoption, ranking, the governor's clamp and the trace record."""
     import tempfile
-    from pathlib import Path
 
     import flash.loop as loop
     from flash.harness import load_tasks
+
+    tasks = _DATA_ROOT / (hard_tasks or HARD_TASKS)
 
     checks = into if into is not None else []
 
@@ -315,7 +318,7 @@ def run_wiring(verbose: bool = True, into: list | None = None,
        r.solved and r.adopted == 1, r.summary())
 
     # --- real suite, real oracle: the reference solution of an h-task
-    t = load_tasks(hard_tasks)[0]
+    t = load_tasks(tasks)[0]
     stream = iter(["```python\n" + t["solution"] + "```\n"])
 
     def _gen2(model, tokenizer, messages, max_tokens, **kw):
@@ -352,6 +355,10 @@ def run_wiring(verbose: bool = True, into: list | None = None,
 
 
 def run_selftest() -> int:
+    from flash import doctor
+    refused = doctor.vector_refusal("tourney", _DATA_ROOT)
+    if refused:
+        return refused
     return run_wiring()
 
 

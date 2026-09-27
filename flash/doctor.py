@@ -54,10 +54,23 @@ VECTOR_TOOLS = {"numpy": "the battery's numeric seams",
 # one FAIL out of 46 that was an absent directory wearing a failure. `flash.graph`
 # already refused, and this table is that refusal generalised to the three that
 # did not, so the four share one sentence and one gate.
+# The list is NOT the safety property — the gate in `benchmarks/backend_free_check.py`
+# sweeps every module that exposes a `run_selftest` in a package-only copy of the
+# tree, so a module that grows a data-dependence and is not tabled fails there.
+# That gate exists because the second wheel run found two entries the first four
+# missed. `flash.tourney --selftest` scores one real h-task and raised
+# `FileNotFoundError` for a path resolved against the CALLER'S CWD; `flash.lsp
+# --selftest` reads the minishop fixture and died three layers away from the absent
+# directory with `ValueError: substring not found`, which names no path at all. The
+# second of those is why the sweep classifies by re-running with the data PRESENT
+# rather than by reading the error text. Tourney's path is now anchored at the
+# package, and both are refusals rather than tracebacks.
 VECTOR_DATA = {"grammar": "benchmarks/tasks/mw_tasks.jsonl",
                "debug": "benchmarks/tasks/dbg_tasks.jsonl",
                "patches": "benchmarks/fixtures/minishop",
-               "graph": "benchmarks/fixtures/minishop"}
+               "graph": "benchmarks/fixtures/minishop",
+               "lsp": "benchmarks/fixtures/minishop",
+               "tourney": "benchmarks/tasks/m3_hard_tasks.jsonl"}
 
 
 def missing_vector_data(mod: str, root: Path) -> Path | None:

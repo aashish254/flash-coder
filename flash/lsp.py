@@ -659,6 +659,9 @@ def _dedup_locs(locs: list[Location]) -> list[Location]:
 
 # ------------------------------------------------------------- selftest
 
+_DATA_ROOT = Path(__file__).resolve().parent.parent
+
+
 def run_selftest(verbose: bool = True) -> int:
     """Deterministic checks on the repo itself — no model, no network.
 
@@ -667,7 +670,11 @@ def run_selftest(verbose: bool = True) -> int:
     CartLine. That pair is the hallucination that cost the most in M2
     (App. A), so if perception can't tell them apart, perception is broken.
     """
-    root = Path(__file__).resolve().parent.parent
+    from flash import doctor
+    refused = doctor.vector_refusal("lsp", _DATA_ROOT)
+    if refused:
+        return refused
+    root = _DATA_ROOT
     fixture = root / "benchmarks" / "fixtures" / "minishop"
     checks: list[tuple[str, bool, str]] = []
 

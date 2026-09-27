@@ -78,7 +78,7 @@ RECORD_RESIDUE = 411
 
 That is what the widened scan counts on the committed tree at the time of writing
 (`traces` 241, top-level records 154, `adapters` 9, `p6` 6, `jobs` 1) across 36
-of the 167 record files. Every step between 395 and 411 is named below, because a
+of the 168 record files. Every step between 395 and 411 is named below, because a
 residue figure that moves without an explanation is the same failure as one that
 was never published:
 
@@ -114,6 +114,11 @@ was never published:
   for the same reason as the R-7.6 one: every line of a battery print is a vector
   name, a relative path and a count, so the floor held at **411 over 36** while the
   file count moved.
+- Storing the R-7.10c §6 witness (`battery_reread_r710c_20260927.log`) added a
+  168th record file carrying **zero** again — the sweep's own print is a list of
+  temp-directory *relative* paths and counts, because `pkg_only_copy()` hands the
+  child a `PYTHONPATH` it built with `Path` arithmetic and the vector never echoes
+  it. So the floor stays **411 over 36** and only the file count moved.
 
 Eight of the 411 are this vector's pass-1 and reproduction logs and three are its
 pass-2 table — a count that includes the counter is the kind of detail worth
