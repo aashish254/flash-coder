@@ -14,8 +14,6 @@ import math
 import string
 from dataclasses import dataclass
 
-import mlx.core as mx
-
 
 @dataclass
 class Decision:
@@ -43,6 +41,23 @@ def decide(model, tokenizer, context: str, options: list[str],
     """One prefill, restricted softmax over option labels. Never generates."""
     if not 2 <= len(options) <= 26:
         raise ValueError("need 2..26 options")
+
+    # R-7.7: the backend is imported here, at the call that needs a forward pass,
+    # rather than at module import — `flash.route` imports this module, and a
+    # non-Apple-silicon machine that cannot install MLX should lose this one call
+    # and nothing else. It is the FIRST thing the function does, before any
+    # tokenizer work, so the answer a caller without a backend gets is this
+    # sentence rather than an AttributeError about a template. `flash doctor`
+    # reports which half a machine is in.
+    try:
+        import mlx.core as mx
+    except ImportError as e:
+        raise RuntimeError(
+            "flash.decide.decide() needs MLX for its forward pass, and MLX is not "
+            "importable here (it installs on Apple Silicon only — `pip install "
+            "mlx-lm`). Everything else in flash — the harness, the graph, the "
+            "patcher, the whole offline battery — runs without it."
+        ) from e
 
     labels = string.ascii_uppercase[: len(options)]
     listing = "\n".join(f"{l}) {o}" for l, o in zip(labels, options))

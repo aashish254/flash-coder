@@ -78,7 +78,7 @@ RECORD_RESIDUE = 410
 
 That is what the widened scan counts on the committed tree at the time of writing
 (`traces` 241, top-level records 153, `adapters` 9, `p6` 6, `jobs` 1) across 35
-of the 164 record files. Every step between 395 and 410 is named below, because a
+of the 165 record files. Every step between 395 and 410 is named below, because a
 residue figure that moves without an explanation is the same failure as one that
 was never published:
 
@@ -99,6 +99,10 @@ was never published:
   more and one file: **410 over 35**. That one is new behaviour rather than new
   data — the widened gate label prints all three markers, so a witness of this
   vector now carries three occurrences where pass 1's carried two.
+- Storing the R-7.6/7.7/7.8 §6 witness (`battery_reread_r76_20260927.log`) added a
+  165th record file carrying **zero** occurrences — a battery print is a list of
+  check counts and relative paths, and it stays that way only because the vectors
+  print relative paths — so the floor held at exactly 410 while the file count moved.
 
 Eight of the 410 are this vector's pass-1 and reproduction logs and three are its
 pass-2 table — a count that includes the counter is the kind of detail worth

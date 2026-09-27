@@ -23,17 +23,17 @@ dependencies = [
   "numpy>=1.26",
   "python-lsp-server[pyflakes]>=1.15",
   "requests>=2.31",
-  # MLX is Apple Silicon only, and it is marked rather than assumed: with the
-  # marker stripped, 24 of the 26 modules still import, which is why a Linux or
-  # Windows user gets the perception tools, the graph and the whole offline
-  # battery and is told plainly that generation needs a Mac. The two that fail are
-  # `flash.decide` (top-level `import mlx.core`) and `flash.route` through it;
-  # `flash.cli` imports because it loads both lazily. That split was measured by
-  # hand on 2026-09-27 with an import blocker, and `flash doctor` is to report
-  # which half a machine is in — both the check
-  # (benchmarks/backend_free_check.py) and the command are SPEC R-7.6's open box,
-  # so until it closes this comment is a measurement of one number and a promise
-  # about the rest.
+  # MLX is Apple Silicon only, and it is marked rather than assumed. What is
+  # MEASURED is the import half, on Apple Silicon with the backend blocked in a child
+  # process: every submodule of `flash` still imports (26 of 26) and a generation
+  # call is the thing that says MLX is missing. `flash.decide` used to break that at
+  # `import mlx.core` (and `flash.route` through it); its forward pass now imports
+  # MLX inside the call that needs it (SPEC R-7.7). The claim is gated rather than
+  # narrated: `benchmarks/backend_free_check.py` sweeps the package under the blocker
+  # and requires the call to explain itself, and `flash doctor` reports which half of
+  # the project a machine is holding. What is NOT measured here is a Linux or Windows
+  # machine actually installing this file — that is SPEC R-7.5's open box, and this
+  # marker is a dependency resolver's statement, not a test report.
   "mlx-lm>=0.31; sys_platform == 'darwin' and platform_machine == 'arm64'",
 ]
 dynamic = ["version"]

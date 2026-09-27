@@ -9,6 +9,38 @@ versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- **R-7.6, R-7.7 and R-7.8 closed together, because the third one is what proved
+  the first two.** `flash --version`, `flash doctor` and `flash selftest --all`
+  exist; `flash/decide.py`'s `import mlx.core` moved inside `decide()`; and every
+  `flash …` line printed in a tracked document now has to parse against
+  `flash.cli.build_parser()`. Two new §6 vectors carry the measurements:
+  `python benchmarks/backend_free_check.py` → **30/30 + 5/5 mutants** and
+  `python benchmarks/documented_commands_check.py` → **7/7 + 4/4 mutants**, and the
+  re-read that followed them is the printed line
+  `checks 1104  oracle 20  §6 total 1124  mutants 78` with **33** OK lines
+  (`benchmarks/results/battery_reread_r76_20260927.log`). What each command
+  promises is gated, not narrated: `doctor`'s exit code follows its own page (a
+  synthetic broken install in a temp tree must print `no` on exactly 5 of 9 lines
+  and rc 1; a complete one zero `no` and rc 0), `selftest --all` refuses with rc 2
+  naming `benchmarks/battery_reread.py` rather than totalling checks that never
+  ran, `--version` reads the version off the package object, and the whole package
+  is swept submodule-by-submodule under an import blocker — **`SWEEP 26/26`** —
+  because the two names that used to fail are not the same claim as "every module".
+  `flash doctor` on this machine prints nine lines across six sections and says
+  `Both halves this project claims to have are present here.`
+- `--backend-free` is now a measured property instead of a flag. The battery writes
+  a `sitecustomize.py` blocker, puts it FIRST on the `PYTHONPATH` its children
+  inherit, and refuses to print a total until a child's `import mlx.core` has
+  raised the shim's own sentence; a sibling gate requires it to leave `numpy`
+  alone, because a blocker that broke everything would "prove" the claim by making
+  the battery unrunnable.
+- `benchmarks/documented_commands_check.py` reads fences, inline spans and the
+  published workflows' `run:` lines: **24 commands across 111 citations in 11
+  documents, plus 67 source paths a reader is told to open**, all of which resolve.
+  Commands are resolved by `parse_args`, never by dispatch — a documented
+  `flash run` would create a worktree — and the collector is not trusted: planting a
+  command nobody wrote must be rejected, and deleting `selftest`/`doctor` from the
+  live parser must fail a gate whose text names the citing `file.md:line`.
 - **R-7.4 path portability**, gated by `benchmarks/portable_paths_check.py`
   (14 checks + 7 mutants, launched from a foreign working directory). A task
   corpus's oracle bootstrap now writes `<REPO>` instead of the author's checkout,
@@ -42,11 +74,14 @@ versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Corrected — claims this file made that the tree does not support
 - This file's own `### Added` section listed `flash doctor`, `flash selftest --all`
-  and `flash --version` as shipped. **None of the three exists** — `python -m
-  flash.cli` rejects `doctor` and `selftest` as invalid subcommands, measured by
-  parsing 23 documented subcommands against the real parser (21 resolve). They are
-  SPEC R-7.6's open box, and they have moved to "not implemented" language in
-  `CONTRIBUTING.md`, `docs/models.md` and this file.
+  and `flash --version` as shipped. **None of the three existed** when that was
+  written — `python -m flash.cli` rejected `doctor` and `selftest` as invalid
+  subcommands, measured by parsing 23 documented subcommands against the real parser
+  (21 resolve). They are shipped now, and the bullet above is the measurement that
+  says so; what this correction leaves standing is the *rule*, which is that a claim
+  in this file moves only when a run prints it. The "21 of the 23" count is itself
+  superseded by R-7.8's collector, which reads the documents instead of a hand-kept
+  list: **24 commands, all resolving.**
 - `## [0.1.0] - 2026-09-27` dated a release that has not happened. No tag exists
   and no remote is configured, so the header now says so outright.
 - Two documents cited a different module count for the same fact: `pyproject.toml`
@@ -55,7 +90,9 @@ versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - "`pip install flash-coder` works on Linux and Windows" became a gated claim: no
   clean-clone install has been run (SPEC R-7.5), and `pyproject.toml`'s comment that
   cited `benchmarks/backend_free_check.py` as its verifier now says that file is
-  unwritten.
+  unwritten. **That last clause moved again this pass:** the file exists and is a §6
+  line, so the comment cites it as the gate it is; the clean-clone run is still
+  R-7.5's open box and the install claim is still gated, not measured.
 
 ### Fixed
 - `benchmarks/portable_paths_check.py` now takes a `flock` on a per-checkout lock
@@ -116,21 +153,27 @@ versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `LICENSE` (MIT), `SECURITY.md`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, issue
   and PR templates, Dependabot, and a CI workflow with a model-free job on ubuntu
   and the §6 battery on macOS. **The workflow has never executed** (no remote is
-  configured), and it currently calls four things that do not exist yet:
-  `flash --version`, `flash doctor`, `benchmarks/backend_free_check.py`, and
-  `benchmarks/battery_reread.py --backend-free`. Those are SPEC R-7.6 / TODO #31,
-  and until they land the published pipeline is dangling, not green.
+  configured). It used to call four things that did not exist — `flash --version`,
+  `flash doctor`, `benchmarks/backend_free_check.py` and
+  `benchmarks/battery_reread.py --backend-free` — and all four now do, which is why
+  the dangling-pipeline sentence in `SPEC.md`, `CONTRIBUTING.md` and `docs/models.md`
+  became history in this pass. **That is what the files say; no run on GitHub's side
+  has proved they hold, and the ubuntu job in particular has never had a Linux
+  interpreter run this battery**, which is a wider claim than R-7.7's Apple-Silicon
+  import sweep supports. Every `flash` command either workflow prints is gated by
+  `benchmarks/documented_commands_check.py`, which parses them against the real
+  parser on every §6 re-read.
 
 ## [0.1.0] - not yet published
 
 **This release does not exist yet.** No tag has been cut and no remote is
 configured, so nothing here is downloadable; the section below is the draft notes
-for the release that TODO #32 tags once R-7.5 and R-7.6 close. Its counts are the
+for the release that TODO #32 tags once R-7.5 closes. Its counts are the
 tree's printed ones as of the last §6 re-read, and `flash/__init__.py` still says
 `__version__ = "0.0.1"`, so a wheel built today would be labelled 0.0.1.
 
-A local, verify-first coding agent for Apple Silicon, with 1,067 offline checks +
-20 oracle verifications + 69 mutation gates, and a `SPEC.md` that records which of
+A local, verify-first coding agent for Apple Silicon, with 1,104 offline checks +
+20 oracle verifications + 78 mutation gates, and a `SPEC.md` that records which of
 its own gates measured NO.
 
 ### Added — perception

@@ -1092,48 +1092,74 @@ here rather than folded into P6's confidence work.
       `benchmarks/results/`. Until this box is closed no document in this repo may
       say "works on your machine" — R-7.4 only proves no executed file depends on the
       author's path, which is necessary and not sufficient.
-- [ ] [B] [V] [offline] R-7.6 one-command verify: `flash --version`,
+- [x] [B] [V] [offline] R-7.6 one-command verify: `flash --version`,
       `flash doctor` (python, platform, backend presence, model cache, config,
       whether the offline vectors can run here) and `flash selftest --all`, plus
-      `benchmarks/backend_free_check.py` for `--backend-free`. The committed CI
-      workflow already calls these, so the published pipeline is dangling until they
-      exist — and so did three prose sites until this pass: `CONTRIBUTING.md` told a
-      stranger to type `flash doctor` and `flash selftest --all` inside a
-      copy-pasteable setup block, and `docs/models.md` described both in present
-      tense; both now cite the commands that exist today (`flash power`,
-      `python benchmarks/battery_reread.py`) and name this box for the rest.
-      Measured 2026-09-27 against the parser rather than by
-      reading: **21 of the 23 `flash` subcommands the tracked docs reference exist**,
-      and the two that do not are exactly `doctor` and `selftest`. The same probe
+      `benchmarks/backend_free_check.py` for `--backend-free`. **Closed
+      2026-09-27: that vector prints `backend-free checks: 30/30` and
+      `backend-free mutants: 5/5`, and it is a §6 line of its own.** The three
+      commands are real: `--version` reads `flash.__version__` off the package
+      object (it printed `flash 0.0.1`), `doctor` walks nine answer lines across six
+      sections and its exit code follows its own page — the vector builds a synthetic
+      broken install in a temp dir and requires `no` on exactly 5 of 9 plus rc 1, and
+      a complete one with zero `no` plus rc 0 — and `selftest --all` refuses with rc 2
+      naming `benchmarks/battery_reread.py` on an install that has no battery, which
+      is the wheel lesson R-7.5 learned from `flash.graph --selftest` applied before
+      the CI could print a total from checks that never ran.
+      The published workflows are un-dangled: `ci.yml`'s `flash doctor`,
+      `flash selftest --all`, `flash --version` and `python
+      benchmarks/backend_free_check.py` and `nightly.yml`'s two all resolve, which is
+      gated by R-7.8 rather than asserted here.
+      What the parser probe said when this box was still open, kept because it is the
+      reason the box was worth opening: **21 of the 23 `flash` subcommands the tracked
+      docs reference existed**, and the two that did not were exactly `doctor` and
+      `selftest`. R-7.8's collector supersedes the count — it reads the documents, not
+      a list, and measured **24 commands across 111 citations in 11 documents**, all
+      resolving. The same probe
       settled a number two documents cited differently — with `mlx` blocked
-      **24 of the 26** modules import (pyproject and `docs/models.md` said 24, the
+      **24 of the 26** modules imported (pyproject and `docs/models.md` said 24, the
       CI comment said 25), the two failures being `flash.decide` at its top-level
       `import mlx.core` and `flash.route` through it, while `flash.cli` imports
       because it loads both lazily; `benchmarks/trace_resume_check.py` was likewise
       still **11/11** under the same block, so `--backend-free` is a measured subset
       and not a list of names. `flash/__init__.py` is `__version__ = "0.0.1"`, which
-      is what a wheel built today would be labelled.
-- [ ] [B] [V] [offline] R-7.7 whole package imports with no MLX present: move
+      is what a wheel built today would be labelled — TODO #32 bumps it.
+- [x] [B] [V] [offline] R-7.7 whole package imports with no MLX present: move
       `flash/decide.py`'s top-level `import mlx.core` behind the call so
       `import flash.route` works everywhere, keeping the failure at the generation
-      call with a named-backend message. *Measured 2026-09-27 with an import
-      blocker: **24 of the 26** modules import, `decide` and `route` are the two
-      that do not, and no check noticed because `flash.cli` imports both lazily.*
-      Vector: `benchmarks/backend_free_check.py` must assert **both** halves — 26/26
-      import under the blocker, and a generation attempt still raises rather than
-      returning an empty verdict — because "swallow the ImportError" would satisfy
-      the first and destroy the second: a generator that quietly produces nothing
-      would let a suite print verdicts scored from nothing, which is the same shape
-      of failure R-7.4 found in the corpora.
-- [ ] [B] [V] [offline] R-7.8 documented commands parse: every `flash …` line in a
+      call with a named-backend message. **Closed 2026-09-27.** Both halves the box
+      demanded are gated, in child processes under the shim: the sweep prints
+      `SWEEP 26/26` — numerator equal to denominator, denominator at least 26 — and
+      `decide(None, None, 'ctx', ['a','b'])` prints
+      `RUNTIMEERROR:…flash.decide.decide() needs MLX…` rather than a
+      `ModuleNotFoundError` or an empty verdict. The mutant that pays for the sweep
+      writes a real throwaway submodule (`_zz_backend_probe.py`, planted in the
+      `flash` package directory and deleted after the run — R-7.8's file-existence
+      gate is what made this sentence stop naming a path a reader could not open)
+      carrying `import mlx.core` at top
+      level onto disk while the gates run and removes it afterwards; exactly the sweep
+      gate fails, which is the proof that "26/26" is an enumeration and not the two
+      names this vector first happened to check.
+      *The pre-fix measurement stands:* **24 of the 26** modules imported with `mlx`
+      blocked, `decide` and `route` being the two that did not, unnoticed because
+      `flash.cli` imports both lazily.
+- [x] [B] [V] [offline] R-7.8 documented commands parse: every `flash …` line in a
       tracked doc goes through `flash.cli.build_parser()` without dispatching, and
-      any rejection fails the gate naming the file and line. §1350's "docs move
-      together" rule names README commands and has never been enforced, which is how
-      `CONTRIBUTING.md` came to ship `flash doctor` in a copy-pasteable setup block.
-      Mutation-check: delete a documented subcommand's parser entry and the gate must
-      name the citing line. `--tasks …` style ellipses are arguments, not
-      subcommands, so a documented example with a placeholder cannot fail the gate
-      for the wrong reason.
+      any rejection fails the gate naming the file and line. **Closed 2026-09-27:
+      `documented-command checks: 7/7`, `documented-command mutants: 4/4`.** The
+      collector covers fences, inline spans and the workflows' `run:` lines and its
+      own spine is a gate — **24 commands / 111 citations / 11 documents / 67 source
+      paths** — with a planted bogus command required to be rejected, so the vector
+      cannot go blind and still print a pass. Resolution is `parse_args([cmd])` under
+      a swallowed stderr, never dispatch: a documented `flash run` would create a
+      worktree and a documented `flash selftest --all` takes minutes. `--tasks …`
+      placeholders parse as arguments. §1350's "docs move together" rule had never
+      been enforced, which is how `CONTRIBUTING.md` came to ship `flash doctor` in a
+      copy-pasteable setup block; that block now runs.
+      Mutation-check, verbatim from SPEC: `selftest` and `doctor` are deleted from the
+      live parser's subchoices while the gates run, two gates fail, and the vector
+      accepts that as caught only if the failure text matches `\.(md|yml):\d+` — a
+      rejection that does not name the citing file and line does not count.
 - [ ] [V] [L] R-7.3 voice: real-microphone arm, VAD barge-in, ≥ 90% command
       recognition over 50 utterances.
 - [ ] [V] [L] M17 feel test: ≥ 7 of 10 developers keep it after a week.

@@ -110,12 +110,17 @@ Vision is benchmarked once the text brain is picked (PLAN §M1–M2).
 .venv/bin/python -m flash.harness --selftest        # 20 offline checks on the oracle
 .venv/bin/python benchmarks/m0_bakeoff.py --dry-run # 20/20 reference solutions pass
 
-# All 31 offline vectors in this file (30 check-summing + m0_bakeoff's oracle) in
+# All 33 offline vectors in this file (32 check-summing + m0_bakeoff's oracle) in
 # one command, summed from the fraction each run
 # PRINTS (never an exit code, never a phrase grep — see SPEC §6 for the two
 # capture traps that rule is there to prevent). Fails if the tree's total moves
 # off SPEC §6's number. `--quick ambient lora` re-runs only named lines.
 .venv/bin/python benchmarks/battery_reread.py       # ~2 min, no models
+.venv/bin/python -m flash.cli selftest --all        # the same thing, by name
+.venv/bin/python -m flash.cli doctor                # nine answers about THIS install
+.venv/bin/python -m flash.cli --version             # flash <__version__>, no stale copy
+# `--backend-free` re-runs the battery with `mlx`, `mlx_lm` and `mlx_vlm` blocked in
+# every child, and refuses to print a total until it has PROVED the block bites.
 
 # §33.1 symbol perception: AST discovery + a live language server (jedi/pylsp).
 # The loop uses this automatically: a failure that names a repo symbol gets that
@@ -232,7 +237,24 @@ Vision is benchmarked once the text brain is picked (PLAN §M1–M2).
 # the embedding caches are keyed by the prompt text a cited fit consumed. The exclusion is
 # checked instead of granted (0 executables under `benchmarks/results/**`, five named
 # record groups, a published residue floor). See `docs/portability.md`.
-.venv/bin/python benchmarks/portable_paths_check.py          # 14 checks + 7 mutants
+.venv/bin/python benchmarks/portable_paths_check.py          # 15 checks + 7 mutants
+
+# "Is what I just installed the thing the README describes?" One command answers it, and
+# the answer is gated rather than narrated: `flash doctor` walks nine lines across six
+# sections (install shape, backend, machine, cache, tools, what to verify) and its exit
+# code follows its own page — a synthetic broken install in a temp tree must print `no`
+# on exactly 5 of 9 and rc 1. R-7.7's half: with `mlx`, `mlx_lm` and `mlx_vlm` blocked in
+# a CHILD process, all 26 submodules of `flash` still import and the only thing that
+# raises is the call that needs a forward pass. The sweep is enumerated, not named, and
+# its mutant plants a real backend-importing submodule on disk to prove it.
+.venv/bin/python benchmarks/backend_free_check.py            # 30 checks + 5 mutants
+# Every `flash …` line printed anywhere in this repo — README, CONTRIBUTING, SPEC, docs
+# and the two published workflows' `run:` blocks — is parsed against the real argparse
+# parser, without dispatching, so this file and the pipeline on the front page cannot
+# both drift from the CLI. 24 commands, 111 citations, 11 documents today. Deleting a
+# subcommand from the parser is not enough to fail it either: the failure must NAME the
+# citing file and line.
+.venv/bin/python benchmarks/documented_commands_check.py     # 7 checks + 4 mutants
 
 # §33.1 ACT leg — symbol-precise edits: a change request is answered with patches that
 # name a SYMBOL, and the AST's own lines are what gets replaced. Everything outside the

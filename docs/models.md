@@ -48,26 +48,30 @@ it and are not licensed by that file.
 
 `mlx` is Apple-silicon-only, and that is the one real portability limit here. It
 is handled with a marker rather than a crash: `pip install flash-coder` on Linux
-installs everything except `mlx-lm`, and 24 of the 26 modules still import — the
-count measured by hand with `mlx` blocked on 2026-09-27, not asserted from the
-marker — the
-two that don't are `flash.decide` and `flash.route`, and SPEC **R-7.7** is the open
-box that makes the whole package import everywhere so only a generation attempt
-reports the missing backend.
+installs everything except `mlx-lm`, and every module of the package still imports.
+The count is a measurement, not an inference from the marker: with `mlx` blocked in
+a child process, all **26 of the 26** submodules of `flash` import
+(`benchmarks/backend_free_check.py`, which is a §6 line) and the single thing that
+raises is the call that needs a forward pass, with a message naming MLX. Two used
+to fail at import — `flash.decide` and `flash.route` through it — until SPEC
+**R-7.7** moved the backend import inside `decide()`; before that fix the sweep read
+**24 of 26**, which is the number two documents cited differently from a third.
 
 What that means in practice on a non-Mac:
 
 - works: `flash context`, `perceive`, `find`, `refs`, `symbols`, `graph`,
-  `lsp-selftest`, `trace`, `ledger`, `power`, `router-fit`, and the entire
-  offline battery;
+  `lsp-selftest`, `trace`, `ledger`, `power`, `router-fit`, `doctor`, `selftest`,
+  and the entire offline battery;
 - does not work: anything that generates text (`solve`, `run`, `run-suite`,
   `decide`, `ambient`, `vision`).
 
-The cache directory is the Hugging Face default, `~/.cache/huggingface`. Nothing
-in the tree reports how much of each tier is already in it yet: that is SPEC
-**R-7.6**'s `flash doctor`, an open box, and today the honest pre-flight is
-`flash power`, which answers what the machine may load and says nothing about the
-cache.
+The cache directory is the Hugging Face default, `~/.cache/huggingface`, or
+`HF_HOME` if a user set it. `flash doctor`'s `cache` section prints the resolved
+path and how many of the four §22 tier candidates are already in it — the number
+this file could not give you when the box was open — and its `machine` section
+carries `flash power`'s verdict about what this box may load. Like every `flash`
+command in this repo, both are gated by
+`benchmarks/documented_commands_check.py` against the real parser.
 
 ## Versions every published number came from
 
@@ -86,7 +90,10 @@ cache.
 A dependency bump is not cosmetic in this project: `mlx-lm` decides what a
 greedy attempt emits, `python-lsp-server` decides what PERCEIVE resolves, and
 both are cited by claims in `SPEC.md`. That is why Dependabot PRs here are
-labelled `needs-battery-run`, and why the battery is a CI gate — today
-`python benchmarks/battery_reread.py` is that gate, and the committed workflow
-also calls `flash selftest --all`, which is SPEC **R-7.6**'s open box and does not
-exist yet.
+labelled `needs-battery-run`, and why the battery is a CI gate:
+`flash selftest --all` is a thin wrapper on
+`python benchmarks/battery_reread.py` — the same lines, the same printed totals,
+and the same rc-2 refusal when the battery file is not beside the package — so the
+gate a bot has to pass is the gate a human can run. **Gated here, not measured
+there:** neither workflow has executed, because no remote is configured, so "the CI
+runs the battery" describes a file in this repo rather than a green check mark.

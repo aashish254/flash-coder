@@ -12,6 +12,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import flash
+
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_MODEL = "mlx-community/Qwen2.5-Coder-7B-Instruct-4bit"
 
@@ -836,9 +838,64 @@ def cmd_bench(args) -> int:
                             *args.bench_args])
 
 
+def _module_forward(module: str):
+    """A `flash <cmd>` whose whole job is reaching `python -m flash.<module>`.
+
+    `flash debug --selftest`, `flash jobs --selftest` and `flash train
+    --suite-from-dataset` are written that way in SPEC and TODO, and until this
+    existed the sentences pointed at commands the CLI did not have — the exact
+    defect class R-7.8 now gates. The flags stay owned by the module's own
+    parser, so this does not create a second place to keep them.
+    """
+    def cmd(args) -> int:
+        return subprocess.call([sys.executable, "-m", f"flash.{module}",
+                                *args.rest])
+    return cmd
+
+
+def cmd_selftest(args) -> int:
+    """R-7.6: one command that re-runs the published claims from THIS install."""
+    battery = ROOT / "benchmarks" / "battery_reread.py"
+    if not args.all:
+        print("flash selftest: nothing to run. `--all` runs SPEC §6's offline "
+              "battery (every vector, no model loaded) and prints its totals the "
+              "way `benchmarks/battery_reread.py` does; `--backend-free` does the "
+              "same with the MLX import blocked, to prove which half of the "
+              "battery never needed a backend.")
+        return 2
+    if not battery.is_file():
+        # The same refusal R-7.5 taught `flash.graph --selftest`: a wheel install
+        # carries no benchmarks/, and reporting a count from vectors that were
+        # never run is how a green number gets bought with nothing.
+        print(f"flash selftest --all cannot run from this install: {battery} is "
+              "not there. A wheel carries the `flash` package only, so the "
+              "verification surface did not come with it. Clone the repo (or "
+              "unpack the sdist, which ships benchmarks/) and run this there. "
+              "`flash doctor` says which half of the project you have.")
+        return 2
+    argv = [sys.executable, str(battery)]
+    if args.backend_free:
+        argv.append("--backend-free")
+    if args.quick:
+        argv += ["--quick", *args.quick]
+    return subprocess.call(argv)
+
+
+def cmd_doctor(args) -> int:
+    from flash import doctor
+    return doctor.dispatch(args)
+
+
 def build_parser() -> argparse.ArgumentParser:
     """Every command in one object, so a check can parse without dispatching."""
     ap = argparse.ArgumentParser(prog="flash", description="Flash Coder CLI (M1)")
+    # R-7.6. Read from the package rather than a literal, because a second copy
+    # of the version string is a second thing that can be wrong: `benchmarks/
+    # backend_free_check.py` parses this flag's output and requires it to equal
+    # `flash.__version__`.
+    ap.add_argument("--version", action="version",
+                    version=f"flash {flash.__version__}",
+                    help="print the package version and exit")
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     p = sub.add_parser("decide", help="one typed decision, one forward pass")
@@ -1140,11 +1197,49 @@ def build_parser() -> argparse.ArgumentParser:
     _ambient.add_flags(p)
     p.set_defaults(fn=_ambient.dispatch)
 
+    p = sub.add_parser("doctor", help="R-7.6: which half of this project is "
+                                      "installed here, and what it can verify "
+                                      "(reads the running interpreter, never a doc)")
+    from flash import doctor as _doctor        # flags defined once, in flash/doctor.py
+    _doctor.add_flags(p)
+    p.set_defaults(fn=cmd_doctor)
+
+    p = sub.add_parser("selftest", help="R-7.6: re-run the published claims "
+                                        "against this install")
+    p.add_argument("--all", action="store_true",
+                   help="run SPEC §6's offline battery and print its totals")
+    p.add_argument("--backend-free", action="store_true",
+                   help="with --all: block every `mlx` import in the child "
+                        "processes, so 'the battery needs no model' is a run "
+                        "rather than a sentence")
+    p.add_argument("--quick", nargs="*", metavar="NAME",
+                   help="with --all: only the battery lines whose name matches, "
+                        "and say out loud that the totals are partial")
+    p.set_defaults(fn=cmd_selftest)
+
+    # The module-owned vectors, reachable as commands because the docs name them
+    # that way. See `_module_forward`.
+    for name in ("debug", "jobs", "train"):
+        p = sub.add_parser(name, help=f"forward to `python -m flash.{name}` "
+                                      "(that module's parser owns the flags)")
+        p.add_argument("rest", nargs=argparse.REMAINDER)
+        p.set_defaults(fn=_module_forward(name))
+
     return ap
 
 
 def main() -> int:
-    args = build_parser().parse_args()
+    ap = build_parser()
+    args, extra = ap.parse_known_args(sys.argv[1:])
+    if extra:
+        # Two shapes. A forwarding command (`flash bench`, `flash debug`) has a
+        # REMAINDER slot, and argparse hands it only the tokens that do not look
+        # like options — so the options belong here, appended in order. Every
+        # other command has no place for them, and dropping them would turn a
+        # typo into a silently different run, so argparse reports it instead.
+        if not hasattr(args, "rest"):
+            ap.error(f"unrecognized arguments: {' '.join(extra)}")
+        args.rest = [*args.rest, *extra]
     return args.fn(args)
 
 

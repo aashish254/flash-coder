@@ -13,11 +13,16 @@ a check added on top of a battery moves its line's number and trips CLAIM.
 
     python benchmarks/battery_reread.py            # ~2 min, no models
     python benchmarks/battery_reread.py --quick    # only the lines that moved
+    python benchmarks/battery_reread.py --backend-free   # the same, with `mlx`
+                                                           # blocked in every child
 
 `--quick` takes the names it filters on as further args, e.g.
 `--quick ambient lora`. Mutation counts are summed and reported apart from the
 checks, because SPEC §6's total counts checks and m0_bakeoff's 20 oracle
-verifications, and the mutants are extra to both.
+verifications, and the mutants are extra to both. `--backend-free` is R-7.6's: it
+installs an import blocker for the MLX packages into every child process, proves
+the blocker actually bites before it prints a single green line, and so turns
+"the offline battery loads no model" from a sentence into a run.
 
 One line is environmental rather than logical: `checkpoint_resume_check.py`
 refuses to run unless the §34.1 governor offers tournament width >= 2, so on a
@@ -70,6 +75,10 @@ BATTERY = [
      14, 8, "checks"),
     ("benchmarks/portable_paths_check.py", "benchmarks/portable_paths_check.py",
      15, 7, "checks"),
+    ("benchmarks/backend_free_check.py", "benchmarks/backend_free_check.py",
+     30, 5, "checks"),
+    ("benchmarks/documented_commands_check.py",
+     "benchmarks/documented_commands_check.py", 7, 4, "checks"),
     ("flash.debug --suite", "-m flash.debug --suite", 32, None, "checks"),
     ("flash.patches --suite",
      "-m flash.patches --suite benchmarks/tasks/edit_tasks.jsonl", 60, None, "checks"),
@@ -77,7 +86,7 @@ BATTERY = [
      20, None, "oracle"),
 ]
 
-CLAIM = {"checks": 1067, "oracle": 20, "mutants": 69}
+CLAIM = {"checks": 1104, "oracle": 20, "mutants": 78}
 
 
 def run(argv: str) -> str:
@@ -119,17 +128,85 @@ def printed(text: str) -> list:
             re.findall(r"\b(\d+)/(\d+)\b", text.replace("\r", "\n"))]
 
 
+# What `--backend-free` installs into a child interpreter. A meta_path finder
+# rather than an env var, because the claim being tested is about `import mlx`,
+# and the only way to test that claim is to make that import fail.
+_SHIM = '''"""Installed by benchmarks/battery_reread.py --backend-free."""
+import sys
+
+
+class _NoBackend:
+    BLOCKED = ("mlx", "mlx_lm", "mlx_vlm")
+
+    def find_spec(self, name, path=None, target=None):
+        if name.split(".")[0] in self.BLOCKED:
+            raise ImportError(
+                f"{name} blocked by --backend-free: this run is proving which of "
+                f"the battery's vectors need a generative backend")
+        return None
+
+
+sys.meta_path.insert(0, _NoBackend())
+'''
+
+
+def install_backend_block() -> str:
+    """Block `mlx` in every child, and PROVE the block is live before trusting a
+    single green line that follows.
+
+    The proof is a `python -c "import mlx.core"` under the same environment: if
+    it succeeds, the flag is decorative and the run must not print a total — a
+    `--backend-free` that blocks nothing is precisely the lie this option exists
+    to prevent. If mlx is not importable even WITHOUT the shim, the proof says so
+    out loud rather than counting a block that was already in place.
+    """
+    import os
+    import tempfile
+    d = Path(tempfile.mkdtemp(prefix="flash-backend-free-"))
+    shim = d / "sitecustomize.py"
+    shim.write_text(_SHIM)
+    prior = os.environ.get("PYTHONPATH")
+    os.environ["PYTHONPATH"] = str(d) + (os.pathsep + prior if prior else "")
+    os.environ["FLASH_BACKEND_SHIM"] = str(shim)
+    with_shim = subprocess.run([PY, "-c", "import mlx.core"], cwd=ROOT,
+                               capture_output=True, text=True, timeout=120)
+    plain_env = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
+    without = subprocess.run([PY, "-c", "import mlx.core"], cwd=ROOT,
+                             capture_output=True, text=True, timeout=120,
+                             env=plain_env)
+    if with_shim.returncode == 0:
+        print("BAD  --backend-free is decorative: a child imported `mlx.core` "
+              "with the shim on PYTHONPATH. No total below is a claim about a "
+              "backend-free run.")
+        raise SystemExit(1)
+    if without.returncode != 0:
+        print("note --backend-free: `import mlx.core` also fails WITHOUT the shim "
+              "on this box, so this run proves the flag installs a blocker, not "
+              "that the vectors survive one (this machine has no backend to lose).")
+    else:
+        print("proof --backend-free: `import mlx.core` succeeds with a plain env "
+              "and raises under the shim, so every line below ran with the "
+              "backend genuinely gone.")
+    return str(shim)
+
+
 def has_check(text: str, want: int) -> bool:
     return f"{want}/{want}" in printed(text)
 
 
 def main(argv: list) -> int:
+    backend_free = False
+    if "--backend-free" in argv:
+        argv = [a for a in argv if a != "--backend-free"]
+        backend_free = True
     quick = []
     if argv and argv[0] == "--quick":
         quick = argv[1:]
         if not quick:
             print("--quick needs at least one label to filter on")
             return 2
+    if backend_free:
+        install_backend_block()
     items = [b for b in BATTERY if not quick
              or any(q in b[0] for q in quick)]
     totals = {"checks": 0, "oracle": 0}
@@ -178,6 +255,11 @@ def main(argv: list) -> int:
     print("matches SPEC §6 as written: " +
           f"{CLAIM['checks']} + {CLAIM['oracle']} = "
           f"{CLAIM['checks'] + CLAIM['oracle']} green, offline (+ {CLAIM['mutants']} mutants)")
+    if backend_free:
+        print(f"backend-free: {len(items)}/{len(BATTERY)} lines green with "
+              "`mlx`, `mlx_lm` and `mlx_vlm` unimportable in every child process. "
+              "SPEC §6's totals above are therefore a claim about a run with no "
+              "generative backend, measured rather than asserted.")
     return 0
 
 

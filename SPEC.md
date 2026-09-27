@@ -935,37 +935,92 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   `flash doctor` (R-7.6) as the one command a stranger types to prove it. This is
   the sentence a README may print as "works on your machine" only after it has been
   true on a machine that is not the author's.
-- **R-7.6 (OPEN)** One command must answer "is this install sane, and how do I
-  verify the claims I just read?" `flash --version`, `flash doctor` (python,
-  platform, GPU/backend presence, model cache, config, whether the offline vectors
-  can run here) and `flash selftest --all`, which runs the §6 battery from the
-  installed package and prints its totals the same way `battery_reread.py` does.
-  Vector: the three commands, plus `benchmarks/backend_free_check.py` proving
-  `--backend-free` degrades to checks that need no model rather than lying about
-  ones that do. The CI files reference these commands, so until they exist the
-  published pipeline is dangling — that is booked here rather than hidden.
-  Measured 2026-09-27 against the parser instead of by reading the docs: of the 23
-  `flash` subcommands the tracked docs name, **21 exist** and the two that do not
-  are exactly `doctor` and `selftest`.
-- **R-7.7 (OPEN)** A non-Apple-Silicon user MUST be able to `import flash` and
-  every submodule of it, and hear about the missing backend at the call that needs
-  generation — not at import time. Today `flash/decide.py` has a top-level
-  `import mlx.core`, and `flash/route.py` fails through it: measured with `mlx`
-  blocked, **24 of the 26 modules import** and those two do not. The CLI is not
-  affected because it imports both lazily, which is exactly why no check has
-  noticed. Vector: `benchmarks/backend_free_check.py` asserts the full 26/26 under
-  the blocker AND that a generation call still raises the named backend message, so
-  the fix cannot be "swallow the import error" — a silent no-op generator is worse
-  than an import error, because it would produce a verdict with nothing behind it.
-- **R-7.8 (OPEN)** Every `flash …` command line printed in a tracked document MUST
-  parse against `flash.cli.build_parser()`. §1350's "docs move together" rule names
-  README commands and has no enforcement today: `CONTRIBUTING.md` shipped three
-  citations of commands that do not exist, and one of them is in the copy-pasteable
-  setup block. Vector: extract each documented invocation, parse it without
-  dispatching, and fail on any rejection — with the ellipsis placeholders a
-  documented example legitimately carries (`--tasks …`) treated as arguments, not
-  as subcommands. Mutation-check: delete a documented subcommand's parser entry and
-  the gate must name the file and line that cite it.
+- **R-7.6 (CLOSED 2026-09-27)** One command must answer "is this install sane, and
+  how do I verify the claims I just read?" `flash --version`, `flash doctor`
+  (python, platform, GPU/backend presence, model cache, config, whether the offline
+  vectors can run here) and `flash selftest --all`, which runs the §6 battery from
+  the installed package and prints its totals the same way `battery_reread.py` does.
+  Vector: `benchmarks/backend_free_check.py`, **30 checks + 5 mutants**, green in
+  this session and a §6 line of its own. What each command commits to, gate by gate:
+  `--version` prints `flash <flash.__version__>` read from the package object, so a
+  bump cannot leave a stale number in a parser; `doctor` answers nine questions and
+  its exit code follows its own page — the vector builds a synthetic broken install
+  in a temp directory and requires `no` on exactly 5 of 9 lines plus rc 1, and a
+  synthetic complete one zero `no` marks plus rc 0; `selftest --all` is a thin
+  wrapper that refuses with rc 2 when `benchmarks/battery_reread.py` is not beside
+  the package, which is the wheel case R-7.5 found in `flash.graph --selftest` and
+  the difference between "nothing to verify here" and a total printed from checks
+  that never ran. `--backend-free` is not a filter either: the battery installs an
+  import blocker in every child and proves it bites — a child's `import mlx.core`
+  must raise the shim's own sentence — before it prints a fraction, and a sibling
+  gate requires the same shim to leave `numpy` alone.
+  The box's word "config" is the one thing it did not get: `flash` reads no config
+  file, so the report prints the single path a user's environment actually changes
+  (`HF_HOME`/`HUB_HOME`, resolved, with the §22 tier counts beside it) rather than a
+  section about a file nobody opens.
+  The "21 of the 23 `flash` subcommands the docs name exist" measurement this box
+  carried is superseded by R-7.8's collector, which reads the documents rather than
+  a list: **24 distinct commands across 111 citations in 11 documents, all of which
+  resolve**.
+- **R-7.7 (CLOSED 2026-09-27)** A non-Apple-Silicon user MUST be able to `import
+  flash` and every submodule of it, and hear about the missing backend at the call
+  that needs generation — not at import time. `flash/decide.py`'s `import mlx.core`
+  now sits inside `decide()`, one statement after the 2..26-options check, and its
+  `except ImportError` re-raises a `RuntimeError` that names MLX, names the remedy,
+  and lists the things in the package that still work.
+  Measured under `benchmarks/backend_free_check.py`'s import blocker, in child
+  processes so the shim is doing the work rather than this file's own `sys.modules`:
+  **26 of the 26 submodules import** (the gate prints the sweep's own `SWEEP 26/26`
+  fraction, requires numerator == denominator and the denominator ≥ 26, so a module
+  quietly dropping out of the package cannot read as a smaller victory),
+  `import flash.decide` and
+  `import flash.route` each succeed, and `decide(None, None, 'ctx', ['a','b'])`
+  prints `RUNTIMEERROR:…MLX…` instead of a `ModuleNotFoundError`, a tokenizer crash
+  or an empty verdict. Both halves are gated because "swallow the ImportError" would
+  satisfy the import clause and destroy the second one: a generator that quietly
+  returns nothing lets a suite print verdicts scored from nothing.
+  The sweep is mutation-checked rather than trusted: the mutant writes a real
+  throwaway submodule — `_zz_backend_probe.py`, planted in the `flash` package
+  directory for the length of the run and deleted after it, so no document here can
+  tell a reader to open a file that only exists mid-mutation — carrying
+  `import mlx.core` at top level while the
+  gates run. Onto disk rather than into a stubbed global, because the claim is about
+  what a child process can import, not about what this process has already cached.
+  Exactly the sweep gate fails, then the
+  file is deleted and the tree verified clean.
+  The pre-fix measurement stays on the record because it is why the box existed: with
+  `mlx` blocked, **24 of the 26** imported and `decide`/`route` did not, unnoticed
+  for as long as the package shipped because `flash.cli` loads both lazily.
+- **R-7.8 (CLOSED 2026-09-27)** Every `flash …` command line printed in a tracked
+  document MUST parse against `flash.cli.build_parser()`.
+  Vector: `benchmarks/documented_commands_check.py`, **7 checks + 4 mutants**, green
+  in this session and a §6 line of its own. It reads fenced blocks, inline spans and
+  the two published workflows' `run:` lines, and today the collector's own spine is
+  one of the gates: **24 distinct commands in 111 citations across 11 documents**,
+  plus **67 source paths** a reader is told to open. Commands are resolved by
+  `parse_args([cmd])` against the real parser under a swallowed stderr — never by
+  dispatching, because a documented `flash run` would create a worktree and a
+  documented `flash selftest --all` would take eight minutes — and the gate that the
+  collector is not blind is paid for by planting a command nobody wrote and requiring
+  the existence check to reject it.
+  Two of the seven are the reason the box existed. `CONTRIBUTING.md` shipped three
+  citations of commands that did not exist, one inside the copy-pasteable setup
+  block; the fix is not only that they now exist, it is that the **published
+  workflows** are on the same gate — 5 `flash` commands across `ci.yml` and
+  `nightly.yml`, all of which resolve — so the pipeline a stranger sees on the front
+  page cannot go back to being dangling. The ellipsis rule is honoured: `--tasks …`
+  reads as an argument, not a subcommand, so a documented example with a placeholder
+  cannot fail the gate for the wrong reason.
+  SPEC's mutation-check is the last mutant and it is literal: `selftest` and `doctor`
+  are deleted from `build_parser()`'s subchoices while the gates run, and the failure
+  must not merely happen — it must **name the citing file and line**, so the gate
+  demands a matching `\.(md|yml):\d+` in the failure text before it counts as caught.
+  It earned its keep the day it landed: the write-up of R-7.7's own mutant named the
+  planted throwaway submodule by its path in a code span, and this gate failed the run
+  — one collected source path missing, and it was that one — a document telling a
+  reader to open a file that exists only while a mutation is applied being exactly the
+  defect the gate was written for. The sentence moved, not the gate; that is why this
+  box describes the planted file without naming its path.
 - **R-7.3 (OPEN)** Hands-free control (voice) at the measured spike latency:
   command-to-ack ~4.8s. Vector: real-microphone arm of the spike with VAD
   barge-in, ≥ 90% command recognition over 50 utterances.
@@ -1156,14 +1211,17 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
    `python benchmarks/graph_perceive_check.py --sweep` 33 (+ 12 mutants) ·
    `python benchmarks/hint_ab_check.py` 14 (+ 8 mutants) ·
    `python benchmarks/portable_paths_check.py` 15 (+ 7 mutants) ·
+   `python benchmarks/backend_free_check.py` 29 (+ 4 mutants) ·
+   `python benchmarks/documented_commands_check.py` 7 (+ 4 mutants) ·
    `python -m flash.debug --suite` 32 ·
    `python -m flash.patches --suite benchmarks/tasks/edit_tasks.jsonl` 60 ·
    `python benchmarks/m0_bakeoff.py --dry-run` 20 reference solutions.
-   **Total: 1067 selftest / end-to-end / premise checks + 20 oracle
+   **Total: 1103 selftest / end-to-end / premise checks + 20 oracle
    verifications (m0_bakeoff's 20 reference solutions, which are the only
    numbers in that 20 — the 6 ambient, 14 lora, 5 band, 5 router-portability,
-   12 graph, 12 graph-perceive, 8 hint-ab and 7 path-portability mutants are
-   extra to both totals, 69 in all) = 1087 green, offline.** Read those two
+   12 graph, 12 graph-perceive, 8 hint-ab, 7 path-portability, 4 backend-free and
+   4 documented-command mutants are extra to both totals, 77 in all) = 1123 green,
+   offline.** Read those two
    numbers with care: CHECKS and TOTAL are different columns, and this page has
    been quoted wrongly by its own notes before — R-1.1b's checks count (1052) was
    exactly the total the page had claimed one commit earlier, and the number the
@@ -1237,6 +1295,25 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
    shape instead: every corpus `sys.path.insert` must name a token the harness
    expands — `<REPO>` or `<TMPDIR>` — measured over **99 bootstraps across 24 task
    files**, none of which carries a literal directory.)
+   (Updated 2026-09-27, when R-7.6, R-7.7 and R-7.8 closed: **+30 checks and +5
+   mutants** for `python benchmarks/backend_free_check.py` and **+7 checks and +4
+   mutants** for `python benchmarks/documented_commands_check.py`, which is
+   **1067 → 1104** checks, mutants **69 → 78**, §6 total **1087 → 1124**. Re-read
+   from the tree the same day: `battery_reread` prints
+   `checks 1104  oracle 20  §6 total 1124  mutants 78` with all **33** lines on the
+   OK list, pyflakes 0 findings
+   (`benchmarks/results/battery_reread_r76_20260927.log`).
+   Two things this re-read caught about itself, both worth keeping. The first CLAIM
+   was set by arithmetic before the run (`checks 1103 … mutants 76`) and the re-read
+   printed **1103 / 77** — the mutants number was wrong by the four documented-command
+   gates' own mutant line, which the BATTERY entry had carried as `3` while the
+   vector printed `4/4`. The gate said so out loud instead of the run being re-worded,
+   the entry moved to `4`, and the number published here is the tree's second print,
+   not the first prediction. The second: R-7.7's clause is "26 of the 26 modules
+   import", and the vector as first written asserted only the two that used to fail —
+   a sweep, not an enumeration, is what stops a *new* module growing a top-level
+   backend import and still printing green. That gate was added, planted-file mutant
+   and all, which is why the line is 30 and not 29.)
    (Updated 2026-09-27, after R-7.4: **+14 checks and +7 mutants** for a new vector,
    `python benchmarks/portable_paths_check.py`. No existing line moved, and that is
    the finding: `flash debug --selftest` stayed **55/55** and `flash debug --suite`

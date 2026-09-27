@@ -39,30 +39,36 @@ would close it.
 ```bash
 git clone https://github.com/aashish254/flash-coder && cd flash-coder
 python3.11 -m venv .venv && source .venv/bin/activate
-pip install -e .            # `flash` on PATH; plain `python -m flash.cli` also works
-flash power                 # what your machine can and cannot run, before the downloads
-python benchmarks/battery_reread.py   # the offline battery: no models, no network
+pip install -e .[dev]       # `flash` on PATH; plain `python -m flash.cli` also works
+flash doctor                # nine answers about this install, and its rc follows them
+flash selftest --all        # the offline battery: no models, no network
 ```
 
-Those last two are what the tree runs today. `flash doctor` — the same pre-flight
-in one purpose-built command — and `flash selftest --all` are SPEC **R-7.6**, an
-open box, and CI already calls both, so the published pipeline is dangling until
-they land. `git clone` above is likewise where this repo is *going*, not where it
-is: no remote is configured yet, and `pip install .` from a clean clone into a
-throwaway venv has never been run (SPEC **R-7.5**).
+Every command in that block is gated: `benchmarks/documented_commands_check.py`
+parses each `flash …` line printed anywhere in this repo against the real
+`argparse` parser, so this block cannot rot into instructions that do not run.
+`git clone` above is still where this repo is *going*, not where it is: no remote is
+configured yet, and `pip install .` from a clean clone into a throwaway venv has
+never been run (SPEC **R-7.5**). `flash doctor` answers questions about the install
+it is standing in — a wheel install has no `benchmarks/` beside the package, so it
+hears "no verification surface here" and `flash selftest --all` refuses with rc 2
+instead of totalling checks that never ran.
 
 `flash power` is deliberately the step before the model download: the fast tier
 needs about 4 GB of RAM-resident weights and Apple Silicon, and a machine that
 can't hold it should hear that from a 20 ms check rather than from a crash
-8 minutes into a download.
+8 minutes into a download. `flash doctor` prints the same machine line and four
+more beside it.
 
 On Linux or Windows everything except generation installs and runs: PERCEIVE,
 the AST graph, the harness, trace/replay and the whole offline battery are pure
 Python. The model layer is `mlx`, and `flash run` says so rather than pretending.
-Measured with `mlx` blocked on 2026-09-27: **24 of the 26 modules import**, the
-two that cannot being `flash.decide` (top-level `import mlx.core`) and
-`flash.route` through it — `flash.cli` is not one of the failures, because it
-imports both lazily.
+Measured with `mlx` blocked on 2026-09-27, module by module in a child process:
+**26 of the 26 submodules of `flash` import**, and the one thing that fails is the
+call that needs a forward pass, which raises a `RuntimeError` naming MLX. Before
+that fix the count was **24 of 26** — `flash.decide` at its top-level
+`import mlx.core`, and `flash.route` through it — and nothing noticed for as long
+as the package shipped, because `flash.cli` imports both lazily.
 
 ## Making a change
 
@@ -74,12 +80,16 @@ imports both lazily.
   if you are deciding *where* to put a check — it drives the execution seams
   rather than the helper they call, because a check that certifies a helper while
   the clause names a consumer is how a dead seam survived 14 green checks.
+  `benchmarks/backend_free_check.py` is the one to read for a claim about a whole
+  package rather than one function: it sweeps every submodule in a child process
+  under an import blocker, and its mutant writes a real file onto disk, because
+  `sys.modules` in this process is not what the clause is about.
 - Run the checks the CI will run, locally, and paste the printed lines into the
   PR:
 
   ```bash
   python -m pyflakes flash/*.py benchmarks/*.py   # must print nothing
-  python benchmarks/battery_reread.py             # `flash selftest --all` is R-7.6
+  flash selftest --all                            # == benchmarks/battery_reread.py
   ```
 
 - If you changed a number that appears in prose, re-derive it from the tree — a
