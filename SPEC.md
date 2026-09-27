@@ -1115,8 +1115,8 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   in an **editable checkout**. The line came from
   `Path(sys.executable).resolve().parent.parent / "lib"` being compared to the
   package's own path, and a macOS venv's `bin/python` is a symlink into the Homebrew
-  framework — so the prefix it built was `/opt/homebrew/…/lib`, which is not a prefix
-  of `/private/tmp/r75c/venv/lib/python3.11/site-packages/flash`, and the report said
+  framework — so the prefix it built was that framework's own `lib`, which is not a
+  prefix of the throwaway venv's `site-packages/flash` directory, and the report said
   the opposite of the truth about the one thing this release is about. `_is_editable`
   now reads the property off the path it is a property of: a package under
   `site-packages`/`dist-packages` is an installed copy, anything else is a working

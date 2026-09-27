@@ -94,6 +94,15 @@ as the package shipped, because `flash.cli` imports both lazily.
 
 - If you changed a number that appears in prose, re-derive it from the tree — a
   battery total comes from the counts the runs print, never from an exit code.
+- `docs/` answers the three questions this repo gets asked by email, and each page
+  is written from the code rather than from intent: `docs/config.md` (there is no
+  config file — every knob is a flag, so the page is the flag list),
+  `docs/privacy.md` (exactly one outbound call in the package, and what `--trace-full`
+  puts on disk), `docs/methodology.md` (the four rules above, with the anecdote each
+  one was earned by). If your change moves one of those facts, the page moves in the
+  same PR — and note that these pages are scanned: every `flash …` line in
+  `docs/config.md` or `docs/privacy.md` has to parse against the real CLI, which is
+  how a command invented for a documentation page died twice in one hour.
 
 ## A PR template exists and it is not bureaucracy
 
