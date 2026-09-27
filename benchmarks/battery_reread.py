@@ -65,7 +65,9 @@ BATTERY = [
     ("benchmarks/router_portable_check.py", "benchmarks/router_portable_check.py",
      20, 5, "checks"),
     ("benchmarks/graph_perceive_check.py",
-     "benchmarks/graph_perceive_check.py --sweep", 27, 9, "checks"),
+     "benchmarks/graph_perceive_check.py --sweep", 33, 12, "checks"),
+    ("benchmarks/hint_ab_check.py", "benchmarks/hint_ab_check.py",
+     14, 8, "checks"),
     ("flash.debug --suite", "-m flash.debug --suite", 32, None, "checks"),
     ("flash.patches --suite",
      "-m flash.patches --suite benchmarks/tasks/edit_tasks.jsonl", 60, None, "checks"),
@@ -73,7 +75,7 @@ BATTERY = [
      20, None, "oracle"),
 ]
 
-CLAIM = {"checks": 1032, "oracle": 20, "mutants": 51}
+CLAIM = {"checks": 1052, "oracle": 20, "mutants": 62}
 
 
 def run(argv: str) -> str:
@@ -89,10 +91,12 @@ def mutant_count(text: str) -> int:
     the second shape with lowercase `ok` markers *plus* a `12/12 caught`
     summary, so the markers deliberately do not match its pattern — matching
     both would count graph's mutants twice. `graph_perceive_check.py --sweep` is
-    that same shape a third time (nine `ok   MUTATION:` verdicts plus two
-    `9/9 caught` summaries, one per sweep order); its markers are lowercase for
-    exactly this reason, and the two summaries agreeing on 9 is the run's own
-    claim, not this parser's.
+    that same shape a third time (twelve `ok   MUTATION:` verdicts plus two
+    `12/12 caught` summaries, one per sweep order); its markers are lowercase for
+    exactly this reason, and the two summaries agreeing on 12 is the run's own
+    claim, not this parser's. `hint_ab_check.py` prints the FIRST shape — one
+    `hint-ab mutants: 8/8 …` summary and `ok MUTATION:` verdicts that carry a
+    check count but no fraction of their own.
     """
     best = 0
     for line in text.replace("\r", "\n").split("\n"):

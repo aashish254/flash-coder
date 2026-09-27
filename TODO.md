@@ -1100,7 +1100,7 @@ here rather than folded into P6's confidence work.
       the skeleton is prepended to the prompt itself, and `Project context (real
       API` appears in 10 of those same 248 captured prompts, which is exactly the
       difference: one path wrote into `prompt`, the other only into the record.*
-- [ ] R-1.1b does symbol injection actually HELP? A/B on a frozen suite, hint on
+- [x] R-1.1b does symbol injection actually HELP? A/B on a frozen suite, hint on
       vs off, same model, same seeds — the clause is now live-verified in the
       prompt (`benchmarks/hint_live_audit.py --expect present`) and its outcome
       value has never been measured, because the one live note that claimed it was
@@ -1117,6 +1117,34 @@ here rather than folded into P6's confidence work.
       the failure happened to name a long function — which would have made the A/B
       compare an invisible arm against an invisible control. Empty now means "nothing
       repo-defined is at issue", and that is the only silence this arm produces.)*
+      **Result (2026-09-27): a stated nil, which is what this box's gate asked for.**
+      The two blocks are now separately switchable (`loop.HINTS`,
+      `_perceive(…, hints=…)`, `--no-source-hint` / `--no-graph-hint`, both recorded
+      in `SUITE_PARAMS` so a trace states its own arm), and the question was run as
+      four arms over a frozen 10-task suite at `--attempts 3 --allow-big never
+      --trace-full`: pass@N is **both 3/10, graph only 2/10, source only 2/10, off
+      2/10**, pass@1 is **0/10 in every arm** and is the control rather than a
+      measurement, because all four arms share one greedy attempt-0 answer per task.
+      The injection columns prove the switches are live: the OFF arm shows a block on
+      0 of 18 retries, `source only` on 18 of 18, `graph only` on 0, and the two are
+      never transposed. So `both` is **+1 task over off at n=10 — one task, ten
+      points** — and at that sample size the per-task flips are not ordered by arm:
+      `hc16_paid_line_cents` is solved by `both`, `graph only` AND `off` and lost by
+      `source only`; `hc36_add_twice_qty` is solved by `both` and `source only` and
+      not by `graph only` or `off`. Retries move 18→17, which is the same single
+      task. Neither block is shown to help and neither is shown to hurt; this box
+      does not license turning either switch off, and it does not license a win.
+      *The durable finding is about the instrument, and it is why the box closes here
+      instead of iterating: 8 of 10 tasks are unsolved in all four arms, so the band
+      has ~2 tasks of headroom and cannot report a real effect — see SPEC §5's R-1.1b
+      for the re-pick-the-boundary follow-up, which is explicitly NOT booked as a
+      requirement and has no number projected from it.*
+      Vectors: `benchmarks/hint_ab_check.py` offline (**14/14 + 8/8 mutants**,
+      `benchmarks/results/hint_ab_offline_20260927.log`), whose 10th and 11th checks
+      certify eligibility at the seam R-1.1 exposed (`loop.solve` over a stubbed
+      generator shows both headers, and shows the four arms as four different
+      prompts), and `benchmarks/hint_ab_report.py` live
+      (`benchmarks/results/hint_ab_live_20260927.log`).
 - [x] **R-1.1c (SHIPPED, found by R-1.3b's vector)** A failure whose top-ranked symbol
       is long lost the source hint entirely. `lsp.symbol_hint`'s budget check was a
       `break`, so when the FIRST ranked symbol's own source exceeded `max_chars=1200`
@@ -1191,7 +1219,8 @@ here rather than folded into P6's confidence work.
       measured on this repo's own 26 files at **32-33 ms shared against ~170 ms
       parsed twice**, a number the vector prints. The per-root graph cache is an LRU
       of 8 roots, because a suite over ten repos is a suite holding ten graphs.
-      Vector: `benchmarks/graph_perceive_check.py` **27/27 + 9/9 mutants**, run for
+      Vector: `benchmarks/graph_perceive_check.py` **27/27 + 9/9 mutants** (the file
+      prints **33/33 + 12/12** from R-1.1b onward — its switch checks joined it), run for
       §6 as `--sweep` (one fresh process per mutant). Three of the 27 drive
       `loop.solve` with a stubbed generator and read the retry message back; one is
       the control that a first attempt pays nothing; one requires every cited

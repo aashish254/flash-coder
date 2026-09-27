@@ -157,6 +157,67 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   `graph.scope_hint`'s `… N more not shown (context budget)` is the in-repo
   precedent this follows, and the clipping is why R-1.1b's hint A/B can now treat
   an empty arm as the measured thing it is.
+- **R-1.1b (MEASURED — NIL)** Whether a perception block HELPS, not merely whether
+  it arrives, MUST be answerable by running the same frozen suite with each block
+  switched off. That requires the blocks to be separable: `loop.HINTS` is the
+  selection (`("source", "graph")` ships), `_perceive(…, hints=…)` picks from
+  `(("source", _symbol_hint), ("graph", _graph_hint))` and returns the bare error
+  before it builds a repo index when the selection is empty, and
+  `--no-source-hint` / `--no-graph-hint` on `run` and `run-suite` write it. Both
+  flag names are in `cli.SUITE_PARAMS`, so a session's own trace states which arm
+  produced it — an A/B whose rows cannot be told apart afterwards is not an A/B.
+  *Vector 1, offline — `benchmarks/hint_ab_check.py`,
+  **14/14 checks + 8/8 mutants defeated by exactly their checks**
+  (`benchmarks/results/hint_ab_offline_20260927.log`). It certifies the frozen
+  10-record corpus at the layer the live arms will read (`naive` is the code
+  `solve` extracted, and every `naive` COMPILES, so a retry is about a symbol and
+  not about a token cap), that both blocks are non-empty over each record's REAL
+  verdict, that each block's symbols are a PREFIX of one shared
+  `symbols_involved` ranking, and — the gate R-1.1 exists to keep — eligibility is
+  proved AT THE SEAM: `loop.solve` with a stubbed generator shows the retry
+  message carrying both headers, and shows the four arms as four DIFFERENT prompts
+  each carrying exactly its own blocks. Its mutation set is the failure modes of
+  this kind of instrument: a task already passing on try 1, a reference solution
+  that fails its own test, a crash that names nothing the repo defines, a prompt
+  that quotes the answer, a duplicated task, a task with no `context`, a `naive`
+  frozen at the wrong layer, a truncated `naive`.*
+  *Vector 2, live — four `run-suite` sessions over
+  `benchmarks/tasks/hint_ab_tasks.jsonl`, `--attempts 3 --allow-big never
+  --trace-full`, scored by `benchmarks/hint_ab_report.py`
+  (`benchmarks/results/hint_ab_live_20260927.log`):*
+
+  | arm | pass@1 | pass@N | retries | source blocks | graph blocks |
+  |---|---|---|---|---|---|
+  | both | 0/10 | **3/10** | 17 | 17 | 17 |
+  | graph only | 0/10 | 2/10 | 18 | 0 | 18 |
+  | source only | 0/10 | 2/10 | 18 | 18 | 0 |
+  | off | 0/10 | 2/10 | 18 | 0 | 0 |
+
+  pass@1 is 0/10 everywhere by construction and is the control, not a result: every
+  arm shares one greedy attempt-0 answer per task, so the entire delta belongs to
+  the blocks. The injection columns say the switches are not dead: the OFF arm
+  speaks on 0 of 18 retries, `source only` on 18 of 18, and never the other way
+  round.
+  **The result is a nil.** `both` is +1 task over `off` at n=10 — ten points, which
+  is one task — and at the same sample size the flips are not ordered by arm:
+  `hc16_paid_line_cents` is solved by `both`, `graph only` and `off` and LOST by
+  `source only`, while `hc36_add_twice_qty` is solved by `both` and `source only`
+  and not by `graph only` or `off`. Only 3 of 10 tasks discriminate at all, and the
+  retry delta (1 fewer over 18) is the same single task. So: the hints are not
+  shown to help, and they are not shown to hurt; nothing here licenses turning
+  either switch off, and nothing licenses claiming a win.
+  *What the run did buy is an instrument finding, and it is the reason this box is
+  closed rather than iterated: **8 of 10 tasks are unsolved in all four arms at
+  attempts=3.** The band has almost no headroom, so an A/B on it can only ever move
+  on the ≤2 tasks sitting at the solvability boundary — a design that cannot report
+  a real effect is why the answer is nil and not "no". The offline check's own tail
+  note adds a second fragility: 3 of the 10 are hint-ELIGIBLE only because
+  `diagnose`'s GOT/WANT upgrade names the at-issue symbol in the verdict; on the
+  bare traceback they rank to nothing, so that denominator rides on `diagnose` and
+  shrinks silently if it regresses.
+  Gated follow-up (not booked as a requirement, and no number projected from it):
+  re-pick the band at the 3-attempt solvability boundary, or raise `--attempts` to
+  6, before spending another 4-arm run on this question.*
 - **R-1.2 (SHIPPED)** Cross-file go-to-def and project-wide references MUST be
   answerable, with the AST owning kinds and the server owning resolution.
   Vector: `flash find total_cents --path benchmarks/fixtures`,
@@ -233,13 +294,17 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   settle it the symbol contributes no block. The graph is held per repo root in a
   `SCOPE_CACHE`-bounded LRU (8 roots), cold `build` then `merge` on re-entry, so a
   long run refreshes rather than serving a stale scope.
-  Vector: `benchmarks/graph_perceive_check.py` **27/27 + 9/9 mutants**, and the §6
+  Vector: `benchmarks/graph_perceive_check.py` **33/33 + 12/12 mutants** (it was
+  27/27 + 9/9 when this clause shipped; the extra 6 checks and 3 mutants are
+  R-1.1b's per-block switches, which live in the same vector because the switch
+  semantics are `_perceive`'s), and the §6
   line runs it as `--sweep` — one fresh process per mutant — because several of
   these bugs live in the cache and the number of checks a mutant fails is
   order-dependent (2/2/7/2/14/2/7/2/2 in one process, 2/1/6/1/13/2/6/1/1 in nine);
   what is claimed is that each mutant is caught by ITS OWN named check in both
-  orders. Three of the 27 drive `loop.solve` with a stubbed generator and read the
-  retry message back, per R-1.1's lesson. Cost, printed by the run: **3.0-3.4 ms**
+  orders. Several of the 33 drive `loop.solve` with a stubbed generator and read the
+  retry message back, per R-1.1's lesson — three in R-1.3b's own section, three more
+  in R-1.1b's switch checks, each asserting which header does and does not arrive. Cost, printed by the run: **3.0-3.4 ms**
   cold and **0.84-0.91 ms** cached on the fixtures repo; 32-33 ms for the hint pair on
   this repo's 26 files against ~170 ms if the parse were done twice (167 and 169 in
   the two runs taken here, 32 and 33 in the two for the shared path; so the ratio —
@@ -967,15 +1032,19 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
    `python benchmarks/lora_path_check.py` 31 (+ 14 mutants) ·
    `python benchmarks/dbg_band_check.py` 172 (+ 5 mutants) ·
    `python benchmarks/router_portable_check.py` 20 (+ 5 mutants) ·
-   `python benchmarks/graph_perceive_check.py --sweep` 27 (+ 9 mutants) ·
+   `python benchmarks/graph_perceive_check.py --sweep` 33 (+ 12 mutants) ·
+   `python benchmarks/hint_ab_check.py` 14 (+ 8 mutants) ·
    `python -m flash.debug --suite` 32 ·
    `python -m flash.patches --suite benchmarks/tasks/edit_tasks.jsonl` 60 ·
    `python benchmarks/m0_bakeoff.py --dry-run` 20 reference solutions.
-   **Total: 1032 selftest / end-to-end / premise checks + 20 oracle
+   **Total: 1052 selftest / end-to-end / premise checks + 20 oracle
    verifications (m0_bakeoff's 20 reference solutions, which are the only
    numbers in that 20 — the 6 ambient, 14 lora, 5 band, 5 router-portability,
-   12 graph and 9 graph-perceive mutants are extra to both totals) = 1052 green,
-   offline.** Re-read by
+   12 graph, 12 graph-perceive and 8 hint-ab mutants are extra to both totals,
+   62 in all) = 1072 green, offline.** Read that last sentence's two numbers with
+   care: the 1052 CHECKS count equals the total this page claimed before R-1.1b
+   (checks + oracle), so a stale note quoting "1052" as the §6 total is quoting
+   checks, not green. Re-read by
    `python benchmarks/battery_reread.py`, which holds one line per item above,
    requires the exact fraction each one prints, sums checks/oracle/mutants
    separately, and fails if the tree's sum moves off this page's number. It
@@ -1010,6 +1079,23 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
    `benchmarks/results/battery_reread_r11c_20260927.log`), pyflakes 0 findings. This is
    also what unblocks R-1.1b: until now a hint-OFF arm could
    come back empty for a reason nobody measured.)
+   (Updated 2026-09-27, after R-1.1b: **+14 checks and +8 mutants** for
+   `python benchmarks/hint_ab_check.py` (the frozen band's premise, certified at the
+   seam `loop.solve` with a stubbed generator), **+6 checks and +3 mutants** on
+   `python benchmarks/graph_perceive_check.py --sweep` (**27 → 33**, `+9 → +12`) for
+   the per-block switches — three checks that each arm hides exactly its own block and
+   nothing else, one that an arm with both hints off pays no AST parse at all, one that
+   the flag reaches the seam it names, and one that the arm is written into the session
+   so a trace states which arm produced it rather than relying on a command line
+   someone remembers. **1032 → 1052** checks, mutants **51 → 62**, §6 total
+   **1052 → 1072**. Re-read from the tree on a quiet box the same day: `battery_reread`
+   prints `checks 1052  oracle 20  §6 total 1072  mutants 62` with all **30** lines on
+   the OK list (raw witness `benchmarks/results/battery_reread_r11b_20260927.log`),
+   `hint_ab_check 14/14` and `graph_perceive 33/33` the two lines that moved, pyflakes
+   0 findings. The live A/B those switches exist for is a **nil**, and it is written up
+   as one under R-1.1b rather than dropped here: the §6 count is the instrument's
+   greenness, which is the only thing this battery can certify about a measurement
+   that found nothing.)
    (Updated 2026-09-27, after R-1.3b's injection: **+27 checks and +9 mutants** for
    `python benchmarks/graph_perceive_check.py --sweep` (`--sweep`, not the bare run,
    because several of its mutants live in the graph CACHE and how many checks one

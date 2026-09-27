@@ -18,7 +18,15 @@ Plan: ../PLAN.md (v3.8). This package grows milestone by milestone:
                                      oversized symbol is CLIPPED and the ones left
                                      behind COUNTED — the budget check used to be a
                                      `break`, so one long function at issue deleted
-                                     the whole source block)
+                                     the whole source block.
+                                     R-1.1b: `loop.HINTS` is the SELECTION
+                                     (`("source", "graph")` ships) and
+                                     `--no-source-hint` / `--no-graph-hint` drive it,
+                                     with both names in `cli.SUITE_PARAMS` so a
+                                     session states which arm wrote it — the A/B that
+                                     question asked is a measured NIL on a frozen
+                                     10-task band, which is why both blocks stay
+                                     wired and neither is claimed to help)
       flash.perceive                (one file's static diagnostics as an oracle)
       §28/R-1.3: flash.graph         (the knowledge graph, AST-only and no vector
                                      store: nodes are functions/classes/modules/

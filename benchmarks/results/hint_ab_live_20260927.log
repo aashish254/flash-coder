@@ -1,0 +1,11 @@
+  arm            n   pass@1   pass@N   retries   src inj   grp inj   a0 sha1 set
+  both          10    0/10    3/10        17        17        17    10 distinct
+  graph only    10    0/10    2/10        18         0        18    10 distinct
+  source only   10    0/10    2/10        18        18         0    10 distinct
+  off           10    0/10    2/10        18         0         0    10 distinct
+  delta vs off, both       : pass@N +1 over n=10 (pass@1 +0), retries -1
+  delta vs off, graph only : pass@N +0 over n=10 (pass@1 +0), retries +0
+  delta vs off, source only: pass@N +0 over n=10 (pass@1 +0), retries +0
+  ..  control: every arm shares one greedy attempt-0 answer per task, so pass@1 is identical and the whole delta is the blocks
+
+hint-ab live: 4 arms, benchmarks/tasks/hint_ab_tasks.jsonl, attempts=3

@@ -109,7 +109,7 @@ Vision is benchmarked once the text brain is picked (PLAN §M1–M2).
 .venv/bin/python -m flash.harness --selftest        # 20 offline checks on the oracle
 .venv/bin/python benchmarks/m0_bakeoff.py --dry-run # 20/20 reference solutions pass
 
-# All 29 offline vectors in this file (28 check-summing + m0_bakeoff's oracle) in
+# All 30 offline vectors in this file (29 check-summing + m0_bakeoff's oracle) in
 # one command, summed from the fraction each run
 # PRINTS (never an exit code, never a phrase grep — see SPEC §6 for the two
 # capture traps that rule is there to prevent). Fails if the tree's total moves
@@ -175,7 +175,7 @@ Vision is benchmarked once the text brain is picked (PLAN §M1–M2).
 # month. One AST parse per retry serves both hints (32-33 ms shared against ~170 ms
 # parsed twice on this repo's 26 files), and the graph is cached per repo root in an
 # LRU of 8 so a long run refreshes by hash instead of holding one graph per task.
-.venv/bin/python benchmarks/graph_perceive_check.py --sweep   # 27 checks + 9 mutants
+.venv/bin/python benchmarks/graph_perceive_check.py --sweep   # 33 checks + 12 mutants
 #   `--sweep`, not the bare run, is the quoted form: several mutants live in the graph
 #   CACHE, so the NUMBER a mutant fails depends on whether that process already built a
 #   graph (2/2/7/2/14/2/7/2/2 together, 2/1/6/1/13/2/6/1/1 apart). What is claimed is
@@ -184,9 +184,27 @@ Vision is benchmarked once the text brain is picked (PLAN §M1–M2).
 #   live, on the real 7B: r03_bulk_rule's two retry prompts both carry
 #   `Dependents of the symbols at issue` (`CartLine [class] minishop/models.py:20`,
 #   `BULK_MIN_QTY [constant] minishop/pricing.py:5`), and the same failure's first
-#   attempt carries neither hint. No accuracy delta is claimed — r03 still failed all
-#   three small-tier attempts; whether the hints HELP is TODO R-1.1b.
+#   attempt carries neither hint. No accuracy delta is claimed there — that run predates
+#   the measurement below.
 .venv/bin/python benchmarks/hint_live_audit.py --header "Dependents of the symbols at issue" --expect present
+
+# R-1.1b — and then the A/B that asked whether either block actually HELPS. Each block
+# is now switchable on its own (`loop.HINTS`, and `--no-source-hint` / `--no-graph-hint`,
+# both recorded in the suite's params so a trace states which arm wrote it), and the same
+# frozen 10-task band was run four ways at --attempts 3 on the 7B.
+# The answer, stated at its precision: a NIL. pass@N is both 3/10, graph-only 2/10,
+# source-only 2/10, off 2/10 — +1 task over the control at n=10, i.e. one task — and the
+# per-task flips are not ordered by arm (source-only LOSES a task the OFF arm solves).
+# pass@1 is 0/10 in all four arms by construction: the arms share one greedy attempt-0
+# answer per task, so it is the control rather than a measurement. What the run does
+# establish is that the switches are not dead — the OFF arm injects a block on 0 of 18
+# retries, source-only on 18 of 18, and never the other way round — and that the band
+# cannot answer the question: 8 of 10 tasks are unsolved in every arm, so there are ~2
+# tasks of headroom for a delta to live in. Neither block is shown to help and neither is
+# shown to hurt; the switches stay on because that is the honest reading of a nil, not
+# because a win was measured.
+.venv/bin/python benchmarks/hint_ab_check.py                 # 14 offline checks + 8 mutants
+.venv/bin/python benchmarks/hint_ab_report.py <4 arm session ids>   # the live table above
 
 # §33.1 ACT leg — symbol-precise edits: a change request is answered with patches that
 # name a SYMBOL, and the AST's own lines are what gets replaced. Everything outside the

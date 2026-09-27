@@ -1,0 +1,28 @@
+  OK   the suite is frozen and complete: 10 records, each with prompt/test/solution/naive and a context dir that holds the package
+  OK   `naive` is already the CODE `solve` verified, not the model's prose-plus-fences answer — the loop extracts before it diagnoses, so a record holding raw text would have this vector certify a syntax verdict no live arm ever reads
+  OK   every naive answer FAILS the real oracle — a task the first try solves never reaches a retry, so an arm that shows it a hint is not being asked a question
+  OK   every reference solution PASSES the real oracle — an unsolvable task lands as all four arms at zero, which reads exactly like 'the hints do not help'
+  OK   over each naive answer's REAL verdict the source block is non-empty — R-1.1c's contract is that silence means 'nothing repo-defined is at issue', so a silent task is not hint-eligible and must not be scored
+  OK   ...and so is the dependents block, over the same verdict and the same shared index — both blocks have something to show for every task in the denominator
+  OK   every naive COMPILES — a SyntaxError here means the answer was cut off by the token cap, and a retry over a half-written program scores the harness budget instead of the symbol the hint names
+  OK   the blocks stay inside their own budgets, so the A/B's added context is a number: 1200 chars for source, 900 for dependents
+  OK   one ranking, two readers, 10 failures deep: each block's symbols are a PREFIX of the same `symbols_involved` list and every ranked symbol is either quoted or counted in the tail — the two blocks cannot tell two stories about one failure, and R-1.1c's counted tail is what keeps the prefix rule true when the budget bites
+  OK   the suite is eligible AT THE SEAM the A/B measures: `loop.solve` over a stubbed generator shows every task's retry message carrying BOTH headers
+  OK   the four arms are four DIFFERENT prompts and each carries exactly its own blocks — an OFF arm that leaks its hint measures nothing and looks like a result
+  OK   the hint never rewrites the verdict it is appended to: in all four arms of every task the retry carries the bare verdict EXACTLY ONCE, so a delta between arms is the blocks' and not a differently-worded or doubled error
+  OK   the suite is not one mistake ten times: 10 distinct (failure class, at-issue symbol) signatures spanning >= 5 exception classes
+  OK   no prompt carries the package's own code or names one of its symbols — if the question leaked the answer, every arm would pass and the A/B would be scoring its own prompt
+
+R-1.1b hint-eligible suite: 14/14 checks passed
+  ..  turn 0 already carries 15260 chars of skeleton across 10 tasks; over their failures the source block shows 119 lines, 20 of which the skeleton prints too and 99 of which it never does (bodies, not signatures), while the dependents block adds 14 reach/import lines that appear nowhere in turn 0
+  ..  3/10 tasks are hint-eligible only because `diagnose`'s GOT/WANT upgrade names the at-issue symbol in the verdict — on the bare traceback they rank to nothing (hc08_price_rounding, hc16_paid_line_cents, hc32_bulk_pct_cents); eligibility rides on that upgrade, so a regression there shrinks this denominator silently
+  ok   MUTATION: a task whose naive answer already passes — the loop never reaches a retry for it, so it dilutes both arms equally and looks like evidence -> 7 check(s) fail
+  ok   MUTATION: a task whose reference solution fails its own test — all four arms would score 0 and the nil would read as 'hints do not help' -> 1 check(s) fail
+  ok   MUTATION: a task whose failure names nothing the repo defines (a stdlib crash in a test that never touches the package) — both blocks are contractually silent, so it cannot score an arm -> 5 check(s) fail
+  ok   MUTATION: a prompt that quotes the fixture's own source — the arms would pass because the question handed over the answer -> 1 check(s) fail
+  ok   MUTATION: one task duplicated under its own id — a suite that asks the same question twice, weighted -> 1 check(s) fail
+  ok   MUTATION: a task that lost its `context` — no repo to perceive, so both arms show it nothing and the delta is computed over silence -> 6 check(s) fail
+  ok   MUTATION: a `naive` frozen at the wrong layer — the model's prose-plus-fences answer instead of the code `solve` extracted from it, so the vector ranks on the extractor's complaint -> 4 check(s) fail
+  ok   MUTATION: a `naive` the token cap cut off mid-string — it fails, it even has symbols at issue, but its retry is about an unclosed program, which no hint can correct -> 1 check(s) fail
+
+hint-ab mutants: 8/8 gates defeated by exactly their checks
