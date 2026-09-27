@@ -109,7 +109,7 @@ Vision is benchmarked once the text brain is picked (PLAN §M1–M2).
 .venv/bin/python -m flash.harness --selftest        # 20 offline checks on the oracle
 .venv/bin/python benchmarks/m0_bakeoff.py --dry-run # 20/20 reference solutions pass
 
-# All 30 offline vectors in this file (29 check-summing + m0_bakeoff's oracle) in
+# All 31 offline vectors in this file (30 check-summing + m0_bakeoff's oracle) in
 # one command, summed from the fraction each run
 # PRINTS (never an exit code, never a phrase grep — see SPEC §6 for the two
 # capture traps that rule is there to prevent). Fails if the tree's total moves
@@ -205,6 +205,33 @@ Vision is benchmarked once the text brain is picked (PLAN §M1–M2).
 # because a win was measured.
 .venv/bin/python benchmarks/hint_ab_check.py                 # 14 offline checks + 8 mutants
 .venv/bin/python benchmarks/hint_ab_report.py <4 arm session ids>   # the live table above
+
+# R-7.4 — clone-anywhere portability, gated at the seams rather than asserted. Three
+# task corpora used to store the author's checkout inside their ORACLE `sys.path`
+# bootstrap, so on another machine 72 context tasks died with `ModuleNotFoundError`
+# before the candidate's first line: verdicts printed, nothing scored. A corpus now
+# writes `<REPO>`, expanded in one place (`harness._hoist_path_bootstrap`) because that
+# is already the single function every execution seam passes through — `run_test`,
+# `score`'s probe loop, `debug`'s tracer, `confidence`'s seeded re-runs. (`python -I`
+# implies `-E`, so `PYTHONPATH` cannot carry the fixtures instead.) This vector launches
+# from `benchmarks/fixtures`, not the repo root, and requires ALL FOUR seams to pass every
+# reference solution and reject the frozen wrong answers — expanding the token at one seam
+# and not the next is exactly the shape of the bug, and no single-seam test can see it.
+# Reaching the debug seam found a pre-existing defect there: the tracer exec'd the
+# bootstrap AFTER the candidate and INSIDE the traced region, so a candidate that
+# imports the repo at top level died on its own import and `--debug` fed the model the
+# harness's crash instead of a trail. Sized by probe, not story: of the 72 context
+# reference solutions, exactly the 42 whose candidate imports the repo changed verdict
+# (ModuleNotFoundError -> pass) against the pre-fix build, and the 30 others were never
+# in reach. Fixed. Both `flash.debug --selftest` (55/55) and `--suite` (32/32) passed
+# before and after — the corpus they run against carries 0 `sys.path` lines, so neither
+# ever built the bootstrap the bug lived in.
+# Witness data is NOT rewritten: a trace or ledger prompt whose text was edited to look
+# portable is no longer evidence, `adapter_config.json` is read by `flash/train.py`, and
+# the embedding caches are keyed by the prompt text a cited fit consumed. The exclusion is
+# checked instead of granted (0 executables under `benchmarks/results/**`, five named
+# record groups, a published residue floor). See `docs/portability.md`.
+.venv/bin/python benchmarks/portable_paths_check.py          # 14 checks + 7 mutants
 
 # §33.1 ACT leg — symbol-precise edits: a change request is answered with patches that
 # name a SYMBOL, and the AST's own lines are what gets replaced. Everything outside the

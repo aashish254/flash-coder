@@ -114,6 +114,15 @@ if HERE not in sys.path:
 test_src = open("test.py").read()
 code_src = open("solution.py").read()
 try:
+    # The oracle's path bootstrap runs BEFORE the candidate, which is what
+    # `harness.run_test` has always done for the same reason: a candidate that
+    # imports the repo it was asked to extend needs the repo on sys.path at
+    # import time, not at assert time. Tracing stays off for it — it is harness
+    # setup, and a trail through `sys.path.insert` is noise the model reads.
+    try:
+        exec(compile(open("_dbg_boot.py").read(), "boot.py", "exec"), ns)
+    except FileNotFoundError:
+        pass
     sys.settrace(tracer)
     try:
         exec(compile(code_src, "solution.py", "exec"), ns)
@@ -229,8 +238,8 @@ def _run(files: dict[str, str], test: str, timeout: int) -> Digest:
             names.append(Path(rel).name)
             dest.parent.mkdir(parents=True, exist_ok=True)
             dest.write_text(src)
-        (root / "test.py").write_text(boot.replace("<TMPDIR>", str(root))
-                                      + "\n" + body + "\n")
+        (root / "_dbg_boot.py").write_text(boot.replace("<TMPDIR>", str(root)))
+        (root / "test.py").write_text(body + "\n")
         (root / "solution.py").write_text(files.get("solution.py", ""))
         (root / "_dbg_spec.json").write_text(json.dumps({"files": sorted(set(names))}))
         (root / "_dbg_driver.py").write_text(_DRIVER)

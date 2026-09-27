@@ -638,6 +638,40 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   it wins is a real result, not an instrument failure — so this is booked as a
   measured miss rather than retried into a shape that flatters it. `--debug`
   therefore stays **off by default**.
+  **2026-09-27, found by the path-portability vector (R-7.4): the tracer was
+  exec'ing the oracle's `sys.path` bootstrap AFTER the candidate, inside the
+  traced region.** `run_test` has always hoisted it first; `_run` did not, so a
+  candidate that imports the repository at top level died on its own `import`
+  before the traced execution began, and the digest reported the harness's crash
+  instead of the candidate's trail.
+  **Scope, measured rather than asserted** — every one of the **72** context
+  reference solutions was run through `debug._run` twice, once against the shipped
+  build and once against `git show HEAD:flash/debug.py` loaded as a separate
+  module, each with the path the corpus used to carry already correct (so this
+  measures the ORDERING, not the token): **42 diverge** — old
+  `ModuleNotFoundError`, new `pass` — and the split is exactly "does the
+  candidate import the repo in its first lines", 42 do and 30 do not. The 30 were
+  never affected, because it is the test that imports their fixtures and the test
+  runs after the bootstrap either way.
+  **And R-4.3's own measured miss is NOT undone by this**, which is checked
+  rather than assumed, because the temptation to reopen a negative result on a
+  newly-found bug is exactly what the correction rule exists to stop. The band
+  corpus is self-contained: its two bootstrap-carrying tasks (`mw1_ringbuf`,
+  `mw3_registry`) insert `<TMPDIR>`, which the driver already has on its path, and
+  the same old-vs-new probe gives them **the same verdict and the same 104-line
+  trail** (the trails differ only in `<object at 0x…>` reprs). Both arms of the A/B
+  therefore received the mechanism on every one of the 30 tasks, and the two tasks
+  arm B lost are not losses this bug can explain.
+  Why no vector saw it: `dbg_tasks.jsonl`, the corpus `--suite` reads, carries
+  **0** `sys.path` lines in its 8 tests, so `_hoist_path_bootstrap` returned an
+  empty bootstrap and the ordering could not matter — while `m2_tasks.jsonl`
+  carries 5 and `hint_ab_tasks.jsonl` 10. `--selftest` (55/55) and `--suite`
+  (32/32) pass identically before and after, and that IS the finding: a seam
+  certified only on tasks that do not need its dependency cannot see the
+  dependency break. Fixed in `flash/debug.py` (bootstrap to its own file, exec'd
+  before `sys.settrace`) and gated at the seam by
+  `benchmarks/portable_paths_check.py`, which drives all four seams over all 72
+  reference solutions from a foreign cwd.
 - **R-4.4 (SHIPPED)** Vision outputs MUST be scored by a pixel oracle with a
   coverage guard so an empty page can never win.
   Vector: `calibrate_visr.py` + `visp` 5/5, `visr` 4/5 with real4 recorded as a
@@ -845,6 +879,89 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   window here was daytime and `--force`d, with the gate itself opened by a
   synthetic idle+AC profile state, so "on idle + AC" is enforced and tested, not
   observed in the wild.
+- **R-7.4 (SHIPPED — offline vector MET)** A clone executes and reads at a path
+  nobody predicted. **Nothing this repo runs, or tells a user to run, may carry
+  the author's absolute directory.**
+  It did not hold: three context corpora stored the author's checkout inside
+  their ORACLE text, because a context task's test must put the fixture package on
+  `sys.path` and the harness hoists whatever bootstrap the test carries. On another
+  machine every one of those **72** tasks died with `ModuleNotFoundError` before
+  the candidate's first line — a suite scoring nothing while looking like it
+  scores something.
+  Contract: the corpus writes `<REPO>`; `harness.REPO` is
+  `Path(__file__).resolve().parent.parent` (resolved outward from the package, never
+  recorded), and `harness._hoist_path_bootstrap` expands the token as the **one**
+  place it is expanded — because that function is already the single choke point
+  every execution seam uses to split a test into (bootstrap, body): `run_test`,
+  `score`'s probe loop, `debug`'s tracer, `confidence`'s seeded re-runs.
+  `python -I` implies `-E`, so `PYTHONPATH` cannot carry the fixtures instead.
+  Vector: `benchmarks/portable_paths_check.py` **14/14 + 7/7 mutants**, launched
+  from a foreign working directory (`benchmarks/fixtures`), and it drives the four
+  seams rather than the helper: every reference solution in the three corpora
+  passes in **all four**, the same four reject the 10 frozen wrong answers the 7B
+  actually produced, and scoring the reference against the pre-expansion literal
+  path still passes here, so the rewrite bought portability and not semantics. The
+  mutant set is the point of the shape: expansion dead, expansion to a directory
+  that is not this checkout, one host path back in a corpus, the token erased
+  without a path replacing it (the vacuous-green form), the scan scope narrowed to
+  the three touched files, a `.py` planted under the excluded prefix, and the
+  residue doc stripped of a group name.
+  Scope, honestly bounded: `benchmarks/results/**` is **not** rewritten. A record
+  whose text was edited to look portable is no longer a record, and three kinds of
+  them are load-bearing keys (`adapter_config.json` is read by `flash/train.py`;
+  the embedding caches are keyed by the prompt text the fit consumed, so rewriting
+  an entry silently changes what the cited pool audit was computed from). The
+  exclusion is therefore checked, not assumed: no file under it may be code or
+  instructions (0 of 160 are), and the residual paths must fall in one of five
+  named groups with a documented floor — **RECORD_RESIDUE = 395** across 31 files
+  (`traces` 233, top-level records 146, `adapters` 9, `p6` 6, `jobs` 1), printed by
+  the run and asserted `≤` the live count so a new record directory fails until
+  `docs/portability.md` explains it. The instrument's own exemption is a gate too:
+  the only host-path literals in the scanned tree are the two markers
+  `portable_paths_check.py` declares, which is what keeps "we do not scan our own
+  constants" from becoming "we do not scan".
+  **What is NOT claimed: that the repo is path-free.** It is not, and the residue
+  above is the published count, not a rounding. Claiming the clone-and-run
+  property itself — `pip install .` in a throwaway venv on a fresh clone — is
+  R-7.5's open box, not this clause's.
+- **R-7.5 (OPEN)** `pip install .` on a FRESH CLONE, in a throwaway venv, MUST
+  produce a working `flash` entry point, and the offline battery MUST be green
+  against the installed package rather than the checkout.
+  Vector: the run logged under `benchmarks/results/` with its printed counts, and
+  `flash doctor` (R-7.6) as the one command a stranger types to prove it. This is
+  the sentence a README may print as "works on your machine" only after it has been
+  true on a machine that is not the author's.
+- **R-7.6 (OPEN)** One command must answer "is this install sane, and how do I
+  verify the claims I just read?" `flash --version`, `flash doctor` (python,
+  platform, GPU/backend presence, model cache, config, whether the offline vectors
+  can run here) and `flash selftest --all`, which runs the §6 battery from the
+  installed package and prints its totals the same way `battery_reread.py` does.
+  Vector: the three commands, plus `benchmarks/backend_free_check.py` proving
+  `--backend-free` degrades to checks that need no model rather than lying about
+  ones that do. The CI files reference these commands, so until they exist the
+  published pipeline is dangling — that is booked here rather than hidden.
+  Measured 2026-09-27 against the parser instead of by reading the docs: of the 23
+  `flash` subcommands the tracked docs name, **21 exist** and the two that do not
+  are exactly `doctor` and `selftest`.
+- **R-7.7 (OPEN)** A non-Apple-Silicon user MUST be able to `import flash` and
+  every submodule of it, and hear about the missing backend at the call that needs
+  generation — not at import time. Today `flash/decide.py` has a top-level
+  `import mlx.core`, and `flash/route.py` fails through it: measured with `mlx`
+  blocked, **24 of the 26 modules import** and those two do not. The CLI is not
+  affected because it imports both lazily, which is exactly why no check has
+  noticed. Vector: `benchmarks/backend_free_check.py` asserts the full 26/26 under
+  the blocker AND that a generation call still raises the named backend message, so
+  the fix cannot be "swallow the import error" — a silent no-op generator is worse
+  than an import error, because it would produce a verdict with nothing behind it.
+- **R-7.8 (OPEN)** Every `flash …` command line printed in a tracked document MUST
+  parse against `flash.cli.build_parser()`. §1350's "docs move together" rule names
+  README commands and has no enforcement today: `CONTRIBUTING.md` shipped three
+  citations of commands that do not exist, and one of them is in the copy-pasteable
+  setup block. Vector: extract each documented invocation, parse it without
+  dispatching, and fail on any rejection — with the ellipsis placeholders a
+  documented example legitimately carries (`--tasks …`) treated as arguments, not
+  as subcommands. Mutation-check: delete a documented subcommand's parser entry and
+  the gate must name the file and line that cite it.
 - **R-7.3 (OPEN)** Hands-free control (voice) at the measured spike latency:
   command-to-ack ~4.8s. Vector: real-microphone arm of the spike with VAD
   barge-in, ≥ 90% command recognition over 50 utterances.
@@ -1034,17 +1151,19 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
    `python benchmarks/router_portable_check.py` 20 (+ 5 mutants) ·
    `python benchmarks/graph_perceive_check.py --sweep` 33 (+ 12 mutants) ·
    `python benchmarks/hint_ab_check.py` 14 (+ 8 mutants) ·
+   `python benchmarks/portable_paths_check.py` 14 (+ 7 mutants) ·
    `python -m flash.debug --suite` 32 ·
    `python -m flash.patches --suite benchmarks/tasks/edit_tasks.jsonl` 60 ·
    `python benchmarks/m0_bakeoff.py --dry-run` 20 reference solutions.
-   **Total: 1052 selftest / end-to-end / premise checks + 20 oracle
+   **Total: 1066 selftest / end-to-end / premise checks + 20 oracle
    verifications (m0_bakeoff's 20 reference solutions, which are the only
    numbers in that 20 — the 6 ambient, 14 lora, 5 band, 5 router-portability,
-   12 graph, 12 graph-perceive and 8 hint-ab mutants are extra to both totals,
-   62 in all) = 1072 green, offline.** Read that last sentence's two numbers with
-   care: the 1052 CHECKS count equals the total this page claimed before R-1.1b
-   (checks + oracle), so a stale note quoting "1052" as the §6 total is quoting
-   checks, not green. Re-read by
+   12 graph, 12 graph-perceive, 8 hint-ab and 7 path-portability mutants are
+   extra to both totals, 69 in all) = 1086 green, offline.** Read those two
+   numbers with care: CHECKS and TOTAL are different columns, and this page has
+   been quoted wrongly by its own notes before — R-1.1b's checks count (1052) was
+   exactly the total the page had claimed one commit earlier, and the number a
+   stale note quotes now (1072) is that same page's TOTAL, not its checks. Re-read by
    `python benchmarks/battery_reread.py`, which holds one line per item above,
    requires the exact fraction each one prints, sums checks/oracle/mutants
    separately, and fails if the tree's sum moves off this page's number. It
@@ -1096,6 +1215,24 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
    as one under R-1.1b rather than dropped here: the §6 count is the instrument's
    greenness, which is the only thing this battery can certify about a measurement
    that found nothing.)
+   (Updated 2026-09-27, after R-7.4: **+14 checks and +7 mutants** for a new vector,
+   `python benchmarks/portable_paths_check.py`. No existing line moved, and that is
+   the finding: `flash debug --selftest` stayed **55/55** and `flash debug --suite`
+   stayed **32/32** across the tracer-ordering fix, because the corpus those two run
+   against carries 0 `sys.path` lines — so what was broken was a seam neither of them
+   exercises. **1052 → 1066** checks, mutants **62 → 69**, §6 total
+   **1072 → 1086**. Re-read from the tree on a quiet box the same day:
+   `battery_reread` prints `checks 1066  oracle 20  §6 total 1086  mutants 69` with
+   all **31** lines on the OK list (raw witness
+   `benchmarks/results/battery_reread_r74_20260927.log`; the vector's own table at
+   `benchmarks/results/portable_paths_r74_20260927.log`), pyflakes 0 findings. The
+   re-read also had to catch its own instrument: `docs/portability.md`'s
+   `RECORD_RESIDUE` is asserted `≤` the live count, and committing this vector's
+   witness log raised that count by 4 — a residue number that excluded the file
+   measuring it would have been the same mistake one layer up. The re-read's own
+   witness then added a 160th record file carrying **0** occurrences, which is why
+   the published floor stayed exactly 395 and why `portable_paths_check.py` was
+   re-run **after** it: **14/14 + 7/7** with the new file on disk.)
    (Updated 2026-09-27, after R-1.3b's injection: **+27 checks and +9 mutants** for
    `python benchmarks/graph_perceive_check.py --sweep` (`--sweep`, not the bare run,
    because several of its mutants live in the graph CACHE and how many checks one

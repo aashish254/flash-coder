@@ -1012,6 +1012,111 @@ here rather than folded into P6's confidence work.
       Overhead is booked too, because a sandbox nobody can afford gets bypassed:
       26.8 → 29.0 → 39.0 ms per child spawn (wrapper +10.0, whole sandbox +12.2) and
       60 `score()` calls 6.04 s → 8.31 s.*
+- [x] [B] [V] [offline] R-7.4 path portability: nothing this repo **executes** or
+      tells a user to run may carry the author's absolute directory.
+      *Run 2026-09-27, `python benchmarks/portable_paths_check.py` → **14/14 +
+      7/7 mutants** (witness `benchmarks/results/portable_paths_r74_20260927.log`),
+      launched from `benchmarks/fixtures` rather than the repo root. What was wrong:
+      72 context tasks in `m2_tasks.jsonl`, `hint_ab_tasks.jsonl` and
+      `hint_ab_candidates.jsonl` stored the author's checkout inside their ORACLE
+      `sys.path` bootstrap, so on any other machine each one died with
+      `ModuleNotFoundError` before the candidate's first executed line — a suite
+      printing verdicts while scoring nothing. The fix is a `<REPO>` token expanded
+      in `harness._hoist_path_bootstrap`, chosen because that function is already the
+      single choke point all four execution seams pass through (`run_test`,
+      `score`'s probe loop, `debug`'s tracer, `confidence`'s seeded re-runs);
+      `python -I` implies `-E`, so `PYTHONPATH` could not carry the fixtures instead.
+      The vector therefore drives the SEAMS, not the helper: all 72 reference
+      solutions pass in all four, the same four reject the 10 frozen wrong answers
+      from the 7B, and the pre-expansion literal path still scores the same here, so
+      the rewrite bought portability and not semantics.
+      **The second finding is the one that mattered.** Reaching the `debug` seam
+      showed `flash/debug.py` exec'ing the bootstrap *after* the candidate and
+      *inside* the traced region — so a candidate that imports the repository at
+      top level died on its own `import` before the traced execution began, and the
+      digest reported the harness's crash rather than the candidate's trail.
+      **Blast radius measured, not asserted:** all 72 context reference solutions
+      were run through `debug._run` against the shipped build and against
+      `git show HEAD:flash/debug.py` loaded as a separate module, each with the
+      correct path already in place so the probe measures the ORDERING and not the
+      token. **42 changed verdict** (old `ModuleNotFoundError` → new `pass`) and
+      they are exactly the ones whose candidate imports the repo; the other 30 were
+      never affected, because it is the *test* that imports their fixtures and the
+      test runs after the bootstrap either way. Pre-existing, not caused by this
+      change (proved by scoring a context task's reference solution against the OLD
+      absolute path under the old code: `harness.score` → pass, `debug._run` →
+      `ModuleNotFoundError`). Fixed: bootstrap to its own file, exec'd before
+      `sys.settrace`. This does **not** reopen R-4.3's measured miss, and that is
+      checked rather than assumed: the band corpus is self-contained — its two
+      bootstrap-carrying tasks (`mw1_ringbuf`, `mw3_registry`) insert `<TMPDIR>`,
+      which the driver already has on its path — and the same old-vs-new probe
+      gives them **the same verdict and the same 104-line trail**, so both arms of
+      that A/B received the mechanism on every one of its 30 tasks. `--selftest` 55/55 and `--suite` 32/32 are unchanged across
+      the whole sequence, and that is the lesson, not a reassurance — `dbg_tasks.jsonl`
+      carries 0 `sys.path` lines, so neither vector ever built the bootstrap the bug
+      lived in. A seam tested only on tasks that do not need its dependency cannot
+      see the dependency break.
+      Witness data was deliberately NOT rewritten: a record whose text was edited to
+      look portable is no longer a record, `adapter_config.json` is read by
+      `flash/train.py`, and the embedding caches are keyed by the prompt text the fit
+      consumed. `benchmarks/results/**` is therefore excluded from the scan and the
+      exclusion is checked rather than granted — 0 executables under it, five named
+      record groups, and `docs/portability.md`'s `RECORD_RESIDUE = 395` asserted `≤`
+      the live count (31 of 160 record files; 4 of the 395 are this vector's own
+      witness log, which prints the markers in its labels). §6 re-read on a quiet
+      tree after the fix: `checks 1066  oracle 20  §6 total 1086  mutants 69` with
+      all **31** lines OK (`benchmarks/results/battery_reread_r74_20260927.log`),
+      and the vector re-run **after** that witness landed — 14/14 + 7/7 with the
+      160th record file on disk. Not claimed: that the repo is path-free.
+      Claimed: that nothing a clone runs depends on this disk.*
+- [ ] [V] [offline] R-7.5 clean-clone install: `pip install .` in a throwaway venv
+      on a fresh clone, `flash` on PATH, and the §6 battery green against the
+      **installed package** rather than the checkout, logged under
+      `benchmarks/results/`. Until this box is closed no document in this repo may
+      say "works on your machine" — R-7.4 only proves no executed file depends on the
+      author's path, which is necessary and not sufficient.
+- [ ] [B] [V] [offline] R-7.6 one-command verify: `flash --version`,
+      `flash doctor` (python, platform, backend presence, model cache, config,
+      whether the offline vectors can run here) and `flash selftest --all`, plus
+      `benchmarks/backend_free_check.py` for `--backend-free`. The committed CI
+      workflow already calls these, so the published pipeline is dangling until they
+      exist — and so did three prose sites until this pass: `CONTRIBUTING.md` told a
+      stranger to type `flash doctor` and `flash selftest --all` inside a
+      copy-pasteable setup block, and `docs/models.md` described both in present
+      tense; both now cite the commands that exist today (`flash power`,
+      `python benchmarks/battery_reread.py`) and name this box for the rest.
+      Measured 2026-09-27 against the parser rather than by
+      reading: **21 of the 23 `flash` subcommands the tracked docs reference exist**,
+      and the two that do not are exactly `doctor` and `selftest`. The same probe
+      settled a number two documents cited differently — with `mlx` blocked
+      **24 of the 26** modules import (pyproject and `docs/models.md` said 24, the
+      CI comment said 25), the two failures being `flash.decide` at its top-level
+      `import mlx.core` and `flash.route` through it, while `flash.cli` imports
+      because it loads both lazily; `benchmarks/trace_resume_check.py` was likewise
+      still **11/11** under the same block, so `--backend-free` is a measured subset
+      and not a list of names. `flash/__init__.py` is `__version__ = "0.0.1"`, which
+      is what a wheel built today would be labelled.
+- [ ] [B] [V] [offline] R-7.7 whole package imports with no MLX present: move
+      `flash/decide.py`'s top-level `import mlx.core` behind the call so
+      `import flash.route` works everywhere, keeping the failure at the generation
+      call with a named-backend message. *Measured 2026-09-27 with an import
+      blocker: **24 of the 26** modules import, `decide` and `route` are the two
+      that do not, and no check noticed because `flash.cli` imports both lazily.*
+      Vector: `benchmarks/backend_free_check.py` must assert **both** halves — 26/26
+      import under the blocker, and a generation attempt still raises rather than
+      returning an empty verdict — because "swallow the ImportError" would satisfy
+      the first and destroy the second: a generator that quietly produces nothing
+      would let a suite print verdicts scored from nothing, which is the same shape
+      of failure R-7.4 found in the corpora.
+- [ ] [B] [V] [offline] R-7.8 documented commands parse: every `flash …` line in a
+      tracked doc goes through `flash.cli.build_parser()` without dispatching, and
+      any rejection fails the gate naming the file and line. §1350's "docs move
+      together" rule names README commands and has never been enforced, which is how
+      `CONTRIBUTING.md` came to ship `flash doctor` in a copy-pasteable setup block.
+      Mutation-check: delete a documented subcommand's parser entry and the gate must
+      name the citing line. `--tasks …` style ellipses are arguments, not
+      subcommands, so a documented example with a placeholder cannot fail the gate
+      for the wrong reason.
 - [ ] [V] [L] R-7.3 voice: real-microphone arm, VAD barge-in, ≥ 90% command
       recognition over 50 utterances.
 - [ ] [V] [L] M17 feel test: ≥ 7 of 10 developers keep it after a week.

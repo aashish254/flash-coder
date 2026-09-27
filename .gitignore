@@ -20,3 +20,10 @@ benchmarks/results/census/r42_100*.log
 # five of them per run. The small jsons (adapter_config, train_record) stay in
 # the tree: they are what an arm cites when it names its weights.
 benchmarks/results/adapters/**/*.safetensors
+
+# packaging: a wheel is built by CI and published as a release artifact, never
+# committed (the repo carries source + the logs a claim cites, nothing else)
+build/
+dist/
+*.egg-info/
+.venv-*/

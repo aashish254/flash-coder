@@ -1,0 +1,15 @@
+context reference solutions in the three corpora: 72
+candidates importing the repo in their first 12 lines: 42   not importing it: 30
+OLD-vs-NEW verdict divergences: 42   unchanged: 30
+    m2_tasks.jsonl r02_checkout old=ModuleNotFoundError new=pass imports-repo=True
+    m2_tasks.jsonl r03_bulk_rule old=ModuleNotFoundError new=pass imports-repo=True
+    m2_tasks.jsonl r04_receipt old=ModuleNotFoundError new=pass imports-repo=True
+    hint_ab_tasks.jsonl hc07_member_order old=ModuleNotFoundError new=pass imports-repo=True
+    hint_ab_tasks.jsonl hc16_paid_line_cents old=ModuleNotFoundError new=pass imports-repo=True
+    hint_ab_tasks.jsonl hc32_bulk_pct_cents old=ModuleNotFoundError new=pass imports-repo=True
+   ... every divergence is (ModuleNotFoundError -> pass): True
+   ... and every divergence is a candidate that imports the repo: True
+
+R-4.3's A/B substrate, same probe (is the measured miss this bug's?):
+   mw1_ringbuf: old=pass new=pass trail 104 vs 104 lines; 9 rows differ, 0 of them beyond an object repr's address
+   mw3_registry: old=pass new=pass trail 25 vs 25 lines; 6 rows differ, 0 of them beyond an object repr's address

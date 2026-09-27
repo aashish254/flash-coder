@@ -68,6 +68,8 @@ BATTERY = [
      "benchmarks/graph_perceive_check.py --sweep", 33, 12, "checks"),
     ("benchmarks/hint_ab_check.py", "benchmarks/hint_ab_check.py",
      14, 8, "checks"),
+    ("benchmarks/portable_paths_check.py", "benchmarks/portable_paths_check.py",
+     14, 7, "checks"),
     ("flash.debug --suite", "-m flash.debug --suite", 32, None, "checks"),
     ("flash.patches --suite",
      "-m flash.patches --suite benchmarks/tasks/edit_tasks.jsonl", 60, None, "checks"),
@@ -75,7 +77,7 @@ BATTERY = [
      20, None, "oracle"),
 ]
 
-CLAIM = {"checks": 1052, "oracle": 20, "mutants": 62}
+CLAIM = {"checks": 1066, "oracle": 20, "mutants": 69}
 
 
 def run(argv: str) -> str:

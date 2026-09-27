@@ -43,7 +43,24 @@ Plan: ../PLAN.md (v3.8). This package grows milestone by milestone:
                                      the second block `_perceive` appends, silent
                                      when a name will not resolve to one node)
       flash.route                   (the cheapest tier that can solve this task)
-      flash.harness                 (multi-WRITER: '# file:' -> file sets)
+      flash.harness                 (multi-WRITER: '# file:' -> file sets.
+                                     R-7.4: `harness.REPO` + the `<REPO>` token in
+                                     a task corpus's oracle bootstrap are expanded
+                                     in `_hoist_path_bootstrap`, deliberately the
+                                     ONE place, because that is already the single
+                                     function every execution seam passes through
+                                     to split a test into (bootstrap, body) —
+                                     `run_test`, `score`'s probes, `debug`'s tracer,
+                                     `confidence`'s seeded re-runs. `python -I`
+                                     implies `-E`, so `PYTHONPATH` cannot carry
+                                     fixtures instead; a corpus that stored a real
+                                     path could only ever run on the machine that
+                                     wrote it, and it stored 72 of them. Reaching
+                                     that seam also found the tracer exec'ing the
+                                     bootstrap INSIDE the traced region: measured
+                                     old-vs-new over those 72, **42 changed verdict**
+                                     — exactly the candidates that import the repo —
+                                     and the other 30 were never affected)
   M3: flash.ledger + flash.learn    (outcome flywheel + learned router)
       flash.jobs                    (gated, resumable background refit, §34.3)
   §34.1: flash.power                (system profile: what this machine may load)

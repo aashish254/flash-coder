@@ -17,6 +17,10 @@ from pathlib import Path
 from flash import sandbox
 
 TASKS_FILE = Path(__file__).resolve().parent.parent / "benchmarks" / "tasks" / "m0_tasks.jsonl"
+# The repo root as this checkout has it, resolved from this file rather than
+# recorded in the task corpus: a suite that stored an absolute path could only
+# ever run on the machine that wrote it.
+REPO = Path(__file__).resolve().parent.parent
 CODE_FENCE = re.compile(r"```(?:python)?\s*\n(.*?)```", re.DOTALL)
 
 
@@ -109,7 +113,16 @@ def _hoist_path_bootstrap(test: str) -> tuple[str, str]:
 
     Candidate code may import fixture modules at top level, so path setup
     must run BEFORE the code, not after it (live find: r02-r04 sweep).
+
+    This is also where a corpus's `<REPO>` token becomes a real directory, and
+    it is deliberately the ONE place: every execution seam — `run_test`,
+    `score`'s probe loop, `debug`'s tracer and `confidence`'s seeded reruns —
+    reaches the interpreter through here, so a path written once in a task file
+    cannot be resolved differently by two of them. Expanding it any narrower
+    (per-caller) is how a suite ends up importing fixtures on one seam and
+    failing to on the next.
     """
+    test = test.replace("<REPO>", str(REPO))
     pathy = [l for l in test.splitlines()
              if l.strip().startswith(("import sys", "sys.path"))]
     rest = [l for l in test.splitlines()
