@@ -74,18 +74,38 @@ named groups:
   describe the run that produced those weights.
 - `p6/`, `jobs/` — one-off run records cited by dated clauses.
 
-RECORD_RESIDUE = 395
+RECORD_RESIDUE = 410
 
-That is the count the vector printed on the tree at the time of writing
-(`traces` 233, top-level records 146, `adapters` 9, `p6` 6, `jobs` 1) across 31
-of the 160 record files. Four of the 395 are this vector's own witness log, which
-names the two markers in the labels it prints — a count that includes the counter
-is the kind of detail worth stating rather than smoothing over. The §6 battery's
-re-read witness added a 160th record file carrying **zero** occurrences, which is
-why the floor held at exactly 395 rather than drifting. New traces only
-ever add, so the gate treats the number as a floor: a documented count above the
-live one means the doc was rewritten to fit a shrinking tree, and a new record
-directory fails until it is named above.
+That is what the widened scan counts on the committed tree at the time of writing
+(`traces` 241, top-level records 153, `adapters` 9, `p6` 6, `jobs` 1) across 35
+of the 164 record files. Every step between 395 and 410 is named below, because a
+residue figure that moves without an explanation is the same failure as one that
+was never published:
+
+- **395 over 31 files** was the two-marker count. The §6 battery's re-read witness
+  then added a 160th record file carrying **zero** occurrences, which is why the
+  floor held at exactly 395 rather than drifting.
+- Adding the third marker (the default Homebrew prefix on Apple Silicon) took it
+  to **403 over 33 files**, and the +8 is eight occurrences in two run traces —
+  the `err` text of two failed `verify` events, which quoted an interpreter path
+  under that prefix and had matched neither old marker. Both files were new to the
+  count, which is why the file total moved in the same step.
+- Storing this vector's own concurrent-run reproduction
+  (`portable_concurrent_repro_20260927.log`) added **4** (its gate labels name the
+  two markers that run was made under) and one file: **407 over 34**.
+- Storing the table of the run that verified the lock
+  (`portable_paths_r74b_20260927.log`, with its behaviour log
+  `portable_lock_witness_20260927.log` alongside, which carries none) added **3**
+  more and one file: **410 over 35**. That one is new behaviour rather than new
+  data — the widened gate label prints all three markers, so a witness of this
+  vector now carries three occurrences where pass 1's carried two.
+
+Eight of the 410 are this vector's pass-1 and reproduction logs and three are its
+pass-2 table — a count that includes the counter is the kind of detail worth
+stating rather than smoothing over. New traces only ever add, so the gate treats
+the number as a floor: a documented count above the live one means the doc was
+rewritten to fit a shrinking tree, and a new record directory fails until it is
+named above.
 
 ## What is not claimed
 

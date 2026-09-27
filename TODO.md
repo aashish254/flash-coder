@@ -1061,14 +1061,28 @@ here rather than folded into P6's confidence work.
       `flash/train.py`, and the embedding caches are keyed by the prompt text the fit
       consumed. `benchmarks/results/**` is therefore excluded from the scan and the
       exclusion is checked rather than granted — 0 executables under it, five named
-      record groups, and `docs/portability.md`'s `RECORD_RESIDUE = 395` asserted `≤`
-      the live count (31 of 160 record files; 4 of the 395 are this vector's own
-      witness log, which prints the markers in its labels). §6 re-read on a quiet
+      record groups, and `docs/portability.md`'s `RECORD_RESIDUE = 410` asserted `≤`
+      the live count (35 of 164 record files; 8 of the 410 are this vector's own
+      two pass-1 witnesses and 3 more are its pass-2 table, which print the markers
+      in their labels). §6 re-read on a quiet
       tree after the fix: `checks 1066  oracle 20  §6 total 1086  mutants 69` with
       all **31** lines OK (`benchmarks/results/battery_reread_r74_20260927.log`),
       and the vector re-run **after** that witness landed — 14/14 + 7/7 with the
-      160th record file on disk. Not claimed: that the repo is path-free.
-      Claimed: that nothing a clone runs depends on this disk.*
+      160th record file on disk. The scan was then widened with a third marker, the
+      default Homebrew prefix on Apple Silicon, and it found one line this box had
+      declared clean: `README.md` told every reader to create the venv with an
+      interpreter at a path that only exists if Homebrew installed into the ARM
+      default. Re-run on the widened scan **14/14 + 7/7**; the residue moved
+      395 → 403 → 410 and 31 → 33 → 35 files, the first step on eight occurrences
+      two failed run traces had carried all along and the rest on this pass's own
+      two stored witnesses. The vector also takes a `flock` on its checkout now,
+      which is a correctness fix rather than hygiene: two runs at once report
+      14/14 gates with the mutant suite under-counted (measured 5/7 and 6/7 in a
+      throwaway clone), and an interleaved snapshot-and-restore of
+      `docs/portability.md` left one run's `doc_silent` mutation on disk after
+      both had exited. Not claimed: that the repo is path-free.
+      Claimed: that nothing a clone runs, and nothing a clone is *told to run*,
+      depends on this disk.*
 - [ ] [V] [offline] R-7.5 clean-clone install: `pip install .` in a throwaway venv
       on a fresh clone, `flash` on PATH, and the §6 battery green against the
       **installed package** rather than the checkout, logged under

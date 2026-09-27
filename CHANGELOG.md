@@ -20,6 +20,17 @@ versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   all **31** lines OK (`benchmarks/results/battery_reread_r74_20260927.log`), and
   the vector itself re-run **after** that witness landed — 14/14 + 7/7 with the new
   160th record file on disk.
+- The same scan, widened. `HOST_PATHS` now carries a third marker — the default
+  Homebrew install prefix on Apple Silicon — which is not a leaked home directory
+  but is still a path only some Macs have. It found exactly one line: the
+  README's second install command, which spelled an interpreter path under that
+  prefix and so told every reader whose prefix is the other one to run a command
+  that cannot exist on their machine. Re-run on the widened scan: **14/14 + 7/7**,
+  residue **395 → 403** across **31 → 33** record files (the delta is eight
+  occurrences in two failed run traces that had matched nothing before), and
+  **407 / 34** once this pass's own reproduction witness was stored — which is the
+  published floor's number, with every step between the two accounted for in
+  `docs/portability.md`.
 - `docs/portability.md`: what the token contract is, what was scrubbed, which
   witness files are deliberately NOT rewritten and why, and the published residue
   count for the exclusion (`RECORD_RESIDUE`, asserted `≤` what the tree carries).
@@ -47,6 +58,38 @@ versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   unwritten.
 
 ### Fixed
+- `benchmarks/portable_paths_check.py` now takes a `flock` on a per-checkout lock
+  file and exits 2 rather than running twice at once. Found by a §6 battery run
+  that printed **BAD … defeated 0 mutants, not 7** while every gate still said
+  14/14. It did not reproduce alone — same interpreter, same tree, **14/14 + 7/7**
+  twice, and again through the battery's own `--quick` path. So it was chased by
+  construction instead: the mutants write real bytes into three corpora and
+  restore them, and launching two runs together in a throwaway clone reproduced
+  the shape on purpose — **14/14 gates** with **5/7** and **6/7** mutants.
+  Concurrent execution is therefore a *sufficient* cause of what the battery
+  caught; that it was this run's cause is inferred from being the only difference
+  available, and is not proven. The dangerous half is a mutation being reverted
+  by the other run before the gates read it, which disarms the check that exists
+  to catch a host path going back while the suite still looks green. And it does
+  not stop at a wrong report: while two of this file's own runs were alive at
+  once, one snapshotted `docs/portability.md` while the other had its
+  `doc_silent` mutation applied, so the restore wrote the mutated bytes back and
+  the group name the vector exists to check for was gone from the doc on disk
+  afterwards. The next honest run caught it as `13/14` with
+  `missing from doc: ['traces']`. That is the blast radius, and it is why this is
+  a lock rather than a docstring warning.
+  Verified as
+  a behaviour, not a code read: with the lock held the run prints the holder's pid
+  and exits 2, with `--exclusive` it proceeds and defeats its mutant (1/1), and
+  alone it still prints **7/7**.
+- `requirements.txt` mirrored `pyproject.toml`'s dependency floors with one of
+  them wrong: `mlx-lm>=0.24` against the package's `>=0.31`, on a file whose whole
+  purpose is to give the same four things. Diffed all four by parsing
+  `pyproject.toml` rather than by eye; `mlx-lm` was the only mismatch, and the
+  floor is now 0.31. `docs/models.md` documents 0.31.3, which is what is installed
+  here — and no §6 number depends on the line, because the offline battery loads
+  no model; the live arms do. Nothing in the tree compares the two files, so the
+  note in the header says the diff was done by hand and when.
 - `flash/debug.py` exec'd the test's `sys.path` bootstrap **after** the candidate
   and inside the traced region, so a candidate that imports the repository at top
   level died on its own `import` and the `--debug` digest reported the harness's

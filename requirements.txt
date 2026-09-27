@@ -1,3 +1,29 @@
-# Flash Coder — M0 bake-off environment (Python 3.11+, Apple Silicon)
-mlx-lm>=0.24
+# Flash Coder — the M0 bake-off environment (Python 3.11+, Apple Silicon).
+#
+# `pyproject.toml` is the authority; this file mirrors its `dependencies` so a
+# person who wants a venv without installing the package still gets the same
+# four things. Measured 2026-09-27 against PyPI rather than assumed:
+#
+#   mlx-lm IS installable on Linux — it ships `py3-none-any` — and `mlx` is NOT
+#   (`pip install --platform manylinux_2_28_x86_64 mlx` resolves to
+#   "from versions: none"). So an unmarked `mlx-lm` here does not fail to
+#   install on a non-Mac; it succeeds and then hands the user a broken model
+#   layer that dies at `import mlx` inside their first generation call. The
+#   marker is what makes "the model layer is Apple-Silicon-only" true at install
+#   time instead of at crash time, and it is the same marker `pyproject.toml`
+#   carries.
+#
+# The README's one-command route is `pip install -e .`, which puts `flash` on
+# PATH and reads its dependencies from `pyproject.toml`; this file is the
+# alternative for anyone who only wants the environment.
+#
+# Two lists that can drift is a defect, and this one had drifted: its `mlx-lm`
+# floor said 0.24 while `pyproject.toml` required 0.31, and 0.31.3 is what is
+# installed here and what `docs/models.md` documents (the offline battery needs no
+# model at all, so no §6 number depends on this line -- the live arms do). Nothing
+# in the tree compares the two files, so the floors below were diffed against
+# `pyproject.toml` by hand on 2026-09-27 and `mlx-lm` was the only mismatch.
+numpy>=1.26
+mlx-lm>=0.31; sys_platform == "darwin" and platform_machine == "arm64"
 python-lsp-server[pyflakes]>=1.15  # PERCEIVE static-analysis oracle (flash/perceive.py)
+requests>=2.31                     # flash/web's doc fetcher

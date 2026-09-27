@@ -60,7 +60,11 @@ Plan: ../PLAN.md (v3.8). This package grows milestone by milestone:
                                      bootstrap INSIDE the traced region: measured
                                      old-vs-new over those 72, **42 changed verdict**
                                      — exactly the candidates that import the repo —
-                                     and the other 30 were never affected)
+                                     and the other 30 were never affected. The scan
+                                     that keeps it that way counts the default
+                                     Homebrew prefix as a host path too, and takes
+                                     a lock, because its mutants write into these
+                                     corpora)
   M3: flash.ledger + flash.learn    (outcome flywheel + learned router)
       flash.jobs                    (gated, resumable background refit, §34.3)
   §34.1: flash.power                (system profile: what this machine may load)

@@ -21,6 +21,12 @@ this bug, and it is invisible to any single-seam test.
     python benchmarks/portable_paths_check.py            # gates + mutants
     python benchmarks/portable_paths_check.py --print    # per-task table too
     python benchmarks/portable_paths_check.py --mutant   # mutants only
+    python benchmarks/portable_paths_check.py --exclusive # skip the one-run lock
+
+Two runs of this file in one checkout at the same time produce a wrong answer
+rather than a slow one, so it takes a `flock` on a per-checkout lock file and
+exits 2 if the lock is held. `--exclusive` exists to let a test prove the lock
+works; it is not a supported way to run the suite.
 
 What is NOT claimed: that every file in the repo is path-free. Witness logs,
 traces, the ledger and the embedding caches record what ran, and a record whose
@@ -29,12 +35,14 @@ instead (see `docs/portability.md`) and the scan below is scoped to what execute
 """
 from __future__ import annotations
 
+import fcntl
 import hashlib
 import json
 import os
 import re
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -60,7 +68,15 @@ SCAN_PREFIXES = ("flash/", "benchmarks/", "docs/", ".github/")
 SCAN_EXCLUDE = ("benchmarks/results/",)
 SCAN_TOP = ("README.md", "SPEC.md", "TODO.md", "CHANGELOG.md", "SECURITY.md",
             "CONTRIBUTING.md", "CODE_OF_CONDUCT.md", "pyproject.toml")
-HOST_PATHS = ("/Users/", "/home/")
+# The third marker is the default Homebrew install prefix on Apple Silicon. It is
+# not a home directory, but a doc that spells an interpreter path with it is
+# telling everyone whose prefix is the other one (Intel Macs, or a hand-built ARM
+# install) to run a command that cannot exist on their machine. It joined the list
+# after this file's first pass shipped, and it found one such line — on the second
+# line of the README's install block. The exemption gate below only forgives the
+# declaration line, which is why this comment calls the prefix a name rather than
+# writing it.
+HOST_PATHS = ("/Users/", "/home/", "/opt/homebrew/")
 SELF = "benchmarks/portable_paths_check.py"
 # The RECORD groups `SCAN_EXCLUDE` waves through, because a record whose text was
 # rewritten to look portable is no longer a record. A group not listed here is an
@@ -165,6 +181,43 @@ def call_seam(name: str, fn, code: str, test: str) -> tuple[bool, str]:
 
 
 # --------------------------------------------------------------- wrong answers
+
+# ------------------------------------------------------------ one run at a time
+
+def single_flight():
+    """Refuse to run twice in one checkout at the same time, and say why.
+
+    The mutants below write real bytes into three corpora and then restore them,
+    so two concurrent runs in one tree hand each other half-finished files. Two
+    things happen and only one of them looks like a failure: a restore is
+    attributed to the wrong process (`the tree did not restore`), and a mutation
+    can be reverted by the other run *before* the gates read the file, which
+    prints `0 check(s) fail` against the one check that exists to catch a host
+    path going back. Measured on 2026-09-27 by launching two runs together in a
+    fresh clone: both printed **14/14 gates** and **5/7** and **6/7** mutants, so
+    the suite can under-report its own mutation cover while every gate looks
+    green. `flock` rather than a pid file because a killed run must not leave a
+    lock nobody can break.
+    """
+    key = hashlib.sha256(str(ROOT).encode()).hexdigest()[:12]
+    path = Path(tempfile.gettempdir()) / f"flash-portable-{key}.lock"
+    handle = open(path, "a+")
+    try:
+        fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        handle.seek(0)
+        print(f"portable_paths_check: another run holds {path} "
+              f"(pid {handle.read().strip() or '?'}). Its mutants write into this "
+              "checkout's corpora, so two runs at once cannot tell whose bytes a "
+              "restore wrote, and one can undo the other's mutation before the "
+              "gates look. Re-run it alone.")
+        return None
+    handle.seek(0)
+    handle.truncate()
+    handle.write(str(os.getpid()))
+    handle.flush()
+    return handle
+
 
 # ------------------------------------------------------------------- the gates
 
@@ -423,6 +476,11 @@ def mutate(one: str | None = None) -> int:
 
 
 def main(argv: list) -> int:
+    held = None
+    if "--exclusive" not in argv:
+        held = single_flight()
+        if held is None:
+            return 2
     if argv and argv[0] == "--mutant":
         return 1 if mutate(argv[1] if len(argv) > 1 else None) else 0
     run_gates()

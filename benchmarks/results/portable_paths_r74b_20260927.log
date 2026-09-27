@@ -1,0 +1,25 @@
+  OK   the scan has a spine: every corpus this vector depends on is inside its scope, and the scope is wider than the three files it was written for — a scanner that scans nothing passes vacuously
+  OK   nothing this repo EXECUTES or tells a user to run carries a host path (/Users/, /home/, /opt/homebrew/) — that is what 'clone it anywhere' has to mean before it can mean anything
+  OK   ...and the one exemption above is a checked fact, not a wink: every host-path literal in the scanned tree sits on this file's own marker declaration, so a file that leaks for some other reason is still a failure rather than an exclusion
+  OK   ...and the token that replaced them is actually load-bearing: the corpora carry it 72 times, so the gate above cannot be green because nobody needs a path at all
+  OK   `harness.REPO` is resolved from the package's own file, not recorded in it: it points at this checkout and the fixture package is really under it
+  OK   no `<REPO>` survives into the program text — a token that reaches the interpreter is an ImportError wearing a passing-suite badge
+  OK   the corpus is still a corpus after the rewrite: every line parses and 72 context tasks carry a reference solution to score, so the seam gates below have real work in them
+  OK   ALL FOUR SEAMS pass EVERY reference solution in the context corpora, launched from a foreign cwd: `run_test`, `score`'s probe loop, `debug`'s tracer and `confidence`'s seeded re-run. This is the gate the fix is booked by — expanding the token at one seam and not the next is precisely how the suites broke, and no single-seam test can see it
+  OK   the same four seams REJECT the frozen WRONG answers — the 7B's own first attempts, stored verbatim — on every task and in every seam, so a green seam row above cannot mean the oracle stopped deciding something
+  OK   the token and the path it replaced decide the same thing: scoring the reference solution against the PRE-expansion literal path still passes on this machine, so the rewrite changed portability and not semantics
+  OK   `benchmarks/tasks/m2_perceive_test.py` locates the repo from its own file, which is the portable form a standalone test body has to use
+  OK   the exclusion covers DATA only: no file under `benchmarks/results/**` has any of .py, .sh, .toml, .yml, .yaml, .cfg, .md, so 'we do not scan results/' cannot be a place an executed path hides
+  OK   every host path left in the tracked tree lives in a RECORD group this vector can explain (a trace or ledger prompt the model was actually shown, an embedding cache keyed by that text, an adapter run's own paths), and no unexplained directory hides behind the exclusion
+  OK   `docs/portability.md` exists, names every group the exclusion covers and states a residue floor (['407']) against the 407 live occurrences in 162 record files — so a new record directory fails here until the doc says why it is a record
+
+portable-suite checks: 14/14 passed
+  ok   MUTATION: the token stops being expanded — the bug this file exists for: the suites import nothing, every context task fails on a ModuleNotFoundError, and the suite still prints a verdict -> 1 check(s) fail  [630bc523184e]
+  ok   MUTATION: the token expands, but to a directory that is not this checkout — the shape of a hardcoded path that happens to exist -> 2 check(s) fail  [630bc523184e]
+  ok   MUTATION: a host path is put back into one corpus line, which is what a task generator that never learned the token would do -> 2 check(s) fail  [630bc523184e]
+  ok   MUTATION: the corpora lose the token without gaining a path — the vacuous-green shape: the scan gate passes because nothing needs expansion -> 3 check(s) fail  [630bc523184e]
+  ok   MUTATION: the scan scope shrinks to the three files the fix touched, so a host path in any other executed file is invisible -> 3 check(s) fail  [630bc523184e]
+  ok   MUTATION: a `.py` carrying a host path appears under the excluded prefix — the shape the exclusion is actually there to forbid, and the only gate that can see it is the data-only one, because the scan never looks there -> 1 check(s) fail  [630bc523184e]
+  ok   MUTATION: the residue doc stops naming one of the record groups, so the exclusion is an unexplained allowance again -> 1 check(s) fail  [630bc523184e]
+
+portability mutants: 7/7 gates defeated by exactly their checks

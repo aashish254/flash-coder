@@ -1,0 +1,24 @@
+# R-7.4 pass 2, single-flight lock + widened scan witness, 2026-09-27.
+# Sequence: (1) a holder process takes the flock; (2) a second run must REFUSE with rc 2;
+# (3) the same locked tree must still run when --exclusive is passed explicitly; (4) holder
+# killed; (5) the full vector, alone, on the widened three-marker scan.
+
+=== (1) holder ===
+holding /var/folders/jn/pnnpl_cn0gx93p8v1yf8jb080000gn/T/flash-portable-eba78596cc1c.lock
+
+=== (2) second run while the lock is held (want: refusal, rc 2, no gate lines) ===
+portable_paths_check: another run holds /var/folders/jn/pnnpl_cn0gx93p8v1yf8jb080000gn/T/flash-portable-eba78596cc1c.lock (pid 999999). Its mutants write into this checkout's corpora, so two runs at once cannot tell whose bytes a restore wrote, and one can undo the other's mutation before the gates look. Re-run it alone.
+rc=2
+
+=== (3) --exclusive while the same lock is held (want: it proceeds) ===
+rc=0
+
+portability mutants: 1/1 gates defeated by exactly their checks
+/tmp/lock_witness.sh: line 17: 60794 Terminated: 15          $PY /tmp/holder.py . 900 > /tmp/holder.log 2>&1
+
+=== (5) full vector alone ===
+rc=0
+  ok   MUTATION: the residue doc stops naming one of the record groups, so the exclusion is an unexplained allowance again -> 1 check(s) fail  [630bc523184e]
+
+portability mutants: 7/7 gates defeated by exactly their checks
+7

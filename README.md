@@ -8,9 +8,10 @@ Master plan: [`../PLAN.md`](../PLAN.md) (34 sections, v3.8).
 Validates the §22 model matrix on real hardware before anything else is built.
 
 ```bash
-# 1. environment (one time)
-/opt/homebrew/bin/python3.11 -m venv .venv
-.venv/bin/pip install -r requirements.txt
+# 1. environment (one time). Python 3.11+; use whichever python3.11 you have
+#    (brew, pyenv, uv, system) by name, not by spelling where it lives.
+python3.11 -m venv .venv
+.venv/bin/pip install -e .
 
 # 2. validate the harness (no downloads needed)
 .venv/bin/python benchmarks/m0_bakeoff.py --dry-run

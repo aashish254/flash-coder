@@ -912,14 +912,18 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   the embedding caches are keyed by the prompt text the fit consumed, so rewriting
   an entry silently changes what the cited pool audit was computed from). The
   exclusion is therefore checked, not assumed: no file under it may be code or
-  instructions (0 of 160 are), and the residual paths must fall in one of five
-  named groups with a documented floor — **RECORD_RESIDUE = 395** across 31 files
-  (`traces` 233, top-level records 146, `adapters` 9, `p6` 6, `jobs` 1), printed by
+  instructions (0 of 164 are), and the residual paths must fall in one of five
+  named groups with a documented floor — **RECORD_RESIDUE = 410** across 35 files
+  (`traces` 241, top-level records 153, `adapters` 9, `p6` 6, `jobs` 1), printed by
   the run and asserted `≤` the live count so a new record directory fails until
   `docs/portability.md` explains it. The instrument's own exemption is a gate too:
-  the only host-path literals in the scanned tree are the two markers
+  the only host-path literals in the scanned tree are the three markers
   `portable_paths_check.py` declares, which is what keeps "we do not scan our own
-  constants" from becoming "we do not scan".
+  constants" from becoming "we do not scan". The third marker is the default
+  Homebrew prefix on Apple Silicon, and it was added **after** the first pass of
+  this requirement shipped because the README's install block spelled an
+  interpreter path with it — a line that was not a leaked home directory and was
+  still a command a stranger could not run.
   **What is NOT claimed: that the repo is path-free.** It is not, and the residue
   above is the published count, not a rounding. Claiming the clone-and-run
   property itself — `pip install .` in a throwaway venv on a fresh clone — is
@@ -1233,6 +1237,26 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
    witness then added a 160th record file carrying **0** occurrences, which is why
    the published floor stayed exactly 395 and why `portable_paths_check.py` was
    re-run **after** it: **14/14 + 7/7** with the new file on disk.)
+   (Updated 2026-09-27, when `HOST_PATHS` gained a third marker and the vector
+   gained a lock. The floor moved **395 → 403** and the file count **31 → 33** on
+   one explained delta: two run traces whose failed-`verify` `err` text quoted a
+   Homebrew-prefixed interpreter, carrying **0** occurrences under the old two
+   markers and 3 + 5 under the new one. Storing this pass's two own witnesses moved
+   it again, **403 → 407 → 410** across **33 → 34 → 35** files of 164 — four
+   occurrences from the reproduction log's gate labels, three from the table of the
+   run that verified the lock, which prints all three markers where pass 1 printed
+   two.
+   `python benchmarks/portable_paths_check.py` re-run on the widened scan:
+   **14/14 + 7/7**. The second change was forced by a run that printed
+   `defeated 0 mutants, not 7` with all 14 gates green: the mutants write real
+   bytes into three corpora and restore them, so two processes in one checkout
+   hand each other half-finished files — measured in a throwaway clone at **5/7**
+   and **6/7** with **14/14** both times, and it is not only a wrong report,
+   because an interleaved snapshot/restore of `docs/portability.md` left the group
+   name its own `doc_silent` mutant had erased sitting on disk afterwards. The
+   vector now takes a `flock` per checkout and exits 2 rather than running twice:
+   with the lock held a second run refuses and names the holder, with
+   `--exclusive` it proceeds, alone it defeats **7/7**.)
    (Updated 2026-09-27, after R-1.3b's injection: **+27 checks and +9 mutants** for
    `python benchmarks/graph_perceive_check.py --sweep` (`--sweep`, not the bare run,
    because several of its mutants live in the graph CACHE and how many checks one
