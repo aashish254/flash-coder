@@ -1068,7 +1068,10 @@ here rather than folded into P6's confidence work.
       tree after the fix: `checks 1066  oracle 20  §6 total 1086  mutants 69` with
       all **31** lines OK (`benchmarks/results/battery_reread_r74_20260927.log`),
       and the vector re-run **after** that witness landed — 14/14 + 7/7 with the
-      160th record file on disk. The scan was then widened with a third marker, the
+      160th record file on disk. (That line is at **15 gates** as of R-7.5's
+      clean-clone run, which is where the page total moved to 1067; the counts
+      above are what printed on that date.) The scan was then widened with a third
+      marker, the
       default Homebrew prefix on Apple Silicon, and it found one line this box had
       declared clean: `README.md` told every reader to create the venv with an
       interpreter at a path that only exists if Homebrew installed into the ARM

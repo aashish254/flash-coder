@@ -1363,7 +1363,9 @@ def _checks(wide: bool = True, live: bool = True
           ms < BUDGET_MS, f"{ms:.1f} ms")
     check("the fixtures repo is 5 files, so the clause's own repo is a thin "
           "instrument — recorded rather than banked",
-          len(python_files(_FIXTURES)) <= 8,
+          # A bare `<= 8` was true of an ABSENT directory, which is how a wheel
+          # install with no `benchmarks/` got a green on a check about fixtures.
+          4 <= len(python_files(_FIXTURES)) <= 8,
           f"{len(python_files(_FIXTURES))} files")
     check("`l.product.sku` binds to `Product.sku` and is labelled "
           "`unique-attribute`, because exactly one symbol in the repo carries that "
@@ -1522,6 +1524,21 @@ def _say(checks: list[tuple[str, bool, str]], timing: dict[str, float],
 
 def run_selftest(verbose: bool = True, mutants: bool = False) -> int:
     """R-1.3's vector, offline and deterministic: the named callers, under budget."""
+    if not _FIXTURES.is_dir():
+        # Measured on a wheel installed into a clean venv: 8 of these 44 checks
+        # build a graph over the fixtures package, so with no `benchmarks/` beside
+        # the installed `flash` they all print FAIL and the report reads as though
+        # the graph were broken. It is not; the data is not there. Exit 2 — "this
+        # is not a tree this vector can run in" — rather than a count that invites
+        # someone to diff a graph nobody built.
+        print(f"flash.graph --selftest cannot run here: it builds a graph over "
+              f"{_FIXTURES}, and that directory does not exist.\n"
+              f"  A wheel install carries the package only, no `benchmarks/`, so "
+              f"8 of the 44 checks would report a failure that is a missing "
+              f"directory wearing one. Run this from a clone or an unpacked sdist "
+              f"(both ship `benchmarks/`). To check the install itself: "
+              f"`flash power`, `flash --help`, `python -m flash.harness --selftest`.")
+        return 2
     checks, timing = _checks()
     bad = _say(checks, timing, verbose)
     escaped = mutate(verbose) if mutants else 0

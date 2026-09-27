@@ -129,7 +129,7 @@ for the release that TODO #32 tags once R-7.5 and R-7.6 close. Its counts are th
 tree's printed ones as of the last §6 re-read, and `flash/__init__.py` still says
 `__version__ = "0.0.1"`, so a wheel built today would be labelled 0.0.1.
 
-A local, verify-first coding agent for Apple Silicon, with 1,066 offline checks +
+A local, verify-first coding agent for Apple Silicon, with 1,067 offline checks +
 20 oracle verifications + 69 mutation gates, and a `SPEC.md` that records which of
 its own gates measured NO.
 

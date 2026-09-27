@@ -52,6 +52,11 @@ from flash import confidence, debug, harness                # noqa: E402
 from flash.harness import extract_code                          # noqa: E402
 
 TOKEN = "<REPO>"
+# The other bootstrap token: `harness.score` substitutes it for the per-run temp
+# root, so a suite whose files are written fresh each run still carries no
+# literal directory.
+TMP_TOKEN = "<TMPDIR>"
+PATH_TOKENS = (TOKEN, TMP_TOKEN)
 FIXTURES = "benchmarks/fixtures"
 # Corpora whose records are EXECUTED as the oracle, and so must be portable.
 CONTEXT_SUITES = ("benchmarks/tasks/m2_tasks.jsonl",
@@ -99,6 +104,47 @@ def corpus(path: str) -> list[dict]:
     return [json.loads(l) for l in (ROOT / path).read_text().splitlines() if l.strip()]
 
 
+def _fs_tree() -> list[str]:
+    """`git ls-files`'s answer for a tree that has no git in it.
+
+    A person who clicks "Download ZIP" (or unpacks the sdist the project ships)
+    gets exactly that, and every gate that counts a file list would then see zero
+    files and report a scan that scanned nothing. The spine gate below is written
+    so that shape FAILS rather than passes vacuously, which is the reason this
+    function exists: the tree is fine, only the listing tool is missing.
+
+    The pruned names are what `--exclude-standard` would have hidden anyway: the
+    object store, byte-code caches, a local virtualenv, and build output.
+    """
+    skip = {".git", "__pycache__", "build", "dist", "node_modules"}
+    out: list[str] = []
+    for path in ROOT.rglob("*"):
+        if not path.is_file():
+            continue
+        rel = path.relative_to(ROOT)
+        parts = rel.parts[:-1]
+        if any(p in skip or p.startswith(".venv") or p.endswith(".egg-info")
+               for p in parts):
+            continue
+        out.append(str(rel))
+    return sorted(out)
+
+
+def tree_listing() -> tuple[list[str], str]:
+    """(the file list, how it was obtained).
+
+    Deliberately not cached: `mutate()` adds a file to the tree *while* the gates
+    are running, and a listed-once tree would hide the planted `.py` from the one
+    gate written to catch it — the silent disarm this file already had to gain a
+    lock for. The listing costs a `git ls-files` per call.
+    """
+    listed = subprocess.run(["git", "ls-files", "--cached", "--others",
+                             "--exclude-standard"],
+                            cwd=ROOT, capture_output=True, text=True).stdout.split()
+    return (listed, "git ls-files") if listed else (
+        _fs_tree(), "filesystem walk; no git in this tree")
+
+
 def ls_tree() -> list[str]:
     """The tree a stranger would get from this checkout, plus what is staged to
     join it.
@@ -106,11 +152,11 @@ def ls_tree() -> list[str]:
     `--others --exclude-standard` joins the untracked-and-not-ignored files to
     the tracked ones: the release skeleton (`pyproject.toml`, `.github/`,
     `docs/`) is exactly what a stranger reads, and a gate that waited for those
-    to be committed would be blind to them right when they are being written.
+    to be committed would be blind to them right when they are being written. A
+    tree with no git in it falls back to `_fs_tree`, which is the same list
+    obtained a slower way rather than not obtained at all.
     """
-    return subprocess.run(["git", "ls-files", "--cached", "--others",
-                           "--exclude-standard"],
-                          cwd=ROOT, capture_output=True, text=True).stdout.split()
+    return tree_listing()[0]
 
 
 def tracked_scan() -> list[Path]:
@@ -231,7 +277,8 @@ def run_gates() -> None:
            "its scope, and the scope is wider than the three files it was written "
            "for — a scanner that scans nothing passes vacuously",
            all(any(str(s) in str(f) for f in files) for s in CONTEXT_SUITES)
-           and len(files) >= 60, f"{len(files)} tracked files scanned")
+           and len(files) >= 60,
+           f"{len(files)} files scanned, listed by {tree_listing()[1]}")
         raw = host_path_hits(files)
         # The instrument has to SPELL the markers to look for them. That is the
         # only exemption it takes, and the next gate checks it instead of
@@ -256,6 +303,39 @@ def run_gates() -> None:
            f"corpora carry it {used} times, so the gate above cannot be green "
            "because nobody needs a path at all",
            used >= 50, f"{used} uses")
+        # A prefix list is not a portability rule. `HOST_PATHS` catches a literal
+        # path that starts with a home directory and is blind to every other one,
+        # and where a checkout happens to live is not a property of the checkout:
+        # measured on this project's own unpacked sdist sitting under a temp
+        # directory, the `abs_back` mutant put that tree's real fixtures path back
+        # into a corpus line and all fourteen gates stayed green. The rule the
+        # marker scan stands in for is about the SHAPE — a bootstrap names a token
+        # the harness expands, and the harness decides where it points.
+        boots: list[tuple[str, bool]] = []
+        task_files = sorted({str(p) for p in files
+                             if str(p).startswith("benchmarks/tasks/")
+                             and str(p).endswith(".jsonl")})
+        for rel in task_files:
+            for line in (ROOT / rel).read_text(errors="ignore").splitlines():
+                if "sys.path.insert" not in line:
+                    continue
+                try:
+                    rec = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if not isinstance(rec, dict):
+                    continue
+                test = rec.get("test")
+                if isinstance(test, str):
+                    boots.append((f"{rel}:{rec.get('id')}",
+                                  any(t in test for t in PATH_TOKENS)))
+        ck(f"every corpus `sys.path` bootstrap names one of {list(PATH_TOKENS)} "
+           f"instead of a literal directory — {len(boots)} of them across "
+           f"{len(task_files)} task files. This is the gate that does not care "
+           "where the tree lives, which is precisely what a marker list cannot "
+           "do",
+           len(boots) >= 90 and all(t for _, t in boots),
+           f"{[n for n, t in boots if not t][:4]} of {len(boots)} examined")
         ck("`harness.REPO` is resolved from the package's own file, not recorded "
            "in it: it points at this checkout and the fixture package is really "
            "under it",

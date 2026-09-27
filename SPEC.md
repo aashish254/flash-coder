@@ -1155,19 +1155,19 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
    `python benchmarks/router_portable_check.py` 20 (+ 5 mutants) ·
    `python benchmarks/graph_perceive_check.py --sweep` 33 (+ 12 mutants) ·
    `python benchmarks/hint_ab_check.py` 14 (+ 8 mutants) ·
-   `python benchmarks/portable_paths_check.py` 14 (+ 7 mutants) ·
+   `python benchmarks/portable_paths_check.py` 15 (+ 7 mutants) ·
    `python -m flash.debug --suite` 32 ·
    `python -m flash.patches --suite benchmarks/tasks/edit_tasks.jsonl` 60 ·
    `python benchmarks/m0_bakeoff.py --dry-run` 20 reference solutions.
-   **Total: 1066 selftest / end-to-end / premise checks + 20 oracle
+   **Total: 1067 selftest / end-to-end / premise checks + 20 oracle
    verifications (m0_bakeoff's 20 reference solutions, which are the only
    numbers in that 20 — the 6 ambient, 14 lora, 5 band, 5 router-portability,
    12 graph, 12 graph-perceive, 8 hint-ab and 7 path-portability mutants are
-   extra to both totals, 69 in all) = 1086 green, offline.** Read those two
+   extra to both totals, 69 in all) = 1087 green, offline.** Read those two
    numbers with care: CHECKS and TOTAL are different columns, and this page has
    been quoted wrongly by its own notes before — R-1.1b's checks count (1052) was
-   exactly the total the page had claimed one commit earlier, and the number a
-   stale note quotes now (1072) is that same page's TOTAL, not its checks. Re-read by
+   exactly the total the page had claimed one commit earlier, and the number the
+   notes then quoted (1072) is that same page's TOTAL, not its checks. Re-read by
    `python benchmarks/battery_reread.py`, which holds one line per item above,
    requires the exact fraction each one prints, sums checks/oracle/mutants
    separately, and fails if the tree's sum moves off this page's number. It
@@ -1219,6 +1219,24 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
    as one under R-1.1b rather than dropped here: the §6 count is the instrument's
    greenness, which is the only thing this battery can certify about a measurement
    that found nothing.)
+   (Updated 2026-09-27, after R-7.5's first clean-clone run: **+1 check** on the
+   `portable_paths_check.py` line, **14 → 15**, and the page total
+   **1066 → 1067** / **1086 → 1087**. Re-read from the tree the same day:
+   `battery_reread` prints `checks 1067  oracle 20  §6 total 1087  mutants 69` with
+   all **31** lines on the OK list, pyflakes 0 findings. The check is not
+   decoration; the run that added it caught the hole. Inside this project's own
+   unpacked sdist — a tree with no `.git` sitting under a temp directory, which is
+   what a download produces — the vector first printed **9/14**, five gates saying
+   `0 tracked files scanned` because the file list came from `git ls-files` (now
+   `_fs_tree`, which lists the same tree a slower way and prints which of the two
+   it used), and after that fix **15/15 + 7/7**. Between those two prints one
+   mutant escaped outright: `abs_back` put that checkout's real fixtures path back
+   into a corpus line and **all 14 gates stayed green**, because `HOST_PATHS` is a
+   *prefix* list and `/tmp/…` is not one of its prefixes. Where a checkout happens
+   to live has never been the property R-7.4 is about, so the 15th gate is on the
+   shape instead: every corpus `sys.path.insert` must name a token the harness
+   expands — `<REPO>` or `<TMPDIR>` — measured over **99 bootstraps across 24 task
+   files**, none of which carries a literal directory.)
    (Updated 2026-09-27, after R-7.4: **+14 checks and +7 mutants** for a new vector,
    `python benchmarks/portable_paths_check.py`. No existing line moved, and that is
    the finding: `flash debug --selftest` stayed **55/55** and `flash debug --suite`
