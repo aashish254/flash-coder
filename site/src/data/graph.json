@@ -1,0 +1,2929 @@
+{
+ "nodes": [
+  {
+   "id": "flash/ambient.py::Finding",
+   "file": "flash/ambient.py",
+   "symbol": "Finding",
+   "kind": "class",
+   "degree": 5,
+   "label": "Finding",
+   "pos": [
+    3.73,
+    -9.59,
+    29.75
+   ]
+  },
+  {
+   "id": "flash/ambient.py::Sandbox.git",
+   "file": "flash/ambient.py",
+   "symbol": "Sandbox.git",
+   "kind": "method",
+   "degree": 7,
+   "label": "git",
+   "pos": [
+    -0.9,
+    -5.39,
+    28.52
+   ]
+  },
+  {
+   "id": "flash/ambient.py::check",
+   "file": "flash/ambient.py",
+   "symbol": "check",
+   "kind": "function",
+   "degree": 54,
+   "label": "check",
+   "pos": [
+    7.58,
+    -5.83,
+    27.28
+   ]
+  },
+  {
+   "id": "flash/ambient.py::check_drift",
+   "file": "flash/ambient.py",
+   "symbol": "check_drift",
+   "kind": "function",
+   "degree": 9,
+   "label": "check_drift",
+   "pos": [
+    -0.0,
+    -11.85,
+    26.05
+   ]
+  },
+  {
+   "id": "flash/ambient.py::draft_one",
+   "file": "flash/ambient.py",
+   "symbol": "draft_one",
+   "kind": "function",
+   "degree": 7,
+   "label": "draft_one",
+   "pos": [
+    1.73,
+    -1.78,
+    24.82
+   ]
+  },
+  {
+   "id": "flash/ambient.py::run",
+   "file": "flash/ambient.py",
+   "symbol": "run",
+   "kind": "function",
+   "degree": 21,
+   "label": "run",
+   "pos": [
+    7.17,
+    -10.43,
+    23.58
+   ]
+  },
+  {
+   "id": "flash/ambient.py::run_selftest",
+   "file": "flash/ambient.py",
+   "symbol": "run_selftest",
+   "kind": "function",
+   "degree": 116,
+   "label": "run_selftest",
+   "pos": [
+    -2.13,
+    -7.76,
+    22.35
+   ]
+  },
+  {
+   "id": "flash/ambient.py::scan",
+   "file": "flash/ambient.py",
+   "symbol": "scan",
+   "kind": "function",
+   "degree": 11,
+   "label": "scan",
+   "pos": [
+    5.54,
+    -4.12,
+    21.12
+   ]
+  },
+  {
+   "id": "flash/ambient.py::state",
+   "file": "flash/ambient.py",
+   "symbol": "state",
+   "kind": "function",
+   "degree": 14,
+   "label": "state",
+   "pos": [
+    2.86,
+    -9.77,
+    19.88
+   ]
+  },
+  {
+   "id": "flash/checkpoint.py::active",
+   "file": "flash/checkpoint.py",
+   "symbol": "active",
+   "kind": "function",
+   "degree": 9,
+   "label": "active",
+   "pos": [
+    -10.89,
+    3.58,
+    28.16
+   ]
+  },
+  {
+   "id": "flash/checkpoint.py::arm",
+   "file": "flash/checkpoint.py",
+   "symbol": "arm",
+   "kind": "function",
+   "degree": 6,
+   "label": "arm",
+   "pos": [
+    -15.3,
+    7.55,
+    27.21
+   ]
+  },
+  {
+   "id": "flash/checkpoint.py::begin",
+   "file": "flash/checkpoint.py",
+   "symbol": "begin",
+   "kind": "function",
+   "degree": 9,
+   "label": "begin",
+   "pos": [
+    -7.07,
+    7.16,
+    26.26
+   ]
+  },
+  {
+   "id": "flash/checkpoint.py::carry",
+   "file": "flash/checkpoint.py",
+   "symbol": "carry",
+   "kind": "function",
+   "degree": 9,
+   "label": "carry",
+   "pos": [
+    -14.6,
+    1.11,
+    25.31
+   ]
+  },
+  {
+   "id": "flash/checkpoint.py::ck",
+   "file": "flash/checkpoint.py",
+   "symbol": "ck",
+   "kind": "function",
+   "degree": 31,
+   "label": "ck",
+   "pos": [
+    -12.9,
+    11.57,
+    24.36
+   ]
+  },
+  {
+   "id": "flash/checkpoint.py::disarm",
+   "file": "flash/checkpoint.py",
+   "symbol": "disarm",
+   "kind": "function",
+   "degree": 6,
+   "label": "disarm",
+   "pos": [
+    -6.83,
+    2.18,
+    23.41
+   ]
+  },
+  {
+   "id": "flash/checkpoint.py::load",
+   "file": "flash/checkpoint.py",
+   "symbol": "load",
+   "kind": "function",
+   "degree": 19,
+   "label": "load",
+   "pos": [
+    -17.9,
+    5.13,
+    22.45
+   ]
+  },
+  {
+   "id": "flash/checkpoint.py::note",
+   "file": "flash/checkpoint.py",
+   "symbol": "note",
+   "kind": "function",
+   "degree": 9,
+   "label": "note",
+   "pos": [
+    -7.72,
+    10.39,
+    21.5
+   ]
+  },
+  {
+   "id": "flash/checkpoint.py::path_for",
+   "file": "flash/checkpoint.py",
+   "symbol": "path_for",
+   "kind": "function",
+   "degree": 6,
+   "label": "path_for",
+   "pos": [
+    -11.63,
+    -0.09,
+    20.55
+   ]
+  },
+  {
+   "id": "flash/checkpoint.py::run_selftest",
+   "file": "flash/checkpoint.py",
+   "symbol": "run_selftest",
+   "kind": "function",
+   "degree": 103,
+   "label": "run_selftest",
+   "pos": [
+    -15.54,
+    9.77,
+    19.6
+   ]
+  },
+  {
+   "id": "flash/checkpoint.py::save",
+   "file": "flash/checkpoint.py",
+   "symbol": "save",
+   "kind": "function",
+   "degree": 8,
+   "label": "save",
+   "pos": [
+    -6.89,
+    5.47,
+    18.65
+   ]
+  },
+  {
+   "id": "flash/checkpoint.py::started",
+   "file": "flash/checkpoint.py",
+   "symbol": "started",
+   "kind": "function",
+   "degree": 5,
+   "label": "started",
+   "pos": [
+    -14.84,
+    3.33,
+    17.7
+   ]
+  },
+  {
+   "id": "flash/checkpoint.py::update",
+   "file": "flash/checkpoint.py",
+   "symbol": "update",
+   "kind": "function",
+   "degree": 5,
+   "label": "update",
+   "pos": [
+    -11.39,
+    8.15,
+    16.74
+   ]
+  },
+  {
+   "id": "flash/cli.py::_run_suite",
+   "file": "flash/cli.py",
+   "symbol": "_run_suite",
+   "kind": "function",
+   "degree": 23,
+   "label": "_run_suite",
+   "pos": [
+    17.1,
+    1.4,
+    20.09
+   ]
+  },
+  {
+   "id": "flash/confidence.py::_affordable",
+   "file": "flash/confidence.py",
+   "symbol": "_affordable",
+   "kind": "function",
+   "degree": 17,
+   "label": "_affordable",
+   "pos": [
+    -8.93,
+    -18.68,
+    22.43
+   ]
+  },
+  {
+   "id": "flash/confidence.py::_counts_as_guard",
+   "file": "flash/confidence.py",
+   "symbol": "_counts_as_guard",
+   "kind": "function",
+   "degree": 5,
+   "label": "_counts_as_guard",
+   "pos": [
+    -13.63,
+    -14.4,
+    21.08
+   ]
+  },
+  {
+   "id": "flash/confidence.py::_probe_calls",
+   "file": "flash/confidence.py",
+   "symbol": "_probe_calls",
+   "kind": "function",
+   "degree": 10,
+   "label": "_probe_calls",
+   "pos": [
+    -5.09,
+    -14.86,
+    19.74
+   ]
+  },
+  {
+   "id": "flash/confidence.py::_shape",
+   "file": "flash/confidence.py",
+   "symbol": "_shape",
+   "kind": "function",
+   "degree": 9,
+   "label": "_shape",
+   "pos": [
+    -12.64,
+    -20.81,
+    18.4
+   ]
+  },
+  {
+   "id": "flash/confidence.py::ck",
+   "file": "flash/confidence.py",
+   "symbol": "ck",
+   "kind": "function",
+   "degree": 29,
+   "label": "ck",
+   "pos": [
+    -10.91,
+    -11.03,
+    17.06
+   ]
+  },
+  {
+   "id": "flash/confidence.py::edge_probe",
+   "file": "flash/confidence.py",
+   "symbol": "edge_probe",
+   "kind": "function",
+   "degree": 5,
+   "label": "edge_probe",
+   "pos": [
+    -5.86,
+    -19.2,
+    15.71
+   ]
+  },
+  {
+   "id": "flash/confidence.py::evaluate",
+   "file": "flash/confidence.py",
+   "symbol": "evaluate",
+   "kind": "function",
+   "degree": 11,
+   "label": "evaluate",
+   "pos": [
+    -14.04,
+    -16.71,
+    14.37
+   ]
+  },
+  {
+   "id": "flash/confidence.py::run_selftest",
+   "file": "flash/confidence.py",
+   "symbol": "run_selftest",
+   "kind": "function",
+   "degree": 72,
+   "label": "run_selftest",
+   "pos": [
+    -8.16,
+    -14.3,
+    13.03
+   ]
+  },
+  {
+   "id": "flash/debug.py::_run",
+   "file": "flash/debug.py",
+   "symbol": "_run",
+   "kind": "function",
+   "degree": 8,
+   "label": "_run",
+   "pos": [
+    -3.0,
+    17.8,
+    18.74
+   ]
+  },
+  {
+   "id": "flash/debug.py::ck",
+   "file": "flash/debug.py",
+   "symbol": "ck",
+   "kind": "function",
+   "degree": 11,
+   "label": "ck",
+   "pos": [
+    -7.99,
+    22.5,
+    16.49
+   ]
+  },
+  {
+   "id": "flash/debug.py::run_selftest",
+   "file": "flash/debug.py",
+   "symbol": "run_selftest",
+   "kind": "function",
+   "degree": 22,
+   "label": "run_selftest",
+   "pos": [
+    0.1,
+    21.79,
+    14.24
+   ]
+  },
+  {
+   "id": "flash/debug.py::watch",
+   "file": "flash/debug.py",
+   "symbol": "watch",
+   "kind": "function",
+   "degree": 9,
+   "label": "watch",
+   "pos": [
+    -5.62,
+    18.03,
+    11.99
+   ]
+  },
+  {
+   "id": "flash/doctor.py::answers",
+   "file": "flash/doctor.py",
+   "symbol": "answers",
+   "kind": "function",
+   "degree": 6,
+   "label": "answers",
+   "pos": [
+    19.4,
+    -16.54,
+    13.0
+   ]
+  },
+  {
+   "id": "flash/grammar.py::ConstrainedSampler",
+   "file": "flash/grammar.py",
+   "symbol": "ConstrainedSampler",
+   "kind": "class",
+   "degree": 8,
+   "label": "ConstrainedSampler",
+   "pos": [
+    -22.66,
+    -4.93,
+    15.57
+   ]
+  },
+  {
+   "id": "flash/grammar.py::Contract",
+   "file": "flash/grammar.py",
+   "symbol": "Contract",
+   "kind": "class",
+   "degree": 9,
+   "label": "Contract",
+   "pos": [
+    -27.3,
+    -0.73,
+    14.34
+   ]
+  },
+  {
+   "id": "flash/grammar.py::Contract.feed",
+   "file": "flash/grammar.py",
+   "symbol": "Contract.feed",
+   "kind": "method",
+   "degree": 11,
+   "label": "feed",
+   "pos": [
+    -18.81,
+    -1.17,
+    13.1
+   ]
+  },
+  {
+   "id": "flash/grammar.py::_reference",
+   "file": "flash/grammar.py",
+   "symbol": "_reference",
+   "kind": "function",
+   "degree": 7,
+   "label": "_reference",
+   "pos": [
+    -26.4,
+    -7.19,
+    11.87
+   ]
+  },
+  {
+   "id": "flash/grammar.py::answer_shaped",
+   "file": "flash/grammar.py",
+   "symbol": "answer_shaped",
+   "kind": "function",
+   "degree": 5,
+   "label": "answer_shaped",
+   "pos": [
+    -24.67,
+    2.88,
+    10.64
+   ]
+  },
+  {
+   "id": "flash/grammar.py::ck",
+   "file": "flash/grammar.py",
+   "symbol": "ck",
+   "kind": "function",
+   "degree": 43,
+   "label": "ck",
+   "pos": [
+    -19.22,
+    -5.77,
+    9.4
+   ]
+  },
+  {
+   "id": "flash/grammar.py::conformance",
+   "file": "flash/grammar.py",
+   "symbol": "conformance",
+   "kind": "function",
+   "degree": 7,
+   "label": "conformance",
+   "pos": [
+    -28.53,
+    -3.1,
+    8.17
+   ]
+  },
+  {
+   "id": "flash/grammar.py::run_overhead",
+   "file": "flash/grammar.py",
+   "symbol": "run_overhead",
+   "kind": "function",
+   "degree": 5,
+   "label": "run_overhead",
+   "pos": [
+    -20.86,
+    0.55,
+    6.94
+   ]
+  },
+  {
+   "id": "flash/grammar.py::run_selftest",
+   "file": "flash/grammar.py",
+   "symbol": "run_selftest",
+   "kind": "function",
+   "degree": 92,
+   "label": "run_selftest",
+   "pos": [
+    -23.53,
+    -5.1,
+    5.7
+   ]
+  },
+  {
+   "id": "flash/graph.py::Edge",
+   "file": "flash/graph.py",
+   "symbol": "Edge",
+   "kind": "class",
+   "degree": 9,
+   "label": "Edge",
+   "pos": [
+    17.07,
+    16.45,
+    15.01
+   ]
+  },
+  {
+   "id": "flash/graph.py::Graph._cache",
+   "file": "flash/graph.py",
+   "symbol": "Graph._cache",
+   "kind": "method",
+   "degree": 7,
+   "label": "_cache",
+   "pos": [
+    12.92,
+    20.17,
+    14.3
+   ]
+  },
+  {
+   "id": "flash/graph.py::Graph.blast",
+   "file": "flash/graph.py",
+   "symbol": "Graph.blast",
+   "kind": "method",
+   "degree": 9,
+   "label": "blast",
+   "pos": [
+    20.78,
+    19.83,
+    13.59
+   ]
+  },
+  {
+   "id": "flash/graph.py::Graph.resolved",
+   "file": "flash/graph.py",
+   "symbol": "Graph.resolved",
+   "kind": "method",
+   "degree": 8,
+   "label": "resolved",
+   "pos": [
+    13.47,
+    13.91,
+    12.88
+   ]
+  },
+  {
+   "id": "flash/graph.py::_bindings",
+   "file": "flash/graph.py",
+   "symbol": "_bindings",
+   "kind": "function",
+   "degree": 7,
+   "label": "_bindings",
+   "pos": [
+    15.12,
+    24.33,
+    12.18
+   ]
+  },
+  {
+   "id": "flash/graph.py::_binds",
+   "file": "flash/graph.py",
+   "symbol": "_binds",
+   "kind": "function",
+   "degree": 5,
+   "label": "_binds",
+   "pos": [
+    21.38,
+    14.76,
+    11.47
+   ]
+  },
+  {
+   "id": "flash/graph.py::_checks",
+   "file": "flash/graph.py",
+   "symbol": "_checks",
+   "kind": "function",
+   "degree": 81,
+   "label": "_checks",
+   "pos": [
+    9.66,
+    17.8,
+    10.76
+   ]
+  },
+  {
+   "id": "flash/graph.py::_join",
+   "file": "flash/graph.py",
+   "symbol": "_join",
+   "kind": "function",
+   "degree": 8,
+   "label": "_join",
+   "pos": [
+    20.81,
+    23.68,
+    10.05
+   ]
+  },
+  {
+   "id": "flash/graph.py::_now_ms",
+   "file": "flash/graph.py",
+   "symbol": "_now_ms",
+   "kind": "function",
+   "degree": 8,
+   "label": "_now_ms",
+   "pos": [
+    16.42,
+    11.5,
+    9.34
+   ]
+  },
+  {
+   "id": "flash/graph.py::_wide_checks",
+   "file": "flash/graph.py",
+   "symbol": "_wide_checks",
+   "kind": "function",
+   "degree": 15,
+   "label": "_wide_checks",
+   "pos": [
+    11.38,
+    23.64,
+    8.63
+   ]
+  },
+  {
+   "id": "flash/graph.py::build",
+   "file": "flash/graph.py",
+   "symbol": "build",
+   "kind": "function",
+   "degree": 13,
+   "label": "build",
+   "pos": [
+    23.34,
+    18.04,
+    7.92
+   ]
+  },
+  {
+   "id": "flash/graph.py::check",
+   "file": "flash/graph.py",
+   "symbol": "check",
+   "kind": "function",
+   "degree": 44,
+   "label": "check",
+   "pos": [
+    10.79,
+    14.13,
+    7.21
+   ]
+  },
+  {
+   "id": "flash/graph.py::dispatch",
+   "file": "flash/graph.py",
+   "symbol": "dispatch",
+   "kind": "function",
+   "degree": 5,
+   "label": "dispatch",
+   "pos": [
+    17.33,
+    25.3,
+    6.5
+   ]
+  },
+  {
+   "id": "flash/graph.py::emit",
+   "file": "flash/graph.py",
+   "symbol": "emit",
+   "kind": "function",
+   "degree": 15,
+   "label": "emit",
+   "pos": [
+    19.95,
+    12.98,
+    5.79
+   ]
+  },
+  {
+   "id": "flash/graph.py::expr",
+   "file": "flash/graph.py",
+   "symbol": "expr",
+   "kind": "function",
+   "degree": 19,
+   "label": "expr",
+   "pos": [
+    10.12,
+    20.03,
+    5.08
+   ]
+  },
+  {
+   "id": "flash/graph.py::extract",
+   "file": "flash/graph.py",
+   "symbol": "extract",
+   "kind": "function",
+   "degree": 11,
+   "label": "extract",
+   "pos": [
+    21.47,
+    21.35,
+    4.37
+   ]
+  },
+  {
+   "id": "flash/graph.py::merge",
+   "file": "flash/graph.py",
+   "symbol": "merge",
+   "kind": "function",
+   "degree": 15,
+   "label": "merge",
+   "pos": [
+    14.53,
+    13.41,
+    3.66
+   ]
+  },
+  {
+   "id": "flash/graph.py::python_files",
+   "file": "flash/graph.py",
+   "symbol": "python_files",
+   "kind": "function",
+   "degree": 7,
+   "label": "python_files",
+   "pos": [
+    14.39,
+    22.82,
+    2.95
+   ]
+  },
+  {
+   "id": "flash/graph.py::render",
+   "file": "flash/graph.py",
+   "symbol": "render",
+   "kind": "function",
+   "degree": 12,
+   "label": "render",
+   "pos": [
+    19.69,
+    17.0,
+    2.24
+   ]
+  },
+  {
+   "id": "flash/graph.py::walk",
+   "file": "flash/graph.py",
+   "symbol": "walk",
+   "kind": "function",
+   "degree": 31,
+   "label": "walk",
+   "pos": [
+    14.17,
+    17.81,
+    1.53
+   ]
+  },
+  {
+   "id": "flash/harness.py::Score",
+   "file": "flash/harness.py",
+   "symbol": "Score",
+   "kind": "class",
+   "degree": 5,
+   "label": "Score",
+   "pos": [
+    1.52,
+    -27.88,
+    10.05
+   ]
+  },
+  {
+   "id": "flash/harness.py::ck",
+   "file": "flash/harness.py",
+   "symbol": "ck",
+   "kind": "function",
+   "degree": 20,
+   "label": "ck",
+   "pos": [
+    -3.34,
+    -23.41,
+    8.4
+   ]
+  },
+  {
+   "id": "flash/harness.py::diagnose",
+   "file": "flash/harness.py",
+   "symbol": "diagnose",
+   "kind": "function",
+   "degree": 12,
+   "label": "diagnose",
+   "pos": [
+    5.23,
+    -23.94,
+    6.74
+   ]
+  },
+  {
+   "id": "flash/harness.py::run_selftest",
+   "file": "flash/harness.py",
+   "symbol": "run_selftest",
+   "kind": "function",
+   "degree": 43,
+   "label": "run_selftest",
+   "pos": [
+    -2.02,
+    -29.5,
+    5.08
+   ]
+  },
+  {
+   "id": "flash/harness.py::score",
+   "file": "flash/harness.py",
+   "symbol": "score",
+   "kind": "function",
+   "degree": 16,
+   "label": "score",
+   "pos": [
+    -0.31,
+    -21.09,
+    3.42
+   ]
+  },
+  {
+   "id": "flash/harness.py::score_files",
+   "file": "flash/harness.py",
+   "symbol": "score_files",
+   "kind": "function",
+   "degree": 5,
+   "label": "score_files",
+   "pos": [
+    2.74,
+    -26.94,
+    1.77
+   ]
+  },
+  {
+   "id": "flash/jobs.py::check",
+   "file": "flash/jobs.py",
+   "symbol": "check",
+   "kind": "function",
+   "degree": 20,
+   "label": "check",
+   "pos": [
+    -16.85,
+    16.21,
+    8.24
+   ]
+  },
+  {
+   "id": "flash/jobs.py::eligibility",
+   "file": "flash/jobs.py",
+   "symbol": "eligibility",
+   "kind": "function",
+   "degree": 8,
+   "label": "eligibility",
+   "pos": [
+    -21.55,
+    20.48,
+    6.9
+   ]
+  },
+  {
+   "id": "flash/jobs.py::load_state",
+   "file": "flash/jobs.py",
+   "symbol": "load_state",
+   "kind": "function",
+   "degree": 10,
+   "label": "load_state",
+   "pos": [
+    -13.01,
+    20.02,
+    5.56
+   ]
+  },
+  {
+   "id": "flash/jobs.py::run_fit",
+   "file": "flash/jobs.py",
+   "symbol": "run_fit",
+   "kind": "function",
+   "degree": 15,
+   "label": "run_fit",
+   "pos": [
+    -20.55,
+    14.08,
+    4.22
+   ]
+  },
+  {
+   "id": "flash/jobs.py::run_lora",
+   "file": "flash/jobs.py",
+   "symbol": "run_lora",
+   "kind": "function",
+   "degree": 13,
+   "label": "run_lora",
+   "pos": [
+    -18.82,
+    23.85,
+    2.87
+   ]
+  },
+  {
+   "id": "flash/jobs.py::run_selftest",
+   "file": "flash/jobs.py",
+   "symbol": "run_selftest",
+   "kind": "function",
+   "degree": 59,
+   "label": "run_selftest",
+   "pos": [
+    -13.78,
+    15.68,
+    1.53
+   ]
+  },
+  {
+   "id": "flash/jobs.py::save_state",
+   "file": "flash/jobs.py",
+   "symbol": "save_state",
+   "kind": "function",
+   "degree": 12,
+   "label": "save_state",
+   "pos": [
+    -21.95,
+    18.18,
+    0.19
+   ]
+  },
+  {
+   "id": "flash/jobs.py::state",
+   "file": "flash/jobs.py",
+   "symbol": "state",
+   "kind": "function",
+   "degree": 14,
+   "label": "state",
+   "pos": [
+    -16.07,
+    20.58,
+    -1.15
+   ]
+  },
+  {
+   "id": "flash/learn.py::autofit_if_stale",
+   "file": "flash/learn.py",
+   "symbol": "autofit_if_stale",
+   "kind": "function",
+   "degree": 6,
+   "label": "autofit_if_stale",
+   "pos": [
+    27.05,
+    -4.67,
+    3.99
+   ]
+  },
+  {
+   "id": "flash/learn.py::bundle_labels",
+   "file": "flash/learn.py",
+   "symbol": "bundle_labels",
+   "kind": "function",
+   "degree": 5,
+   "label": "bundle_labels",
+   "pos": [
+    22.13,
+    0.13,
+    1.18
+   ]
+  },
+  {
+   "id": "flash/learn.py::embed_prompts",
+   "file": "flash/learn.py",
+   "symbol": "embed_prompts",
+   "kind": "function",
+   "degree": 6,
+   "label": "embed_prompts",
+   "pos": [
+    28.93,
+    -0.86,
+    -1.63
+   ]
+  },
+  {
+   "id": "flash/loop.py::Attempt",
+   "file": "flash/loop.py",
+   "symbol": "Attempt",
+   "kind": "class",
+   "degree": 5,
+   "label": "Attempt",
+   "pos": [
+    -19.25,
+    -18.88,
+    2.62
+   ]
+  },
+  {
+   "id": "flash/loop.py::_solve_edits",
+   "file": "flash/loop.py",
+   "symbol": "_solve_edits",
+   "kind": "function",
+   "degree": 5,
+   "label": "_solve_edits",
+   "pos": [
+    -24.18,
+    -14.3,
+    0.72
+   ]
+  },
+  {
+   "id": "flash/loop.py::solve",
+   "file": "flash/loop.py",
+   "symbol": "solve",
+   "kind": "function",
+   "degree": 14,
+   "label": "solve",
+   "pos": [
+    -15.72,
+    -14.9,
+    -1.18
+   ]
+  },
+  {
+   "id": "flash/loop.py::solve_routed",
+   "file": "flash/loop.py",
+   "symbol": "solve_routed",
+   "kind": "function",
+   "degree": 18,
+   "label": "solve_routed",
+   "pos": [
+    -22.54,
+    -19.94,
+    -3.08
+   ]
+  },
+  {
+   "id": "flash/loop.py::with_conf",
+   "file": "flash/loop.py",
+   "symbol": "with_conf",
+   "kind": "function",
+   "degree": 5,
+   "label": "with_conf",
+   "pos": [
+    -20.84,
+    -13.43,
+    -4.98
+   ]
+  },
+  {
+   "id": "flash/lsp.py::Lsp._request",
+   "file": "flash/lsp.py",
+   "symbol": "Lsp._request",
+   "kind": "method",
+   "degree": 5,
+   "label": "_request",
+   "pos": [
+    4.82,
+    23.23,
+    2.16
+   ]
+  },
+  {
+   "id": "flash/lsp.py::Lsp._send",
+   "file": "flash/lsp.py",
+   "symbol": "Lsp._send",
+   "kind": "method",
+   "degree": 7,
+   "label": "_send",
+   "pos": [
+    0.42,
+    27.2,
+    1.21
+   ]
+  },
+  {
+   "id": "flash/lsp.py::_walk_name",
+   "file": "flash/lsp.py",
+   "symbol": "_walk_name",
+   "kind": "function",
+   "degree": 5,
+   "label": "_walk_name",
+   "pos": [
+    8.64,
+    26.81,
+    0.26
+   ]
+  },
+  {
+   "id": "flash/lsp.py::ast_symbols",
+   "file": "flash/lsp.py",
+   "symbol": "ast_symbols",
+   "kind": "function",
+   "degree": 6,
+   "label": "ast_symbols",
+   "pos": [
+    1.11,
+    20.76,
+    -0.69
+   ]
+  },
+  {
+   "id": "flash/lsp.py::check",
+   "file": "flash/lsp.py",
+   "symbol": "check",
+   "kind": "function",
+   "degree": 23,
+   "label": "check",
+   "pos": [
+    2.82,
+    31.22,
+    -1.64
+   ]
+  },
+  {
+   "id": "flash/lsp.py::find_occurrences",
+   "file": "flash/lsp.py",
+   "symbol": "find_occurrences",
+   "kind": "function",
+   "degree": 6,
+   "label": "find_occurrences",
+   "pos": [
+    8.89,
+    21.83,
+    -2.59
+   ]
+  },
+  {
+   "id": "flash/lsp.py::find_references",
+   "file": "flash/lsp.py",
+   "symbol": "find_references",
+   "kind": "function",
+   "degree": 8,
+   "label": "find_references",
+   "pos": [
+    -2.19,
+    24.78,
+    -3.55
+   ]
+  },
+  {
+   "id": "flash/lsp.py::find_symbol",
+   "file": "flash/lsp.py",
+   "symbol": "find_symbol",
+   "kind": "function",
+   "degree": 12,
+   "label": "find_symbol",
+   "pos": [
+    8.0,
+    30.04,
+    -4.5
+   ]
+  },
+  {
+   "id": "flash/lsp.py::python_files",
+   "file": "flash/lsp.py",
+   "symbol": "python_files",
+   "kind": "function",
+   "degree": 5,
+   "label": "python_files",
+   "pos": [
+    4.08,
+    19.57,
+    -5.45
+   ]
+  },
+  {
+   "id": "flash/lsp.py::run_selftest",
+   "file": "flash/lsp.py",
+   "symbol": "run_selftest",
+   "kind": "function",
+   "degree": 42,
+   "label": "run_selftest",
+   "pos": [
+    0.17,
+    29.42,
+    -6.4
+   ]
+  },
+  {
+   "id": "flash/lsp.py::symbol_hint",
+   "file": "flash/lsp.py",
+   "symbol": "symbol_hint",
+   "kind": "function",
+   "degree": 12,
+   "label": "symbol_hint",
+   "pos": [
+    8.83,
+    25.12,
+    -7.35
+   ]
+  },
+  {
+   "id": "flash/lsp.py::symbols_involved",
+   "file": "flash/lsp.py",
+   "symbol": "symbols_involved",
+   "kind": "function",
+   "degree": 5,
+   "label": "symbols_involved",
+   "pos": [
+    0.87,
+    22.98,
+    -8.3
+   ]
+  },
+  {
+   "id": "flash/lsp.py::walk",
+   "file": "flash/lsp.py",
+   "symbol": "walk",
+   "kind": "function",
+   "degree": 9,
+   "label": "walk",
+   "pos": [
+    4.33,
+    27.8,
+    -9.26
+   ]
+  },
+  {
+   "id": "flash/patches.py::Patch",
+   "file": "flash/patches.py",
+   "symbol": "Patch",
+   "kind": "class",
+   "degree": 28,
+   "label": "Patch",
+   "pos": [
+    14.88,
+    -23.27,
+    -0.03
+   ]
+  },
+  {
+   "id": "flash/patches.py::Refused",
+   "file": "flash/patches.py",
+   "symbol": "Refused",
+   "kind": "class",
+   "degree": 7,
+   "label": "Refused",
+   "pos": [
+    10.52,
+    -19.35,
+    -0.94
+   ]
+  },
+  {
+   "id": "flash/patches.py::apply_patches",
+   "file": "flash/patches.py",
+   "symbol": "apply_patches",
+   "kind": "function",
+   "degree": 34,
+   "label": "apply_patches",
+   "pos": [
+    18.68,
+    -19.72,
+    -1.84
+   ]
+  },
+  {
+   "id": "flash/patches.py::check",
+   "file": "flash/patches.py",
+   "symbol": "check",
+   "kind": "function",
+   "degree": 52,
+   "label": "check",
+   "pos": [
+    11.18,
+    -25.76,
+    -2.74
+   ]
+  },
+  {
+   "id": "flash/patches.py::check_result",
+   "file": "flash/patches.py",
+   "symbol": "check_result",
+   "kind": "function",
+   "degree": 6,
+   "label": "check_result",
+   "pos": [
+    12.88,
+    -15.28,
+    -3.65
+   ]
+  },
+  {
+   "id": "flash/patches.py::definitions",
+   "file": "flash/patches.py",
+   "symbol": "definitions",
+   "kind": "function",
+   "degree": 8,
+   "label": "definitions",
+   "pos": [
+    19.01,
+    -24.74,
+    -4.55
+   ]
+  },
+  {
+   "id": "flash/patches.py::find_defs",
+   "file": "flash/patches.py",
+   "symbol": "find_defs",
+   "kind": "function",
+   "degree": 10,
+   "label": "find_defs",
+   "pos": [
+    7.75,
+    -21.76,
+    -5.46
+   ]
+  },
+  {
+   "id": "flash/patches.py::outside_lines",
+   "file": "flash/patches.py",
+   "symbol": "outside_lines",
+   "kind": "function",
+   "degree": 16,
+   "label": "outside_lines",
+   "pos": [
+    18.2,
+    -16.34,
+    -6.36
+   ]
+  },
+  {
+   "id": "flash/patches.py::resolve",
+   "file": "flash/patches.py",
+   "symbol": "resolve",
+   "kind": "function",
+   "degree": 15,
+   "label": "resolve",
+   "pos": [
+    14.16,
+    -27.26,
+    -7.27
+   ]
+  },
+  {
+   "id": "flash/patches.py::run_premise",
+   "file": "flash/patches.py",
+   "symbol": "run_premise",
+   "kind": "function",
+   "degree": 13,
+   "label": "run_premise",
+   "pos": [
+    9.95,
+    -16.8,
+    -8.17
+   ]
+  },
+  {
+   "id": "flash/patches.py::run_selftest",
+   "file": "flash/patches.py",
+   "symbol": "run_selftest",
+   "kind": "function",
+   "degree": 118,
+   "label": "run_selftest",
+   "pos": [
+    19.5,
+    -21.44,
+    -9.07
+   ]
+  },
+  {
+   "id": "flash/patches.py::run_wiring",
+   "file": "flash/patches.py",
+   "symbol": "run_wiring",
+   "kind": "function",
+   "degree": 15,
+   "label": "run_wiring",
+   "pos": [
+    10.24,
+    -24.11,
+    -9.98
+   ]
+  },
+  {
+   "id": "flash/patches.py::splice",
+   "file": "flash/patches.py",
+   "symbol": "splice",
+   "kind": "function",
+   "degree": 5,
+   "label": "splice",
+   "pos": [
+    14.63,
+    -17.21,
+    -10.88
+   ]
+  },
+  {
+   "id": "flash/patches.py::walk",
+   "file": "flash/patches.py",
+   "symbol": "walk",
+   "kind": "function",
+   "degree": 10,
+   "label": "walk",
+   "pos": [
+    15.33,
+    -23.03,
+    -11.79
+   ]
+  },
+  {
+   "id": "flash/perceive.py::lsp_diagnostics",
+   "file": "flash/perceive.py",
+   "symbol": "lsp_diagnostics",
+   "kind": "function",
+   "degree": 11,
+   "label": "lsp_diagnostics",
+   "pos": [
+    -22.71,
+    2.77,
+    -6.33
+   ]
+  },
+  {
+   "id": "flash/perceive.py::send",
+   "file": "flash/perceive.py",
+   "symbol": "send",
+   "kind": "function",
+   "degree": 6,
+   "label": "send",
+   "pos": [
+    -26.95,
+    7.39,
+    -10.22
+   ]
+  },
+  {
+   "id": "flash/power.py::_run",
+   "file": "flash/power.py",
+   "symbol": "_run",
+   "kind": "function",
+   "degree": 5,
+   "label": "_run",
+   "pos": [
+    21.79,
+    8.88,
+    -6.2
+   ]
+  },
+  {
+   "id": "flash/power.py::_table",
+   "file": "flash/power.py",
+   "symbol": "_table",
+   "kind": "function",
+   "degree": 10,
+   "label": "_table",
+   "pos": [
+    17.01,
+    13.25,
+    -7.68
+   ]
+  },
+  {
+   "id": "flash/power.py::allow_model",
+   "file": "flash/power.py",
+   "symbol": "allow_model",
+   "kind": "function",
+   "degree": 6,
+   "label": "allow_model",
+   "pos": [
+    25.59,
+    12.75,
+    -9.16
+   ]
+  },
+  {
+   "id": "flash/power.py::check",
+   "file": "flash/power.py",
+   "symbol": "check",
+   "kind": "function",
+   "degree": 9,
+   "label": "check",
+   "pos": [
+    18.14,
+    6.94,
+    -10.64
+   ]
+  },
+  {
+   "id": "flash/power.py::profile_for",
+   "file": "flash/power.py",
+   "symbol": "profile_for",
+   "kind": "function",
+   "degree": 12,
+   "label": "profile_for",
+   "pos": [
+    19.86,
+    16.24,
+    -12.12
+   ]
+  },
+  {
+   "id": "flash/power.py::read_state",
+   "file": "flash/power.py",
+   "symbol": "read_state",
+   "kind": "function",
+   "degree": 9,
+   "label": "read_state",
+   "pos": [
+    24.25,
+    8.85,
+    -13.6
+   ]
+  },
+  {
+   "id": "flash/power.py::run_selftest",
+   "file": "flash/power.py",
+   "symbol": "run_selftest",
+   "kind": "function",
+   "degree": 41,
+   "label": "run_selftest",
+   "pos": [
+    18.17,
+    11.08,
+    -15.07
+   ]
+  },
+  {
+   "id": "flash/sandbox.py::ck",
+   "file": "flash/sandbox.py",
+   "symbol": "ck",
+   "kind": "function",
+   "degree": 34,
+   "label": "ck",
+   "pos": [
+    -6.29,
+    -23.87,
+    -8.86
+   ]
+  },
+  {
+   "id": "flash/sandbox.py::probe",
+   "file": "flash/sandbox.py",
+   "symbol": "probe",
+   "kind": "function",
+   "degree": 9,
+   "label": "probe",
+   "pos": [
+    -11.15,
+    -19.4,
+    -10.51
+   ]
+  },
+  {
+   "id": "flash/sandbox.py::realpath",
+   "file": "flash/sandbox.py",
+   "symbol": "realpath",
+   "kind": "function",
+   "degree": 7,
+   "label": "realpath",
+   "pos": [
+    -2.58,
+    -19.94,
+    -12.17
+   ]
+  },
+  {
+   "id": "flash/sandbox.py::run_selftest",
+   "file": "flash/sandbox.py",
+   "symbol": "run_selftest",
+   "kind": "function",
+   "degree": 65,
+   "label": "run_selftest",
+   "pos": [
+    -9.83,
+    -25.5,
+    -13.83
+   ]
+  },
+  {
+   "id": "flash/sandbox.py::seatbelt",
+   "file": "flash/sandbox.py",
+   "symbol": "seatbelt",
+   "kind": "function",
+   "degree": 8,
+   "label": "seatbelt",
+   "pos": [
+    -8.12,
+    -17.08,
+    -15.49
+   ]
+  },
+  {
+   "id": "flash/sandbox.py::status",
+   "file": "flash/sandbox.py",
+   "symbol": "status",
+   "kind": "function",
+   "degree": 6,
+   "label": "status",
+   "pos": [
+    -5.07,
+    -22.93,
+    -17.14
+   ]
+  },
+  {
+   "id": "flash/tourney.py::ck",
+   "file": "flash/tourney.py",
+   "symbol": "ck",
+   "kind": "function",
+   "degree": 16,
+   "label": "ck",
+   "pos": [
+    -7.37,
+    16.56,
+    -11.57
+   ]
+  },
+  {
+   "id": "flash/tourney.py::plan",
+   "file": "flash/tourney.py",
+   "symbol": "plan",
+   "kind": "function",
+   "degree": 9,
+   "label": "plan",
+   "pos": [
+    -12.3,
+    21.14,
+    -13.46
+   ]
+  },
+  {
+   "id": "flash/tourney.py::run",
+   "file": "flash/tourney.py",
+   "symbol": "run",
+   "kind": "function",
+   "degree": 7,
+   "label": "run",
+   "pos": [
+    -3.84,
+    20.55,
+    -15.36
+   ]
+  },
+  {
+   "id": "flash/tourney.py::run_wiring",
+   "file": "flash/tourney.py",
+   "symbol": "run_wiring",
+   "kind": "function",
+   "degree": 33,
+   "label": "run_wiring",
+   "pos": [
+    -10.66,
+    15.5,
+    -17.26
+   ]
+  },
+  {
+   "id": "flash/tourney.py::run_with",
+   "file": "flash/tourney.py",
+   "symbol": "run_with",
+   "kind": "function",
+   "degree": 9,
+   "label": "run_with",
+   "pos": [
+    -8.96,
+    22.01,
+    -19.16
+   ]
+  },
+  {
+   "id": "flash/trace.py::ck",
+   "file": "flash/trace.py",
+   "symbol": "ck",
+   "kind": "function",
+   "degree": 31,
+   "label": "ck",
+   "pos": [
+    18.53,
+    -10.63,
+    -14.91
+   ]
+  },
+  {
+   "id": "flash/trace.py::read",
+   "file": "flash/trace.py",
+   "symbol": "read",
+   "kind": "function",
+   "degree": 7,
+   "label": "read",
+   "pos": [
+    13.61,
+    -5.84,
+    -17.73
+   ]
+  },
+  {
+   "id": "flash/trace.py::run_selftest",
+   "file": "flash/trace.py",
+   "symbol": "run_selftest",
+   "kind": "function",
+   "degree": 32,
+   "label": "run_selftest",
+   "pos": [
+    20.41,
+    -6.82,
+    -20.54
+   ]
+  },
+  {
+   "id": "flash/train.py::bump",
+   "file": "flash/train.py",
+   "symbol": "bump",
+   "kind": "function",
+   "degree": 12,
+   "label": "bump",
+   "pos": [
+    -14.7,
+    -7.69,
+    -15.39
+   ]
+  },
+  {
+   "id": "flash/train.py::check",
+   "file": "flash/train.py",
+   "symbol": "check",
+   "kind": "function",
+   "degree": 36,
+   "label": "check",
+   "pos": [
+    -19.4,
+    -3.41,
+    -16.73
+   ]
+  },
+  {
+   "id": "flash/train.py::end",
+   "file": "flash/train.py",
+   "symbol": "end",
+   "kind": "function",
+   "degree": 11,
+   "label": "end",
+   "pos": [
+    -10.86,
+    -3.87,
+    -18.08
+   ]
+  },
+  {
+   "id": "flash/train.py::ev",
+   "file": "flash/train.py",
+   "symbol": "ev",
+   "kind": "function",
+   "degree": 12,
+   "label": "ev",
+   "pos": [
+    -18.41,
+    -9.82,
+    -19.42
+   ]
+  },
+  {
+   "id": "flash/train.py::mine",
+   "file": "flash/train.py",
+   "symbol": "mine",
+   "kind": "function",
+   "degree": 28,
+   "label": "mine",
+   "pos": [
+    -16.68,
+    -0.04,
+    -20.76
+   ]
+  },
+  {
+   "id": "flash/train.py::run_selftest",
+   "file": "flash/train.py",
+   "symbol": "run_selftest",
+   "kind": "function",
+   "degree": 93,
+   "label": "run_selftest",
+   "pos": [
+    -11.63,
+    -8.21,
+    -22.1
+   ]
+  },
+  {
+   "id": "flash/train.py::sess",
+   "file": "flash/train.py",
+   "symbol": "sess",
+   "kind": "function",
+   "degree": 7,
+   "label": "sess",
+   "pos": [
+    -19.81,
+    -5.72,
+    -23.45
+   ]
+  },
+  {
+   "id": "flash/train.py::train_lora",
+   "file": "flash/train.py",
+   "symbol": "train_lora",
+   "kind": "function",
+   "degree": 8,
+   "label": "train_lora",
+   "pos": [
+    -13.93,
+    -3.31,
+    -24.79
+   ]
+  },
+  {
+   "id": "flash/vision.py::check_task",
+   "file": "flash/vision.py",
+   "symbol": "check_task",
+   "kind": "function",
+   "degree": 9,
+   "label": "check_task",
+   "pos": [
+    7.56,
+    8.34,
+    -20.51
+   ]
+  },
+  {
+   "id": "flash/vision.py::solve_vision",
+   "file": "flash/vision.py",
+   "symbol": "solve_vision",
+   "kind": "function",
+   "degree": 7,
+   "label": "solve_vision",
+   "pos": [
+    3.32,
+    12.96,
+    -24.4
+   ]
+  },
+  {
+   "id": "flash/web.py::check",
+   "file": "flash/web.py",
+   "symbol": "check",
+   "kind": "function",
+   "degree": 10,
+   "label": "check",
+   "pos": [
+    2.96,
+    -10.46,
+    -22.01
+   ]
+  },
+  {
+   "id": "flash/web.py::lookup",
+   "file": "flash/web.py",
+   "symbol": "lookup",
+   "kind": "function",
+   "degree": 7,
+   "label": "lookup",
+   "pos": [
+    -1.96,
+    -5.67,
+    -24.82
+   ]
+  },
+  {
+   "id": "flash/web.py::selftest",
+   "file": "flash/web.py",
+   "symbol": "selftest",
+   "kind": "function",
+   "degree": 20,
+   "label": "selftest",
+   "pos": [
+    4.84,
+    -6.65,
+    -27.63
+   ]
+  }
+ ],
+ "edges": [
+  {
+   "s": "flash/ambient.py::check_drift",
+   "d": "flash/ambient.py::Finding",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/ambient.py::draft_one",
+   "d": "flash/ambient.py::scan",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/ambient.py::run_selftest",
+   "d": "flash/ambient.py::scan",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/ambient.py::run_selftest",
+   "d": "flash/ambient.py::check",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/ambient.py::run_selftest",
+   "d": "flash/ambient.py::check_drift",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/ambient.py::run_selftest",
+   "d": "flash/ambient.py::run",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/ambient.py::run_selftest",
+   "d": "flash/ambient.py::state",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/checkpoint.py::save",
+   "d": "flash/checkpoint.py::path_for",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/checkpoint.py::begin",
+   "d": "flash/checkpoint.py::save",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/checkpoint.py::update",
+   "d": "flash/checkpoint.py::save",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/checkpoint.py::started",
+   "d": "flash/checkpoint.py::active",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/checkpoint.py::started",
+   "d": "flash/checkpoint.py::save",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/checkpoint.py::note",
+   "d": "flash/checkpoint.py::save",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/checkpoint.py::carry",
+   "d": "flash/checkpoint.py::active",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/checkpoint.py::carry",
+   "d": "flash/checkpoint.py::save",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/checkpoint.py::load",
+   "d": "flash/checkpoint.py::path_for",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/checkpoint.py::run_selftest",
+   "d": "flash/checkpoint.py::disarm",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/checkpoint.py::run_selftest",
+   "d": "flash/checkpoint.py::ck",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/checkpoint.py::run_selftest",
+   "d": "flash/checkpoint.py::begin",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/checkpoint.py::run_selftest",
+   "d": "flash/checkpoint.py::active",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/checkpoint.py::run_selftest",
+   "d": "flash/checkpoint.py::note",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/checkpoint.py::run_selftest",
+   "d": "flash/checkpoint.py::carry",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/checkpoint.py::run_selftest",
+   "d": "flash/checkpoint.py::load",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/checkpoint.py::run_selftest",
+   "d": "flash/checkpoint.py::arm",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/checkpoint.py::run_selftest",
+   "d": "flash/checkpoint.py::path_for",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/checkpoint.py::run_selftest",
+   "d": "flash/checkpoint.py::started",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/checkpoint.py::run_selftest",
+   "d": "flash/checkpoint.py::update",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/confidence.py::_shape",
+   "d": "flash/confidence.py::_shape",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/confidence.py::_affordable",
+   "d": "flash/confidence.py::_affordable",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/confidence.py::_probe_calls",
+   "d": "flash/confidence.py::_shape",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/confidence.py::_probe_calls",
+   "d": "flash/confidence.py::_affordable",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/confidence.py::edge_probe",
+   "d": "flash/confidence.py::_probe_calls",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/confidence.py::evaluate",
+   "d": "flash/confidence.py::edge_probe",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/confidence.py::run_selftest",
+   "d": "flash/confidence.py::ck",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/confidence.py::run_selftest",
+   "d": "flash/confidence.py::evaluate",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/confidence.py::run_selftest",
+   "d": "flash/confidence.py::_shape",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/confidence.py::run_selftest",
+   "d": "flash/confidence.py::_probe_calls",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/confidence.py::run_selftest",
+   "d": "flash/confidence.py::_counts_as_guard",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/confidence.py::run_selftest",
+   "d": "flash/confidence.py::edge_probe",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/confidence.py::run_selftest",
+   "d": "flash/confidence.py::_affordable",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/debug.py::watch",
+   "d": "flash/debug.py::_run",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/debug.py::run_selftest",
+   "d": "flash/debug.py::watch",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/debug.py::run_selftest",
+   "d": "flash/debug.py::ck",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/grammar.py::conformance",
+   "d": "flash/grammar.py::Contract.feed",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/grammar.py::run_overhead",
+   "d": "flash/grammar.py::Contract",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/grammar.py::run_overhead",
+   "d": "flash/grammar.py::ConstrainedSampler",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/grammar.py::run_selftest",
+   "d": "flash/grammar.py::Contract",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/grammar.py::run_selftest",
+   "d": "flash/grammar.py::_reference",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/grammar.py::run_selftest",
+   "d": "flash/grammar.py::ck",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/grammar.py::run_selftest",
+   "d": "flash/grammar.py::Contract.feed",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/grammar.py::run_selftest",
+   "d": "flash/grammar.py::ConstrainedSampler",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/grammar.py::run_selftest",
+   "d": "flash/grammar.py::answer_shaped",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/grammar.py::run_selftest",
+   "d": "flash/grammar.py::conformance",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/graph.py::walk",
+   "d": "flash/graph.py::_join",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/graph.py::walk",
+   "d": "flash/graph.py::walk",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/graph.py::_bindings",
+   "d": "flash/graph.py::Edge",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/graph.py::walk",
+   "d": "flash/graph.py::_binds",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/graph.py::extract",
+   "d": "flash/graph.py::_join",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/graph.py::extract",
+   "d": "flash/graph.py::_bindings",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/graph.py::emit",
+   "d": "flash/graph.py::Edge",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/graph.py::emit",
+   "d": "flash/graph.py::_join",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/graph.py::expr",
+   "d": "flash/graph.py::emit",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/graph.py::expr",
+   "d": "flash/graph.py::expr",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/graph.py::walk",
+   "d": "flash/graph.py::expr",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/graph.py::extract",
+   "d": "flash/graph.py::walk",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/graph.py::Graph.resolved",
+   "d": "flash/graph.py::Graph._cache",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/graph.py::Graph.blast",
+   "d": "flash/graph.py::Graph.resolved",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/graph.py::build",
+   "d": "flash/graph.py::_now_ms",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/graph.py::build",
+   "d": "flash/graph.py::python_files",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/graph.py::build",
+   "d": "flash/graph.py::extract",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/graph.py::merge",
+   "d": "flash/graph.py::_now_ms",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/graph.py::merge",
+   "d": "flash/graph.py::python_files",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/graph.py::merge",
+   "d": "flash/graph.py::extract",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/graph.py::render",
+   "d": "flash/graph.py::build",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/graph.py::render",
+   "d": "flash/graph.py::_now_ms",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/graph.py::_checks",
+   "d": "flash/graph.py::build",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/graph.py::_checks",
+   "d": "flash/graph.py::check",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/graph.py::_checks",
+   "d": "flash/graph.py::merge",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/graph.py::_checks",
+   "d": "flash/graph.py::python_files",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/graph.py::_checks",
+   "d": "flash/graph.py::render",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/graph.py::_checks",
+   "d": "flash/graph.py::_wide_checks",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/graph.py::_wide_checks",
+   "d": "flash/graph.py::_now_ms",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/graph.py::_wide_checks",
+   "d": "flash/graph.py::build",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/graph.py::_wide_checks",
+   "d": "flash/graph.py::render",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/graph.py::_wide_checks",
+   "d": "flash/graph.py::check",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/graph.py::_wide_checks",
+   "d": "flash/graph.py::python_files",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/graph.py::_wide_checks",
+   "d": "flash/graph.py::merge",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/graph.py::dispatch",
+   "d": "flash/graph.py::build",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/graph.py::dispatch",
+   "d": "flash/graph.py::render",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/harness.py::score_files",
+   "d": "flash/harness.py::Score",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/harness.py::score_files",
+   "d": "flash/harness.py::score",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/harness.py::diagnose",
+   "d": "flash/harness.py::score",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/harness.py::score",
+   "d": "flash/harness.py::Score",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/harness.py::run_selftest",
+   "d": "flash/harness.py::diagnose",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/harness.py::run_selftest",
+   "d": "flash/harness.py::ck",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/harness.py::run_selftest",
+   "d": "flash/harness.py::score",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/harness.py::run_selftest",
+   "d": "flash/harness.py::score_files",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/jobs.py::run_fit",
+   "d": "flash/jobs.py::load_state",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/jobs.py::run_fit",
+   "d": "flash/jobs.py::eligibility",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/jobs.py::run_fit",
+   "d": "flash/jobs.py::save_state",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/jobs.py::run_lora",
+   "d": "flash/jobs.py::load_state",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/jobs.py::run_lora",
+   "d": "flash/jobs.py::eligibility",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/jobs.py::run_lora",
+   "d": "flash/jobs.py::save_state",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/jobs.py::run_selftest",
+   "d": "flash/jobs.py::eligibility",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/jobs.py::run_selftest",
+   "d": "flash/jobs.py::state",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/jobs.py::run_selftest",
+   "d": "flash/jobs.py::check",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/jobs.py::run_selftest",
+   "d": "flash/jobs.py::run_fit",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/jobs.py::run_selftest",
+   "d": "flash/jobs.py::load_state",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/jobs.py::run_selftest",
+   "d": "flash/jobs.py::run_lora",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/jobs.py::run_selftest",
+   "d": "flash/jobs.py::save_state",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/learn.py::autofit_if_stale",
+   "d": "flash/learn.py::bundle_labels",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/learn.py::autofit_if_stale",
+   "d": "flash/learn.py::embed_prompts",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/loop.py::_solve_edits",
+   "d": "flash/loop.py::Attempt",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/loop.py::solve",
+   "d": "flash/loop.py::_solve_edits",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/loop.py::solve",
+   "d": "flash/loop.py::Attempt",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/loop.py::solve_routed",
+   "d": "flash/loop.py::solve",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/loop.py::solve_routed",
+   "d": "flash/loop.py::with_conf",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/lsp.py::find_occurrences",
+   "d": "flash/lsp.py::python_files",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/lsp.py::find_occurrences",
+   "d": "flash/lsp.py::_walk_name",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/lsp.py::symbol_hint",
+   "d": "flash/lsp.py::symbols_involved",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/lsp.py::walk",
+   "d": "flash/lsp.py::walk",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/lsp.py::ast_symbols",
+   "d": "flash/lsp.py::walk",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/lsp.py::Lsp._request",
+   "d": "flash/lsp.py::Lsp._send",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/lsp.py::find_symbol",
+   "d": "flash/lsp.py::python_files",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/lsp.py::find_symbol",
+   "d": "flash/lsp.py::ast_symbols",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/lsp.py::find_symbol",
+   "d": "flash/lsp.py::find_occurrences",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/lsp.py::find_references",
+   "d": "flash/lsp.py::find_occurrences",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/lsp.py::run_selftest",
+   "d": "flash/lsp.py::ast_symbols",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/lsp.py::run_selftest",
+   "d": "flash/lsp.py::check",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/lsp.py::run_selftest",
+   "d": "flash/lsp.py::find_occurrences",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/lsp.py::run_selftest",
+   "d": "flash/lsp.py::find_references",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/lsp.py::run_selftest",
+   "d": "flash/lsp.py::symbol_hint",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/lsp.py::run_selftest",
+   "d": "flash/lsp.py::find_symbol",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/patches.py::walk",
+   "d": "flash/patches.py::walk",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/patches.py::definitions",
+   "d": "flash/patches.py::walk",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/patches.py::resolve",
+   "d": "flash/patches.py::definitions",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/patches.py::resolve",
+   "d": "flash/patches.py::Refused",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/patches.py::resolve",
+   "d": "flash/patches.py::find_defs",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/patches.py::check_result",
+   "d": "flash/patches.py::Refused",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/patches.py::check_result",
+   "d": "flash/patches.py::find_defs",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/patches.py::check_result",
+   "d": "flash/patches.py::definitions",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/patches.py::apply_patches",
+   "d": "flash/patches.py::resolve",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/patches.py::apply_patches",
+   "d": "flash/patches.py::splice",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/patches.py::apply_patches",
+   "d": "flash/patches.py::check_result",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/patches.py::outside_lines",
+   "d": "flash/patches.py::find_defs",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/patches.py::outside_lines",
+   "d": "flash/patches.py::definitions",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/patches.py::run_premise",
+   "d": "flash/patches.py::check",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/patches.py::run_premise",
+   "d": "flash/patches.py::find_defs",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/patches.py::run_premise",
+   "d": "flash/patches.py::definitions",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/patches.py::run_premise",
+   "d": "flash/patches.py::apply_patches",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/patches.py::run_premise",
+   "d": "flash/patches.py::outside_lines",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/patches.py::run_wiring",
+   "d": "flash/patches.py::check",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/patches.py::run_selftest",
+   "d": "flash/patches.py::definitions",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/patches.py::run_selftest",
+   "d": "flash/patches.py::find_defs",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/patches.py::run_selftest",
+   "d": "flash/patches.py::check",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/patches.py::run_selftest",
+   "d": "flash/patches.py::apply_patches",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/patches.py::run_selftest",
+   "d": "flash/patches.py::Patch",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/patches.py::run_selftest",
+   "d": "flash/patches.py::outside_lines",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/patches.py::run_selftest",
+   "d": "flash/patches.py::splice",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/patches.py::run_selftest",
+   "d": "flash/patches.py::resolve",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/patches.py::run_selftest",
+   "d": "flash/patches.py::run_wiring",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/perceive.py::lsp_diagnostics",
+   "d": "flash/perceive.py::send",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/power.py::read_state",
+   "d": "flash/power.py::_run",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/power.py::run_selftest",
+   "d": "flash/power.py::check",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/power.py::run_selftest",
+   "d": "flash/power.py::_table",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/power.py::run_selftest",
+   "d": "flash/power.py::profile_for",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/power.py::run_selftest",
+   "d": "flash/power.py::allow_model",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/power.py::run_selftest",
+   "d": "flash/power.py::read_state",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/sandbox.py::seatbelt",
+   "d": "flash/sandbox.py::realpath",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/sandbox.py::status",
+   "d": "flash/sandbox.py::seatbelt",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/sandbox.py::run_selftest",
+   "d": "flash/sandbox.py::ck",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/sandbox.py::run_selftest",
+   "d": "flash/sandbox.py::realpath",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/sandbox.py::run_selftest",
+   "d": "flash/sandbox.py::probe",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/sandbox.py::run_selftest",
+   "d": "flash/sandbox.py::seatbelt",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/sandbox.py::run_selftest",
+   "d": "flash/sandbox.py::status",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/tourney.py::run",
+   "d": "flash/tourney.py::plan",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/tourney.py::run_with",
+   "d": "flash/tourney.py::run",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/tourney.py::run_wiring",
+   "d": "flash/tourney.py::ck",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/tourney.py::run_wiring",
+   "d": "flash/tourney.py::plan",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/tourney.py::run_wiring",
+   "d": "flash/tourney.py::run_with",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/tourney.py::run_wiring",
+   "d": "flash/tourney.py::run",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/trace.py::run_selftest",
+   "d": "flash/trace.py::ck",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/train.py::mine",
+   "d": "flash/train.py::bump",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/train.py::run_selftest",
+   "d": "flash/train.py::sess",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/train.py::run_selftest",
+   "d": "flash/train.py::ev",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/train.py::run_selftest",
+   "d": "flash/train.py::end",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/train.py::run_selftest",
+   "d": "flash/train.py::mine",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/train.py::run_selftest",
+   "d": "flash/train.py::check",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/train.py::run_selftest",
+   "d": "flash/train.py::train_lora",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/vision.py::solve_vision",
+   "d": "flash/vision.py::check_task",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/web.py::selftest",
+   "d": "flash/web.py::check",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/web.py::selftest",
+   "d": "flash/web.py::lookup",
+   "kind": "calls"
+  }
+ ],
+ "kinds": {
+  "class": 8,
+  "function": 135,
+  "method": 7
+ },
+ "sampled": {
+  "shown_nodes": 150,
+  "shown_edges": 192,
+  "repo_nodes": 4091,
+  "repo_edges": 22219,
+  "note": "the 150 most-connected functions, classes and methods under flash/, joined by their call and import edges; `reads` edges and the rest of the index are not drawn"
+ },
+ "extracted_by": "python -c 'from flash.graph import build; build(...)'"
+}

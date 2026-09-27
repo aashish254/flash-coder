@@ -27,3 +27,8 @@ build/
 dist/
 *.egg-info/
 .venv-*/
+
+# landing site: dependencies and the built bundle are regenerated, never committed
+site/node_modules/
+site/dist/
+site/*.tsbuildinfo

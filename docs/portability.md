@@ -78,7 +78,7 @@ RECORD_RESIDUE = 411
 
 That is what the widened scan counts on the committed tree at the time of writing
 (`traces` 241, top-level records 154, `adapters` 9, `p6` 6, `jobs` 1) across 36
-of the 168 record files. Every step between 395 and 411 is named below, because a
+of the 171 record files. Every step between 395 and 411 is named below, because a
 residue figure that moves without an explanation is the same failure as one that
 was never published:
 
@@ -119,6 +119,18 @@ was never published:
   temp-directory *relative* paths and counts, because `pkg_only_copy()` hands the
   child a `PYTHONPATH` it built with `Path` arithmetic and the vector never echoes
   it. So the floor stays **411 over 36** and only the file count moved.
+- Storing the R-7.5 fresh-clone §6 witness (`battery_reread_r75_20260928.log`)
+  added a 169th record file carrying **zero** — the same shape as the other battery
+  prints: vector names, relative paths, counts.
+- The landing page's measured data file (`dashboard_data.json`) added a 170th
+  carrying **zero**, because `benchmarks/dashboard_data.py` records each vector as
+  the command it ran and the line it printed, never as an absolute checkout path.
+  Both steps moved the file count and neither moved the floor.
+- Re-running the §6 battery after the site landed (`battery_reread_r711_20260928.log`)
+  added a 171st record file carrying **zero** again, and the run is the reason the
+  floor is quoted rather than assumed: the same **411 over 36**, the same
+  `checks 1119  oracle 20  §6 total 1139  mutants 85`, because a battery print is a
+  list of vector names, relative paths and counts.
 
 Eight of the 411 are this vector's pass-1 and reproduction logs and three are its
 pass-2 table — a count that includes the counter is the kind of detail worth

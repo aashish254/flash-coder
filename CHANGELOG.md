@@ -75,6 +75,29 @@ versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `flash.route` are the two that do not — unnoticed because `flash.cli` imports both
   lazily. **R-7.8**: gate every `flash …` command printed in a doc against
   `flash.cli.build_parser()`, which is how the setup block below was found.
+- **A landing page under `site/`, and the pipeline that keeps it honest.** Vite +
+  React + Tailwind v4, with the hero scene being this repo's own AST call graph:
+  `benchmarks/export_site_data.py` runs `flash.graph.build(ROOT)`, keeps the 150
+  most-connected symbols under `flash/`, and joins them on `calls` and `imports`
+  edges only — `reads` edges from module-level constants dominate the graph and a
+  slice that keeps them is a 2,552-edge hairball rather than a picture. Clicking a
+  node computes a caller-direction blast radius to depth 2 in the browser, which is
+  the same question `flash graph SYM` answers. Every figure on the page comes from
+  `site/src/data/benchmarks.json`, and every panel names the command that prints it;
+  the 33 commands were cross-checked against `battery_reread.BATTERY` itself, which
+  is how a `build_ms` field that had parsed the edge count (10,058 instead of 603 ms)
+  was caught before it shipped. `python -m flash.<mod> --selftest` timings are the
+  median of **n=3** fresh runs with min and max published beside them.
+  The page's own first defect was a real one and is worth the stating: three.js
+  throws when no WebGL context can be made, an uncaught error in a child unmounts
+  the whole React tree, and the page rendered **blank** — 33 KB of DOM with an empty
+  `#root`. Headless Chrome's own console line was the witness
+  (`Uncaught Error: THREE.WebGLRenderer: Error creating WebGL context.`). The hero
+  now probes for a context, a software renderer and `prefers-reduced-motion`, and
+  falls back to an interactive SVG of the same 150 symbols — so a reader on a remote
+  desktop gets the graph, the click-to-blast-radius readout and the copy, and never
+  downloads the 914 KB three.js chunk. With the probe in place the rendered DOM is
+  173 KB with all eight sections present.
 
 ### Corrected — claims this file made that the tree does not support
 - This file's own `### Added` section listed `flash doctor`, `flash selftest --all`
@@ -97,6 +120,18 @@ versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   unwritten. **That last clause moved again this pass:** the file exists and is a §6
   line, so the comment cites it as the gate it is; the clean-clone run is still
   R-7.5's open box and the install claim is still gated, not measured.
+- **This project published invented numbers, and they are gone.** Commit `54a2117`
+  added four dashboard PNGs to `benchmarks/results/benchmarks_20261028/` — a
+  competitor latency table, a cost table and a "viral summary" — under a commit
+  message calling them benchmarks. They were not benchmarks. Every one of those
+  figures was typed by hand: no run produced a competitor's millisecond, and the
+  cost table multiplied a price this repo has never measured. Reverted as `69a4d2d`,
+  which deletes all four files. What makes this a correction rather than a revert is
+  the mechanism, because a rule that only lives in a sentence will be broken again:
+  the site's numbers are now generated, so the failure is structurally unavailable.
+  `benchmarks/dashboard_data.py` measures, `benchmarks/export_site_data.py` converts,
+  and `site/src/data/*.json` is the only source a component may read. There is no
+  code path from a hand-typed figure to the screen.
 
 ### Fixed
 - **R-7.9** `python -m flash.train --dry-run` writes nothing, on both of its

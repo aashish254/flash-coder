@@ -72,7 +72,7 @@ def main(argv: list[str]) -> int:
     if rc != 0:
         die("git status failed")
     if out.strip():
-        print(f"WARNING: uncommitted changes present:")
+        print("WARNING: uncommitted changes present:")
         for line in out.splitlines()[:5]:
             print(f"  {line}")
 
@@ -165,7 +165,7 @@ def main(argv: list[str]) -> int:
             if rc != 0 and "expected" not in out.lower():
                 print(f"BATTERY QUICK FAILED:\n{err[:500]}")
                 die("battery quick subset failed")
-            print(f"✓ battery quick subset passed")
+            print("✓ battery quick subset passed")
             
             # Print summary
             for line in out.splitlines():

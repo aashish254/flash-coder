@@ -1,0 +1,364 @@
+{
+  "witness": "battery_reread_r710c_20260927.log",
+  "vectors": [
+    {
+      "label": "flash.harness --selftest",
+      "checks": 20,
+      "expected": 20,
+      "mutants": 0,
+      "kind": "module"
+    },
+    {
+      "label": "flash lsp-selftest",
+      "checks": 22,
+      "expected": 22,
+      "mutants": 0,
+      "kind": "module"
+    },
+    {
+      "label": "flash power --selftest",
+      "checks": 22,
+      "expected": 22,
+      "mutants": 0,
+      "kind": "module"
+    },
+    {
+      "label": "flash jobs --selftest",
+      "checks": 20,
+      "expected": 20,
+      "mutants": 0,
+      "kind": "module"
+    },
+    {
+      "label": "flash trace --selftest",
+      "checks": 30,
+      "expected": 30,
+      "mutants": 0,
+      "kind": "module"
+    },
+    {
+      "label": "flash web --selftest",
+      "checks": 9,
+      "expected": 9,
+      "mutants": 0,
+      "kind": "module"
+    },
+    {
+      "label": "flash.grammar --selftest",
+      "checks": 47,
+      "expected": 47,
+      "mutants": 0,
+      "kind": "module"
+    },
+    {
+      "label": "flash.patches --selftest",
+      "checks": 46,
+      "expected": 46,
+      "mutants": 0,
+      "kind": "module"
+    },
+    {
+      "label": "flash.debug --selftest",
+      "checks": 55,
+      "expected": 55,
+      "mutants": 0,
+      "kind": "module"
+    },
+    {
+      "label": "flash.tourney --selftest",
+      "checks": 16,
+      "expected": 16,
+      "mutants": 0,
+      "kind": "module"
+    },
+    {
+      "label": "flash.confidence --selftest",
+      "checks": 29,
+      "expected": 29,
+      "mutants": 0,
+      "kind": "module"
+    },
+    {
+      "label": "flash.sandbox --selftest",
+      "checks": 34,
+      "expected": 34,
+      "mutants": 0,
+      "kind": "module"
+    },
+    {
+      "label": "flash.checkpoint --selftest",
+      "checks": 31,
+      "expected": 31,
+      "mutants": 0,
+      "kind": "module"
+    },
+    {
+      "label": "flash.train --selftest",
+      "checks": 36,
+      "expected": 36,
+      "mutants": 0,
+      "kind": "module"
+    },
+    {
+      "label": "flash.graph --selftest",
+      "checks": 44,
+      "expected": 44,
+      "mutants": 12,
+      "kind": "module"
+    },
+    {
+      "label": "flash.ambient --selftest",
+      "checks": 61,
+      "expected": 61,
+      "mutants": 6,
+      "kind": "module"
+    },
+    {
+      "label": "benchmarks/trace_resume_check.py",
+      "checks": 11,
+      "expected": 11,
+      "mutants": 0,
+      "kind": "vector"
+    },
+    {
+      "label": "benchmarks/confidence_wiring_check.py",
+      "checks": 35,
+      "expected": 35,
+      "mutants": 0,
+      "kind": "vector"
+    },
+    {
+      "label": "benchmarks/subtle_premise_check.py",
+      "checks": 52,
+      "expected": 52,
+      "mutants": 0,
+      "kind": "vector"
+    },
+    {
+      "label": "benchmarks/p6_key_check.py",
+      "checks": 28,
+      "expected": 28,
+      "mutants": 0,
+      "kind": "vector"
+    },
+    {
+      "label": "benchmarks/confidence_tau_check.py",
+      "checks": 7,
+      "expected": 7,
+      "mutants": 0,
+      "kind": "vector"
+    },
+    {
+      "label": "benchmarks/checkpoint_resume_check.py",
+      "checks": 35,
+      "expected": 35,
+      "mutants": 0,
+      "kind": "vector"
+    },
+    {
+      "label": "benchmarks/lora_path_check.py",
+      "checks": 33,
+      "expected": 33,
+      "mutants": 15,
+      "kind": "vector"
+    },
+    {
+      "label": "benchmarks/dbg_band_check.py",
+      "checks": 172,
+      "expected": 172,
+      "mutants": 5,
+      "kind": "vector"
+    },
+    {
+      "label": "benchmarks/router_portable_check.py",
+      "checks": 20,
+      "expected": 20,
+      "mutants": 5,
+      "kind": "vector"
+    },
+    {
+      "label": "benchmarks/graph_perceive_check.py",
+      "checks": 33,
+      "expected": 33,
+      "mutants": 12,
+      "kind": "vector"
+    },
+    {
+      "label": "benchmarks/hint_ab_check.py",
+      "checks": 14,
+      "expected": 14,
+      "mutants": 8,
+      "kind": "vector"
+    },
+    {
+      "label": "benchmarks/portable_paths_check.py",
+      "checks": 15,
+      "expected": 15,
+      "mutants": 7,
+      "kind": "vector"
+    },
+    {
+      "label": "benchmarks/backend_free_check.py",
+      "checks": 42,
+      "expected": 42,
+      "mutants": 10,
+      "kind": "vector"
+    },
+    {
+      "label": "benchmarks/documented_commands_check.py",
+      "checks": 8,
+      "expected": 8,
+      "mutants": 5,
+      "kind": "vector"
+    },
+    {
+      "label": "flash.debug --suite",
+      "checks": 32,
+      "expected": 32,
+      "mutants": 0,
+      "kind": "module"
+    },
+    {
+      "label": "flash.patches --suite",
+      "checks": 60,
+      "expected": 60,
+      "mutants": 0,
+      "kind": "module"
+    },
+    {
+      "label": "benchmarks/m0_bakeoff.py --dry-run",
+      "checks": 20,
+      "expected": 20,
+      "mutants": 0,
+      "kind": "vector"
+    }
+  ],
+  "totals": {
+    "checks": 1119,
+    "oracle": 20,
+    "total": 1139,
+    "mutants": 85
+  },
+  "timings": [
+    {
+      "module": "harness",
+      "median_s": 0.768,
+      "min_s": 0.763,
+      "max_s": 0.81,
+      "repeats": 3
+    },
+    {
+      "module": "power",
+      "median_s": 0.428,
+      "min_s": 0.421,
+      "max_s": 0.434,
+      "repeats": 3
+    },
+    {
+      "module": "jobs",
+      "median_s": 0.085,
+      "min_s": 0.085,
+      "max_s": 0.086,
+      "repeats": 3
+    },
+    {
+      "module": "trace",
+      "median_s": 0.028,
+      "min_s": 0.027,
+      "max_s": 0.028,
+      "repeats": 3
+    },
+    {
+      "module": "web",
+      "median_s": 0.058,
+      "min_s": 0.057,
+      "max_s": 0.058,
+      "repeats": 3
+    },
+    {
+      "module": "grammar",
+      "median_s": 14.657,
+      "min_s": 14.53,
+      "max_s": 15.15,
+      "repeats": 3
+    },
+    {
+      "module": "patches",
+      "median_s": 1.894,
+      "min_s": 1.889,
+      "max_s": 1.908,
+      "repeats": 3
+    },
+    {
+      "module": "debug",
+      "median_s": 4.452,
+      "min_s": 4.407,
+      "max_s": 4.466,
+      "repeats": 3
+    },
+    {
+      "module": "tourney",
+      "median_s": 15.75,
+      "min_s": 15.668,
+      "max_s": 15.825,
+      "repeats": 3
+    },
+    {
+      "module": "confidence",
+      "median_s": 6.61,
+      "min_s": 6.595,
+      "max_s": 6.612,
+      "repeats": 3
+    },
+    {
+      "module": "sandbox",
+      "median_s": 3.082,
+      "min_s": 3.033,
+      "max_s": 3.259,
+      "repeats": 3
+    },
+    {
+      "module": "checkpoint",
+      "median_s": 2.882,
+      "min_s": 2.88,
+      "max_s": 2.882,
+      "repeats": 3
+    },
+    {
+      "module": "train",
+      "median_s": 1.714,
+      "min_s": 1.698,
+      "max_s": 1.752,
+      "repeats": 3
+    },
+    {
+      "module": "graph",
+      "median_s": 1.166,
+      "min_s": 1.14,
+      "max_s": 1.172,
+      "repeats": 3
+    },
+    {
+      "module": "ambient",
+      "median_s": 11.492,
+      "min_s": 11.439,
+      "max_s": 11.583,
+      "repeats": 3
+    }
+  ],
+  "graph_latency": {
+    "measured": true,
+    "fixture_ms": 0.1,
+    "budget_ms": 200.0,
+    "wide_ms": 30.5,
+    "wide_nodes": 5377,
+    "wide_edges": 10058,
+    "build_ms": 603.0,
+    "warm_ms": 8.8
+  },
+  "source_of_truth": {
+    "counts": "the \u00a76 battery print named in `witness`",
+    "timings": "wall clock of `python -m flash.<mod> --selftest` on this box",
+    "competitor_figures": "none measured here; none may appear in a chart"
+  }
+}

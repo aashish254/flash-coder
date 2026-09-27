@@ -1,0 +1,96 @@
+@import "tailwindcss";
+
+/* Design tokens. The rule this palette obeys: hue carries meaning, never
+   decoration. Amber is "the machine said no", green is "a run said yes",
+   red is reserved for a gate that failed. Everything else is ink. */
+@theme {
+  --color-ink-0: #07090c;
+  --color-ink-1: #0c1015;
+  --color-ink-2: #141a21;
+  --color-ink-3: #1d252e;
+  --color-line: #263039;
+  --color-fog-0: #eef2f4;
+  --color-fog-1: #a8b4bd;
+  --color-fog-2: #6d7a85;
+  --color-pass: #35d07f;
+  --color-refuse: #f0b429;
+  --color-fail: #ff5c5c;
+  --color-signal: #5ac8fa;
+
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    background-color: var(--color-ink-0);
+  }
+
+  body {
+    margin: 0;
+    font-family: var(--font-sans);
+    color: var(--color-fog-0);
+    background-color: var(--color-ink-0);
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  ::selection {
+    background: var(--color-pass);
+    color: var(--color-ink-0);
+  }
+
+  /* The numbers are the product. Tabular figures stop a chart's labels from
+     jittering as they count up. */
+  .num {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+  }
+
+  .hairline {
+    border-color: var(--color-line);
+  }
+}
+
+@layer components {
+  /* A quiet grid, not a gradient blob. Reads as engineering, not as a template. */
+  .grid-field {
+    background-image:
+      linear-gradient(to right, rgb(38 48 57 / 0.5) 1px, transparent 1px),
+      linear-gradient(to bottom, rgb(38 48 57 / 0.5) 1px, transparent 1px);
+    background-size: 72px 72px;
+    mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 40%, transparent 100%);
+  }
+
+  .card {
+    background: var(--color-ink-1);
+    border: 1px solid var(--color-line);
+    border-radius: 4px;
+  }
+
+  /* Terminal block: no frame glow, no drop shadow. The prompt line is the only
+     ornament, and it is the one a user can actually paste. Captured stdout is
+     not reflowed — a real terminal line that does not fit pans, it does not
+     wrap, because a wrapped `flash doctor` page is not the output anymore. */
+  .term {
+    background: #05070a;
+    border: 1px solid var(--color-line);
+    border-radius: 4px;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    line-height: 1.7;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}

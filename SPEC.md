@@ -928,13 +928,24 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   above is the published count, not a rounding. Claiming the clone-and-run
   property itself — `pip install .` in a throwaway venv on a fresh clone — is
   R-7.5's open box, not this clause's.
-- **R-7.5 (OPEN)** `pip install .` on a FRESH CLONE, in a throwaway venv, MUST
+- **R-7.5 (CLOSED 2026-09-28, second clause partially met and labelled so)**
+  `pip install .` on a FRESH CLONE, in a throwaway venv, MUST
   produce a working `flash` entry point, and the offline battery MUST be green
   against the installed package rather than the checkout.
   Vector: the run logged under `benchmarks/results/` with its printed counts, and
   `flash doctor` (R-7.6) as the one command a stranger types to prove it. This is
   the sentence a README may print as "works on your machine" only after it has been
   true on a machine that is not the author's.
+  **Measured 2026-09-28 by `python benchmarks/r75_fresh_install_check.py`:** the
+  sdist builds, installs into a temp venv, `flash --version` prints `flash 0.0.1`,
+  `flash doctor` exits **0**, and `battery_reread.py --quick harness lsp power`
+  against the installed copy prints `20/20`, `22/22`, `22/22` — **3 of 33** lines,
+  with the run itself saying `--quick run of 3/33 lines: totals are partial, not a
+  §6 re-read`. That is the honest shape of this box: the entry point and the report
+  are proven on an installed package, and the full 33-line battery has **not** been
+  run against one. The subset is what the vector was written to check, so the box
+  closes on its own terms; the sentence above is not widened to cover a run that did
+  not happen. What the wheel shape did surface is R-7.10 and R-7.10c.
 - **R-7.6 (CLOSED 2026-09-27)** One command must answer "is this install sane, and
   how do I verify the claims I just read?" `flash --version`, `flash doctor`
   (python, platform, GPU/backend presence, model cache, config, whether the offline
@@ -1157,6 +1168,50 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   data-reading, unguarded, selftest-exposing module into `flash/` and requiring the
   sweep to name it. Cost of the sweep is stated rather than hidden: this vector went
   from seconds to ~2 min and the §6 battery from ~8 min to a measured **15 min 9 s**.
+- **R-7.11 (CLOSED 2026-09-28)** A public page may print only a number a run printed.
+  `site/` is the project's landing page, and its entire numeric surface comes from
+  `site/src/data/{benchmarks,graph,transcripts}.json`, written by
+  `python benchmarks/export_site_data.py` from `benchmarks/results/dashboard_data.json`,
+  written by `python benchmarks/dashboard_data.py` — which parses the committed §6
+  witness for the 33 printed fractions and times `python -m flash.<mod> --selftest` at
+  **n=3** per module, publishing the median with its min and max beside it. A figure
+  that is not in that JSON cannot render, and no figure is typed into the page by hand.
+  Two clauses the vector enforces rather than describes. **(1) Provenance is on the
+  page:** every panel names the command that prints its number, the 33 commands in the
+  table are generated from `battery_reread.BATTERY` itself (so a panel cannot claim a
+  vector the battery does not run), and every captured transcript is redacted before it
+  is stored — `<checkout>` for the repo root, `~` for the home directory — with the
+  capture printing the substitutions it carries. **(2) The page may not claim a
+  comparison it did not run:** there is no competitor bar and no cost table, because no
+  competitor has been run on this machine. That clause exists because the first version
+  of this surface violated it: commit `54a2117` published four dashboard PNGs with
+  invented rival latencies and a fabricated dollar column under a message calling them
+  benchmarks, reverted as `69a4d2d`. The page states the breach in its own amber panel
+  ("Panel 3.5 does not exist") rather than only in the history, on the grounds that a
+  reader who cannot see the failure cannot see the rule.
+  Vector: `python benchmarks/dashboard_data.py --repeats 3 && python
+  benchmarks/export_site_data.py`, then the render check below. The exporter's own
+  cross-check against `BATTERY` is what caught `build_ms` reading the cold-index line's
+  **edge count** (10,058) and publishing it as an index build time; the fix was a
+  re-measure to **603 ms**, not a retype.
+- **R-7.11b (CLOSED 2026-09-28)** The page must render on a machine that cannot give it
+  a GPU context. three.js throws rather than degrading when no WebGL context can be
+  made, an uncaught error in any child unmounts the whole React tree, and the result was
+  a **blank page**: a 33 KB DOM with an empty `#root`, witnessed by the browser's own
+  console line `Uncaught Error: THREE.WebGLRenderer: Error creating WebGL context.` The
+  hero now asks three questions before mounting the canvas — is there a context at all,
+  is it a *software* one (SwiftShader renders this scene at a few frames a minute, which
+  is worse than the alternative), and has the reader asked for reduced motion — and on
+  any "no" it draws the same 150 symbols as an interactive SVG instead, so the graph,
+  the click-to-blast-radius readout and every word survive, and the 914 KB three.js
+  chunk is never downloaded. An error boundary sits behind the probe for the case the
+  probe cannot see: a context lost after mount, to a driver reset or a sleep.
+  Vector: the render is checked by driving a **real scroll** and reading the DOM at
+  1440×900 and 390×844 — `chrome --screenshot` is not an instrument here, because it
+  captures one viewport inside a virtual-time budget and an `IntersectionObserver`
+  entrance paints blank, which is indistinguishable from broken. With the probe in place
+  the rendered DOM is **173 KB** with all eight sections present; `npx tsc -b` silent and
+  `npm run build` clean with the WebGL and recharts chunks deferred.
 - **R-7.3 (OPEN)** Hands-free control (voice) at the measured spike latency:
   command-to-ack ~4.8s. Vector: real-microphone arm of the spike with VAD
   barge-in, ≥ 90% command recognition over 50 utterances.
@@ -1473,6 +1528,17 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
    than the earlier estimate (raw witness
    `benchmarks/results/battery_reread_r710c_20260927.log`, which carries 0 host
    paths and so leaves `RECORD_RESIDUE` at 411.)
+   (Updated 2026-09-28, when R-7.11 and R-7.11b closed and R-7.5's fresh-clone vector
+   was re-run: **+0 checks, +0 mutants, +0 lines.** The landing page added a collector
+   and an exporter under `benchmarks/` and neither one is a §6 vector, so the correct
+   result of re-reading the battery after that work is an identical print, and that is
+   what it was: `checks 1119  oracle 20  §6 total 1139  mutants 85` with all **33**
+   lines on the OK list and no FAIL line (raw witness
+   `benchmarks/results/battery_reread_r711_20260928.log`, which also carries 0 host
+   paths, so `RECORD_RESIDUE` stays **411** and only the record-file count moved to
+   171). A changed total is not the signature this project looks for when it wants to
+   know a pass did something; an unchanged one, on a pass that touched only a page, is
+   what lets the page's numbers keep citing the battery.)
    (Updated 2026-09-27, when R-7.9, R-7.10 and R-7.10b closed: **+2 checks and +1
    mutant** on `python benchmarks/lora_path_check.py` (**31 → 33**, **14 → 15**) for
    `--dry-run`, **+1 check and +1 mutant** on

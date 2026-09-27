@@ -105,6 +105,7 @@ re-run.
 | `benchmarks/` | the vectors. `benchmarks/results/` holds the runs that published numbers cite |
 | `docs/` | `architecture.md` (the loop and its seams), `models.md` (tiers, versions, platform), `portability.md` (what a stranger's machine must not need), `config.md` (every knob is a flag; there is no config file), `privacy.md` (what leaves the machine, what gets written where), `methodology.md` (how the numbers above were produced, and the four rules that catch a green lie) |
 | `flash/` | the package. `cli.py` is the whole surface, in one `argparse` object, so a check can parse commands without running them |
+| `site/` | the landing page (Vite + React). Its numbers come from `site/src/data/*.json`, which `benchmarks/export_site_data.py` writes from a measured run — a figure that is not in that JSON cannot render, and no figure is typed into the page by hand |
 
 Every command printed in every tracked document is parsed against that one parser on
 each battery run (`benchmarks/documented_commands_check.py`), so this page and the

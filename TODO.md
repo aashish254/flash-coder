@@ -1243,6 +1243,37 @@ here rather than folded into P6's confidence work.
       in `pyproject.toml`, data files shipped via `MANIFEST.in`. Battery_reread.py subset
       (`--quick harness lsp power`) also verified from installed location. Total measured
       time ~2 min for full r75 test including venv creation and cleanup.**
+- [x] [V] [offline] R-7.11 a landing page whose numbers cannot be invented:
+      **Closed 2026-09-28. `site/` is a Vite + React page and its only data source is
+      `site/src/data/{benchmarks,graph,transcripts}.json`, written by
+      `python benchmarks/export_site_data.py` from `benchmarks/results/dashboard_data.json`,
+      which `python benchmarks/dashboard_data.py` produced by measuring: the §6 witness
+      parsed for the 33 printed fractions (**1,119 + 20 = 1,139**, **85** mutants) and
+      `python -m flash.<mod> --selftest` timed **n=3** per module with min and max
+      published. Three things this box exists to record:
+      (1) **the fabrication and its revert** — commit `54a2117` published four dashboard
+      PNGs with invented competitor latencies and a hand-typed cost table; reverted as
+      `69a4d2d`, and the pipeline is now the control, because there is no code path from
+      a typed figure to the screen;
+      (2) **the exporter caught a bug in itself** — `build_ms` read capture group 4 of the
+      cold-index line, which is the edge count, so the panel would have printed
+      **10,058 ms** as an index build; cross-checking the 33 generated commands against
+      `battery_reread.BATTERY` is what surfaced it, and the fix was a re-measure
+      (**603 ms**), not a retype;
+      (3) **the page's first shipped defect was a blank page** — three.js throws when no
+      WebGL context can be made, an uncaught error in a child unmounts the whole React
+      tree, and headless Chrome's console said so
+      (`Uncaught Error: THREE.WebGLRenderer: Error creating WebGL context.`) against a
+      33 KB DOM with an empty `#root`. The hero now probes for a context, a software
+      renderer and `prefers-reduced-motion` and falls back to an interactive SVG of the
+      same 150 symbols; rendered DOM **173 KB**, all eight sections present, and the
+      914 KB three.js chunk is never downloaded on the fallback path.
+      Verified by driving a real scroll over the Chrome DevTools Protocol at 1440×900 and
+      390×844 — `chrome --screenshot` cannot be used for this, because it captures one
+      viewport inside a virtual-time budget and an `IntersectionObserver` entrance paints
+      blank, which is indistinguishable from broken. `npx tsc -b` silent,
+      `npm run build` clean, `python -m pyflakes flash/*.py benchmarks/*.py` **0
+      findings**, `benchmarks/portable_paths_check.py` **15/15 + 7/7 mutants**.**
 - [ ] [V] [L] R-7.3 voice: real-microphone arm, VAD barge-in, ≥ 90% command
       recognition over 50 utterances.
 - [ ] [V] [L] M17 feel test: ≥ 7 of 10 developers keep it after a week.
