@@ -78,7 +78,7 @@ RECORD_RESIDUE = 411
 
 That is what the widened scan counts on the committed tree at the time of writing
 (`traces` 241, top-level records 154, `adapters` 9, `p6` 6, `jobs` 1) across 36
-of the 174 record files. Every step between 395 and 411 is named below, because a
+of the 175 record files. Every step between 395 and 411 is named below, because a
 residue figure that moves without an explanation is the same failure as one that
 was never published:
 
@@ -159,6 +159,15 @@ was never published:
   sdist`, `the clone` — and refuses the witness outright if `str(ROOT)` survives in the
   text, so a regression in provenance shows up as a refused file rather than as a clean
   log with a host path in it. Floor unchanged at **411 over 36**.
+- The §6 re-read of the tree that carries that rewrite (`battery_reread_r75c_20260928.log`)
+  added a 175th record file, **zero** occurrences again, and it is worth naming why a
+  fourth identical print is in the tree at all: `checks 1119  oracle 20  §6 total 1139
+  mutants 85` over **33** OK lines is now the print of the checkout, of the download, and
+  of the checkout again after a driver rewrite — three witnesses of the same totals from
+  three different trees, which is the only way this repo can say a total is a property
+  rather than a moment. Its wall clock comes from the file's own timestamps again
+  (05:09:18 → 05:24:25, 15 min 7 s), because it is another shell redirect with no driver
+  to label it.
 
 Eight of the 411 are this vector's pass-1 and reproduction logs and three are its
 pass-2 table — a count that includes the counter is the kind of detail worth

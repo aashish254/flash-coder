@@ -1640,6 +1640,15 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
    moves to **174**). What it changes is not a total but a sentence: the run now backs
    `flash doctor`'s two different exit codes for two different install shapes, which is
    the claim R-7.5's clause 1 makes in this file and in `README.md`.)
+   (And then the whole battery was re-read from this checkout with that rewrite committed:
+   **+0 checks, +0 mutants, +0 lines**, `checks 1119  oracle 20  §6 total 1139  mutants
+   85`, **33** OK lines and no FAIL line, in **15 min 7 s** (witness
+   `benchmarks/results/battery_reread_r75c_20260928.log`, 0 host paths, floor **411 over
+   36**, record files **175**). Again a shell redirect rather than a driver, so its wall
+   clock is the file's own timestamps and it credits itself no provenance. Three
+   identical totals now exist — this checkout, the unpacked sdist, this checkout again
+   after the install driver stopped answering about the wrong copy — and that agreement
+   is the point: a total that only one tree has ever printed is a moment, not a property.)
    (Updated 2026-09-27, when R-7.9, R-7.10 and R-7.10b closed: **+2 checks and +1
    mutant** on `python benchmarks/lora_path_check.py` (**31 → 33**, **14 → 15**) for
    `--dry-run`, **+1 check and +1 mutant** on

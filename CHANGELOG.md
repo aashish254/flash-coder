@@ -144,6 +144,12 @@ versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   from this checkout while the print claimed the install. That is now a gate rather than a
   footnote, because the only way to keep a provenance bug from coming back is to make the
   wrong shape fail something.
+  The battery was then re-read from the tree holding that rewrite, to the same print
+  again — **33/33**, `checks 1119  oracle 20  §6 total 1139  mutants 85`, in **15 min 7 s**
+  (`benchmarks/results/battery_reread_r75c_20260928.log`, 0 host paths, floor **411 over
+  36**, record files **175**). Three identical totals now exist: the checkout before the
+  correction, the download, and the checkout after it. `docs/portability.md` says why a
+  fourth copy of the same numbers is worth a record file.
 
 ### Corrected — claims this file made that the tree does not support
 - **`flash doctor` does not exit 0 against an installed copy, and this file, `SPEC.md`,
