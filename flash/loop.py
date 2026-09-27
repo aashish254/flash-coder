@@ -77,6 +77,13 @@ EDIT = False
 # default is `run-suite --tasks dbg_tasks.jsonl` with and without it.
 DEBUG = False
 
+# R-1.1b: which of the two perception blocks `_perceive` appends to a retry. Both
+# names is what every shipped run does; `--no-source-hint` / `--no-graph-hint` drop
+# one, and because run-suite records its params in the trace, an arm is auditable
+# from its own session rather than from a flag someone remembers passing. An empty
+# selection also skips the AST index — see `_perceive`.
+HINTS: tuple[str, ...] = ("source", "graph")
+
 
 @dataclass
 class SolveResult:
@@ -265,7 +272,8 @@ def _graph_hint(task: dict, err: str, code: str = "", index=None) -> str:
         return ""
 
 
-def _perceive(task: dict, err: str, code: str = "") -> str:
+def _perceive(task: dict, err: str, code: str = "",
+              hints: "tuple[str, ...] | None" = None) -> str:
     """The failed verdict, with both repo-perception blocks appended.
 
     Both blocks rank over the BARE error, and that is a fix rather than a style
@@ -280,13 +288,19 @@ def _perceive(task: dict, err: str, code: str = "") -> str:
     What this adds to a retry's context is bounded twice over: 1200 chars for the
     source block and 900 for the dependents block, so neither can crowd out the
     code being fixed, and the task's own skeleton is already in the opening turn.
+
+    `hints` (R-1.1b) selects which of the two a retry is shown, so an A/B can ask
+    "does either of these help" without deleting either. An empty selection returns
+    `err` BEFORE the index is built: an OFF arm that still pays the AST parse would
+    make §10.5's latency comparison measure the switch rather than the hint.
     """
+    chosen = [b for name, b in (("source", _symbol_hint), ("graph", _graph_hint))
+              if name in (HINTS if hints is None else hints)]
     ctx = task.get("_ctx_dir")
-    if not (ctx and err):
+    if not (ctx and err) or not chosen:
         return err
     index = _repo_index(task)
-    blocks = [b for b in (_symbol_hint(task, err, code, index),
-                          _graph_hint(task, err, code, index)) if b]
+    blocks = [b for b in (f(task, err, code, index) for f in chosen) if b]
     return "\n\n".join([err] + blocks)
 
 

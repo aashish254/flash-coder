@@ -194,12 +194,14 @@ def cmd_run(args) -> int:
     loop.CONSTRAIN = args.constrain
     loop.DEBUG = args.debug
     loop.EDIT = args.edit
+    loop.HINTS = _hint_names(args.no_source_hint, args.no_graph_hint)
     sid = trace.open_session("run", cmd="run", params={"prompt": args.prompt[:200],
                                                        "small": args.small,
                                                        "big": args.big,
                                                        "allow_big": args.allow_big,
                                                        "adapter": args.adapter,
                                                        "tournament": args.tournament,
+                                                       "hints": loop.HINTS,
                                                        "confidence": args.confidence})
     r, tier, routed = solve_routed(args.small, args.big, task, ROOT,
                                    small_attempts=args.attempts,
@@ -227,7 +229,18 @@ def cmd_run(args) -> int:
 
 SUITE_PARAMS = ("small", "big", "tasks", "with_context", "attempts", "max_tasks",
                 "max_tokens", "max_chars", "threshold", "allow_big", "constrain",
-                "debug", "edit", "tournament", "confidence", "adapter")
+                "debug", "edit", "tournament", "confidence", "adapter",
+                "no_source_hint", "no_graph_hint")
+
+
+def _hint_names(off_source: bool, off_graph: bool) -> tuple[str, ...]:
+    """Which perception blocks this arm shows (R-1.1b).
+
+    Recorded in the session's params, so a trace states its own arm; an old
+    session resumed without these keys gets both, which is what it ran with.
+    """
+    return tuple(n for n, off in (("source", bool(off_source)),
+                                  ("graph", bool(off_graph))) if not off)
 
 
 def _patch_attempt(r):
@@ -328,6 +341,10 @@ def _run_suite(params: dict, sid: str | None = None) -> int:
     loop.CONSTRAIN = bool(params.get("constrain"))   # R-4.2 output mask
     loop.DEBUG = bool(params.get("debug"))           # R-4.3 execution digest
     loop.EDIT = bool(params.get("edit"))             # R-3.2 symbol-precise patches
+    # R-1.1b's arm. Both names when the session predates the keys, because that is
+    # what the run it is resuming actually did.
+    loop.HINTS = _hint_names(params.get("no_source_hint"),
+                             params.get("no_graph_hint"))
     if params["threshold"] <= 1.0:          # gate on -> keep the router learning
         from flash.learn import autofit_if_stale
         msg = autofit_if_stale(params["small"])
@@ -885,6 +902,12 @@ def build_parser() -> argparse.ArgumentParser:
                    help="R-4.3: re-run a failed test under a line tracer and put the "
                         "execution digest (value history, last mutated line) in the "
                         "retry feedback")
+    p.add_argument("--no-source-hint", action="store_true",
+                   help="R-1.1b: withhold the LSP source block from retry feedback "
+                        "(the A/B's OFF arm for that hint; the parse is skipped too)")
+    p.add_argument("--no-graph-hint", action="store_true",
+                   help="R-1.1b: withhold the graph's dependents block from retry "
+                        "feedback (the A/B's OFF arm for that hint)")
     p.add_argument("--edit", action="store_true",
                    help="R-3.2: answer a change request with symbol-addressed "
                         "patches (# edit: file :: Symbol) that replace exactly the "
@@ -936,6 +959,13 @@ def build_parser() -> argparse.ArgumentParser:
                    help="R-4.2: constrained decoding on the output contract")
     p.add_argument("--debug", action="store_true",
                    help="R-4.3: execution digest in the retry feedback")
+    p.add_argument("--no-source-hint", action="store_true",
+                   help="R-1.1b: withhold the LSP source block from retry feedback "
+                        "(A/B OFF arm for that hint; the shared AST parse is skipped "
+                        "too, so the OFF arm does not pay for the hint it hides)")
+    p.add_argument("--no-graph-hint", action="store_true",
+                   help="R-1.1b: withhold the graph's dependents block from retry "
+                        "feedback (A/B OFF arm for that hint)")
     p.add_argument("--edit", action="store_true",
                    help="R-3.2: symbol-addressed patches on edit tasks")
     p.add_argument("--tournament", type=int, default=1, metavar="K",

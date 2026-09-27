@@ -20,10 +20,12 @@ tree, both deterministic AST passes.
 
 `--sweep` is the form the mutation claim is quoted from. Several of these bugs
 live in the graph CACHE, so how many checks a mutant fails depends on whether the
-process has already built a graph: run all nine together the counts are
-2/2/7/2/14/2/7/2/2, run each alone they are 2/1/6/1/13/2/6/1/1. All nine are
-caught either way, by the same named check, and it is that identity — not the
-count — which is claimed.
+process has already built a graph: run all twelve together the counts are
+2/2/7/2/14/2/8/2/6/5/2/2, run each alone they are 2/1/6/1/13/2/7/1/5/4/2/2. All
+twelve are caught either way, by the same named check, and it is that identity —
+not the count — which is claimed. The three R-1.1b checks raise two of the older
+counts (the dropped block 7→8, the nested ranking 2→6) because the switch checks
+drive the same seam.
 """
 from __future__ import annotations
 
@@ -373,16 +375,89 @@ def _wiring_checks() -> None:
        repr(retry3)[-300:])
 
 
+def _switch_checks() -> None:
+    """R-1.1b's per-block switch, certified at the seam the A/B will measure.
+
+    The A/B compares an arm that shows a block against one that hides it, so two
+    things have to be true before any live token is spent: each OFF arm hides
+    EXACTLY the block its flag names — not the other one, not both, not nothing —
+    and it hides it at the retry message, which is where R-1.1's bug lived. The
+    second half is cost: an arm that parses the repo to build a block it then
+    throws away would make §10.5's latency gate measure the switch rather than the
+    hint, so the OFF arms are counted, not assumed.
+    """
+    task = loop.enrich_task({"id": "gp3",
+                             "prompt": "make subtotal_cents honour the qty",
+                             "test": "assert False", "context": "minishop"},
+                            CTX_ROOT)
+    real_hints = loop.HINTS
+    try:
+        loop.HINTS = ("graph",)
+        src_off, _ = _retry_prompt(task, SUB_AT_ISSUE, SUB_CODE)
+        ck("--no-source-hint hides exactly its own block: the retry carries the "
+           "dependents block and NOT a trace of the source header — an A/B whose "
+           "OFF arm leaks its hint measures nothing and looks like a result",
+           SCOPE_HEADER in src_off and "Symbols in play" not in src_off,
+           repr(src_off)[-260:])
+        loop.HINTS = ("source",)
+        dep_off, _ = _retry_prompt(task, SUB_AT_ISSUE, SUB_CODE)
+        ck("--no-graph-hint is the mirror image, so the two flags cannot both be "
+           "pointing at the same block: the source block arrives, the dependents "
+           "header does not",
+           "Symbols in play" in dep_off and SCOPE_HEADER not in dep_off,
+           repr(dep_off)[-260:])
+        loop.HINTS = ()
+        both_off, _ = _retry_prompt(task, SUB_AT_ISSUE, SUB_CODE)
+        ck("both off: the retry is the verdict and nothing else — the control the "
+           "A/B is scored against exists, carries neither header, and repeats the "
+           "error exactly once",
+           "Symbols in play" not in both_off and SCOPE_HEADER not in both_off
+           and both_off.count(SUB_AT_ISSUE.splitlines()[-1]) == 1,
+           f"{len(both_off)} chars, neither header")
+        builds: list[str] = []
+        real_build = lsp.SymbolIndex.build
+
+        def counted(cls, root, max_files=400):
+            builds.append(Path(root).name)
+            return real_build.__func__(cls, root, max_files)
+
+        lsp.SymbolIndex.build = classmethod(counted)
+        try:
+            _retry_prompt(task, SUB_AT_ISSUE, SUB_CODE)
+        finally:
+            lsp.SymbolIndex.build = real_build
+        ck("...and an OFF arm pays no AST parse: with both hints off, two failing "
+           "attempts built the symbol index zero times, so a latency delta between "
+           "arms is the hint's and not the switch's",
+           not builds, f"{len(builds)} build(s) {builds}")
+    finally:
+        loop.HINTS = real_hints
+
+    from flash import cli
+    args = cli.build_parser().parse_args(
+        ["run-suite", "--tasks", "m2_tasks.jsonl", "--no-source-hint"])
+    ck("the flag reaches the seam it names: `run-suite --no-source-hint` parses, "
+       "and the arm it selects is ('graph',) — not the empty tuple, not both",
+       args.no_source_hint and cli._hint_names(args.no_source_hint,
+                                               args.no_graph_hint) == ("graph",),
+       str(cli._hint_names(args.no_source_hint, args.no_graph_hint)))
+    ck("and the arm is written into the session, so a trace states which arm it is "
+       "rather than relying on the command line someone remembers",
+       "no_source_hint" in cli.SUITE_PARAMS and "no_graph_hint" in cli.SUITE_PARAMS,
+       f"{len(cli.SUITE_PARAMS)} suite params recorded")
+
+
 def run_checks() -> dict[str, float]:
     CHECKS.clear()
     timing = _unit_checks()
     _wiring_checks()
+    _switch_checks()
     return timing
 
 
 # ------------------------------------------------------------- mutation cover
 
-NUM_BUGS = 9        # what --sweep spawns; mutate() fails if `bugs` disagrees
+NUM_BUGS = 12       # what --sweep spawns; mutate() fails if `bugs` disagrees
 
 
 def mutate(verbose: bool = True, one: int | None = None) -> int:
@@ -467,6 +542,28 @@ def mutate(verbose: bool = True, one: int | None = None) -> int:
             dep = ""
         return "\n\n".join(p for p in (ranked, dep) if p)
 
+    real_perceive = _loop._perceive
+
+    def switch_dead(task, err, code="", hints=None):
+        """R-1.1b's switch wired to nothing: whatever the arm says, both blocks
+        show, so the A/B compares an arm against itself."""
+        return real_perceive(task, err, code, hints=("source", "graph"))
+
+    def arms_swapped(task, err, code="", hints=None):
+        """The two flag names read backwards, so `--no-source-hint` is the arm
+        that hides the graph block and every delta is attributed to the wrong
+        hint — the mistake the TODO note for R-1.1b was written to prevent."""
+        h = _loop.HINTS if hints is None else hints
+        flip = tuple({"source": "graph", "graph": "source"}.get(n, n) for n in h)
+        return real_perceive(task, err, code, hints=flip)
+
+    def off_arm_pays(task, err, code="", hints=None):
+        """The OFF arm parses the repo for a block it then throws away, which
+        makes §10.5's latency gate measure the switch rather than the hint."""
+        if task.get("_ctx_dir") and err:
+            _loop._repo_index(task)
+        return real_perceive(task, err, code, hints=hints)
+
     bugs: list[tuple[str, object, object, str]] = [        ("serves the cached graph without merging, so a caller added after the "
          "first retry is invisible", (g, "scope_graph"), stale, "FRESHNESS"),
         ("binds an at-issue symbol by NAME alone, so it can borrow another file's "
@@ -486,6 +583,13 @@ def mutate(verbose: bool = True, one: int | None = None) -> int:
         ("feeds the second hint the text the first one quoted, so the two rank "
          "different symbols for one failure", (_loop, "_perceive"), nested,
          "one ranking, two readers"),
+        ("has its R-1.1b switch wired to nothing, so every arm shows both blocks "
+         "and the A/B compares an arm against itself",
+         (_loop, "_perceive"), switch_dead, "hides exactly its own block"),
+        ("reads the two arm names backwards, attributing every delta to the wrong "
+         "hint", (_loop, "_perceive"), arms_swapped, "mirror image"),
+        ("makes the OFF arm pay for the AST parse it throws away",
+         (_loop, "_perceive"), off_arm_pays, "OFF arm pays no AST parse"),
     ]
     escaped = 0
     if len(bugs) != NUM_BUGS:
@@ -516,12 +620,12 @@ def mutate(verbose: bool = True, one: int | None = None) -> int:
 def sweep() -> int:
     """One FRESH process per mutant, and the two lists must agree.
 
-    `--mutants` runs all nine in the interpreter that wrote them, where mutant 0's
-    cache warm-up is mutant 1's starting state — but a real run's retries do not
-    arrive in a bug's wake. Eviction, the graph cache and the merge path are each
-    order-sensitive, so a count seen only in one shared process could be the
+    `--mutants` runs all twelve in the interpreter that wrote them, where mutant
+    0's cache warm-up is mutant 1's starting state — but a real run's retries do
+    not arrive in a bug's wake. Eviction, the graph cache and the merge path are
+    each order-sensitive, so a count seen only in one shared process could be the
     previous mutant's leftover. This spawns one process per bug, re-runs them all
-    in-process, and fails unless both catch 9/9.
+    in-process, and fails unless both catch 12/12.
     """
     caught = 0
     for i in range(NUM_BUGS):
@@ -549,7 +653,7 @@ def sweep() -> int:
 
 
 def _report_checks() -> int:
-    """Run the 27 and print them. Returns the number that failed."""
+    """Run the 33 and print them. Returns the number that failed."""
     timing = run_checks()
     bad = 0
     for name, ok, detail in CHECKS:
