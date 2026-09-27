@@ -1,0 +1,27 @@
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: tuesday
+      time: "03:00"
+      timezone: Asia/Kolkata
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps(pip)"
+    # A dependency bump here is not a chore: mlx-lm changes what a greedy
+    # attempt 0 emits, and python-lsp-server changes what PERCEIVE resolves.
+    # Every published count was taken on versions named in docs/models.md, so a
+    # bump has to come with a battery run before it merges.
+    labels: ["dependencies", "needs-battery-run"]
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: tuesday
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "deps(ci)"
+    labels: ["dependencies"]

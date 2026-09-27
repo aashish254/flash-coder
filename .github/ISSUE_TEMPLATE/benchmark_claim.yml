@@ -1,0 +1,85 @@
+name: Benchmark claim or result
+description: A number you measured, a number you expected and didn't get, or a suite that doesn't reproduce
+labels: ["benchmarks"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This repo's product is checkable numbers, so this template is a
+        measurement form. Three rules make a report usable:
+
+        1. **A claim names the command that printed it.** Not "I ran the suite" —
+           the exact argv, flags included.
+        2. **Label each number** *measured* (I ran it, output pasted), *projected*
+           (arithmetic on measured numbers), or *gated* (not run, here's what
+           would run it).
+        3. **A passing count is not proof.** If you're reporting that something
+           works, say what you broke on purpose to see whether the check noticed.
+
+  - type: textarea
+    id: command
+    attributes:
+      label: The exact command
+      render: shell
+      placeholder: flash run-suite --tasks benchmarks/tasks/hint_ab_tasks.jsonl --with-context --attempts 3 --allow-big never --trace-full
+    validations:
+      required: true
+
+  - type: textarea
+    id: printed
+    attributes:
+      label: What printed
+      description: The summary lines, verbatim. Don't retype a count from memory and don't report an exit code as if it were a result.
+      render: shell
+    validations:
+      required: true
+
+  - type: dropdown
+    id: status
+    attributes:
+      label: How do you label this number?
+      description: measured / projected / gated. If you can't pick, it's probably gated.
+      options:
+        - measured — I ran it and pasted the output above
+        - projected — arithmetic on numbers someone else measured
+        - gated — not run; blocked on hardware, a model download, or a person
+    validations:
+      required: true
+
+  - type: textarea
+    id: substrate
+    attributes:
+      label: Substrate
+      description: |
+        Machine, chip, RAM, macOS version, whether anything else was running
+        (a concurrent training run changes throughput and can OOM the model
+        layer), and whether the machine was on AC or battery — the §34.1 governor
+        sheds load differently.
+    validations:
+      required: true
+
+  - type: textarea
+    id: n
+    attributes:
+      label: "n, and what would move it"
+      description: |
+        How many tasks / repeats backed the number. On a 10-task suite one task
+        is a 10-point swing, so a delta of one is a nil result at stated
+        precision — say the precision rather than dressing it up.
+    validations:
+      required: true
+
+  - type: textarea
+    id: claim-cited
+    attributes:
+      label: Which published claim this touches
+      description: "File and line if you can — e.g. README.md's measured table, or SPEC.md's R-1.1b clause. Write 'new claim' if there isn't one yet."
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: "If it did NOT reproduce a published number"
+      description: |
+        What differs from the run that produced the published figure: version,
+        flags, seeds, suite file, machine. If you cannot tell, say so — an
+        unreproduced claim is a bug in this repo and will be treated as one.

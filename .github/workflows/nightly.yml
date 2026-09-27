@@ -1,0 +1,85 @@
+name: Nightly live check
+
+# The offline battery is a proof about code. This is the proof about the *model
+# layer*: weights download, greedy determinism at attempt 0, and the injection
+# the record-vs-conversation rule demands (a hint that reaches the trace but not
+# the prompt is a dead seam, and only a stored prompt can tell).
+#
+# Runs nightly on one Mac runner with a bounded suite, because the thing it
+# catches — a tokenizer upgrade that changes extracted code, a mlx-lm release
+# that changes stream text — is invisible to every other check in the repo.
+#
+# This is NOT M16: a 24-hour window under random kills, memory pressure and
+# network loss needs a machine that can be pointed at nothing else for a day. A
+# hosted runner gives up at 6 hours and would report a soak it never ran.
+
+on:
+  schedule:
+    - cron: "17 3 * * *"          # 03:17 UTC, off the hour
+  workflow_dispatch:
+    inputs:
+      tasks:
+        description: "how many live tasks to run"
+        default: "3"
+        type: choice
+        options: ["3", "10", "20"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly
+  cancel-in-progress: false
+
+jobs:
+  live:
+    runs-on: macos-14
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache the Hugging Face weights
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: hf-${{ runner.os }}-qwen2.5-coder-7b-4bit-v1
+          restore-keys: hf-${{ runner.os }}-
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .[dev]
+
+      - name: Pre-flight
+        run: flash doctor
+
+      - name: Offline battery first (a live result on broken code is noise)
+        run: flash selftest --all
+
+      - name: Live suite, small tier, prompts stored
+        run: |
+          mkdir -p benchmarks/results/ci
+          flash run-suite \
+            --tasks benchmarks/tasks/hint_ab_tasks.jsonl \
+            --with-context \
+            --attempts 3 \
+            --allow-big never \
+            --trace-full 2>&1 | tee benchmarks/results/ci/nightly-live.log
+
+      - name: The retry prompts must carry the hint blocks
+        run: python benchmarks/hint_live_audit.py --expect present
+
+      - name: Upload the session so a nightly number is re-playable
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-live
+          path: |
+            benchmarks/results/ci/
+            benchmarks/results/traces/
+          if-no-files-found: warn
+          retention-days: 14

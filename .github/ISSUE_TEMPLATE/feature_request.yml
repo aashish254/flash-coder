@@ -1,0 +1,60 @@
+name: Feature or capability request
+description: Something the tool should do that it doesn't
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before you write much: this project keeps a backlog it can't afford to
+        grow without evidence. `SPEC.md` lists requirements with gates;
+        `TODO.md` shows which ones measured NO and why. The strongest argument
+        for a feature here is a sentence beginning "I ran X and it failed
+        because…".
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What you were trying to do
+      description: The task and where the tool got in the way, not the feature you'd like.
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: |
+        A trace session, a printed verdict, a suite that scores 0, a command that
+        takes 40 seconds it shouldn't. Anything someone else could re-run.
+      render: shell
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you'd build
+      description: Which module it belongs in, roughly, and what it must NOT do (this tool's guardrails are the point of it — draft-only ambient, one sandbox for every execution path, no push without a person).
+    validations:
+      required: true
+
+  - type: textarea
+    id: gate
+    attributes:
+      label: How would we know it works?
+      description: |
+        Propose the check. If you can't say what would fail when the feature is
+        broken, the feature isn't defined yet — that's the answer, not a
+        failure.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: willing
+    attributes:
+      label: Are you going to build it?
+      options:
+        - Yes, and I'll open a PR
+        - Yes, but I'd like a pointer first
+        - No — hoping someone will
+        - No, and I understand that means it waits
+    validations:
+      required: true

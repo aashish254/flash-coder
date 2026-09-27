@@ -1,0 +1,83 @@
+name: Bug report
+description: Something does the wrong thing — a crash, a wrong answer, a claim that doesn't reproduce
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The single most useful thing you can paste here is the output of
+        `flash doctor`, because almost every "it doesn't work" report is the
+        platform (Intel Mac, Linux, 8 GB, no pylsp) rather than the code.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: The command you ran, then what it printed. Paste real output; don't paraphrase it.
+      render: shell
+      placeholder: |
+        $ flash solve "..." --path .
+        [trace] session 20260927-...
+        ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-expected
+    attributes:
+      label: What you expected instead
+      description: One or two sentences. If a README or doc sentence led you here, quote it and say which file.
+    validations:
+      required: true
+
+  - type: textarea
+    id: doctor
+    attributes:
+      label: "`flash doctor` output"
+      description: Full output, including any line that says UNAVAILABLE.
+      render: shell
+    validations:
+      required: true
+
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: "`flash --version`, `python -V`, `pip show mlx-lm | head -3`, macOS version, chip."
+      placeholder: "flash 0.1.0 · Python 3.11.15 · mlx-lm 0.31.3 · macOS 27.0 · M5 32GB"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: repro
+    attributes:
+      label: Reproducibility
+      options:
+        - Every time
+        - Sometimes (say how often, and note that attempt 0 is greedy so a changing answer 0 is a real bug)
+        - Once, and I have the trace session id
+        - Not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: trace
+    attributes:
+      label: Trace session, if you used --trace-full
+      description: |
+        Paste `flash trace <session>` (without --full). If you include a session
+        id, check the trace for your own source before posting a --full render —
+        a stored prompt contains your repository.
+      render: shell
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before posting
+      options:
+        - label: "`flash selftest --all` passes on my machine, or I am reporting that it does not"
+          required: true
+        - label: "I redacted anything from my own code or a private repo"
+          required: true
+        - label: "I searched existing issues"
+          required: true
