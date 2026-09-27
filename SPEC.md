@@ -1438,7 +1438,20 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
    written into R-7.8 (a backticked `flash …` span means "run this" to a reader and to
    the scanner alike, and this project will not hold a gate that cannot tell a
    recommendation from a quotation, so quotations are written where they cannot be
-   copied). Re-read after that:)
+   copied). The same re-read then failed a **second** time, on a different vector,
+   for the **same** shape of reason: `BAD benchmarks/portable_paths_check.py want
+   15/15 got ['13/15']`, and the failing gate was the one that says nothing this
+   repo tells a user to run may carry a host path — the paragraph recording
+   R-7.10b had just spelled a Homebrew prefix to explain what the old code built.
+   `SPEC.md` is inside that scan, and its only exemption is the marker declaration
+   lines of the vector itself, so the fix was again to re-word the page and leave
+   the gate alone: the prefix is now named rather than written, exactly as the
+   vector's own comment does it. Third print, on a quiet tree with nothing else
+   editing it: **`checks 1114  oracle 20  §6 total 1134  mutants 83`**, all **33**
+   lines OK, pyflakes 0 findings, the two collectors still reading 25 commands in
+   150 citations across 15 documents (raw witness
+   `benchmarks/results/battery_reread_r710_20260927.log`, which carries 0 host
+   paths and so leaves `RECORD_RESIDUE` at 411.)
    (Updated 2026-09-27, after R-7.4: **+14 checks and +7 mutants** for a new vector,
    `python benchmarks/portable_paths_check.py`. No existing line moved, and that is
    the finding: `flash debug --selftest` stayed **55/55** and `flash debug --suite`
