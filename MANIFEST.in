@@ -1,0 +1,24 @@
+# What a source distribution carries.
+#
+# The default sdist for this project was 272 KB and 27 files: the `flash` package,
+# LICENSE, README, PKG-INFO — and **zero** `benchmarks/`. That is a package whose
+# every published number (1,066 checks, 20 oracle verifications, 69 mutation gates)
+# its own installer cannot re-run, which is the one thing this project claims to be.
+# So the verification surface ships with the source.
+#
+# Measured, not assumed: `confidence_tau_check.py` reads two stored traces by their
+# committed paths, so a `benchmarks/` that ships the scripts but not the records
+# would fail the battery it was included to make runnable.
+include README.md LICENSE pyproject.toml requirements.txt SPEC.md TODO.md
+include CHANGELOG.md SECURITY.md CONTRIBUTING.md CODE_OF_CONDUCT.md
+recursive-include benchmarks *.py *.pyi *.jsonl *.json *.log *.md *.txt
+recursive-include benchmarks *.png *.npz *.html *.status *.yml *.yaml
+recursive-include docs *.md
+recursive-include .github *.yml *.md
+# The weights and anything a local run generated are never packaging material, and
+# this rule is the belt to `.gitignore`'s braces: a sdist built from a dirty
+# checkout would otherwise sweep 260 MB of adapters sitting under
+# `benchmarks/results/adapters/`.
+recursive-exclude benchmarks *.safetensors *.bin *.gguf *.safetensors.json
+global-exclude __pycache__ *.pyc *.pyo .DS_Store
+global-exclude *.egg-info
