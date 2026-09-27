@@ -1114,7 +1114,8 @@ here rather than folded into P6's confidence work.
       reason the box was worth opening: **21 of the 23 `flash` subcommands the tracked
       docs reference existed**, and the two that did not were exactly `doctor` and
       `selftest`. R-7.8's collector supersedes the count — it reads the documents, not
-      a list, and measured **24 commands across 111 citations in 11 documents**, all
+      a list, and measures **25 commands across 150 citations in 15 documents** (111
+      at its first green print; the figure moves with the prose), all
       resolving. The same probe
       settled a number two documents cited differently — with `mlx` blocked
       **24 of the 26** modules imported (pyproject and `docs/models.md` said 24, the
@@ -1148,8 +1149,10 @@ here rather than folded into P6's confidence work.
       any rejection fails the gate naming the file and line. **Closed 2026-09-27:
       `documented-command checks: 7/7`, `documented-command mutants: 4/4`.** The
       collector covers fences, inline spans and the workflows' `run:` lines and its
-      own spine is a gate — **24 commands / 111 citations / 11 documents / 67 source
-      paths** — with a planted bogus command required to be rejected, so the vector
+      own spine is a gate — **25 commands / 150 citations / 15 documents / 72 source
+      paths** (the citation figure is that gate's live print, which has moved 111 →
+      112 as the README grew a block; the gate asserts a floor, not this number) —
+      with a planted bogus command required to be rejected, so the vector
       cannot go blind and still print a pass. Resolution is `parse_args([cmd])` under
       a swallowed stderr, never dispatch: a documented `flash run` would create a
       worktree and a documented `flash selftest --all` takes minutes. `--tasks …`
@@ -1160,6 +1163,46 @@ here rather than folded into P6's confidence work.
       live parser's subchoices while the gates run, two gates fail, and the vector
       accepts that as caught only if the failure text matches `\.(md|yml):\d+` — a
       rejection that does not name the citing file and line does not count.
+- [x] [B] [V] [offline] R-7.9 `--dry-run` writes nothing, on every sub-command that
+      accepts it. **Closed 2026-09-27: `lora path: 33/33 checks passed`,
+      `mutations: 15/15 gates defeated by exactly their checks`.**
+      `python -m flash.train --dry-run` promised "write nothing" and `main()` honoured
+      it for `--dataset` only: `--suite-from-dataset` was dispatched above that branch
+      with no `dry` argument, so the command rewritten here as a dry run modified the
+      tracked `benchmarks/tasks/r64_train_from_dataset.jsonl`. `git status` was the
+      witness; nothing in the battery would have said so, which is why the two new
+      checks are on `flash.train.main()` and run with **no `--suite-out`** — the
+      default name is the one that lands in the tree. `suite_from_dataset()` skips the
+      `mkdir` along with the `write_text` and prints `-> would write <path>`; the
+      companion check calls the same command without the flag and requires the file to
+      appear, so an empty temp directory cannot be "the command silently did nothing".
+      `TASK_DIR` is repointed at a copy of the suites for both halves, so the mutant
+      cannot dirty the tree it is measuring.
+- [x] [B] [V] [offline] R-7.10 a selftest that cannot run on this install says so on
+      every install shape, and R-7.10b `flash doctor` names the shape correctly.
+      **Closed 2026-09-27: `backend-free checks: 37/37 passed`,
+      `backend-free mutants: 8/8 gates defeated by exactly their checks`.**
+      R-7.5's wheel run left three loose ends behind this box picked up: on a
+      `pip install .` into a throwaway venv, `python -m flash.grammar --selftest` and
+      `-m flash.debug --selftest` raised `FileNotFoundError` for a
+      `benchmarks/tasks/*.jsonl` path inside `site-packages`, and `-m flash.patches
+      --selftest` printed one `FAIL` inside an otherwise-green 46-check report. All
+      four now call `doctor.vector_refusal(mod, _DATA_ROOT)` — one function, a
+      four-entry `doctor.VECTOR_DATA` table, exit 2 and one sentence — where
+      `flash.graph` had been refusing alone. Six new gates: four for the refusals at
+      each module's own seam (rc 2, the exact missing path in the text, **no
+      `Traceback`**), one requiring the same guards to say *nothing* when the four
+      paths are present (a refusal that is a constant is a deleted vector, not an
+      honest one), one that every table entry sit under `benchmarks/` (a
+      package-side path makes the guard answer "present" forever). Three mutants:
+      always-refuses, table entry moved inside `flash/`, and the editable answer
+      going back to `sys.executable`. **R-7.10b** is that last one: a wheel install
+      printed `(editable checkout)` because `Path(sys.executable).resolve()` on a
+      macOS venv lands in the Homebrew framework, which is not a prefix of the
+      package's own path; `_is_editable` now asks whether the path is under
+      `site-packages`/`dist-packages`, and `site_install()` builds exactly that
+      directory to gate it. Live repeat in a package-only tree, from a directory
+      holding neither `flash/` nor `benchmarks/`: four sentences, zero tracebacks.
 - [ ] [V] [L] R-7.3 voice: real-microphone arm, VAD barge-in, ≥ 90% command
       recognition over 50 utterances.
 - [ ] [V] [L] M17 feel test: ≥ 7 of 10 developers keep it after a week.

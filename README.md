@@ -1,7 +1,113 @@
 # Flash Coder
 
-The fast, fully-local, self-improving coding agent for Apple Silicon.
-Master plan: [`../PLAN.md`](../PLAN.md) (34 sections, v3.8).
+A coding agent that runs entirely on one Mac. It writes the change, executes the
+test, reads **which assert failed and what the value actually was**, and tries
+again — no API key, no container, nothing leaving the machine.
+
+Two things about this repo are load-bearing, and both are visible in the files:
+
+- **Every claim is a printed number.** The offline verification battery is
+  **1,114 checks + 20 oracle verifications + 83 mutation gates**, and `SPEC.md` §6
+  records why the totals come from the fraction each run *prints* — never an exit
+  code, never a phrase grep — after both of those shortcuts produced a wrong total
+  that looked clean on this project's own output.
+- **The failures sit in the same file as the wins.** Speculative decoding faults the
+  GPU on this hardware (R-8.1, measured negative); the live hint A/B is a nil
+  (R-1.1b); the trained adapter has never been played against the frozen harness
+  (R-6.4, deferred by the author's other project). A project that publishes only its
+  wins cannot be verified, only believed.
+
+## Requirements
+
+- **Anything that generates text needs Apple Silicon.** The model layer is MLX
+  (`mlx-lm`, `mlx-vlm`), and `pyproject.toml` marks it by platform rather than
+  letting a Linux install fail to resolve.
+- **Everything else is pure Python 3.11+**: symbol perception, the AST knowledge
+  graph, the harness and its GOT/WANT oracle, trace/replay, the outcome ledger, the
+  power governor, the sandbox and the whole offline battery. With MLX blocked in a
+  child process, **26 of the 26** submodules of `flash` still import, and the one
+  thing that raises is the call that needs a forward pass — with a message naming
+  MLX instead of a stack trace (SPEC R-7.7, gated by
+  `benchmarks/backend_free_check.py`).
+- **What is NOT claimed:** that a Linux or Windows machine has installed this. The
+  install shapes that HAVE been run are a fresh clone's editable install, a wheel in
+  a throwaway venv, and an unpacked sdist with no `.git` — all on Apple Silicon, all
+  logged under `benchmarks/results/` (SPEC R-7.5). On those other platforms the
+  non-generating half is *expected*, not verified.
+- RAM decides what you can run, not the OS. `power` prints the profile the machine
+  offers right now and the largest model it may load; the fast tier is ~4.4 GB of
+  resident weights and the brain tier is 15–17 GB.
+
+## Install
+
+```bash
+python3.11 -m venv .venv
+.venv/bin/pip install -e .[dev]                    # `flash` lands in .venv/bin
+.venv/bin/python -m flash.cli doctor               # nine answers about THIS install
+.venv/bin/python -m flash.cli selftest --all       # the offline battery, no models
+```
+
+`doctor` is the command to run first because it answers the question a README
+usually dodges: which half of this project is present on your machine. It reports
+the install shape (a wheel has no `benchmarks/` beside the package, so it says
+"no verification surface here" rather than failing checks that never existed), the
+backend, the model cache against the four §22 tiers, the tools the vectors import,
+and what the box may load — and its exit code follows its own page.
+
+`selftest --all` is a thin wrapper on `benchmarks/battery_reread.py`: the same 33
+lines, the same printed totals, and the same refusal (rc 2, naming the path) when
+there is no battery to run.
+
+That refusal is the rule for every vector that reads the data tree beside `flash/`.
+A wheel install carries no `benchmarks/`, so `python -m flash.graph --selftest`,
+`flash.grammar`, `flash.debug` and `flash.patches` print one sentence naming the path
+they need and exit 2 rather than raising `FileNotFoundError` for a file inside
+`site-packages` — run them from a clone or an unpacked sdist (SPEC R-7.10).
+
+## First run
+
+Every `flash …` command below works with no model at all; the ones that generate
+need weights first.
+
+```bash
+# 1. no model needed: read a repo the way the agent does
+.venv/bin/python -m flash.cli symbols --path benchmarks/fixtures   # whole-tree AST outline
+.venv/bin/python -m flash.cli graph bulk_discount_cents --path benchmarks/fixtures
+.venv/bin/python -m flash.cli context --path flash                 # token-budgeted skeleton
+
+# 2. get the fast tier (~4.4 GB, the default small model)
+.venv/bin/python benchmarks/m0_bakeoff.py --download --models qwen25-coder-7b
+
+# 3. one task, the full policy. --test is a file of plain asserts — the same
+# oracle the loop retries against, and the thing that makes "it worked" a measurement
+.venv/bin/python -m flash.cli run "Write cents_to_str(n) -> str" --test t.py
+
+# 4. a suite, with the loop's own cost report
+.venv/bin/python -m flash.cli run-suite --tasks benchmarks/tasks/m2_tasks.jsonl --with-context
+```
+
+`.venv/bin/python -m flash.cli --help` lists all 30 subcommands, and `bench/`,
+`trace`, `resume`, `ledger` and `learn` are how a long run is inspected rather than
+re-run.
+
+## What is where
+
+| | |
+|---|---|
+| `SPEC.md` | the contract: 9 requirement groups, each with its vector and its status, **including the gates that measured NO** |
+| `TODO.md` | the same requirements as boxes, each carrying the measurement that closed it |
+| `CHANGELOG.md` | what shipped, and the claims this project struck from its own docs |
+| `benchmarks/` | the vectors. `benchmarks/results/` holds the runs that published numbers cite |
+| `docs/` | `architecture.md` (the loop and its seams), `models.md` (tiers, versions, platform), `portability.md` (what a stranger's machine must not need), `config.md` (every knob is a flag; there is no config file), `privacy.md` (what leaves the machine, what gets written where), `methodology.md` (how the numbers above were produced, and the four rules that catch a green lie) |
+| `flash/` | the package. `cli.py` is the whole surface, in one `argparse` object, so a check can parse commands without running them |
+
+Every command printed in every tracked document is parsed against that one parser on
+each battery run (`benchmarks/documented_commands_check.py`), so this page and the
+CI pipelines cannot quietly drift from the CLI. The 34-section master plan that
+produced `SPEC.md` is the author's working document and is **not** shipped here;
+`SPEC.md` is the artifact that stands on its own.
+
+---
 
 ## M0 — Model Bake-Off (first gate)
 
@@ -246,15 +352,18 @@ Vision is benchmarked once the text brain is picked (PLAN §M1–M2).
 # on exactly 5 of 9 and rc 1. R-7.7's half: with `mlx`, `mlx_lm` and `mlx_vlm` blocked in
 # a CHILD process, all 26 submodules of `flash` still import and the only thing that
 # raises is the call that needs a forward pass. The sweep is enumerated, not named, and
-# its mutant plants a real backend-importing submodule on disk to prove it.
-.venv/bin/python benchmarks/backend_free_check.py            # 30 checks + 5 mutants
+# its mutant plants a real backend-importing submodule on disk to prove it. R-7.10's half:
+# the four selftests that read `benchmarks/` beside the package are run against a synthetic
+# wheel-shaped root and must come back rc 2 with one sentence and no traceback — and a
+# sibling gate points the same guards at a tree that HAS the data and requires silence.
+.venv/bin/python benchmarks/backend_free_check.py            # 37 checks + 8 mutants
 # Every `flash …` line printed anywhere in this repo — README, CONTRIBUTING, SPEC, docs
 # and the two published workflows' `run:` blocks — is parsed against the real argparse
 # parser, without dispatching, so this file and the pipeline on the front page cannot
-# both drift from the CLI. 24 commands, 111 citations, 11 documents today. Deleting a
+# both drift from the CLI. 25 commands, 150 citations, 15 documents today. Deleting a
 # subcommand from the parser is not enough to fail it either: the failure must NAME the
 # citing file and line.
-.venv/bin/python benchmarks/documented_commands_check.py     # 7 checks + 4 mutants
+.venv/bin/python benchmarks/documented_commands_check.py     # 8 checks + 5 mutants
 
 # §33.1 ACT leg — symbol-precise edits: a change request is answered with patches that
 # name a SYMBOL, and the AST's own lines are what gets replaced. Everything outside the
@@ -419,7 +528,7 @@ Vision is benchmarked once the text brain is picked (PLAN §M1–M2).
 # this project can print. Every ledger row says which model decided it
 # (`"small": "…-4bit+lora:v1"`, `"big"` never carries one).
 .venv/bin/python benchmarks/lora_shuffle_control.py    # build the control: same shapes, values permuted
-.venv/bin/python benchmarks/lora_path_check.py         # 31 checks + 14 mutants: gate, resume, leakage, identity, job name, arm denominator
+.venv/bin/python benchmarks/lora_path_check.py         # 33 checks + 15 mutants: gate, resume, leakage, identity, job name, arm denominator, --dry-run
 # MEASURED 2026-09-26, m0 (20 tasks, AC): base 18/20 · +lora:v1 16/20 (twice) · the
 # shuffled control 19/20. I-2's gate MISSED and is recorded as a negative in SPEC §5
 # R-6.4 and §9's register: the trained arm's extra losses are all shed-tier escalations

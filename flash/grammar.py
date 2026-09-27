@@ -48,6 +48,7 @@ import re
 import time
 import sys
 from dataclasses import dataclass
+from pathlib import Path
 
 FENCE = "```"
 HEADER = "# file: "
@@ -808,13 +809,20 @@ def _load_tokenizer():
         return None
 
 
+_DATA_ROOT = Path(__file__).resolve().parent.parent
+
+
 def run_selftest() -> int:
     import json
     import random
-    from pathlib import Path
+    from flash import doctor
     from flash.harness import extract_files
 
-    root = Path(__file__).resolve().parent.parent
+    refused = doctor.vector_refusal("grammar", _DATA_ROOT)
+    if refused:
+        return refused
+
+    root = _DATA_ROOT
     checks: list[tuple[str, bool, str]] = []
 
     def ck(name: str, cond: bool, note: str = "") -> None:

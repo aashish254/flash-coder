@@ -2,14 +2,15 @@
 
 `flash doctor`, `flash --version` and `flash selftest --all` exist to answer a
 stranger's first question — "is what I just installed the thing the README
-describes?" — which means a wrong answer is worse than none. Three ways that
+describes?" — which means a wrong answer is worse than none. Four ways that
 happens, and this vector gates each of them:
 
 - A report that reads the filesystem and still says yes. So `install_shape` and
   `vector_tools` are called against SYNTHETIC trees built in a temp directory: a
-  wheel-shaped one with no `benchmarks/` beside the package, and a source-shaped
-  one with it. The same function has to answer them differently, which a report
-  that learned to say "fine" cannot do.
+  wheel-shaped one with no `benchmarks/` beside the package, a source-shaped one
+  with it, and a third that sits under `site-packages/` the way `pip install .`
+  does. The same function has to answer the three differently, which a report that
+  learned to say "fine" cannot do.
 - A `--backend-free` that blocks nothing. The flag's whole claim is that the
   battery's totals were printed with no generative model available, so the shim
   is tested from a CHILD process — where the failure has to carry the shim's own
@@ -18,6 +19,12 @@ happens, and this vector gates each of them:
   that broke everything would "prove" the claim by making the battery unrunnable.
 - An exit code that does not follow the report, which is how a red page becomes
   a green CI badge.
+- A module selftest that reads the data tree beside the package and, on a wheel
+  install where that tree does not exist, raises `FileNotFoundError` for a path
+  inside site-packages — which a stranger reads as a bug in the package. So the
+  four that do are run here against a synthetic wheel-shaped root and must come
+  back with rc 2 and one sentence, and a sibling gate points the same guard at a
+  root that HAS the data and requires it to say nothing.
 
 Nothing here loads a model. It runs `flash`'s entry points as subprocesses and
 the rest in-process, and it takes seconds.
@@ -78,6 +85,31 @@ def tmp_install(with_benchmarks: bool) -> Path:
         (b / "tasks").mkdir()
         for i in range(3):
             (b / "tasks" / f"t{i}.jsonl").write_text("\n")
+    return d
+
+
+def site_install() -> Path:
+    """A package directory under `lib/python3.11/site-packages/`, which is where
+    `pip install .` actually puts `flash`. The path shape is the whole point: the
+    report's editable/installed answer used to come from the interpreter, and an
+    interpreter in a Mac venv resolves to a prefix that has nothing to do with
+    where the package lives."""
+    d = Path(tempfile.mkdtemp(prefix="flash-site-"))
+    pkg = d / "lib" / "python3.11" / "site-packages" / "flash"
+    pkg.mkdir(parents=True)
+    (pkg / "__init__.py").write_text('__version__ = "test"\n')
+    return pkg
+
+
+def data_tree() -> Path:
+    """A directory shaped like the tree BESIDE an installed `flash`, carrying
+    exactly the paths `doctor.VECTOR_DATA` names — files for the corpora, a
+    directory for the fixtures package."""
+    d = Path(tempfile.mkdtemp(prefix="flash-data-"))
+    for rel in sorted(set(doctor.VECTOR_DATA.values())):
+        p = d / rel
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.mkdir() if p.suffix == "" else p.write_text("\n")
     return d
 
 
@@ -149,6 +181,17 @@ def run_gates() -> None:
        "cannot read as a full install",
        src["tasks"] == 3 and wheel["tasks"] == 0,
        f"{src['tasks']} vs {wheel['tasks']}")
+    piped = doctor.install_shape(site_install())
+    ck("`editable checkout` versus `installed copy` is read off the package's own "
+       "path, not off `sys.executable` — a `flash` under "
+       "`lib/python3.11/site-packages/` answers installed even though the "
+       "interpreter running this check resolves through a venv symlink to a prefix "
+       "that is not its own (R-7.5's wheel witness had this one line lying about a "
+       "`pip install .`)",
+       piped["editable"] is False and "site-packages" in piped["root"]
+       and src["editable"] is True and wheel["editable"] is True,
+       f"site-packages={piped['editable']} src={src['editable']} "
+       f"wheel={wheel['editable']}")
     no_data = doctor.verdict(answers(wheel, has_backend=True, tools_ok=True))
     ck("an install with no verification surface is told so, and the line names "
        "what to do about it rather than only failing",
@@ -335,6 +378,55 @@ def run_gates() -> None:
        "RUNTIMEERROR:" in proc.stdout and "MLX" in proc.stdout,
        f"rc={proc.returncode} out={proc.stdout[-200:]} err={proc.stderr[-120:]}")
 
+    # ------------------------------------------- R-7.10: a selftest that cannot
+    # run here must SAY so. Measured on a wheel installed in a clean venv: three
+    # of these four vectors raised `FileNotFoundError` for a path inside
+    # site-packages, and the fourth printed a FAIL that was an absent directory.
+    import importlib
+    mods = {m: importlib.import_module(f"flash.{m}")
+            for m in sorted(doctor.VECTOR_DATA)}
+    empty = Path(tempfile.mkdtemp(prefix="flash-wheel-"))
+    full = data_tree()
+    keep = {m: mods[m]._DATA_ROOT for m in mods}
+    try:
+        for mod, m in sorted(mods.items()):
+            m._DATA_ROOT = empty
+            rc, text = capture(m.run_selftest)
+            ck(f"`python -m flash.{mod} --selftest` on a wheel-shaped install "
+               f"refuses instead of raising: exit 2, one sentence naming the "
+               f"missing path, and no traceback for a stranger to read as a bug "
+               f"in the package",
+               rc == 2 and "cannot run here" in text
+               and str(empty / doctor.VECTOR_DATA[mod]) in text
+               and "Traceback" not in text and "FileNotFoundError" not in text,
+               f"rc={rc} out={text[-160:]!r}")
+        for mod, m in sorted(mods.items()):
+            m._DATA_ROOT = full
+        with contextlib.redirect_stdout(io.StringIO()):
+            silent = [doctor.vector_refusal(mod, mods[mod]._DATA_ROOT)
+                      for mod in sorted(mods)]
+            absent = [doctor.missing_vector_data(mod, full) for mod in sorted(mods)]
+        ck("the same four guards, at a root that DOES carry the four paths, say "
+           "nothing — the refusal above is a fact about the tree and not a "
+           "constant, which is the difference between 'run this from a clone' and "
+           "a vector that can never run",
+           silent == [None] * len(mods) and absent == [None] * len(mods)
+           and len(mods) == 4,
+           str([str(p) for p in absent if p]))
+    finally:
+        for mod, m in mods.items():
+            m._DATA_ROOT = keep[mod]
+    ck("the table is a claim about the DATA tree, not the package: all four paths "
+       "sit under `benchmarks/`, and the four modules it names are exactly the ones "
+       "carrying the `_DATA_ROOT` seam this vector repoints — a package-side path "
+       "would make the guard answer 'present' forever, which is a silent version "
+       "of the bug it exists to fix",
+       all(str(p).startswith("benchmarks/") for p in doctor.VECTOR_DATA.values())
+       and all(hasattr(mods[m], "_DATA_ROOT") and callable(mods[m].run_selftest)
+               for m in mods)
+       and len(doctor.VECTOR_DATA) >= 4,
+       f"{len(doctor.VECTOR_DATA)} entries: {sorted(doctor.VECTOR_DATA)}")
+
 
 # ---------------------------------------------------------------- mutation cover
 
@@ -355,6 +447,17 @@ BUGS = {
                           "catch — planted on disk, not stubbed in memory, because "
                           "the claim is about what a child process can import",
                           "gate"),
+    "always_refuses": ("the wheel-install guard answers 'missing' even when the "
+                       "data tree is there, which turns four clone-only vectors "
+                       "off with a polite sentence and a green exit-2", "gate"),
+    "table_in_the_package": ("a `VECTOR_DATA` path moves inside `flash/`, where "
+                             "every install has it, so the guard's predicate "
+                             "silently becomes 'nothing to check'", "gate"),
+    "editable_via_interpreter": ("the shape's editable answer goes back to reading "
+                                 "`sys.executable`, which resolves through the venv "
+                                 "symlink, so a `pip install .` reports itself as an "
+                                 "editable checkout — the wheel witness's line",
+                                 "gate"),
 }
 
 
@@ -367,6 +470,9 @@ def mutate(one: str | None = None) -> int:
         keep = {"vector_tools": doctor.vector_tools,
                 "install_shape": doctor.install_shape,
                 "dispatch": doctor.dispatch,
+                "missing": doctor.missing_vector_data,
+                "table": doctor.VECTOR_DATA,
+                "editable": doctor._is_editable,
                 "block": None}
         try:
             if bug == "always_yes_tools":
@@ -376,6 +482,17 @@ def mutate(one: str | None = None) -> int:
                 doctor.install_shape = lambda pkg_dir=None: keep["install_shape"]()
             elif bug == "rc_ignores_report":
                 doctor.dispatch = lambda a: 0
+            elif bug == "always_refuses":
+                doctor.missing_vector_data = lambda mod, root: (
+                    root / doctor.VECTOR_DATA[mod]) if mod in doctor.VECTOR_DATA \
+                    else None
+            elif bug == "table_in_the_package":
+                doctor.VECTOR_DATA = {m: "flash/__init__.py"
+                                      for m in doctor.VECTOR_DATA}
+            elif bug == "editable_via_interpreter":
+                doctor._is_editable = lambda pkg_dir: str(
+                    Path(sys.executable).resolve().parent.parent / "lib") \
+                    not in str(Path(pkg_dir).resolve())
             elif bug == "decorative_shim":
                 import battery_reread as battery
                 keep["block"] = battery.install_backend_block
@@ -394,6 +511,9 @@ def mutate(one: str | None = None) -> int:
             doctor.vector_tools = keep["vector_tools"]
             doctor.install_shape = keep["install_shape"]
             doctor.dispatch = keep["dispatch"]
+            doctor.missing_vector_data = keep["missing"]
+            doctor.VECTOR_DATA = keep["table"]
+            doctor._is_editable = keep["editable"]
             if keep["block"]:
                 import battery_reread as battery
                 battery.install_backend_block = keep["block"]

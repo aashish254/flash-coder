@@ -739,8 +739,16 @@ def run_wiring(verbose: bool = True, into: list | None = None) -> int:
     return 0 if n_ok == len(checks) else 1
 
 
+_DATA_ROOT = Path(__file__).resolve().parent.parent
+
+
 def run_selftest(verbose: bool = True) -> int:
     """Deterministic checks on the protocol itself — no model, no server."""
+    from flash import doctor
+    refused = doctor.vector_refusal("patches", _DATA_ROOT)
+    if refused:
+        return refused
+
     checks: list[tuple[str, bool, str]] = []
 
     def check(label, ok, detail=""):
@@ -980,7 +988,7 @@ def run_selftest(verbose: bool = True) -> int:
           empty.ok and empty.files == ws and empty.applied == [])
 
     # 9. an ad-hoc project directory becomes a workspace keyed as the address says
-    fixture = Path(__file__).resolve().parent.parent / "benchmarks" / "fixtures" / "minishop"
+    fixture = _DATA_ROOT / "benchmarks/fixtures/minishop"
     proj = workspace_from_dir(fixture)
     check("workspace: a project directory loads under its relative path",
           {"cart.py", "pricing.py"} <= set(proj) and

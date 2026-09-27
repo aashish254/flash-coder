@@ -30,9 +30,11 @@ a plausible-looking number rather than an error:
   suite     the in-distribution arm asks "did it learn at all?", and its
             denominator comes from the shipped manifest: a task that lives in
             two suite files must not count twice, and the valid side must not
-            be handed the train ids.
+            be handed the train ids. And `--dry-run` on that command means what
+            its help says — it used to write the file anyway, under the default
+            name, into the tracked `benchmarks/tasks/`.
 
-Fourteen of these guarantees are then broken on purpose: the same group run
+Fifteen of these guarantees are then broken on purpose: the same group run
 against a mutated copy of `jobs.py`, `train.py`, `loop.py` or `cli.py` must fail
 exactly the checks that mutation defeats. A gate no mutation trips is not a
 gate; where a mutation legitimately breaks a neighbour (opening the gate also
@@ -516,6 +518,47 @@ def _suite_checks(TR, tmp: Path, res: list) -> list:
             "runs, reports its own count and exits 0",
        rc == 0 and out.exists() and f"{len(tr_ids)} task(s)" in printed,
        f"rc={rc} out={out.exists()} {printed.strip()[:90]}")
+
+    # R-7.9: the same command with `--dry-run`, whose help has always said
+    # "write nothing". It used to write the suite file anyway, and with the
+    # default name that file lives in the tracked tree — which is how a
+    # no-op-by-request run dirtied `benchmarks/tasks/` here. TASK_DIR is aimed
+    # at a temp directory holding a copy of the real suites (the function reads
+    # its rows from the same folder it writes into), so the flag being broken
+    # cannot cost a tracked file even while the mutant is live.
+    dry_dir = tmp / "dry_tasks"
+    dry_dir.mkdir(parents=True, exist_ok=True)
+    for src in sorted(TASKS.glob("*.jsonl")):
+        if src.name.startswith("r64_"):        # generated files, not source suites
+            continue
+        (dry_dir / src.name).write_text(src.read_text())
+    seed = set(dry_dir.iterdir())
+
+    def run_cli(*extra):
+        real_tasks, argv_c = TR.TASK_DIR, sys.argv
+        TR.TASK_DIR = dry_dir
+        cap = io.StringIO()
+        sys.argv = ["flash.train", "--suite-from-dataset", "--split", "train",
+                    *extra]
+        try:
+            with contextlib.redirect_stdout(cap):
+                code = TR.main()
+        finally:
+            sys.argv, TR.TASK_DIR = argv_c, real_tasks
+        return code, cap.getvalue(), sorted(p.name
+                                            for p in set(dry_dir.iterdir()) - seed)
+
+    rc_dry, dry_out, dry_files = run_cli("--dry-run")
+    ck(res, "suite: `--dry-run` on --suite-from-dataset writes nothing, not even "
+            "under the default name — the flag's own help promises it",
+       dry_files == [] and "would write" in dry_out,
+       f"rc={rc_dry} files={dry_files} {dry_out.strip()[:80]}")
+    rc_run, _, wrote = run_cli()
+    ck(res, "suite: ...and the identical call WITHOUT the flag does write that "
+            "file, so the empty directory above cannot be the command doing "
+            "nothing for an unrelated reason",
+       wrote == ["r64_train_from_dataset.jsonl"],
+       f"rc={rc_run} files={wrote}")
     return res
 
 
@@ -717,7 +760,20 @@ MUTATIONS = (
     ("--suite-from-dataset is parsed but never dispatched", "suite",
      "flash/train.py", '    if a.suite_from_dataset:\n', '    if False:\n',
      ("suite: `flash train --suite-from-dataset` is a real command — it "
-      "runs, reports its own count and exits 0",)),
+      "runs, reports its own count and exits 0",
+      # a command that never runs writes nothing, so both dry-run halves fail
+      # with it — the cascade is the dispatch, not a second defect
+      "suite: `--dry-run` on --suite-from-dataset writes nothing, not even "
+      "under the default name — the flag's own help promises it",
+      "suite: ...and the identical call WITHOUT the flag does write that "
+      "file, so the empty directory above cannot be the command doing "
+      "nothing for an unrelated reason")),
+    ("--dry-run is honoured for the dataset and ignored for the suite",
+     "suite", "flash/train.py",
+     '    if not dry:\n        out.parent.mkdir',
+     '    if True:\n        out.parent.mkdir',
+     ("suite: `--dry-run` on --suite-from-dataset writes nothing, not even "
+      "under the default name — the flag's own help promises it",)),
 )
 
 

@@ -74,11 +74,11 @@ named groups:
   describe the run that produced those weights.
 - `p6/`, `jobs/` — one-off run records cited by dated clauses.
 
-RECORD_RESIDUE = 410
+RECORD_RESIDUE = 411
 
 That is what the widened scan counts on the committed tree at the time of writing
-(`traces` 241, top-level records 153, `adapters` 9, `p6` 6, `jobs` 1) across 35
-of the 165 record files. Every step between 395 and 410 is named below, because a
+(`traces` 241, top-level records 154, `adapters` 9, `p6` 6, `jobs` 1) across 36
+of the 166 record files. Every step between 395 and 411 is named below, because a
 residue figure that moves without an explanation is the same failure as one that
 was never published:
 
@@ -103,8 +103,14 @@ was never published:
   165th record file carrying **zero** occurrences — a battery print is a list of
   check counts and relative paths, and it stays that way only because the vectors
   print relative paths — so the floor held at exactly 410 while the file count moved.
+- Storing the R-7.5 four-install-shape witness (`r75_install_shapes_20260927.log`)
+  added a 166th record file carrying **one**: the `flash doctor` page that witness
+  captured prints the model cache as a resolved path, which is the whole point of
+  that line — a report that elided it could not show a stranger where their weights
+  actually are. The occurrence is therefore in the record, not in the code, and the
+  floor moved to **411 over 36**.
 
-Eight of the 410 are this vector's pass-1 and reproduction logs and three are its
+Eight of the 411 are this vector's pass-1 and reproduction logs and three are its
 pass-2 table — a count that includes the counter is the kind of detail worth
 stating rather than smoothing over. New traces only ever add, so the gate treats
 the number as a floor: a documented count above the live one means the doc was

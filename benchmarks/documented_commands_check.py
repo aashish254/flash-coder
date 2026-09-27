@@ -38,7 +38,11 @@ sys.path.insert(0, str(ROOT))
 from flash import cli                                            # noqa: E402
 
 DOCS = ("README.md", "SPEC.md", "TODO.md", "CHANGELOG.md", "CONTRIBUTING.md",
-        "SECURITY.md", "CODE_OF_CONDUCT.md")
+        "SECURITY.md", "CODE_OF_CONDUCT.md",
+        # The two files whose only prose is comments. A stranger reads
+        # `pyproject.toml` to decide which extra to install, and one of its
+        # comments named a command that has never existed.
+        "pyproject.toml", "MANIFEST.in")
 DOC_GLOBS = ("docs/*.md", ".github/workflows/*.yml", ".github/**/*.md")
 # A command is written where a command is typed: inside `code`, inside a fenced
 # block, or on a CI `run:` line. Sentences about "flash" are not commands, and
@@ -64,7 +68,10 @@ NOT_A_COMMAND = {"flash", "cli", "coder", "help", "the", "and", "is", "of", "to"
                  "for", "with", "on", "in", "as", "by", "it", "runs", "version"}
 
 
-def code_lines(text: str, is_yaml: bool) -> list[tuple[int, str]]:
+COMMENT_CMD = re.compile(r"^\s*[#;]\s*(flash\b.*)$")
+
+
+def code_lines(text: str, is_yaml: bool, is_cfg: bool = False) -> list[tuple[int, str]]:
     """(line number, text) for every line worth parsing as a command.
 
     The line number is kept because the failure this file exists to catch is a
@@ -80,6 +87,13 @@ def code_lines(text: str, is_yaml: bool) -> list[tuple[int, str]]:
         out.extend((base + i, l) for i, l in enumerate(block.group(1).splitlines()))
     for span in SPAN.finditer(text):
         out.append((lineno(span.start()), span.group(1)))
+    if is_cfg:
+        # In a packaging file a comment IS the prose, and an un-backticked
+        # `flash something` at the start of one reads as an instruction.
+        for i, raw in enumerate(text.splitlines(), 1):
+            m = COMMENT_CMD.match(raw)
+            if m:
+                out.append((i, m.group(1)))
     if is_yaml:
         # A `run:` block is typed by a machine on every push, so it counts.
         for m in re.finditer(r"run: \|\n((?:[ \t]+.*\n?)+)", text):
@@ -97,8 +111,9 @@ def collect(paths: list[Path]) -> dict[str, list[str]]:
     for p in paths:
         text = p.read_text(errors="ignore")
         yaml = p.suffix == ".yml"
+        cfg = p.suffix in (".toml", ".in")
         rel = str(p.relative_to(ROOT))
-        for line_no, line in code_lines(text, yaml):
+        for line_no, line in code_lines(text, yaml, cfg):
             line = line.strip()
             m = (CMD.match(line) or FLASH_ONLY.match(line))
             if not m:
@@ -159,6 +174,17 @@ def run_gates(print_table: bool = False) -> None:
        "documents, which is wide enough that 'every documented command exists' "
        "cannot be green because nothing was read",
        len(flat) >= 20 and len(cited) >= 6, f"{len(flat)} commands: {flat}")
+    scanned = {str(p.relative_to(ROOT)) for p in files}
+    pack_cites = sorted({cite for lst in commands.values() for cite in lst
+                         if cite.split(":")[0] in ("pyproject.toml", "MANIFEST.in")})
+    ck("the two packaging files are among the documents scanned, and commands "
+       "actually come out of them — `pyproject.toml` and `MANIFEST.in` are what a "
+       "stranger reads to decide what to install, their only prose is comments, "
+       "and that is where `flash vision --run` sat for a whole release claiming "
+       "to be a command",
+       {"pyproject.toml", "MANIFEST.in"} <= scanned
+       and any(c.startswith("pyproject.toml") for c in pack_cites),
+       f"{len(pack_cites)} citation(s) from them: {pack_cites[:4]}")
     missing = {c: sorted(set(commands[c])) for c in flat if not resolves(c)[0]}
     ck(f"every one of those {len(flat)} commands resolves in "
        "`flash.cli.build_parser()` — the parser, not a copy of its help text",
@@ -220,7 +246,7 @@ def run_gates(print_table: bool = False) -> None:
 
 
 def mutate(one: str | None = None) -> int:
-    """Three ways this vector can be green while telling a lie.
+    """Five ways this vector can be green while telling a lie.
 
     The patches go through `globals()` because `run_gates` looks these names up as
     module attributes: assigning them in this function's scope would patch a local
@@ -238,8 +264,11 @@ def mutate(one: str | None = None) -> int:
         "parser_missing": ("SPEC's own mutation-check: delete a documented "
                            "subcommand's parser entry, and the gate must name the "
                            "documents and lines that still cite it",),
+        "no_packaging": ("`pyproject.toml` and `MANIFEST.in` leave the scanned "
+                         "set — which is exactly where `flash vision --run` hid "
+                         "while every markdown page was being read",),
     }
-    real = {k: globals()[k] for k in ("collect", "resolves", "code_lines")}
+    real = {k: globals()[k] for k in ("collect", "resolves", "code_lines", "DOCS")}
     real_bp = cli.build_parser
     failed = ran = 0
     for bug in bugs:
@@ -253,8 +282,12 @@ def mutate(one: str | None = None) -> int:
                 globals()["resolves"] = lambda c: (True, "")
             elif bug == "no_ci_lane":
                 keep = real["code_lines"]
-                globals()["code_lines"] = lambda text, is_yaml: (
-                    [] if is_yaml else keep(text, is_yaml))
+                globals()["code_lines"] = lambda text, is_yaml, is_cfg=False: (
+                    [] if is_yaml else keep(text, is_yaml, is_cfg))
+            elif bug == "no_packaging":
+                globals()["DOCS"] = tuple(
+                    d for d in real["DOCS"]
+                    if d not in ("pyproject.toml", "MANIFEST.in"))
             elif bug == "parser_missing":
                 def stripped(real=real_bp, drop=("selftest", "doctor")):
                     p = real()

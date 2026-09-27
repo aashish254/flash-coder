@@ -39,7 +39,7 @@ dependencies = [
 dynamic = ["version"]
 
 [project.optional-dependencies]
-# flash vision --run reads screenshots through a VLM; the rest of the tool runs
+# `flash run-vis-suite` reads screenshots through a VLM; the rest of the tool runs
 # without it and says so rather than crashing on import.
 vlm = ["mlx-vlm>=0.7; sys_platform == 'darwin' and platform_machine == 'arm64'"]
 # flash web's doc ranker embeds with bge via torch. Without it `flash web`

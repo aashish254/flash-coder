@@ -47,6 +47,49 @@ VECTOR_TOOLS = {"numpy": "the battery's numeric seams",
                 "pylsp": "the LSP seam's server (flash perceive/find/refs)",
                 "requests": "flash web's doc fetch"}
 
+# Which module selftests read the data tree NEXT TO the package rather than only
+# the package. Measured on a wheel installed in a clean venv (SPEC R-7.5): with no
+# `benchmarks/` beside `flash/`, `flash.grammar` and `flash.debug` raised
+# `FileNotFoundError` for a path inside site-packages and `flash.patches` printed
+# one FAIL out of 46 that was an absent directory wearing a failure. `flash.graph`
+# already refused, and this table is that refusal generalised to the three that
+# did not, so the four share one sentence and one gate.
+VECTOR_DATA = {"grammar": "benchmarks/tasks/mw_tasks.jsonl",
+               "debug": "benchmarks/tasks/dbg_tasks.jsonl",
+               "patches": "benchmarks/fixtures/minishop",
+               "graph": "benchmarks/fixtures/minishop"}
+
+
+def missing_vector_data(mod: str, root: Path) -> Path | None:
+    """The path `python -m flash.<mod> --selftest` needs and this install does not
+    have, or `None` when it is all there. `root` is a parameter for the same reason
+    `install_shape`'s is: the vector points it at synthetic wheel- and source-shaped
+    trees, so the answer cannot quietly become "fine" for both."""
+    rel = VECTOR_DATA.get(mod)
+    if rel is None:
+        return None
+    path = root / rel
+    return None if path.exists() else path
+
+
+def vector_refusal(mod: str, root: Path) -> int | None:
+    """Print the "this is not a tree this vector can run in" page and return the rc
+    it commits to, or `None` when the data is present and the selftest should go
+    ahead. Exit 2, not 1: a count of failures here would invite someone to diff a
+    run that never happened."""
+    missing = missing_vector_data(mod, root)
+    if missing is None:
+        return None
+    print(f"flash.{mod} --selftest cannot run here: it reads {missing}, and that "
+          f"path does not exist.\n"
+          f"  A wheel install carries the package only, no `benchmarks/`, so part "
+          f"of this vector would report a failure that is an absent directory "
+          f"wearing one. Run it from a clone or an unpacked sdist (both ship "
+          f"`benchmarks/`). To check the install itself: `flash doctor`, "
+          f"`flash power`, `python -m flash.harness --selftest`.")
+    return 2
+
+
 
 def install_shape(pkg_dir: Path | None = None) -> dict:
     """Where this `flash` lives, and what is beside it.
@@ -72,9 +115,16 @@ def install_shape(pkg_dir: Path | None = None) -> dict:
 
 
 def _is_editable(pkg_dir: Path) -> bool:
-    """True when `import flash` resolved into a working tree, not a copy."""
-    site = str(Path(sys.executable).resolve().parent.parent / "lib")
-    return site not in str(pkg_dir.resolve())
+    """True when `import flash` resolved OUTSIDE a `site-packages` directory.
+
+    This used to ask whether `Path(sys.executable).resolve()`'s `lib/` is a prefix
+    of the package path, and on a Mac venv that symlink points at the Homebrew
+    interpreter — so a wheel installed into `venv/lib/python3.11/site-packages/flash`
+    answered "editable checkout" to a user who had no checkout. Measured in exactly
+    that install; the answer is now read off the path it is a property of.
+    """
+    resolved = str(Path(pkg_dir).resolve())
+    return "site-packages" not in resolved and "dist-packages" not in resolved
 
 
 def backend() -> dict:

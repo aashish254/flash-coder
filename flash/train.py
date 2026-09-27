@@ -536,7 +536,7 @@ def build_dataset(held_out=None, out_name: str = "ledger-verified",
 
 
 def suite_from_dataset(split: str = "train", dataset=None, tasks_dir=None,
-                       out=None, verbose: bool = True):
+                       out=None, verbose: bool = True, dry: bool = False):
     """A tasks file holding exactly the ids one side of the dataset was built from.
 
     R-6.4's held-out arm answers "did it transfer?". This answers the question
@@ -577,12 +577,13 @@ def suite_from_dataset(split: str = "train", dataset=None, tasks_dir=None,
                     continue
                 rows.append(t)
                 seen.discard(t["id"])
-    out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text("\n".join(json.dumps(t) for t in rows) + "\n")
+    if not dry:
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text("\n".join(json.dumps(t) for t in rows) + "\n")
     if verbose:
         print(f"[train] {split} side: {len(rows)} task(s)"
               + (f", {dupes} duplicate row(s) dropped" if dupes else "")
-              + f" -> {out}"
+              + (" -> would write " if dry else " -> ") + str(out)
               + (f"; {len(seen)} id(s) appear in no suite file: {sorted(seen)}"
                  if seen else ""))
     return out, len(rows), sorted(seen)
@@ -593,7 +594,8 @@ def main() -> int:
     ap.add_argument("--dataset", action="store_true",
                     help="mine the trace store and write train/valid jsonl")
     ap.add_argument("--dry-run", action="store_true",
-                    help="mine and print the counts, write nothing")
+                    help="print the counts, write nothing — for --dataset and for "
+                         "--suite-from-dataset alike")
     ap.add_argument("--held-out", action="append", default=[],
                     help="a tasks file whose ids MUST NOT be trained on "
                          "(repeatable). The frozen suite R-6.4 scores on.")
@@ -613,7 +615,7 @@ def main() -> int:
     if a.suite_from_dataset:
         _, n, missing = suite_from_dataset(split=a.split,
                                            dataset=DATASET_DIR / a.out,
-                                           out=a.suite_out)
+                                           out=a.suite_out, dry=a.dry_run)
         return 0 if n and not missing else 1
     if a.dataset or a.dry_run:
         _, _, out = build_dataset(held_out=a.held_out, out_name=a.out,

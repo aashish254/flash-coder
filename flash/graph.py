@@ -56,6 +56,7 @@ import time
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 
+from flash import doctor
 from flash.patches import definitions
 
 # Names that are never repo symbols. A graph with an unresolved edge for every
@@ -1075,8 +1076,8 @@ def scope_hint(root: str | Path, err: str = "", code: str = "",
 
 # ---------------------------------------------------------------- selftest
 
-_FIXTURES = (Path(__file__).resolve().parent.parent
-             / "benchmarks" / "fixtures" / "minishop")
+_DATA_ROOT = Path(__file__).resolve().parent.parent
+_FIXTURES = _DATA_ROOT / "benchmarks" / "fixtures" / "minishop"
 
 _SHOP = {
     "shop/__init__.py": "",
@@ -1524,21 +1525,13 @@ def _say(checks: list[tuple[str, bool, str]], timing: dict[str, float],
 
 def run_selftest(verbose: bool = True, mutants: bool = False) -> int:
     """R-1.3's vector, offline and deterministic: the named callers, under budget."""
-    if not _FIXTURES.is_dir():
+    refused = doctor.vector_refusal("graph", _DATA_ROOT)
+    if refused:
         # Measured on a wheel installed into a clean venv: 8 of these 44 checks
         # build a graph over the fixtures package, so with no `benchmarks/` beside
         # the installed `flash` they all print FAIL and the report reads as though
-        # the graph were broken. It is not; the data is not there. Exit 2 — "this
-        # is not a tree this vector can run in" — rather than a count that invites
-        # someone to diff a graph nobody built.
-        print(f"flash.graph --selftest cannot run here: it builds a graph over "
-              f"{_FIXTURES}, and that directory does not exist.\n"
-              f"  A wheel install carries the package only, no `benchmarks/`, so "
-              f"8 of the 44 checks would report a failure that is a missing "
-              f"directory wearing one. Run this from a clone or an unpacked sdist "
-              f"(both ship `benchmarks/`). To check the install itself: "
-              f"`flash power`, `flash --help`, `python -m flash.harness --selftest`.")
-        return 2
+        # the graph were broken. It is not; the data is not there.
+        return refused
     checks, timing = _checks()
     bad = _say(checks, timing, verbose)
     escaped = mutate(verbose) if mutants else 0

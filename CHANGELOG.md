@@ -18,7 +18,9 @@ versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `python benchmarks/documented_commands_check.py` → **7/7 + 4/4 mutants**, and the
   re-read that followed them is the printed line
   `checks 1104  oracle 20  §6 total 1124  mutants 78` with **33** OK lines
-  (`benchmarks/results/battery_reread_r76_20260927.log`). What each command
+  (`benchmarks/results/battery_reread_r76_20260927.log`). Both files have grown since
+  that print, in the bullets below and in R-7.9/R-7.10, and the `[0.1.0]` draft's
+  headline carries the later totals. What each command
   promises is gated, not narrated: `doctor`'s exit code follows its own page (a
   synthetic broken install in a temp tree must print `no` on exactly 5 of 9 lines
   and rc 1; a complete one zero `no` and rc 0), `selftest --all` refuses with rc 2
@@ -34,9 +36,11 @@ versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   raised the shim's own sentence; a sibling gate requires it to leave `numpy`
   alone, because a blocker that broke everything would "prove" the claim by making
   the battery unrunnable.
-- `benchmarks/documented_commands_check.py` reads fences, inline spans and the
-  published workflows' `run:` lines: **24 commands across 111 citations in 11
-  documents, plus 67 source paths a reader is told to open**, all of which resolve.
+- `benchmarks/documented_commands_check.py` reads fenced blocks, inline backticks,
+  the workflows' `run:` lines and the packaging files' comments: **25 commands across
+  150 citations in 15 documents, plus 72 source paths a reader is told to open**, all
+  of which resolve. (The four figures move with the prose; the gate asserts a floor and
+  prints what it counted.)
   Commands are resolved by `parse_args`, never by dispatch — a documented
   `flash run` would create a worktree — and the collector is not trusted: planting a
   command nobody wrote must be rejected, and deleting `selftest`/`doctor` from the
@@ -81,7 +85,7 @@ versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   says so; what this correction leaves standing is the *rule*, which is that a claim
   in this file moves only when a run prints it. The "21 of the 23" count is itself
   superseded by R-7.8's collector, which reads the documents instead of a hand-kept
-  list: **24 commands, all resolving.**
+  list: **25 commands, all resolving.**
 - `## [0.1.0] - 2026-09-27` dated a release that has not happened. No tag exists
   and no remote is configured, so the header now says so outright.
 - Two documents cited a different module count for the same fact: `pyproject.toml`
@@ -95,6 +99,37 @@ versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   R-7.5's open box and the install claim is still gated, not measured.
 
 ### Fixed
+- **R-7.9** `python -m flash.train --dry-run` writes nothing, on both of its
+  branches. `--suite-from-dataset` was dispatched above the branch that honoured the
+  flag, so a command typed to *avoid* touching the tree rewrote the tracked
+  `benchmarks/tasks/r64_train_from_dataset.jsonl`; `git status` after a verification
+  run is what found it. `suite_from_dataset()` now takes `dry` and skips the `mkdir`
+  with the `write_text`, printing `-> would write <path>`. Two checks and one mutant
+  in `benchmarks/lora_path_check.py`'s suite group, run with **no `--suite-out`** so
+  the default name is the thing under test, and aimed at a temp copy of the suites so
+  the mutant cannot dirty the tree it measures: **`lora path: 33/33 checks passed`,
+  `mutations: 15/15 gates defeated by exactly their checks`**.
+- **R-7.10** three module selftests that cannot run on a wheel install now say so
+  instead of failing. Measured on a `pip install .` into a throwaway venv:
+  `flash.grammar --selftest` and `flash.debug --selftest` raised
+  `FileNotFoundError` for a `benchmarks/tasks/*.jsonl` path inside
+  `site-packages`, and `flash.patches --selftest` printed
+  `FAIL workspace: a project directory loads under its relative path` inside an
+  otherwise-green 46-check report — three ways for a missing directory to be read as
+  a broken package. `flash.graph` already refused with exit 2; the refusal is now one
+  function, `doctor.vector_refusal()`, driven by a four-entry `doctor.VECTOR_DATA`
+  table that all four `run_selftest`s consult before touching the filesystem.
+- **R-7.10b** `flash doctor` told a wheel-installed user they were in an **editable
+  checkout**, because the answer came from `Path(sys.executable).resolve()` — a macOS
+  venv symlink pointing at the Homebrew framework, which is not a prefix of anywhere
+  the package lives. It is now read off the package path: under
+  `site-packages`/`dist-packages` is an installed copy.
+  Vector for both: six checks and three mutants in
+  `benchmarks/backend_free_check.py` → **`backend-free checks: 37/37 passed`**,
+  **`backend-free mutants: 8/8 gates defeated by exactly their checks`**, plus a live
+  repeat in a package-only tree where all four print the sentence and none prints a
+  traceback. The gate that requires the same guards to say *nothing* when the four
+  paths are present is what keeps this from being a vector that refuses to run.
 - `benchmarks/portable_paths_check.py` now takes a `flock` on a per-checkout lock
   file and exits 2 rather than running twice at once. Found by a §6 battery run
   that printed **BAD … defeated 0 mutants, not 7** while every gate still said
@@ -172,8 +207,8 @@ for the release that TODO #32 tags once R-7.5 closes. Its counts are the
 tree's printed ones as of the last §6 re-read, and `flash/__init__.py` still says
 `__version__ = "0.0.1"`, so a wheel built today would be labelled 0.0.1.
 
-A local, verify-first coding agent for Apple Silicon, with 1,104 offline checks +
-20 oracle verifications + 78 mutation gates, and a `SPEC.md` that records which of
+A local, verify-first coding agent for Apple Silicon, with 1,114 offline checks +
+20 oracle verifications + 83 mutation gates, and a `SPEC.md` that records which of
 its own gates measured NO.
 
 ### Added — perception

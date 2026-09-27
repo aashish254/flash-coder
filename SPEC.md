@@ -940,8 +940,10 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   (python, platform, GPU/backend presence, model cache, config, whether the offline
   vectors can run here) and `flash selftest --all`, which runs the §6 battery from
   the installed package and prints its totals the same way `battery_reread.py` does.
-  Vector: `benchmarks/backend_free_check.py`, **30 checks + 5 mutants**, green in
-  this session and a §6 line of its own. What each command commits to, gate by gate:
+  Vector: `benchmarks/backend_free_check.py`, **30 checks + 5 mutants** when it
+  closed, and a §6 line of its own; the file now carries **37 checks + 8 mutants**,
+  the six extra checks and two extra mutants being R-7.10's and R-7.10b's guards
+  living in the same place as the report they test. What each command commits to, gate by gate:
   `--version` prints `flash <flash.__version__>` read from the package object, so a
   bump cannot leave a stale number in a parser; `doctor` answers nine questions and
   its exit code follows its own page — the vector builds a synthetic broken install
@@ -960,8 +962,13 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   section about a file nobody opens.
   The "21 of the 23 `flash` subcommands the docs name exist" measurement this box
   carried is superseded by R-7.8's collector, which reads the documents rather than
-  a list: **24 distinct commands across 111 citations in 11 documents, all of which
-  resolve**.
+  a list: **25 distinct commands across 150 citations in 15 documents, all of which
+  resolve**. That citation count is the spine gate's own printed line, so it moves
+  whenever a document gains or loses a `flash …` line — 111 at this box's first green
+  print, 112 after the README front-page rewrite, 130 once the packaging files and
+  `docs/config.md` joined the scan — which is why it is re-read from the run rather
+  than
+  copied forward.
 - **R-7.7 (CLOSED 2026-09-27)** A non-Apple-Silicon user MUST be able to `import
   flash` and every submodule of it, and hear about the missing backend at the call
   that needs generation — not at import time. `flash/decide.py`'s `import mlx.core`
@@ -993,16 +1000,44 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   for as long as the package shipped because `flash.cli` loads both lazily.
 - **R-7.8 (CLOSED 2026-09-27)** Every `flash …` command line printed in a tracked
   document MUST parse against `flash.cli.build_parser()`.
-  Vector: `benchmarks/documented_commands_check.py`, **7 checks + 4 mutants**, green
-  in this session and a §6 line of its own. It reads fenced blocks, inline spans and
-  the two published workflows' `run:` lines, and today the collector's own spine is
-  one of the gates: **24 distinct commands in 111 citations across 11 documents**,
-  plus **67 source paths** a reader is told to open. Commands are resolved by
+  Vector: `benchmarks/documented_commands_check.py`, **8 checks + 5 mutants**, green
+  in this session and a §6 line of its own. It reads fenced blocks, inline spans, the
+  two published workflows' `run:` lines **and the comments of the two packaging
+  files**, and today the collector's own spine is one of the gates: **25 distinct
+  commands in 150 citations across 15 documents**, plus **72 source paths** a reader
+  is told to open. (Those four figures move with the prose — the citations printed 111
+  when this box first closed, 112 after the README front-page rewrite, 130 once the
+  packaging files were scanned, and 150 when `docs/config.md`, `docs/privacy.md` and
+  `docs/methodology.md` joined the scanned set — which is exactly why the spine gate asserts a
+  floor and prints what it found rather than pinning a literal.) Commands are
+  resolved by
   `parse_args([cmd])` against the real parser under a swallowed stderr — never by
   dispatching, because a documented `flash run` would create a worktree and a
   documented `flash selftest --all` would take eight minutes — and the gate that the
   collector is not blind is paid for by planting a command nobody wrote and requiring
   the existence check to reject it.
+  **The packaging files were added the same day, and they were not idle for a
+  minute.** `pyproject.toml`'s `vlm` extra carried the comment "flash vision --run
+  reads screenshots through a VLM", and there has never been a **vision**
+  subcommand — the suite is `flash run-vis-suite`. That file is the one a stranger
+  opens to decide what to install, its prose is invisible to every markdown-only
+  scan, and the command appears without backticks, which is the shape the collector
+  had no rule for. So `code_lines()` grew a third source (a line whose comment begins
+  with `flash …`, in `.toml`/`.in`), the 8th gate requires both packaging files to be
+  in the scanned set *and* to yield commands, and the 5th mutant removes them from
+  that set to prove the gate is watching. The instrument earned its keep twice more
+  inside the hour: `docs/config.md`, written minutes later against the same
+  `pyproject.toml`, inherited the same non-existent vision `--run` form and added a
+  **sandbox** command that is also not a command — two gates failed on a page that did
+  not exist an hour before, which is the only kind of evidence that a doc scan is
+  worth its runtime.
+  **This paragraph is written the way it is because the gate cannot tell a citation
+  from a report about a citation.** A backticked `flash …` span means "run this" to a
+  reader and to the collector alike, so the two dead subcommands are named here as
+  bare words; the strings as they shipped are in the quoted comment above, which is a
+  surface the collector deliberately does not read (it reads fenced blocks, inline
+  backticks, workflow `run:` lines and packaging comments — the four shapes a reader
+  copies), and in the commit that removed them from `pyproject.toml`.
   Two of the seven are the reason the box existed. `CONTRIBUTING.md` shipped three
   citations of commands that did not exist, one inside the copy-pasteable setup
   block; the fix is not only that they now exist, it is that the **published
@@ -1021,6 +1056,74 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   reader to open a file that exists only while a mutation is applied being exactly the
   defect the gate was written for. The sentence moved, not the gate; that is why this
   box describes the planted file without naming its path.
+- **R-7.9 (CLOSED 2026-09-27)** A flag that says "write nothing" MUST write nothing,
+  whichever sub-command it is combined with.
+  `python -m flash.train --dry-run` has advertised "mine and print the counts, write
+  nothing" since the day it was added, and `main()` honoured it for `--dataset` while
+  dispatching `--suite-from-dataset` **above** that branch with no `dry` argument at
+  all. So the command a user runs to avoid touching the tree wrote
+  `benchmarks/tasks/r64_train_from_dataset.jsonl` — a tracked file, in the shipped
+  suite directory, on the machine that generated the dataset R-6.4 is scored against.
+  It was caught here by nothing more clever than `git status` after a verification run:
+  the file was modified, and the command that modified it had been typed as a dry run.
+  `suite_from_dataset()` now takes `dry`, skips the `mkdir` with the `write_text`
+  (creating the directory is also a write), and prints `-> would write <path>` so the
+  refusal is visible rather than silent.
+  Vector: two checks and one mutant inside `benchmarks/lora_path_check.py`'s suite
+  group — **`lora path: 33/33 checks passed`, `mutations: 15/15 gates defeated by
+  exactly their checks`**. The seam is `flash.train.main()`, not the helper, because
+  the defect was in `main()`'s plumbing; `TASK_DIR` is aimed at a temp directory
+  holding copies of the real suites (the function reads its rows from the folder it
+  writes into), so a broken flag cannot cost a tracked file even while the mutant is
+  live, and the gate is exercised with **no `--suite-out`**, which is the only way the
+  default name — the one that lands in `benchmarks/tasks/` — can be proven untouched.
+  The second check runs the identical call **without** the flag and requires the file
+  to appear, because "nothing was written" is also what a command that never ran looks
+  like. That coupling is why deleting the dispatch now fails three checks where it used
+  to fail one, and the expectation says so rather than hiding it.
+- **R-7.10 (CLOSED 2026-09-27)** A vector that cannot run on this install MUST say
+  so and stop, on every install shape, rather than raise or print a count of failures
+  that are really a missing directory.
+  This is R-7.5's wheel finding, finished. `flash.graph --selftest` already refused
+  with exit 2 and a sentence; the other three that read beside the package did not.
+  Measured on a wheel installed in a clean venv (witness
+  `benchmarks/results/r75_install_shapes_20260927.log`, phase B): `flash.grammar` and
+  `flash.debug` raised `FileNotFoundError` for
+  `<site-packages>/benchmarks/tasks/*.jsonl`, and `flash.patches` printed
+  `FAIL workspace: a project directory loads under its relative path` inside an
+  otherwise-green 46-check report — a stranger reads the first two as a broken
+  package and the third as a broken patch resolver.
+  The refusal is now one function, `doctor.vector_refusal(mod, root)`, driven by a
+  four-entry `doctor.VECTOR_DATA` table (grammar/debug → their task corpora,
+  patches/graph → the fixtures package), and all four `run_selftest`s call it before
+  touching the filesystem. Exit 2, not 1: a total printed from checks that could not
+  run is the failure mode this whole group is about.
+  Vector: six checks and two mutants inside `benchmarks/backend_free_check.py`
+  (**`backend-free checks: 37/37 passed`, `backend-free mutants: 8/8`**), plus a live
+  repeat in a package-only tree (`flash/` copied next to no `benchmarks/`, run from a
+  directory that holds neither): four for the refusals — each module's `_DATA_ROOT`
+  aimed at an empty directory, `run_selftest` called at the real seam, rc 2, the
+  sentence naming the exact missing path, and **no `Traceback` in the text** — one
+  that points the same four guards at a tree that DOES carry the four paths and
+  requires them to say nothing (otherwise the refusal is a constant, and a vector
+  that can never run is not "honest", it is deleted), and one on the table's shape:
+  every entry must sit under `benchmarks/`, because a package-side path would make
+  the guard answer "present" forever. Mutants: a guard that reports "missing" even
+  when the data is there (fails the second), and a table entry moved inside `flash/`
+  (fails the third). The same run found a second wheel-only lie, booked as R-7.10b.
+- **R-7.10b (CLOSED 2026-09-27)** `flash doctor` told a `pip install .` user they were
+  in an **editable checkout**. The line came from
+  `Path(sys.executable).resolve().parent.parent / "lib"` being compared to the
+  package's own path, and a macOS venv's `bin/python` is a symlink into the Homebrew
+  framework — so the prefix it built was `/opt/homebrew/…/lib`, which is not a prefix
+  of `/private/tmp/r75c/venv/lib/python3.11/site-packages/flash`, and the report said
+  the opposite of the truth about the one thing this release is about. `_is_editable`
+  now reads the property off the path it is a property of: a package under
+  `site-packages`/`dist-packages` is an installed copy, anything else is a working
+  tree. Vector: the 37th check of the same file, against a synthetic
+  `lib/python3.11/site-packages/flash` directory, plus the 8th mutant putting the
+  interpreter back and requiring the gate to notice; both green in this session, and
+  the wheel venv re-printing `installed copy` is in R-7.5's rerun witness.
 - **R-7.3 (OPEN)** Hands-free control (voice) at the measured spike latency:
   command-to-ack ~4.8s. Vector: real-microphone arm of the spike with VAD
   barge-in, ≥ 90% command recognition over 50 utterances.
@@ -1205,22 +1308,22 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
    `python benchmarks/p6_key_check.py` 28 ·
    `python benchmarks/confidence_tau_check.py` 7 ·
    `python benchmarks/checkpoint_resume_check.py` 35 ·
-   `python benchmarks/lora_path_check.py` 31 (+ 14 mutants) ·
+   `python benchmarks/lora_path_check.py` 33 (+ 15 mutants) ·
    `python benchmarks/dbg_band_check.py` 172 (+ 5 mutants) ·
    `python benchmarks/router_portable_check.py` 20 (+ 5 mutants) ·
    `python benchmarks/graph_perceive_check.py --sweep` 33 (+ 12 mutants) ·
    `python benchmarks/hint_ab_check.py` 14 (+ 8 mutants) ·
    `python benchmarks/portable_paths_check.py` 15 (+ 7 mutants) ·
-   `python benchmarks/backend_free_check.py` 29 (+ 4 mutants) ·
-   `python benchmarks/documented_commands_check.py` 7 (+ 4 mutants) ·
+   `python benchmarks/backend_free_check.py` 37 (+ 8 mutants) ·
+   `python benchmarks/documented_commands_check.py` 8 (+ 5 mutants) ·
    `python -m flash.debug --suite` 32 ·
    `python -m flash.patches --suite benchmarks/tasks/edit_tasks.jsonl` 60 ·
    `python benchmarks/m0_bakeoff.py --dry-run` 20 reference solutions.
-   **Total: 1103 selftest / end-to-end / premise checks + 20 oracle
+   **Total: 1114 selftest / end-to-end / premise checks + 20 oracle
    verifications (m0_bakeoff's 20 reference solutions, which are the only
-   numbers in that 20 — the 6 ambient, 14 lora, 5 band, 5 router-portability,
-   12 graph, 12 graph-perceive, 8 hint-ab, 7 path-portability, 4 backend-free and
-   4 documented-command mutants are extra to both totals, 77 in all) = 1123 green,
+   numbers in that 20 — the 6 ambient, 15 lora, 5 band, 5 router-portability,
+   12 graph, 12 graph-perceive, 8 hint-ab, 7 path-portability, 8 backend-free and
+   5 documented-command mutants are extra to both totals, 83 in all) = 1134 green,
    offline.** Read those two
    numbers with care: CHECKS and TOTAL are different columns, and this page has
    been quoted wrongly by its own notes before — R-1.1b's checks count (1052) was
@@ -1314,6 +1417,28 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
    a sweep, not an enumeration, is what stops a *new* module growing a top-level
    backend import and still printing green. That gate was added, planted-file mutant
    and all, which is why the line is 30 and not 29.)
+   (Updated 2026-09-27, when R-7.9, R-7.10 and R-7.10b closed: **+2 checks and +1
+   mutant** on `python benchmarks/lora_path_check.py` (**31 → 33**, **14 → 15**) for
+   `--dry-run`, **+1 check and +1 mutant** on
+   `python benchmarks/documented_commands_check.py` (**7 → 8**, **4 → 5**) for the two
+   packaging files, and **+7 checks and +3 mutants** on
+   `python benchmarks/backend_free_check.py` (**30 → 37**, **5 → 8**) for R-7.10's four
+   refusals, its table-shape guard and R-7.10b's `site-packages` answer —
+   **1104 → 1114** checks, mutants **78 → 83**, §6 total **1124 → 1134**, with the
+   line count unchanged at **33**, because every one of these gates went into a vector
+   that already had a line of its own.
+   The first re-read printed `checks 1099  oracle 20  §6 total 1119  mutants 75` and
+   named its own cause on the line above it:
+   `BAD benchmarks/documented_commands_check.py want 8/8 got ['7/8']`. The new
+   packaging-era gate was failing on **SPEC's own paragraph about the non-existent
+   commands** — the passage that records the `vision` and `sandbox` lies cites them in
+   the exact shape the collector reads as a citation, so the page documenting a
+   dangling command was itself dangling two. The prose was rewritten and the gate was
+   left alone: the two dead subcommands are now named as bare words, and the reason is
+   written into R-7.8 (a backticked `flash …` span means "run this" to a reader and to
+   the scanner alike, and this project will not hold a gate that cannot tell a
+   recommendation from a quotation, so quotations are written where they cannot be
+   copied). Re-read after that:)
    (Updated 2026-09-27, after R-7.4: **+14 checks and +7 mutants** for a new vector,
    `python benchmarks/portable_paths_check.py`. No existing line moved, and that is
    the finding: `flash debug --selftest` stayed **55/55** and `flash debug --suite`

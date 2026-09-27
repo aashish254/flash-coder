@@ -336,6 +336,7 @@ _BUGS: list[tuple[str, str, str]] = [
 
 # ---------------------------------------------------------------- the suite
 DBG_TASKS = "benchmarks/tasks/dbg_tasks.jsonl"
+_DATA_ROOT = Path(__file__).resolve().parent.parent
 
 
 def run_suite_check(path: str | Path | None = None) -> list[tuple[str, bool, str]]:
@@ -353,8 +354,7 @@ def run_suite_check(path: str | Path | None = None) -> list[tuple[str, bool, str
     `benchmarks/dbg_band_check.py` reads; there is no digest to prove here.
     """
     from flash.harness import diagnose, load_tasks
-    rows = load_tasks(str(path or (Path(__file__).resolve().parent.parent
-                                   / "benchmarks/tasks/dbg_tasks.jsonl")))
+    rows = load_tasks(str(path or (_DATA_ROOT / DBG_TASKS)))
     checks = []
     for t in rows:
         if not (t.get("seeded") and t.get("blame")):
@@ -378,6 +378,11 @@ def run_suite_check(path: str | Path | None = None) -> list[tuple[str, bool, str
 
 
 def run_selftest() -> int:
+    from flash import doctor
+    refused = doctor.vector_refusal("debug", _DATA_ROOT)
+    if refused:
+        return refused
+
     checks: list[tuple[str, bool, str]] = []
 
     def ck(name: str, cond, note: str = "") -> None:

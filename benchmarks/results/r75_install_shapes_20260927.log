@@ -1,0 +1,91 @@
+=== A. fresh clone + build
+3a7b2e1 R-7.6/7.7/7.8: the commands a stranger types, and the gate that checks they exist
+tracked files: 295  tree:  16M
+--- sdist 3.6M in 334 entries; wheel 260K
+benchmarks/              270
+flash/                   28
+docs/                    4
+benchmarks/results/      184
+benchmarks/tasks/        26
+benchmarks/fixtures/     7
+--- does the sdist carry weights? 0 files
+
+=== B. WHEEL install, from a directory that holds neither flash/ nor benchmarks/
+--- flash on PATH: /tmp/r75c/venv/bin/flash
+--- import flash -> /private/tmp/r75c/venv/lib/python3.11/site-packages/flash/__init__.py
+--- flash --version: flash 0.0.1  [rc=0]
+flash power [rc=0]:   fast tier  LOAD OK  (~4.4GB)   brain      LOAD OK  (~17.3GB) 
+--- flash doctor on a wheel install (no benchmarks/ beside the package):
+flash doctor — what this install can and cannot do
+
+ install
+  [yes] flash 0.0.1 at /private/tmp/r75c/venv/lib/python3.11/site-packages/flash (editable checkout)
+  [no ] verification surface beside the package: benchmarks/ ABSENT
+ backend
+  [yes] MLX backend: mlx 0.32.2, mlx_lm 0.31.3
+ machine
+  [yes] python 3.11.15 · darwin/arm64 · 27.0
+  [yes] what this box may load: profile maximum-performance, up to 17.3 GB right now (~20.8 GB free of 32, tournament width 4)
+ cache
+  [   ] model cache /Users/aashish/.cache/huggingface/hub: 41 repo(s), 4 of 4 §22 candidates present
+ tools
+  [yes] offline-surface imports: all four present
+ verify
+  [no ] the offline battery CANNOT run from this install — no benchmarks/ beside the package. Clone the repo, or unpack the sdist (which ships it), then run it there
+  [yes] generation runs here: `flash power`, then `flash run <task>`
+
+2 answer(s) say no: this install cannot do something the project can do. Each of those lines names its own remedy.
+   [rc=1 — 0 means the report is honest about what it found]
+--- every module's own selftest that needs no data tree:
+python -m flash.harness --selftest rc=0  harness selftest: 20/20 checks passed
+python -m flash.web --selftest     rc=0  web selftest: 9/9 checks pass
+python -m flash.trace --selftest   rc=0  trace selftest: 30/30 checks passed
+python -m flash.jobs --selftest    rc=0  jobs selftest: 20/20 checks passed
+python -m flash.grammar --selftest rc=1  FileNotFoundError: [Errno 2] No such file or directory: '/private/tmp/r75c/venv/lib/python3.11/site-packages/benchmarks/tasks/mw_tasks.jsonl'
+python -m flash.patches --selftest rc=1    FAIL workspace: a project directory loads under its relative path
+python -m flash.debug --selftest   rc=1  FileNotFoundError: [Errno 2] No such file or directory: '/private/tmp/r75c/venv/lib/python3.11/site-packages/benchmarks/tasks/dbg_tasks.jsonl'
+python -m flash.confidence --selftest rc=0  confidence selftest: 29/29 checks passed
+python -m flash.sandbox --selftest rc=0  sandbox selftest: 34/34 checks passed  [seatbelt=enforced, memory=UNAVAILABLE: no memory rlimit can ]
+python -m flash.checkpoint --selftest rc=0  checkpoint selftest: 31/31 checks passed
+python -m flash.train --selftest   rc=0  train selftest: 36/36 checks passed
+python -m flash.tourney --selftest rc=1    OK   a broken first candidate does not sink the task  [k=3/3 width=4 gens=2 [0/0,P] adopted=1]
+--- the selftest that needs the fixtures tree, on a wheel install:
+flash.graph --selftest cannot run here: it builds a graph over /private/tmp/r75c/venv/lib/python3.11/site-packages/benchmarks/fixtures/minishop, and that directory does not exist.
+  A wheel install carries the package only, no `benchmarks/`, so 8 of the 44 checks would report a failure that is a missing directory wearing one. Run this from a clone or an unpacked sdist (both ship `benchmarks/`). To check the install itself: `flash power`, `flash --help`, `python -m flash.harness --selftest`.
+   [rc=2 — 2 means it refused and named the missing directory instead of
+    printing 8 FAILs that are really one absent data tree]
+--- and every module still IMPORTS:
+   26/26 submodules import, failures: []
+--- flash selftest --all on a wheel install (must REFUSE with rc 2):
+flash selftest --all cannot run from this install: /private/tmp/r75c/venv/lib/python3.11/site-packages/benchmarks/battery_reread.py is not there. A wheel carries the `flash` package only, so the verification surface did not come with it. Clone the repo (or unpack the sdist, which ships benchmarks/) and run this there. `flash doctor` says which half of the project you have.
+   [rc=2]
+
+=== C. EDITABLE install of the CLONE, whole §6 battery inside the clone
+--- clone dirty files at battery start: 0
+--- flash resolves to: /private/tmp/r75c/clone/flash/__init__.py
+--- doctor's install line:  install
+OK   benchmarks/backend_free_check.py             30/30 (+ 5 mutants)
+OK   benchmarks/documented_commands_check.py      7/7 (+ 4 mutants)
+OK   flash.debug --suite                          32/32
+OK   flash.patches --suite                        60/60
+OK   benchmarks/m0_bakeoff.py --dry-run           20/20
+
+checks 1104  oracle 20  §6 total 1124  mutants 78
+matches SPEC §6 as written: 1104 + 20 = 1124 green, offline (+ 78 mutants)
+
+=== D. UNPACKED SDIST (no .git), installed editable, battery from the download artifact
+--- .git present? NO   files on disk: 302   size:  11M
+--- flash resolves to: /private/tmp/r75c/unpacked/flash_coder-0.0.1/flash/__init__.py
+OK   benchmarks/backend_free_check.py             30/30 (+ 5 mutants)
+OK   benchmarks/documented_commands_check.py      7/7 (+ 4 mutants)
+OK   flash.debug --suite                          32/32
+OK   flash.patches --suite                        60/60
+OK   benchmarks/m0_bakeoff.py --dry-run           20/20
+
+checks 1104  oracle 20  §6 total 1124  mutants 78
+matches SPEC §6 as written: 1104 + 20 = 1124 green, offline (+ 78 mutants)
+--- and the two new vectors, from the download artifact:
+
+backend-free mutants: 5/5 gates defeated by exactly their checks
+
+documented-command mutants: 4/4 gates defeated by exactly their checks

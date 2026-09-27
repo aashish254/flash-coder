@@ -65,7 +65,7 @@ BATTERY = [
     ("benchmarks/confidence_tau_check.py", "benchmarks/confidence_tau_check.py",
      7, None, "checks"),
     ("benchmarks/checkpoint_resume_check.py", "benchmarks/checkpoint_resume_check.py", 35, None, "checks"),
-    ("benchmarks/lora_path_check.py", "benchmarks/lora_path_check.py", 31, 14, "checks"),
+    ("benchmarks/lora_path_check.py", "benchmarks/lora_path_check.py", 33, 15, "checks"),
     ("benchmarks/dbg_band_check.py", "benchmarks/dbg_band_check.py", 172, 5, "checks"),
     ("benchmarks/router_portable_check.py", "benchmarks/router_portable_check.py",
      20, 5, "checks"),
@@ -76,9 +76,9 @@ BATTERY = [
     ("benchmarks/portable_paths_check.py", "benchmarks/portable_paths_check.py",
      15, 7, "checks"),
     ("benchmarks/backend_free_check.py", "benchmarks/backend_free_check.py",
-     30, 5, "checks"),
+     37, 8, "checks"),
     ("benchmarks/documented_commands_check.py",
-     "benchmarks/documented_commands_check.py", 7, 4, "checks"),
+     "benchmarks/documented_commands_check.py", 8, 5, "checks"),
     ("flash.debug --suite", "-m flash.debug --suite", 32, None, "checks"),
     ("flash.patches --suite",
      "-m flash.patches --suite benchmarks/tasks/edit_tasks.jsonl", 60, None, "checks"),
@@ -86,7 +86,7 @@ BATTERY = [
      20, None, "oracle"),
 ]
 
-CLAIM = {"checks": 1104, "oracle": 20, "mutants": 78}
+CLAIM = {"checks": 1114, "oracle": 20, "mutants": 83}
 
 
 def run(argv: str) -> str:
