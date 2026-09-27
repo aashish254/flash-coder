@@ -1112,14 +1112,19 @@ here rather than folded into P6's confidence work.
       `--trace-full` and the injection presence proven per-arm by
       `benchmarks/hint_live_audit.py --header …`, which now takes the header as an
       argument precisely so each arm can be certified separately.)*
-- [ ] **R-1.1c (OPEN, found by R-1.3b's vector)** A failure whose top-ranked symbol
-      is long loses the source hint entirely. `lsp.symbol_hint`'s budget check is a
-      `break`, so when the FIRST ranked symbol's own source exceeds `max_chars=1200`
-      the loop never reaches the symbols that would have fit and `len(lines) == 1`
-      returns `""` — the block does not shrink, it vanishes. Measured on this repo
+      *(Prerequisite, cleared 2026-09-27 by R-1.1c below: with the budget aborting on
+      the first oversized symbol, an arm could come back with no source block because
+      the failure happened to name a long function — which would have made the A/B
+      compare an invisible arm against an invisible control. Empty now means "nothing
+      repo-defined is at issue", and that is the only silence this arm produces.)*
+- [x] **R-1.1c (SHIPPED, found by R-1.3b's vector)** A failure whose top-ranked symbol
+      is long lost the source hint entirely. `lsp.symbol_hint`'s budget check was a
+      `break`, so when the FIRST ranked symbol's own source exceeded `max_chars=1200`
+      the loop never reached the symbols that would have fit and the empty block
+      returned `""` — the block did not shrink, it vanished. Measured on this repo
       (2026-09-27): `err="lsp.symbol_source is broken: AttributeError"` ranks
       `symbol_source` at **1631 chars** and `broken` at **72**, and
-      `symbol_hint("flash", err, …)` returns **0 characters**.
+      `symbol_hint("flash", err, …)` returned **0 characters**.
       Gate: a too-long symbol contributes a truncated block with a stated tail —
       `graph.scope_hint`'s `… N more not shown (context budget)` is the in-repo
       precedent — and never a silent zero while a ranked symbol sits unused; plus a
@@ -1130,6 +1135,41 @@ here rather than folded into P6's confidence work.
       nobody measured, and the A/B would compare an invisible arm against an
       invisible control. Found because `_shared_index_cost` needed a symbol that
       fits on `flash/` to have a source block to compare at all.*
+      **Result (2026-09-27).** The budget now overflows: the top hit is clipped at a
+      LINE boundary by the new `_clip` (which refuses to emit anything that cannot
+      hold a signature plus a `def`, so a tiny budget yields silence rather than a
+      header over an empty block), the note `… source truncated here (context
+      budget)` is kept inside the ceiling rather than appended past it, and the
+      symbols that then had no room are counted: `… N symbol(s) at issue not shown
+      (context budget)`. Re-measured on this repo with the box's own shape — an error
+      naming `symbol_source`, which ranks it first with **1631 chars of source (3276
+      for its whole block, location and signature line included)** against the 1200
+      budget, beside ranked symbols of **183** and **102** chars: **0 → 1118 chars**,
+      tail `… 2 symbol(s) at issue not shown (context budget)`. Vector: `flash
+      lsp-selftest` **22/22**, five new checks as section 6c — four on the helper
+      (clipped-with-`def`-intact at 1156 of 1200; the tail counted; the ceiling held
+      at every size that can hold a signature; 150 → `''` while 1100 → a block) and
+      the fifth at the seam R-1.1 demands, driving `loop.solve` with a stubbed
+      generator and reading the retry back: **1592 chars, clipped block present**.
+      Mutation, hand-run like R-1.1's and kept in
+      `benchmarks/results/lsp_r11c_mutation_20260927.log`: the pre-fix `break`
+      installed over the shipped function, the shipped selftest run UNMODIFIED →
+      **18/22**; three of the four helper checks FAIL (`0 chars against a 1200
+      budget`, `no block at all`, and the too-small-budget one failing on its
+      1100-char arm while printing its static message) and the seam check FAILs at 394
+      chars of retry — the graph's block arrived, the source block did not. Stated at
+      precision: the fourth (ceiling) check survives the mutant VACUOUSLY, `0 and 0`,
+      because an empty block is under any ceiling; it is a no-overshoot guard and is
+      not part of the defeat. Battery **+5**, **1027 → 1032** checks, mutants
+      unchanged at 51, `§6 total 1047 → 1052`, re-read quiet on the tree with all 29
+      lines OK and `flash lsp-selftest 22/22` the only line that moved
+      (`benchmarks/results/battery_reread_r11c_20260927.log`); the vector's own run is
+      `benchmarks/results/lsp_r11c_selftest_20260927.log`. **R-1.1b is unblocked**: a
+      hint-OFF arm can now only be empty because nothing repo-defined was at issue.
+      *(Two notes on the fix's shape, because both were bugs met on the way: the clip
+      branch initially appended a block without marking `emitted`, so the whole hint
+      still returned `""`; and reserving no room for the tail note made it report zero
+      skipped symbols — an overflow that said nothing about overflowing.)*
 - [x] R-1.3b feed the graph's subgraph into `loop.py`'s PERCEIVE context
       (PLAN §28.2 step 3). The graph and its CLI answer ship; the agent does not
       yet consult it unprompted. *(Seam note, 2026-09-27: inject it where R-1.1
@@ -1148,7 +1188,7 @@ here rather than folded into P6's confidence work.
       guessing when a name binds two graph nodes and the file the AST read does not
       settle it. `loop._perceive` appends both blocks to `err` at the one call site
       in `solve`, and `_repo_index` parses the repo ONCE per retry for both —
-      measured on this repo's own 26 files at **33 ms shared against ~170 ms
+      measured on this repo's own 26 files at **32-33 ms shared against ~170 ms
       parsed twice**, a number the vector prints. The per-root graph cache is an LRU
       of 8 roots, because a suite over ten repos is a suite holding ten graphs.
       Vector: `benchmarks/graph_perceive_check.py` **27/27 + 9/9 mutants**, run for
@@ -1177,7 +1217,9 @@ here rather than folded into P6's confidence work.
       re-read on a quiet box as `checks 1027 oracle 20 §6 total 1047 mutants 51`,
       all 29 lines OK
       (`benchmarks/results/battery_reread_r13b_20260927.log`), pyflakes 0. What it
-      found on the way is booked as **R-1.1c** above rather than fixed here.*
+      found on the way is booked as **R-1.1c** above rather than fixed here — it has
+      since shipped, and the shared-parse figure has reprinted 32 ms since, so the
+      ratio rather than the millisecond is what holds.*
 - [ ] R-1.4 second language for perception (choose from ledger evidence)
 - [ ] R-8.2 latent compute — adopt only on a measured ≥ 20% token saving
 - [ ] G6 watts/task (blocked: `powermetrics` needs sudo)

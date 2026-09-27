@@ -38,7 +38,7 @@ PY = sys.executable
 # kind: "checks" feeds the selftest/end-to-end/premise sum, "oracle" the second.
 BATTERY = [
     ("flash.harness --selftest", "-m flash.harness --selftest", 20, None, "checks"),
-    ("flash lsp-selftest", "-m flash.cli lsp-selftest", 17, None, "checks"),
+    ("flash lsp-selftest", "-m flash.cli lsp-selftest", 22, None, "checks"),
     ("flash power --selftest", "-m flash.cli power --selftest", 22, None, "checks"),
     ("flash jobs --selftest", "-m flash.jobs --selftest", 20, None, "checks"),
     ("flash trace --selftest", "-m flash.cli trace --selftest", 30, None, "checks"),
@@ -73,7 +73,7 @@ BATTERY = [
      20, None, "oracle"),
 ]
 
-CLAIM = {"checks": 1027, "oracle": 20, "mutants": 51}
+CLAIM = {"checks": 1032, "oracle": 20, "mutants": 51}
 
 
 def run(argv: str) -> str:

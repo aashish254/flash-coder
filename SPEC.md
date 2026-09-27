@@ -93,7 +93,9 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   as `_symbol_hint`; R-1.3b renamed it to `_perceive`, which appends the LSP source
   block AND the graph's dependents block at the same assignment — same position,
   same single-consumer property, and the rename is the only change to this line.)*
-  Vector: `flash lsp-selftest` **17/17**. Three new checks (section 6b, printed as
+  Vector: `flash lsp-selftest` **17/17** as shipped (the run has since become
+  **22/22** when R-1.1c added section 6c to the same file; the three checks below
+  are unchanged and still pass). Three new checks (section 6b, printed as
   checks 11-13) drive `loop.solve` itself with a stubbed generator and read the
   retry message back — that the prompt carries the source, that it carries
   `symbol_hint`'s own output verbatim and exactly once, and (control) that a task
@@ -119,6 +121,42 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   the other only into the record.
   Out of scope, by design: `--edit` tasks, whose prompt already ships the real
   source inline, and successful attempts.
+- **R-1.1c (SHIPPED)** `lsp.symbol_hint`'s context budget MUST overflow rather
+  than abort: a ranked symbol whose source does not fit is contributed CLIPPED at
+  a line boundary, and the symbols that then had no room are COUNTED in the block.
+  It MUST NOT return an empty block while a ranked symbol sits unused — silence
+  belongs to "nothing repo-defined is at issue" and to nothing else.
+  *Found while writing R-1.3b's cost check, which needed a symbol that fits inside
+  the budget in order to compare anything: the budget test was a `break`, so the
+  first oversized symbol deleted the hint. Measured on `flash/` — an error naming
+  `symbol_source` ranks it first with 1631 chars of source (3276 for its block once
+  the location and signature line is counted) against a 1200-char budget, and the
+  function returned ZERO characters while two ranked symbols of 183 and 102 chars
+  beside it were never reached. That is R-1.1's dead seam by a different route: a
+  retry about a long function — the failures where the real signature matters most —
+  saw the bare error.*
+  Vector: `flash lsp-selftest` **22/22**, five new checks (section 6c, printed as
+  checks 14-18). Four call the helper: the oversized top hit arrives clipped with
+  `… source truncated here (context budget)` and its `def` line intact (1156 of a
+  1200 chars); the left-behind symbols are counted in the tail (`… 2 symbol(s) at
+  issue not shown`); the budget is a ceiling with the notes inside it at every size
+  that can hold a signature; and a budget too small for a signature plus a `def`
+  returns silence rather than a header with nothing under it. The fifth is the seam
+  R-1.1 demanded — it drives `loop.solve` with a stubbed generator and reads the
+  retry back, asserting the CLIPPED block is what the model is shown (1592 chars).
+  Mutation, hand-run and kept in `benchmarks/results/lsp_r11c_mutation_20260927.log`:
+  with the `break` restored the shipped selftest runs unmodified and reports
+  **18/22** — three of the four helper checks FAIL (the clipped one prints
+  `0 chars against a 1200 budget`, the counted-tail one prints `no block at all`, and
+  the too-small-budget one FAILs while still printing its static message, since what
+  changed for it was the 1100-char arm coming back empty) and the seam check FAILs at
+  394 chars of retry — the graph's block arrived, the source block did not. Stated at
+  precision: the fourth helper check, "the budget is a ceiling", survives the mutant
+  vacuously (`0 and 0` — an empty block is under any ceiling), so it is a
+  no-overshoot guard and not part of the defeat.
+  `graph.scope_hint`'s `… N more not shown (context budget)` is the in-repo
+  precedent this follows, and the clipping is why R-1.1b's hint A/B can now treat
+  an empty arm as the measured thing it is.
 - **R-1.2 (SHIPPED)** Cross-file go-to-def and project-wide references MUST be
   answerable, with the AST owning kinds and the server owning resolution.
   Vector: `flash find total_cents --path benchmarks/fixtures`,
@@ -202,10 +240,10 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   what is claimed is that each mutant is caught by ITS OWN named check in both
   orders. Three of the 27 drive `loop.solve` with a stubbed generator and read the
   retry message back, per R-1.1's lesson. Cost, printed by the run: **3.0-3.4 ms**
-  cold and **0.84-0.91 ms** cached on the fixtures repo; 33 ms for the hint pair on
+  cold and **0.84-0.91 ms** cached on the fixtures repo; 32-33 ms for the hint pair on
   this repo's 26 files against ~170 ms if the parse were done twice (167 and 169 in
-  the two runs taken here, 33 in both for the shared path; so the ratio — about 5× —
-  is the stable part of this claim, not the millisecond).
+  the two runs taken here, 32 and 33 in the two for the shared path; so the ratio —
+  about 5× — is the stable part of this claim, not the millisecond).
   Live (`run-suite --with-context --allow-big never --attempts 3 --trace-full`,
   session `20260927-044613-run-suite-d366`): `r03_bulk_rule`'s two stored retry
   prompts both carry `Dependents of the symbols at issue`, headed
@@ -908,7 +946,7 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
 ## 6. Verification protocol — how a box gets checked
 
 1. **Offline battery first** (seconds, no models, must be green before any live
-   claim): `python -m flash.harness --selftest` 20 · `flash lsp-selftest` 17 ·
+   claim): `python -m flash.harness --selftest` 20 · `flash lsp-selftest` 22 ·
    `flash power --selftest` 22 · `flash jobs --selftest` 20 ·
    `flash trace --selftest` 30 · `flash web --selftest` 9 ·
    `python -m flash.grammar --selftest` 47 · `python -m flash.patches --selftest`
@@ -933,10 +971,10 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
    `python -m flash.debug --suite` 32 ·
    `python -m flash.patches --suite benchmarks/tasks/edit_tasks.jsonl` 60 ·
    `python benchmarks/m0_bakeoff.py --dry-run` 20 reference solutions.
-   **Total: 1027 selftest / end-to-end / premise checks + 20 oracle
+   **Total: 1032 selftest / end-to-end / premise checks + 20 oracle
    verifications (m0_bakeoff's 20 reference solutions, which are the only
    numbers in that 20 — the 6 ambient, 14 lora, 5 band, 5 router-portability,
-   12 graph and 9 graph-perceive mutants are extra to both totals) = 1047 green,
+   12 graph and 9 graph-perceive mutants are extra to both totals) = 1052 green,
    offline.** Re-read by
    `python benchmarks/battery_reread.py`, which holds one line per item above,
    requires the exact fraction each one prints, sums checks/oracle/mutants
@@ -955,6 +993,23 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
    while an unrelated process group held the machine — but it arrived as
    `printed []`, which named nothing, so a BAD line now echoes the run's last
    line. Read §6's total on a quiet machine.
+   (Updated 2026-09-27, after R-1.1c: **+5** on `flash lsp-selftest` (**17 → 22**) —
+   four checks on `symbol_hint`'s overflow behaviour and one that drives `loop.solve`
+   to confirm the CLIPPED block is what the retry actually sees. The defect was
+   R-1.3b's own cost probe walking into it: the budget test was a `break`, so the
+   first ranked symbol too long for 1200 chars deleted the entire hint (1631 chars of
+   `symbol_source` on this repo → a ZERO-char block, two shorter ranked symbols never
+   reached). Hand-run mutation, `benchmarks/results/lsp_r11c_mutation_20260927.log`:
+   the `break` restored, the shipped selftest run unmodified gives **18/22** — and
+   stated at precision, the one overflow check that survives is the ceiling check,
+   which passes vacuously on an empty block (`0 and 0`); it is a no-overshoot guard,
+   not part of the defeat. **1027 → 1032** checks, mutants unchanged at 51, §6 total
+   **1047 → 1052**. Re-read from the tree on a quiet box the same day: `battery_reread`
+   prints `checks 1032  oracle 20  §6 total 1052  mutants 51` with all 29 lines on the
+   OK list and `flash lsp-selftest 22/22` the only line that moved (raw witness
+   `benchmarks/results/battery_reread_r11c_20260927.log`), pyflakes 0 findings. This is
+   also what unblocks R-1.1b: until now a hint-OFF arm could
+   come back empty for a reason nobody measured.)
    (Updated 2026-09-27, after R-1.3b's injection: **+27 checks and +9 mutants** for
    `python benchmarks/graph_perceive_check.py --sweep` (`--sweep`, not the bare run,
    because several of its mutants live in the graph CACHE and how many checks one
@@ -969,10 +1024,11 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
    `lsp.symbol_hint` returning NOTHING when the top-ranked symbol's source exceeds
    `max_chars` — measured on this repo, `symbol_source` at 1631 chars makes the
    whole block vanish although a 72-char symbol ranked beside it would have fit.
-   Re-read from the tree the same day, quiet box: `battery_reread` prints
-   `checks 1027  oracle 20  §6 total 1047  mutants 51` with all 29 lines on the OK
-   list (raw witness `benchmarks/results/battery_reread_r13b_20260927.log`), pyflakes
-   0 findings.)
+   That second one was booked as R-1.1c rather than folded into this commit, and the
+   paragraph above is its fix. Re-read from the tree the same day, quiet box, before
+   R-1.1c landed: `battery_reread` printed `checks 1027  oracle 20  §6 total 1047
+   mutants 51` with all 29 lines on the OK list (raw witness
+   `benchmarks/results/battery_reread_r13b_20260927.log`), pyflakes 0 findings.)
    (Updated 2026-09-27, after R-1.1's correction: **+3** on
    `flash lsp-selftest` (**14 → 17**) — the three checks that drive `loop.solve`
    and read the retry prompt back, instead of calling `lsp.symbol_hint` directly

@@ -230,9 +230,12 @@ def _shared_index_cost() -> dict[str, float]:
     idx = lsp.SymbolIndex.build(pkg)
     # `python_files` and not `symbol_source`, which is the name this probe first
     # tried: symbol_source's own source is 1631 chars, `symbol_hint`'s budget check
-    # is a `break`, and so the whole block vanished — R-1.1's hint silently absent
-    # for a failure about a long symbol. Booked as TODO R-1.1c, not fixed here;
-    # this pair still has to be non-empty to compare at all, hence the small symbol.
+    # was a `break`, and so the whole block vanished — R-1.1's hint silently absent
+    # for a failure about a long symbol. That is shipped as TODO **R-1.1c** (the
+    # block now clips at a line boundary and counts what it left out; `flash
+    # lsp-selftest` section 6c), so the pair below only has to be non-empty to
+    # compare — and `python_files` (402 chars, no tail note) keeps the timing
+    # baseline free of the overflow path it no longer has to avoid.
     err, code = "python_files() raised", "fs = python_files(r)\n"
     t = time.perf_counter()
     src1 = lsp.symbol_hint(pkg, err, code, index=idx)

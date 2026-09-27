@@ -13,7 +13,12 @@ Plan: ../PLAN.md (v3.8). This package grows milestone by milestone:
                                      `loop._perceive` appends BOTH perception
                                      blocks over the BARE error, and `_repo_index`
                                      parses the repo once per retry so the source
-                                     hint and the graph hint rank the same symbols)
+                                     hint and the graph hint rank the same symbols.
+                                     R-1.1c: that shared ranking is why an
+                                     oversized symbol is CLIPPED and the ones left
+                                     behind COUNTED — the budget check used to be a
+                                     `break`, so one long function at issue deleted
+                                     the whole source block)
       flash.perceive                (one file's static diagnostics as an oracle)
       §28/R-1.3: flash.graph         (the knowledge graph, AST-only and no vector
                                      store: nodes are functions/classes/modules/

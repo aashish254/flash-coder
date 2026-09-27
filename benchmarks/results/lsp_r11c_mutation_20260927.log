@@ -1,0 +1,29 @@
+# R-1.1c mutation: pre-fix symbol_hint (the `break`) installed over the shipped one,
+# then the shipped lsp-selftest run UNMODIFIED. /tmp/r11c_mutation.py, 2026-09-27.
+------------------------------------------------------------------------
+  OK   ast: total_cents defined twice, method vs property  ['Cart::method', 'CartLine::property']
+  OK   ast: definitions carry exact line ranges  total_cents L25-L28, total_cents L26-L27
+  OK   source: solve() extracted whole  137 lines
+  OK   outline: package-wide symbol table  2454 symbols over 26 files
+  OK   lsp: documentSymbol on cart.py  18 names: annotations/method, CartLine/method, Product/method, bulk_discount_cents/variable, loyalty_discount_cents/variable
+  OK   lsp: cross-file go-to-def lands in pricing.py  pricing.py:19
+  OK   lsp: project-wide references from a use site  cart.py:20, cart.py:27
+  OK   hint: a property called as a method surfaces as a property  654 chars
+  OK   hint: call sites outrank names that merely appear in the assert  ordering
+  OK   hint: silent when nothing repo-defined is at issue
+  OK   wiring: the RETRY PROMPT the model is actually shown carries the resolved source — not only the recorded attempt, which is the failure shape that made a dead seam look live  632 chars in the retry, 118 of them hint
+  OK   wiring: ...and what arrives is `symbol_hint`'s own output verbatim and exactly once, so the loop neither truncates it nor injects it twice  1 copies
+  OK   wiring: with no repo context on the task the retry is what it always was — the hint stays silent rather than resolving against a directory the task never named  217 chars
+  FAIL overflow: a top-ranked symbol too long for the budget is CLIPPED at a line boundary and still shown — the signature is the part the clause asks the model to honour, and it is the first thing in the block  0 chars against a 1200 budget
+  FAIL overflow: the symbols left behind are COUNTED in the block, so a reader can tell 'nothing else is at issue' from 'there was no room'  no block at all
+  OK   overflow: the budget is a ceiling with the notes inside it, at every size that can hold a signature  0 and 0
+  FAIL overflow: a budget too small for a signature plus a def line returns SILENCE, never a header with nothing under it  150 → '' · 1100 → a clipped block
+  FAIL wiring, R-1.1c: the CLIPPED block reaches the model — an overflow that silently deleted the hint would have passed every helper check above except the ones written for it, and still told the retry nothing  394 chars in the retry
+  OK   fallback: find_symbol works without the server  Cart.total_cents/method, CartLine.total_cents/property
+  OK   fallback: find_references degrades to AST sites  3 sites
+  OK   truth: server on, kinds unchanged (method vs property)  Cart::method, CartLine::property
+  OK   resolve: a name defined outside the tree resolves via the server  dataclasses.py:1204
+
+lsp selftest: 18/22 checks passed
+------------------------------------------------------------------------
+mutant exit: 1 (nonzero == the vector defeated it)

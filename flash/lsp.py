@@ -188,6 +188,30 @@ def symbols_involved(index: "SymbolIndex", err: str = "", code: str = "",
     return out
 
 
+HINT_HEADER = "Symbols in play (real repo source — call exactly as defined):"
+HINT_TAIL_ROOM = 64        # room kept for "… N symbol(s) at issue not shown …"
+
+
+def _clip(block: str, room: int) -> str:
+    """The head of a source block that cannot fit whole, cut at a LINE boundary.
+
+    The signature comment is the block's first line and the `def` follows it, so
+    what survives a cut is precisely what R-1.1's clause asks the model to honour
+    — "call exactly as defined". The note is not decoration: a truncated body with
+    nothing saying so is a lie about the function's shape.
+    """
+    note = "… source truncated here (context budget)"
+    out, used = [], 0
+    for ln in block.splitlines():
+        if used + len(ln) + 1 > room - len(note):
+            break
+        out.append(ln)
+        used += len(ln) + 1
+    if len(out) < 2:                 # no signature + no def line: say nothing
+        return ""
+    return "\n".join(out + [note])
+
+
 def symbol_hint(root: str | Path, err: str = "", code: str = "", limit: int = 3,
                 max_chars: int = 1200, index: "SymbolIndex | None" = None) -> str:
     """Feedback block: the EXACT source of the repo symbols at issue.
@@ -195,23 +219,53 @@ def symbol_hint(root: str | Path, err: str = "", code: str = "", limit: int = 3,
     `index` is the caller's, when it has one: `loop` asks this module and
     `graph.scope_hint` about the SAME ranked symbols, and the parse behind the
     index is the expensive part of both — on this repo's own 26 files the pair
-    costs 33 ms shared against ~170 ms parsed twice, which
+    costs 32-33 ms shared against ~170 ms parsed twice, which
     `benchmarks/graph_perceive_check.py` prints rather than asserts.
+
+    The budget OVERFLOWS rather than aborting (R-1.1c). It used to `break` on the
+    first block that did not fit, so a failure about a long symbol lost the entire
+    hint: measured on `flash/`, an error naming `symbol_source` ranks it first with
+    1631 chars of source (3276 for its block, once the location and signature line
+    is counted) against a 1200-char budget, and the block came back ZERO characters
+    while two shorter ranked symbols sat unused — the silent case is supposed to be
+    "nothing repo-defined is at issue", not "the one thing at issue is too big to
+    show". Now the top hit is clipped at a line boundary (1118 chars, with a
+    "… 2 symbol(s) at issue not shown" tail for the rest) and the ones after it that
+    do not fit are COUNTED, the way `graph.scope_hint` already says so.
     """
     index = index if index is not None else SymbolIndex.build(root)
     syms = symbols_involved(index, err, code, limit)
     if not syms:
         return ""
-    lines = ["Symbols in play (real repo source — call exactly as defined):"]
-    used = 0
+    blocks = []
     for s in syms:
         src = symbol_source(root, s.name, path=s.path, line=s.line) or ""
-        block = f"# {s.path.name}:{s.line}  {_signature(s)}\n{src}"
-        if used + len(block) > max_chars:
-            break
-        lines.append(block)
-        used += len(block) + 1
-    return "\n".join(lines) if len(lines) > 1 else ""
+        blocks.append(f"# {s.path.name}:{s.line}  {_signature(s)}\n{src}")
+    lines: list[str] = []
+    room = max_chars - len(HINT_HEADER) - 1
+    emitted = skipped = 0
+    for i, b in enumerate(blocks):
+        # Keep the tail note's room in reserve while any candidate is still ahead,
+        # so "not shown" can always be said without pushing past `max_chars`.
+        ahead = i < len(blocks) - 1
+        allow = room - (HINT_TAIL_ROOM if ahead else 0)
+        if len(b) > allow:
+            if emitted:
+                skipped += 1
+                continue
+            head = _clip(b, allow)
+            if not head:
+                return ""
+            lines.append(head)
+            emitted = 1                 # a clipped block is still a block
+            skipped += len(blocks) - i - 1
+            break                       # the budget is spent
+        lines.append(b)
+        room -= len(b) + 1
+        emitted += 1
+    if skipped:
+        lines.append(f"… {skipped} symbol(s) at issue not shown (context budget)")
+    return "\n".join([HINT_HEADER] + lines) if emitted else ""
 
 
 def ast_symbols(path: str | Path) -> list[Symbol]:
@@ -741,6 +795,70 @@ def run_selftest(verbose: bool = True) -> int:
           and "Symbols in play" not in without_ctx[-1]["content"]
           and without_ctx[-1]["content"].count(bare) == 1,
           f"{len(without_ctx[-1]['content']) if without_ctx else 0} chars")
+
+    # 6c. THE BUDGET OVERFLOWS, IT DOES NOT ABORT (R-1.1c). A ranked symbol's own
+    # source can exceed 1200 chars by itself, and the budget check used to be a
+    # `break` — so a failure about a long function lost the ENTIRE hint: measured on
+    # this repo, an error naming `symbol_source` (1631 chars) returned zero
+    # characters while two shorter ranked symbols sat unused. Silence belongs to
+    # "nothing repo-defined is at issue", not to "the one thing at issue is too big
+    # to show". The first two checks call the helper; the last drives `loop.solve`
+    # and reads the retry back, because that is the difference between a helper that
+    # works and a clause that is satisfied (R-1.1's lesson, §33.1).
+    big = Path(tempfile.mkdtemp(prefix="lsp-big-"))
+    filler = "\n".join(f"    acc = acc + {i}  # a long body on purpose"
+                       for i in range(40))
+    (big / "ship.py").write_text(
+        '"""Shipping."""\n\n\n'
+        f'def compute_shipping(cart):\n{filler}\n    return acc\n\n\n'
+        'def fee_for(cart):\n    return 0\n')
+    berr = "AttributeError: compute_shipping() got an unexpected keyword 'rate'"
+    bcode = "rate = compute_shipping(c)\nfee = fee_for(c)\n"
+    bh = symbol_hint(big, berr, bcode)
+    check("overflow: a top-ranked symbol too long for the budget is CLIPPED at a "
+          "line boundary and still shown — the signature is the part the clause asks "
+          "the model to honour, and it is the first thing in the block",
+          bool(bh) and "def compute_shipping" in bh
+          and "source truncated here (context budget)" in bh,
+          f"{len(bh)} chars against a 1200 budget")
+    check("overflow: the symbols left behind are COUNTED in the block, so a reader "
+          "can tell 'nothing else is at issue' from 'there was no room'",
+          bh.count("symbol(s) at issue not shown (context budget)") == 1,
+          bh.splitlines()[-1] if bh else "no block at all")
+    check("overflow: the budget is a ceiling with the notes inside it, at every "
+          "size that can hold a signature",
+          len(bh) <= 1200 and len(symbol_hint(big, berr, bcode,
+                                             max_chars=400)) <= 400,
+          f"{len(bh)} and {len(symbol_hint(big, berr, bcode, max_chars=400))}")
+    check("overflow: a budget too small for a signature plus a def line returns "
+          "SILENCE, never a header with nothing under it",
+          symbol_hint(big, berr, bcode, max_chars=150) == ""
+          and symbol_hint(big, berr, bcode, max_chars=1100) != "",
+          "150 → '' · 1100 → a clipped block")
+    seen.clear()
+
+    def big_generate(model, tokenizer, messages, max_tokens, **kw):
+        seen.append([dict(m) for m in messages])
+        if len(seen) == 1:
+            return ("```python\nimport ship\n\n\ndef answer(c):\n"
+                    "    return ship.compute_shipping(c)\n```\n")
+        return "```python\nanswer = 0\n```\n"
+
+    _loop._generate, _loop.diagnose = big_generate, (lambda code, test: (False, berr))
+    try:
+        _loop.solve(None, None,
+                    _loop.enrich_task({"id": "big", "prompt": "ship the cart",
+                                       "test": "assert False", "context": "."},
+                                      big),
+                    max_attempts=2, debug=False)
+        big_retry = seen[1][-1]["content"] if len(seen) > 1 else ""
+    finally:
+        _loop._generate, _loop.diagnose = real_gen, real_diag
+    check("wiring, R-1.1c: the CLIPPED block reaches the model — an overflow that "
+          "silently deleted the hint would have passed every helper check above "
+          "except the ones written for it, and still told the retry nothing",
+          "Symbols in play" in big_retry and "source truncated here" in big_retry,
+          f"{len(big_retry)} chars in the retry")
 
     # 7. degradation: no server, same answers (§33.9 invariant 7)
     fs = find_symbol(fixture, "total_cents", use_lsp=False)

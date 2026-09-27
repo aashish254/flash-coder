@@ -212,7 +212,7 @@ def _repo_index(task: dict):
 
     They rank the SAME list of at-issue symbols — that agreement is deliberate,
     and so is sharing the parse that produces it: measured on this repo's own 26
-    files, the hint pair costs 33 ms on a shared index and ~170 ms (167-169 across
+    files, the hint pair costs 32-33 ms on a shared index and ~170 ms (167-169 across
     the runs taken) when each hint builds its own, so a retry would otherwise pay
     the AST parse twice for one list of names. Paying it twice is also a pure waste
     of the budget §10.5's latency gate measures. None when the task has no repo
@@ -232,7 +232,10 @@ def _symbol_hint(task: dict, err: str, code: str = "", index=None) -> str:
     """§33.1 ACT upgrade: when a failure turns on a repo symbol, its REAL
     source. 'property object is not callable' is fixable in one line of
     context; a retry without it is a coin flip. Returns the BLOCK, or "" — which
-    is also what makes it safe to rank on `err` alone. See `_perceive`."""
+    is also what makes it safe to rank on `err` alone. Since R-1.1c the empty
+    answer means "nothing repo-defined is at issue" and nothing else: a ranked
+    symbol whose source exceeds the budget arrives clipped, with the symbols that
+    did not fit counted in the block. See `_perceive`."""
     ctx = task.get("_ctx_dir")
     if not (ctx and err):
         return ""

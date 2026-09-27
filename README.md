@@ -124,10 +124,17 @@ Vision is benchmarked once the text brain is picked (PLAN §M1–M2).
 # prints, while the retry prompt was built from the plain error. Two lines moved
 # it into `err` before both are built; checks 11-13 of `lsp-selftest` now drive
 # `loop.solve` and read the retry prompt back instead of calling the helper.)
+# And since R-1.1c the hint's 1200-char budget OVERFLOWS rather than aborting: a
+# ranked symbol too long to fit is clipped at a line boundary and the symbols left
+# behind are COUNTED in the block. Before it the budget test was a `break`, so ONE
+# oversized symbol deleted the whole hint — an error naming `symbol_source` (1631
+# chars of source on this repo) showed the model nothing at all, while two shorter
+# ranked symbols beside it were never reached. Checks 14-18; the last reads the
+# clipped block back out of the retry prompt, the way R-1.1 insists.
 .venv/bin/python -m flash.cli find total_cents --path benchmarks/fixtures
 .venv/bin/python -m flash.cli refs total_cents --path benchmarks/fixtures
 .venv/bin/python -m flash.cli symbols --path benchmarks/fixtures          # whole tree (AST)
-.venv/bin/python -m flash.cli lsp-selftest                                # 17 offline checks
+.venv/bin/python -m flash.cli lsp-selftest                                # 22 offline checks
 #   the prompt claim, measured against the live corpus rather than asserted:
 .venv/bin/python benchmarks/hint_live_audit.py --print       # 248 pre-fix prompts, 0 hits
 .venv/bin/python benchmarks/hint_live_audit.py --expect present   # the live arm, 2 hits
@@ -165,7 +172,7 @@ Vision is benchmarked once the text brain is picked (PLAN §M1–M2).
 # It rides the same assignment as the source hint, into `err` before both the
 # `Attempt` record and the feedback template exist, so the model and the trace see one
 # string — that seam is exactly where R-1.1's hint failed to reach the model for a
-# month. One AST parse per retry serves both hints (33 ms shared against ~170 ms
+# month. One AST parse per retry serves both hints (32-33 ms shared against ~170 ms
 # parsed twice on this repo's 26 files), and the graph is cached per repo root in an
 # LRU of 8 so a long run refreshes by hash instead of holding one graph per task.
 .venv/bin/python benchmarks/graph_perceive_check.py --sweep   # 27 checks + 9 mutants
