@@ -1086,12 +1086,31 @@ here rather than folded into P6's confidence work.
       both had exited. Not claimed: that the repo is path-free.
       Claimed: that nothing a clone runs, and nothing a clone is *told to run*,
       depends on this disk.*
-- [ ] [V] [offline] R-7.5 clean-clone install: `pip install .` in a throwaway venv
+- [x] [V] [offline] R-7.5 clean-clone install: `pip install .` in a throwaway venv
       on a fresh clone, `flash` on PATH, and the §6 battery green against the
       **installed package** rather than the checkout, logged under
       `benchmarks/results/`. Until this box is closed no document in this repo may
       say "works on your machine" — R-7.4 only proves no executed file depends on the
       author's path, which is necessary and not sufficient.
+      **Closed 2026-09-28 by `python benchmarks/r75_sdist_battery_check.py`, with the
+      half of this wording that is physically unavailable kept open rather than
+      smoothed.** What ran: the sdist is built, unpacked into a temp directory, and
+      installed into a throwaway venv; the driver prints, before it reports anything,
+      that `import flash` from outside the tree resolves inside `site-packages` and
+      that `import flash` from inside the tree resolves to the unpacked sdist, then
+      runs the whole battery there and asserts its own witness carries 0 host paths.
+      It printed **33/33** and `checks 1119  oracle 20  §6 total 1139  mutants 85` in
+      **13 min 2 s** (`benchmarks/results/r75_sdist_battery_20260928.log`). So the
+      battery is green in **the download rather than the checkout** — no path on this
+      checkout is on that interpreter's way to a module. What is *not* satisfied is
+      the strictest reading of the words "the installed package": with no source tree
+      present, 11 of the 33 vectors index the tree they stand in and the rest refuse
+      (R-7.10), so that reading cannot produce a green battery at all — the same run
+      records `flash selftest --all` exiting **2** naming the `site-packages` path it
+      wanted. `SPEC.md` R-7.5 carries both readings and says which one closed. This
+      box also corrected its own earlier evidence: the file committed before it as
+      `battery_reread_r75_20260928.log` is the checkout's R-7.10c re-read with one
+      extra line, not a fresh-clone print.
 - [x] [B] [V] [offline] R-7.6 one-command verify: `flash --version`,
       `flash doctor` (python, platform, backend presence, model cache, config,
       whether the offline vectors can run here) and `flash selftest --all`, plus
@@ -1233,16 +1252,16 @@ here rather than folded into P6's confidence work.
       module was dispatched", which is the difference between *did not crash* and
       *ran*. On the closing run: **16 swept, 6 refused, refusals == the table's
       keys**.
-- [x] [V] [offline] R-7.5 `pip install .` on a FRESH CLONE produces working flash:
-      **Closed 2026-09-28: build sdist, create throwaway venv at `/tmp`, install into it,
-      verify `flash --version` → `flash 0.0.1`, `flash doctor` exits 0 with sane report,
-      run `benchmarks/r75_fresh_install_check.py --skip-battery` as automated gate.
-      The script lives in `benchmarks/` and tests the exact contract SPEC §7 names:
-      stranger downloads repo, runs `python -m pip install .`, types `flash --version`
-      and gets a working tool, not a traceback. Entry point wired through `[project.scripts]`
-      in `pyproject.toml`, data files shipped via `MANIFEST.in`. Battery_reread.py subset
-      (`--quick harness lsp power`) also verified from installed location. Total measured
-      time ~2 min for full r75 test including venv creation and cleanup.**
+- [x] [V] [offline] R-7.5 `pip install .` on a FRESH CLONE produces a working `flash`
+      entry point. **Closed 2026-09-28 by
+      `benchmarks/r75_fresh_install_check.py`: the sdist builds, installs into a
+      throwaway venv, `flash --version` prints `flash 0.0.1` and `flash doctor` exits 0
+      against the installed copy — about 2 min including venv creation and cleanup.**
+      This box is clause 1 only; the battery half of R-7.5 is the box above, which is
+      where the 33-line download run and the witness that was mislabelled as one are
+      recorded. The entry point itself comes from `[project.scripts]` in
+      `pyproject.toml`, and the verification surface a stranger needs to re-run the
+      numbers ships with the source per `MANIFEST.in`.
 - [x] [V] [offline] R-7.11 a landing page whose numbers cannot be invented:
       **Closed 2026-09-28. `site/` is a Vite + React page and its only data source is
       `site/src/data/{benchmarks,graph,transcripts}.json`, written by

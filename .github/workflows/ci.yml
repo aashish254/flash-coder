@@ -3,10 +3,13 @@ name: CI
 # Two tiers, because the two facts about this project are different shapes.
 #
 #   static  (ubuntu)  — model-free and Mac-free: syntax, unused imports, and the
-#                       claim that 24 of the 26 modules import with no MLX
-#                       present (`flash.decide` and `flash.route` are the two that
-#                       cannot). If this breaks, a Linux or Windows user cannot
-#                       even install the thing.
+#                       backend-free import claim. This tier runs
+#                       `benchmarks/backend_free_check.py`, which measures it and
+#                       prints its own count, so this header deliberately quotes no
+#                       number: a hand-kept figure here would be a second claim to
+#                       keep true, and the last one did go stale. If this step
+#                       breaks, a Linux or Windows user cannot even install the
+#                       thing.
 #   battery (macos)   — the offline §6 battery, whose printed totals are quoted
 #                       in SPEC.md and README.md. It runs on push to main and on
 #                       demand rather than on every PR: Apple Silicon runners

@@ -98,6 +98,28 @@ versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   desktop gets the graph, the click-to-blast-radius readout and the copy, and never
   downloads the 914 KB three.js chunk. With the probe in place the rendered DOM is
   173 KB with all eight sections present.
+- **R-7.5's second clause is now a run instead of a sentence, and it is the
+  download that answers it.** `benchmarks/r75_sdist_battery_check.py` builds the
+  sdist, unpacks it under a temp directory, installs the tarball into a throwaway
+  venv, and prints its own provenance before it is allowed to report a total —
+  `site-packages`, `import flash` from inside it resolves to the unpacked sdist,
+  the installed `flash --version` prints `flash 0.0.1`, and the witness is refused
+  if the checkout's path appears anywhere in it. Then it runs the entire §6 battery **inside the download**:
+  **33/33** lines, `checks 1119  oracle 20  §6 total 1139  mutants 85`, **13 min 2 s**
+  against the checkout's own 15 min 9 s for the same tree state
+  (`benchmarks/results/r75_sdist_battery_20260928.log`, 0 host paths, `RECORD_RESIDUE`
+  floor still **411**, record files **171 → 172**). The same driver records the other
+  shape on the way out: `flash selftest --all` with no tree present exits **2** naming
+  the `site-packages/benchmarks/battery_reread.py` it wanted.
+  The corrected docs were then re-read from this checkout, to the identical print —
+  **33/33**, `checks 1119  oracle 20  §6 total 1139  mutants 85`, in **15 min 12 s**
+  (`benchmarks/results/battery_reread_r75b_20260928.log`, again 0 host paths, so the
+  floor holds at **411 over 36** and record files move to **173**). That one is a shell
+  redirect rather than a driver, so it credits itself nothing about which tree it read
+  beyond what the SPEC entry says out loud: this checkout, launched from it.
+  `docs/methodology.md` rule 5 and `SPEC.md` R-7.5 carry the split this forced — the
+  literal reading of "against the installed package, no source tree" cannot produce a
+  green battery, because 11 of the 33 vectors index the tree they stand in.
 
 ### Corrected — claims this file made that the tree does not support
 - This file's own `### Added` section listed `flash doctor`, `flash selftest --all`
@@ -114,6 +136,20 @@ versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Two documents cited a different module count for the same fact: `pyproject.toml`
   and `docs/models.md` said 24 of the 26 import without MLX, the CI comment said 25.
   Measured 24, so `ci.yml` is the one that moved.
+- **That fix went stale and nothing noticed it.** R-7.7 made `flash.decide` and
+  `flash.route` import with the backend blocked, so the measured figure became
+  **26 of the 26**. Every document that quotes it moved — `README.md`, `CONTRIBUTING.md`,
+  `docs/models.md`, `docs/config.md`, SPEC R-7.7 — except the CI header, which still
+  described those two modules as the ones that cannot import, while the very step it
+  annotates runs the file that measures otherwise. The fix is structural rather than a
+  retype: the header no longer carries a count at all. It names
+  `benchmarks/backend_free_check.py`, which prints its own (`SWEEP 26/26`), so there is
+  nothing left in a file no vector reads to go stale — the same move that made the
+  landing page's numbers generated instead of typed. The bullet above stays as dated
+  history rather than being rewritten. What is still true is the shape of the hole: a
+  workflow comment is prose, and no gate reads it, so a hand-kept number there was only
+  ever as current as whoever last looked. The one artifact aimed squarely at strangers —
+  the file describing what CI proves — held the least-checked claim in the repo.
 - "`pip install flash-coder` works on Linux and Windows" became a gated claim: no
   clean-clone install has been run (SPEC R-7.5), and `pyproject.toml`'s comment that
   cited `benchmarks/backend_free_check.py` as its verifier now says that file is
@@ -132,6 +168,26 @@ versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `benchmarks/dashboard_data.py` measures, `benchmarks/export_site_data.py` converts,
   and `site/src/data/*.json` is the only source a component may read. There is no
   code path from a hand-typed figure to the screen.
+- **This file's own bullet above is the stale claim it was warning about.** It
+  closed with "the clean-clone run is still R-7.5's open box and the install claim
+  is still gated, not measured"; the run has since happened twice, and the sentence
+  that was written as a caveat is now the part a reader would mis-trust. `CONTRIBUTING.md`
+  carried the same expiry in plainer form ("`pip install .` from a clean clone into a
+  throwaway venv has never been run") and now says what was measured instead.
+- **A committed artifact was labelled as evidence of a run it was not.**
+  `benchmarks/results/battery_reread_r75_20260928.log` went in under the message
+  "R-7.5 fresh clone witness: … all 33 lines green", and `docs/portability.md` called
+  it "the R-7.5 fresh-clone §6 witness". It is the checkout's R-7.10c re-read: it is
+  `battery_reread_r710c_20260927.log` plus one trailing `battery rc=0`, and the driver
+  it was credited to runs three lines, not thirty-three. The numbers in it are true —
+  they are just the checkout's, which is the kind of true that a filename can turn
+  into a claim about somebody else's machine. The file stays (deleting a committed
+  artifact is not a correction), `docs/portability.md` says what it is, and
+  `benchmarks/results/r75_sdist_battery_20260928.log` is the download's own print.
+  What let this happen is worth naming: that log was produced by a shell redirect, not
+  by a driver, so nothing in it says which tree it was read from. The replacement
+  asserts its provenance before it reports a total and refuses to write the witness
+  if the checkout's path appears in it.
 
 ### Fixed
 - **R-7.9** `python -m flash.train --dry-run` writes nothing, on both of its

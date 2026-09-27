@@ -928,7 +928,8 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   above is the published count, not a rounding. Claiming the clone-and-run
   property itself — `pip install .` in a throwaway venv on a fresh clone — is
   R-7.5's open box, not this clause's.
-- **R-7.5 (CLOSED 2026-09-28, second clause partially met and labelled so)**
+- **R-7.5 (CLOSED 2026-09-28, both clauses met, second one met in the reading that
+  is physically available and labelled as such)**
   `pip install .` on a FRESH CLONE, in a throwaway venv, MUST
   produce a working `flash` entry point, and the offline battery MUST be green
   against the installed package rather than the checkout.
@@ -936,16 +937,46 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   `flash doctor` (R-7.6) as the one command a stranger types to prove it. This is
   the sentence a README may print as "works on your machine" only after it has been
   true on a machine that is not the author's.
-  **Measured 2026-09-28 by `python benchmarks/r75_fresh_install_check.py`:** the
-  sdist builds, installs into a temp venv, `flash --version` prints `flash 0.0.1`,
-  `flash doctor` exits **0**, and `battery_reread.py --quick harness lsp power`
-  against the installed copy prints `20/20`, `22/22`, `22/22` — **3 of 33** lines,
-  with the run itself saying `--quick run of 3/33 lines: totals are partial, not a
-  §6 re-read`. That is the honest shape of this box: the entry point and the report
-  are proven on an installed package, and the full 33-line battery has **not** been
-  run against one. The subset is what the vector was written to check, so the box
-  closes on its own terms; the sentence above is not widened to cover a run that did
-  not happen. What the wheel shape did surface is R-7.10 and R-7.10c.
+  **Clause 1, measured 2026-09-28 by `python benchmarks/r75_fresh_install_check.py`:**
+  the sdist builds, installs into a temp venv, `flash --version` prints `flash 0.0.1`
+  and `flash doctor` exits **0** against the installed copy.
+  **Clause 2 needed a reading before it could be measured, and the two readings
+  are not the same claim.** Read literally — every child imports `flash` out of
+  `site-packages`, with no source tree present — it is **unsatisfiable by design**:
+  eleven of the 33 vectors index the tree they stand in (the graph selftest builds
+  its index over its own source, `benchmarks/portable_paths_check.py` scans it,
+  `benchmarks/documented_commands_check.py` reads its documents), and R-7.10 and
+  R-7.10c made the rest refuse rather than pass quietly with no `benchmarks/`
+  beside the package. A battery run that way would print a total from checks that
+  could not have run, which is the failure this whole section exists to prevent.
+  Read as the property the README sells — the battery is green in the tree a person
+  gets when they download this project, with that tree's own package and a venv
+  this checkout is not on — it **has been run**, and it is green:
+  **Measured 2026-09-28 by `python benchmarks/r75_sdist_battery_check.py`.** That
+  driver builds the sdist, unpacks it under a temp directory, installs the tarball
+  into a throwaway venv, and then prints its own provenance before it is allowed to
+  report a total: `import flash` from outside the tree resolves inside
+  `site-packages`, `import flash` from inside the tree resolves to the unpacked
+  sdist, the installed `flash --version` prints `flash 0.0.1`, and the checkout's
+  path appears nowhere in the witness (the run asserts its own residue count: **0**
+  host paths, which is also why `RECORD_RESIDUE` stays 411). Then it runs the
+  **whole** battery there. It printed all **33** lines green and
+  `checks 1119  oracle 20  §6 total 1139  mutants 85` — **13 min 2 s**, one minute
+  faster than the checkout's own re-read of the same tree state. Raw witness:
+  `benchmarks/results/r75_sdist_battery_20260928.log`. The same run then executes
+  the literal reading's answer and puts it on the record: `flash selftest --all`
+  with no tree present exits **2** naming the `site-packages/benchmarks/` path it
+  wanted, which is R-7.10's refusal doing its job on the installed shape.
+  **What this box corrected on the way.** A file named
+  `battery_reread_r75_20260928.log` had been committed an hour earlier under the
+  message "R-7.5 fresh clone witness: … all 33 lines green". It is not one: it is
+  byte-identical to `battery_reread_r710c_20260927.log`, the checkout's own re-read,
+  except for a trailing `battery rc=0`, and the driver it was attributed to cannot
+  produce 33 lines — it runs `--quick harness lsp power`, three of them. So the
+  counts it carries are true and its label was not, which is the same defect as a
+  fabricated number wearing a real one's clothes. It is left in the tree (deleting
+  a committed artifact is not a correction), relabelled in
+  `docs/portability.md`, and the run above replaces it.
 - **R-7.6 (CLOSED 2026-09-27)** One command must answer "is this install sane, and
   how do I verify the claims I just read?" `flash --version`, `flash doctor`
   (python, platform, GPU/backend presence, model cache, config, whether the offline
@@ -1009,6 +1040,15 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   The pre-fix measurement stays on the record because it is why the box existed: with
   `mlx` blocked, **24 of the 26** imported and `decide`/`route` did not, unnoticed
   for as long as the package shipped because `flash.cli` loads both lazily.
+  The same number then went stale a second time, in the one place no gate reads:
+  `.github/workflows/ci.yml`'s header annotated the static tier with a count — 25, then
+  corrected to 24 — and kept describing `flash.decide` and `flash.route` as the two that
+  cannot import for the whole of this clause's life, in the file whose very step runs the
+  vector that prints `SWEEP 26/26`. Nothing caught it because a workflow comment is prose
+  and `documented_commands_check.py` reads its `run:` lines, not its English. The header
+  now cites the vector and carries no count, which is the same reason the landing page
+  reads generated JSON: a figure a program neither measures nor can check is not a claim
+  but a rumour, and R-7.8 exists precisely because typed command lines went wrong here.
 - **R-7.8 (CLOSED 2026-09-27)** Every `flash …` command line printed in a tracked
   document MUST parse against `flash.cli.build_parser()`.
   Vector: `benchmarks/documented_commands_check.py`, **8 checks + 5 mutants**, green
@@ -1539,6 +1579,37 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
    171). A changed total is not the signature this project looks for when it wants to
    know a pass did something; an unchanged one, on a pass that touched only a page, is
    what lets the page's numbers keep citing the battery.)
+   (Updated again the same day, when R-7.5's second clause was measured for real and
+   its mislabelled witness was corrected: **+0 checks, +0 mutants, +0 lines**, and
+   for once the reason is the finding rather than an excuse. The new driver is not a
+   §6 vector — it builds an sdist, installs it into a throwaway venv and runs the
+   **existing** 33 lines inside the download — so the battery it exercises cannot move
+   a count, and it printed the identical one: `checks 1119  oracle 20  §6 total 1139
+   mutants 85`, **33/33**, in **13 min 2 s** against the checkout's own **15 min 9 s**
+   for the same tree state (witness
+   `benchmarks/results/r75_sdist_battery_20260928.log`, 0 host paths, so the floor
+   holds at **411** while the record-file count moves to **172**). What did change is
+   the provenance of a published artifact: `battery_reread_r75_20260928.log` had been
+   committed as the fresh-clone §6 print and is the checkout's R-7.10c print with one
+   extra line, so R-7.5 now cites the run above and `docs/portability.md` says what
+   that file actually is. Nothing in §6's totals moved, which is the correct outcome
+   for a pass whose whole content is "the download re-runs what the checkout
+   printed".)
+   (Updated again the same day, after the seven tracked docs carrying that correction
+   were re-read by the battery: **+0 checks, +0 mutants, +0 lines** —
+   `checks 1119  oracle 20  §6 total 1139  mutants 85`, **33/33**, no FAIL line, in
+   **15 min 12 s** (witness `benchmarks/results/battery_reread_r75b_20260928.log`, 0
+   host paths, so the floor holds at **411 over 36** while the record-file count moves
+   to **173**). That figure is the redirect file's own birth and last-write timestamps
+   (04:18:12 → 04:33:24), and the file itself says nothing about either: it is a shell
+   redirect, the same self-erasing shape named two entries above. So it is credited to
+   no driver and labelled for what it is — a re-read of **this checkout**, launched from
+   it, after the doc edits above had landed. What it does establish is the shape
+   R-7.5's clause-2 run was supposed to have: the docs changed, the totals did not, and
+   the two gates that read prose —
+   `documented_commands_check.py` **8/8 (+ 5 mutants)** and `portable_paths_check.py`
+   **15/15 (+ 7 mutants)** — stayed green on the edited text rather than being retyped
+   to match it.)
    (Updated 2026-09-27, when R-7.9, R-7.10 and R-7.10b closed: **+2 checks and +1
    mutant** on `python benchmarks/lora_path_check.py` (**31 → 33**, **14 → 15**) for
    `--dry-run`, **+1 check and +1 mutant** on

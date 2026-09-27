@@ -78,7 +78,7 @@ RECORD_RESIDUE = 411
 
 That is what the widened scan counts on the committed tree at the time of writing
 (`traces` 241, top-level records 154, `adapters` 9, `p6` 6, `jobs` 1) across 36
-of the 171 record files. Every step between 395 and 411 is named below, because a
+of the 173 record files. Every step between 395 and 411 is named below, because a
 residue figure that moves without an explanation is the same failure as one that
 was never published:
 
@@ -119,9 +119,14 @@ was never published:
   temp-directory *relative* paths and counts, because `pkg_only_copy()` hands the
   child a `PYTHONPATH` it built with `Path` arithmetic and the vector never echoes
   it. So the floor stays **411 over 36** and only the file count moved.
-- Storing the R-7.5 fresh-clone §6 witness (`battery_reread_r75_20260928.log`)
-  added a 169th record file carrying **zero** — the same shape as the other battery
-  prints: vector names, relative paths, counts.
+- Storing `battery_reread_r75_20260928.log` added a 169th record file carrying
+  **zero** — the same shape as the other battery prints: vector names, relative
+  paths, counts. It was committed as "R-7.5 fresh clone witness", and it is not one:
+  it is the checkout's R-7.10c re-read with a trailing `battery rc=0` added, and the
+  driver it was attributed to runs three lines, not thirty-three. Nothing about its
+  *contents* is a leak — a print with no host path is still a print with no host
+  path — but the file is now read as what it is, a second checkout re-read, and the
+  real download run lives beside it under its own name.
 - The landing page's measured data file (`dashboard_data.json`) added a 170th
   carrying **zero**, because `benchmarks/dashboard_data.py` records each vector as
   the command it ran and the line it printed, never as an absolute checkout path.
@@ -131,6 +136,22 @@ was never published:
   floor is quoted rather than assumed: the same **411 over 36**, the same
   `checks 1119  oracle 20  §6 total 1139  mutants 85`, because a battery print is a
   list of vector names, relative paths and counts.
+- R-7.5's real download witness (`r75_sdist_battery_20260928.log`) added a 172nd
+  carrying **zero**, which is the one place in this project where the absence is
+  enforced rather than observed: `benchmarks/r75_sdist_battery_check.py` refuses to
+  write the file if `str(ROOT)` or the home directory appears in the text it is
+  about to save, and prints the count it checked as a provenance line. The paths it
+  does carry are the temp directory the download was unpacked into and a
+  `site-packages` path under it — neither is a marker, and a witness that elided
+  them could not show which package a child actually imported. So the floor is still
+  **411 over 36** and only the file count moved.
+- Re-reading §6 from this checkout after the correction landed
+  (`battery_reread_r75b_20260928.log`) added a 173rd record file carrying **zero** for
+  the ordinary reason — a battery print is vector names, relative paths and counts —
+  and it is the same print the download made one row above. Its wall clock is quoted
+  from the redirect file's timestamps, not from anything inside it, which is exactly
+  the gap the mislabelled 169th file exposed; the SPEC entry that cites it says so
+  rather than letting the file speak for a run it does not name.
 
 Eight of the 411 are this vector's pass-1 and reproduction logs and three are its
 pass-2 table — a count that includes the counter is the kind of detail worth

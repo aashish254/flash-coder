@@ -10,7 +10,11 @@ Two things about this repo are load-bearing, and both are visible in the files:
   **1,119 checks + 20 oracle verifications + 85 mutation gates**, and `SPEC.md` §6
   records why the totals come from the fraction each run *prints* — never an exit
   code, never a phrase grep — after both of those shortcuts produced a wrong total
-  that looked clean on this project's own output.
+  that looked clean on this project's own output. That total is not a property of
+  the author's disk: `python benchmarks/r75_sdist_battery_check.py` builds the
+  sdist, installs it into a throwaway venv, checks which `flash` a child imports,
+  and runs all 33 lines **inside the download** — 33/33, the same
+  `checks 1119  oracle 20  §6 total 1139  mutants 85`, in 13 min 2 s.
 - **The failures sit in the same file as the wins.** Speculative decoding faults the
   GPU on this hardware (R-8.1, measured negative); the live hint A/B is a nil
   (R-1.1b); the trained adapter has never been played against the frozen harness
@@ -103,7 +107,7 @@ re-run.
 | `TODO.md` | the same requirements as boxes, each carrying the measurement that closed it |
 | `CHANGELOG.md` | what shipped, and the claims this project struck from its own docs |
 | `benchmarks/` | the vectors. `benchmarks/results/` holds the runs that published numbers cite |
-| `docs/` | `architecture.md` (the loop and its seams), `models.md` (tiers, versions, platform), `portability.md` (what a stranger's machine must not need), `config.md` (every knob is a flag; there is no config file), `privacy.md` (what leaves the machine, what gets written where), `methodology.md` (how the numbers above were produced, and the four rules that catch a green lie) |
+| `docs/` | `architecture.md` (the loop and its seams), `models.md` (tiers, versions, platform), `portability.md` (what a stranger's machine must not need), `config.md` (every knob is a flag; there is no config file), `privacy.md` (what leaves the machine, what gets written where), `methodology.md` (how the numbers above were produced, and the five rules that catch a green lie) |
 | `flash/` | the package. `cli.py` is the whole surface, in one `argparse` object, so a check can parse commands without running them |
 | `site/` | the landing page (Vite + React). Its numbers come from `site/src/data/*.json`, which `benchmarks/export_site_data.py` writes from a measured run — a figure that is not in that JSON cannot render, and no figure is typed into the page by hand |
 

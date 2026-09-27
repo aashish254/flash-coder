@@ -1,0 +1,50 @@
+r75_sdist_battery: R-7.5 clause 2 — the whole §6 battery, in the download
+provenance  interpreter: python 3.11.15, the project venv
+provenance  work directory: /tmp/flash-r75-82523
+provenance  sdist: flash_coder-0.0.1.tar.gz (3746 KB)
+provenance  unpacked tree: src/flash_coder-0.0.1/
+provenance  `import flash` outside the tree -> site-packages: yes
+provenance  the installed entry point, `flash --version`: flash 0.0.1 [rc 0]
+provenance  `import flash` inside the tree -> the unpacked sdist: yes
+
+$ python benchmarks/battery_reread.py            # inside the tree
+OK   flash.harness --selftest                     20/20
+OK   flash lsp-selftest                           22/22
+OK   flash power --selftest                       22/22
+OK   flash jobs --selftest                        20/20
+OK   flash trace --selftest                       30/30
+OK   flash web --selftest                         9/9
+OK   flash.grammar --selftest                     47/47
+OK   flash.patches --selftest                     46/46
+OK   flash.debug --selftest                       55/55
+OK   flash.tourney --selftest                     16/16
+OK   flash.confidence --selftest                  29/29
+OK   flash.sandbox --selftest                     34/34
+OK   flash.checkpoint --selftest                  31/31
+OK   flash.train --selftest                       36/36
+OK   flash.graph --selftest                       44/44 (+ 12 mutants)
+OK   flash.ambient --selftest                     61/61 (+ 6 mutants)
+OK   benchmarks/trace_resume_check.py             11/11
+OK   benchmarks/confidence_wiring_check.py        35/35
+OK   benchmarks/subtle_premise_check.py           52/52
+OK   benchmarks/p6_key_check.py                   28/28
+OK   benchmarks/confidence_tau_check.py           7/7
+OK   benchmarks/checkpoint_resume_check.py        35/35
+OK   benchmarks/lora_path_check.py                33/33 (+ 15 mutants)
+OK   benchmarks/dbg_band_check.py                 172/172 (+ 5 mutants)
+OK   benchmarks/router_portable_check.py          20/20 (+ 5 mutants)
+OK   benchmarks/graph_perceive_check.py           33/33 (+ 12 mutants)
+OK   benchmarks/hint_ab_check.py                  14/14 (+ 8 mutants)
+OK   benchmarks/portable_paths_check.py           15/15 (+ 7 mutants)
+OK   benchmarks/backend_free_check.py             42/42 (+ 10 mutants)
+OK   benchmarks/documented_commands_check.py      8/8 (+ 5 mutants)
+OK   flash.debug --suite                          32/32
+OK   flash.patches --suite                        60/60
+OK   benchmarks/m0_bakeoff.py --dry-run           20/20
+
+checks 1119  oracle 20  §6 total 1139  mutants 85
+matches SPEC §6 as written: 1119 + 20 = 1139 green, offline (+ 85 mutants)
+
+provenance  battery rc=0 in 13 min 2 s, 33 OK lines printed
+provenance  `flash selftest --all` with no tree present: rc 2
+            flash selftest --all cannot run from this install: /private/tmp/flash-r75-82523/venv/lib/python3.11/site-packages/benchmarks/battery_reread.py is not there. A wheel carries the `flash` package only, so the verification surface did not come with it. Clone the repo (or unpack the sdist, which ships benchmarks/) and run this there. `flash doctor` says which half of the project you have.

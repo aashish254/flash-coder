@@ -48,11 +48,16 @@ Every command in that block is gated: `benchmarks/documented_commands_check.py`
 parses each `flash …` line printed anywhere in this repo against the real
 `argparse` parser, so this block cannot rot into instructions that do not run.
 `git clone` above is still where this repo is *going*, not where it is: no remote is
-configured yet, and `pip install .` from a clean clone into a throwaway venv has
-never been run (SPEC **R-7.5**). `flash doctor` answers questions about the install
-it is standing in — a wheel install has no `benchmarks/` beside the package, so it
-hears "no verification surface here" and `flash selftest --all` refuses with rc 2
-instead of totalling checks that never ran.
+configured yet. `pip install .` from a clean clone into a throwaway venv, on the
+other hand, **has** been run (SPEC **R-7.5**, closed 2026-09-28): the entry point
+prints `flash 0.0.1`, `flash doctor` exits 0 against the installed copy, and the
+battery run there was `--quick harness lsp power` — 3 of 33 lines, with the run
+printing its own warning that the totals are partial. The full 33-line re-read
+against an installed package has not happened, and `docs/methodology.md` §4 is why
+this page says so instead of widening the sentence. `flash doctor` answers questions
+about the install it is standing in — a wheel install has no `benchmarks/` beside
+the package, so it hears "no verification surface here" and `flash selftest --all`
+refuses with rc 2 instead of totalling checks that never ran.
 
 `flash power` is deliberately the step before the model download: the fast tier
 needs about 4 GB of RAM-resident weights and Apple Silicon, and a machine that
@@ -98,7 +103,7 @@ as the package shipped, because `flash.cli` imports both lazily.
   is written from the code rather than from intent: `docs/config.md` (there is no
   config file — every knob is a flag, so the page is the flag list),
   `docs/privacy.md` (exactly one outbound call in the package, and what `--trace-full`
-  puts on disk), `docs/methodology.md` (the four rules above, with the anecdote each
+  puts on disk), `docs/methodology.md` (the five rules above, with the anecdote each
   one was earned by). If your change moves one of those facts, the page moves in the
   same PR — and note that these pages are scanned: every `flash …` line in
   `docs/config.md` or `docs/privacy.md` has to parse against the real CLI, which is

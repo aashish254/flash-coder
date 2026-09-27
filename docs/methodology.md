@@ -5,7 +5,7 @@ cannot tell which ones were measured, how, and what would have made them fail,
 they are marketing — and a coding agent's marketing is worse than useless,
 because the whole claim is that a machine checked the work.
 
-Four rules, each of which has caught a bug in this project's own instruments.
+Five rules, each of which has caught a bug in this project's own instruments.
 
 ## 1. A claim is a printed line, not an exit code
 
@@ -95,9 +95,78 @@ The same rule applies to install claims. The four shapes a download can produce
 a wheel says the verification surface is absent rather than failing checks for
 a missing directory, `flash selftest --all` refuses with rc 2 and names the path
 it wanted, and the two real trees ran the entire §6 battery to a printed match.
-What is *not* claimed, in `README.md` and `pyproject.toml` both, is a working
-Linux or Windows install — that is R-7.5's open half, and saying so is cheaper
-than a stranger finding out.
+R-7.5's second clause — the battery green "against the installed package rather
+than the checkout" — then had to say which of its two readings it meant before
+anyone could claim to have measured it: read literally, with every child importing
+out of `site-packages` and no source tree present, it is **unsatisfiable by
+design**, because eleven of the 33 vectors index the tree they stand in and the
+rest refuse (R-7.10) rather than pass quietly. Read as the property the README
+sells, it has been run: `python benchmarks/r75_sdist_battery_check.py` builds the
+sdist, installs the tarball into a throwaway venv, prints which `flash` a child
+imports from inside the unpacked tree and from outside it, and then runs all 33
+lines there. **33/33, `checks 1119  oracle 20  §6 total 1139  mutants 85`, 13 min 2
+s.** That run also corrected an artifact: the file that had been committed an hour
+earlier as the fresh-clone §6 print is the checkout's own re-read with one trailing
+line added, and the driver it was attributed to is only capable of three lines. The
+counts it carried were true; the label was not, and `SPEC.md` R-7.5 says so in both
+places. What is still *not* claimed, in `README.md` and `pyproject.toml` both, is a
+working Linux or Windows install, and saying so is cheaper than a stranger finding
+out.
+
+## 5. A published number is written by a program, or it is not published
+
+Everything above guards against a claim that is true but unverified. This one
+guards against the easier failure: a claim that is *typed*.
+
+`site/` — the landing page — reads exactly three files, the JSON under
+`site/src/data/`, and those are written by a two-command pipeline:
+
+```bash
+python benchmarks/dashboard_data.py     # measures -> benchmarks/results/dashboard_data.json
+python benchmarks/export_site_data.py   # converts -> site/src/data/*.json
+```
+
+The collector has three sources and every one of them is local: a committed §6
+witness, which it *parses* for the 33 printed fractions rather than being told
+what the totals were; `python -m flash.<mod> --selftest` run n=3 times for 15
+modules, published as a median with the min and max beside it, because one timing
+on a laptop is not a property of anything; and the latency line the graph selftest
+prints about its own instrument. The exporter converts and adds nothing — it
+derives the command string for each figure from the battery's own label, so every
+number on the page carries the command that prints it, and it runs `flash doctor`
+and the graph selftest as live children to paste their literal output, with this
+machine's paths replaced and each capture listing the substitutions it carries.
+
+This rule is not theoretical. Commit `54a2117` put four dashboard PNGs on this
+repo carrying invented competitor latencies and a hand-typed monthly-cost table;
+the revert is `69a4d2d`, and what replaced them is structure: there is
+no code path from a typed figure to the screen, so a chart cannot draw what a run
+did not print. The page therefore has four benchmark panels and an amber box where
+a fifth would sit, labelled **Panel 3.5 does not exist** — no "vs. Cursor /
+Copilot" bar and no dollar-per-month table, because no competitor has been run
+here and the axis would be invented, not measured.
+
+Two findings from inside the pipeline, both of which it produced:
+
+- **The exporter read the wrong capture group.** Its regex for the cold-index line
+  pulled group 4 for the build seconds, and group 4 is the *edge* count — so the
+  panel would have advertised a **10,058 ms** index build against the **603 ms**
+  the line actually reports. Nothing checked that: what surfaced it was
+  cross-matching the 33 commands the exporter generated against the battery's own
+  table, which is a different check for a different claim and happened to be
+  looking. The fix was a re-measure, not a retype.
+- **`--headless --screenshot` is not an instrument for this page.** The first
+  shipped defect was a blank one: three.js throws when no WebGL context can be
+  made, an uncaught error in a child unmounts the whole React tree, and the dump
+  was 33 KB with an empty `#root`. A screenshot captures one viewport inside a
+  virtual-time budget, so every scroll-triggered section paints blank — which is
+  pixel-indistinguishable from the bug, meaning the instrument being used to look
+  for it could not have seen it. Verification now drives a real scroll over the
+  Chrome DevTools Protocol at 1440×900 and 390×844, on the rendered tree rather
+  than a picture of it (173 KB of DOM, all eight sections), and runs the same
+  scroll on the fallback path: the hero probes for a WebGL context, a *software*
+  renderer and `prefers-reduced-motion`, and renders an interactive SVG of the
+  same 150 symbols without downloading the 914 KB three.js chunk.
 
 ## Running it yourself
 
