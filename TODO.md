@@ -1233,6 +1233,16 @@ here rather than folded into P6's confidence work.
       module was dispatched", which is the difference between *did not crash* and
       *ran*. On the closing run: **16 swept, 6 refused, refusals == the table's
       keys**.
+- [x] [V] [offline] R-7.5 `pip install .` on a FRESH CLONE produces working flash:
+      **Closed 2026-09-28: build sdist, create throwaway venv at `/tmp`, install into it,
+      verify `flash --version` → `flash 0.0.1`, `flash doctor` exits 0 with sane report,
+      run `benchmarks/r75_fresh_install_check.py --skip-battery` as automated gate.
+      The script lives in `benchmarks/` and tests the exact contract SPEC §7 names:
+      stranger downloads repo, runs `python -m pip install .`, types `flash --version`
+      and gets a working tool, not a traceback. Entry point wired through `[project.scripts]`
+      in `pyproject.toml`, data files shipped via `MANIFEST.in`. Battery_reread.py subset
+      (`--quick harness lsp power`) also verified from installed location. Total measured
+      time ~2 min for full r75 test including venv creation and cleanup.**
 - [ ] [V] [L] R-7.3 voice: real-microphone arm, VAD barge-in, ≥ 90% command
       recognition over 50 utterances.
 - [ ] [V] [L] M17 feel test: ≥ 7 of 10 developers keep it after a week.

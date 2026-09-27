@@ -11,7 +11,7 @@ So every item here carries the exact fraction it must print. A run that reports
 60/61 where 61 is expected fails the presence test even though it exits 0, and
 a check added on top of a battery moves its line's number and trips CLAIM.
 
-    python benchmarks/battery_reread.py            # ~2 min, no models
+    python benchmarks/battery_reread.py            # 15 min 9 s measured 2026-09-27
     python benchmarks/battery_reread.py --quick    # only the lines that moved
     python benchmarks/battery_reread.py --backend-free   # the same, with `mlx`
                                                            # blocked in every child
