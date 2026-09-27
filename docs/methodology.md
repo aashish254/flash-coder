@@ -109,7 +109,22 @@ s.** That run also corrected an artifact: the file that had been committed an ho
 earlier as the fresh-clone §6 print is the checkout's own re-read with one trailing
 line added, and the driver it was attributed to is only capable of three lines. The
 counts it carried were true; the label was not, and `SPEC.md` R-7.5 says so in both
-places. What is still *not* claimed, in `README.md` and `pyproject.toml` both, is a
+places.
+Then the same disease turned up in the driver that measured the *other* clause.
+`python benchmarks/r75_fresh_install_check.py` had been reporting that `flash doctor`
+exits 0 "against the installed copy"; it had been building the sdist and installing it
+faithfully, and then asking `python -m flash.cli doctor` **with no working directory**,
+so the child inherited this checkout and `python -m` put that checkout on `sys.path[0]`
+ahead of the venv's `site-packages`. Every one of its answers came from the source tree
+it had just installed from. Rewritten to ask the venv's own console script from a
+directory holding no Python, and to print which `flash` resolved before asserting
+anything about the answer, the same run reports **9/9** shapes and a truer picture: an
+editable clone exits 0 and runs 3 of 33 vectors from the clone, while a tarball install
+answers `flash --version` at rc 0, `flash doctor` at rc **1** naming the absent
+verification surface and its remedy, and `flash selftest --all` at rc **2** naming the
+path it wanted. The instrument's own shadowing is now one of its gates, because the fix
+that only lives in a sentence gets undone by the next person who forgets the `cwd`.
+What is still *not* claimed, in `README.md` and `pyproject.toml` both, is a
 working Linux or Windows install, and saying so is cheaper than a stranger finding
 out.
 

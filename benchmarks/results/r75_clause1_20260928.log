@@ -1,0 +1,17 @@
+R-7.5 clause 1 — the two installs a stranger can make
+interpreter: python 3.11.15, builder: python 3.11.15
+the checkout is the source of the build only; it is never the answer
+
+sdist: flash_coder-0.0.1.tar.gz (3754 KB)
+OK   the child that answers is the installed copy — `import flash` from a bare directory -> site-packages
+OK   `flash --version` on a tarball install answers with the version — 'flash 0.0.1' [rc 0]
+OK   `flash doctor` on a tarball install names the missing surface, the remedy, and the copy it is describing — rc 1, two `no` answers, each with its own remedy
+OK   and it does not call itself an editable checkout — R-7.10b's claim re-measured from the install side rather than the package's
+OK   `flash selftest --all` refuses rather than totalling checks that never ran — rc 2, refusing with the path it wanted
+OK   a `-m` run from inside a tree answers from THAT tree, not from the install — the shape that produced the old driver's rc 0 — same interpreter, same install: rc 0, `import flash` -> the unpacked sdist
+OK   the editable install resolves `flash` to the clone and not to this checkout — `import flash` -> the clone
+OK   `flash doctor` on a cloned, editable install exits 0 and advertises the battery — rc 0
+OK   and the battery it advertises really runs from the clone — rc 0, 3/3 lines OK, and the print says its own totals are partial
+
+R-7.5 clause 1 shapes: 9/9
+provenance  host paths in this witness: 0 (substitutions: 0 `<home>`)

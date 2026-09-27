@@ -78,7 +78,7 @@ RECORD_RESIDUE = 411
 
 That is what the widened scan counts on the committed tree at the time of writing
 (`traces` 241, top-level records 154, `adapters` 9, `p6` 6, `jobs` 1) across 36
-of the 173 record files. Every step between 395 and 411 is named below, because a
+of the 174 record files. Every step between 395 and 411 is named below, because a
 residue figure that moves without an explanation is the same failure as one that
 was never published:
 
@@ -152,6 +152,13 @@ was never published:
   from the redirect file's timestamps, not from anything inside it, which is exactly
   the gap the mislabelled 169th file exposed; the SPEC entry that cites it says so
   rather than letting the file speak for a run it does not name.
+- R-7.5's clause-1 re-measurement (`r75_clause1_20260928.log`) added a 174th carrying
+  **zero**, and that absence is the point of the file: the driver it comes from used to
+  print the checkout's path into its own report while claiming to interrogate an install.
+  It now labels each resolved module with a phrase — `site-packages`, `the unpacked
+  sdist`, `the clone` — and refuses the witness outright if `str(ROOT)` survives in the
+  text, so a regression in provenance shows up as a refused file rather than as a clean
+  log with a host path in it. Floor unchanged at **411 over 36**.
 
 Eight of the 411 are this vector's pass-1 and reproduction logs and three are its
 pass-2 table — a count that includes the counter is the kind of detail worth

@@ -48,16 +48,23 @@ Every command in that block is gated: `benchmarks/documented_commands_check.py`
 parses each `flash …` line printed anywhere in this repo against the real
 `argparse` parser, so this block cannot rot into instructions that do not run.
 `git clone` above is still where this repo is *going*, not where it is: no remote is
-configured yet. `pip install .` from a clean clone into a throwaway venv, on the
-other hand, **has** been run (SPEC **R-7.5**, closed 2026-09-28): the entry point
-prints `flash 0.0.1`, `flash doctor` exits 0 against the installed copy, and the
-battery run there was `--quick harness lsp power` — 3 of 33 lines, with the run
-printing its own warning that the totals are partial. The full 33-line re-read
-against an installed package has not happened, and `docs/methodology.md` §4 is why
-this page says so instead of widening the sentence. `flash doctor` answers questions
-about the install it is standing in — a wheel install has no `benchmarks/` beside
-the package, so it hears "no verification surface here" and `flash selftest --all`
-refuses with rc 2 instead of totalling checks that never ran.
+configured yet. The two installs a stranger can make from here **have** been run
+(SPEC **R-7.5**, closed 2026-09-28, `python benchmarks/r75_fresh_install_check.py`,
+9/9 shapes), and they are not the same experience:
+- an **editable install in a clone** — `flash doctor` exits **0** with the battery line
+  on `yes`, and `flash selftest --all --quick harness lsp power` runs 3 of 33 vectors
+  from that clone, printing its own warning that the totals are partial;
+- an **install from the built tarball** — `flash --version` answers, `flash doctor`
+  exits **1** saying `verification surface beside the package: benchmarks/ ABSENT` and
+  naming its remedy, and `flash selftest --all` exits **2** naming the `site-packages`
+  battery path it looked for. A wheel ships `flash` alone, so the verification surface
+  really is not there, and the tool refuses rather than totalling checks that never ran.
+
+The full 33-line re-read has been run too, in the reading that a download makes
+possible: `python benchmarks/r75_sdist_battery_check.py` unpacks the sdist, installs it
+into a throwaway venv and runs the whole battery **inside that tree** — 33/33 at the same
+printed totals. `docs/methodology.md` §4 carries why that is the honest form of "against
+the installed package" and what the literal form would have bought.
 
 `flash power` is deliberately the step before the model download: the fast tier
 needs about 4 GB of RAM-resident weights and Apple Silicon, and a machine that

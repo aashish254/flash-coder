@@ -1,30 +1,43 @@
 #!/usr/bin/env python3.11
-"""SPEC R-7.5 fresh clone verification - simplified version.
+"""SPEC R-7.5 clause 1, measured against the install rather than the tree this file
+stands in.
 
-R-7.5 REQUIRES: `pip install .` ON A FRESH CLONE MUST PRODUCE WORKING flash ENTRY POINT
-AND THE OFFLINE BATTERY MUST RUN GREEN AGAINST INSTALLED PACKAGE.
+Why this file was rewritten. The version it replaced built an sdist, installed it into
+a throwaway venv, and then ran its verification steps as `python -m flash.cli …` with no
+`cwd`, so each child inherited this checkout as its working directory — and `python -m`
+puts the cwd on `sys.path[0]`. Every one of those children imported the CHECKOUT's
+`flash` and never touched the copy the venv had installed. What it printed — `flash
+doctor` exits 0 against the installed package — was a measurement of the author's disk
+wearing an install's label. The shadowing is reproducible, so it is a gate in this file
+rather than a footnote: a driver that cannot see which copy answered cannot report what
+an install does.
 
-This script tests the contract in a throwaway venv:
-  • Builds the source distribution (`python -m build --sdist`)
-  • Creates an isolated venv in /tmp
-  • Installs the SDIST into it
-  • Runs:
-      flash --version          # entry point works
-      flash doctor             # sanity check  
-      benchmarks/battery_reread.py --quick  # subset of battery
+What a downloader actually gets, measured here in the two shapes they can make:
 
-EXIT CODES:
-  0  ALL VECTORS PASSED (battery completed or skipped via --skip-battery)
-  1  ONE OR MORE VECTORS FAILED
-  2  SETUP ERROR (NO BUILD TOOLS, NO FREE DISK SPACE, etc.)
+  from the tarball — `flash --version` answers (rc 0); `flash doctor` answers that the
+      verification surface is not beside the package (rc 1) and names its remedy;
+      `flash selftest --all` refuses (rc 2) naming the `site-packages` battery path it
+      wanted. The generating half works, and the page says which half is missing.
+  from a clone with an editable install — `flash doctor` exits 0 with the battery line
+      on `yes`, and `flash selftest --all --quick harness lsp power` runs three vectors
+      out of the clone rather than out of this checkout.
 
-USAGE:
-    python benchmarks/r75_fresh_install_check.py            # full test (~15 min if battery runs)
-    python benchmarks/r75_fresh_install_check.py --skip-battery  # just verify install works
-    python benchmarks/r75_fresh_install_check.py --keep     # keep venv for inspection
+`benchmarks/r75_sdist_battery_check.py` is the other half of R-7.5: the whole §6 battery
+run inside an unpacked sdist. This file is what a stranger's terminal does.
+
+EXIT CODES
+  0  every shape printed the answer the requirement says it must
+  1  one of them did not, or a witness could not be written clean
+  2  setup failed (no build tools, no git, no writable temp directory)
+
+USAGE
+    python benchmarks/r75_fresh_install_check.py
+    python benchmarks/r75_fresh_install_check.py --keep
+    python benchmarks/r75_fresh_install_check.py --witness benchmarks/results/x.log
 """
 from __future__ import annotations
 
+import argparse
 import os
 import shutil
 import subprocess
@@ -32,170 +45,229 @@ import sys
 import tempfile
 from pathlib import Path
 
-PYTHON = sys.executable
-if not PYTHON.endswith("python3.11"):
-    result = subprocess.run(["which", "python3.11"], capture_output=True, text=True)
-    if result.returncode == 0:
-        PYTHON = result.stdout.strip()
-
 ROOT = Path(__file__).resolve().parent.parent
-VENV_PREFIX = "flash-r75-check-"
+HOME = str(Path.home())
+CHECKS: list[tuple[str, bool, str]] = []
+LINES: list[str] = []
 
 
-def die(msg: str) -> None:
-    print(f"FATAL {msg}")
-    sys.exit(2)
+def tool() -> str:
+    """An interpreter that can build an sdist. The venv this script is run from is not
+    guaranteed to have `build` — the dev extra is installed on the checkout, not inside
+    every interpreter — so each candidate is asked rather than assumed, the same way
+    `r75_sdist_battery_check.py` chooses one. Every child that is ASKED about the install
+    is a console script of the throwaway venv; this interpreter only ever builds and
+    creates venvs, so it cannot answer for the package under test."""
+    candidates = [sys.executable, *(p for name in ("python3.11", "python3")
+                                   if (p := shutil.which(name)))]
+    for cand in candidates:
+        if subprocess.run([cand, "-c", "import build"],
+                          capture_output=True, text=True).returncode == 0:
+            return cand
+    return ""
 
 
-def run(cmd: list[str], cwd: Path | None = None, env: dict[str, str] | None = None, 
-        timeout_seconds: int = 600) -> tuple[int, str, str]:
-    """Run a shell command; return (returncode, stdout, stderr)."""
-    result = subprocess.run(
-        cmd, cwd=cwd, capture_output=True, text=True,
-        timeout=timeout_seconds, env=env or os.environ.copy(),
-    )
-    return result.returncode, result.stdout, result.stderr
+def emit(line: str = "") -> None:
+    LINES.append(line)
+    print(line, flush=True)
+
+
+def check(name: str, ok: bool, detail: str = "") -> bool:
+    CHECKS.append((name, ok, detail))
+    emit(f"{'OK  ' if ok else 'BAD '} {name}" + (f" — {detail}" if detail else ""))
+    return bool(ok)
+
+
+def run(cmd: list[str], cwd: Path, timeout: int = 600) -> tuple[int, str]:
+    """Run a child. `cwd` has no default: a child that inherits this checkout's
+    directory can import the package under test from it and answer for the wrong copy."""
+    proc = subprocess.run(cmd, cwd=str(cwd), capture_output=True, text=True,
+                          timeout=timeout)
+    return proc.returncode, proc.stdout + proc.stderr
+
+
+def answered_from(python: Path, cwd: Path) -> str:
+    """Which `flash` does an interpreter resolve from this working directory?"""
+    rc, out = run([str(python), "-c", "import flash; print(flash.__file__)"], cwd=cwd)
+    return out.strip() if rc == 0 else ""
+
+
+def under(path: str, directory: Path) -> bool:
+    """Is this resolved `__file__` inside that directory? `/tmp` is a symlink to
+    `/private/tmp` on macOS and `__file__` comes back resolved, so both sides are
+    compared resolved."""
+    try:
+        return Path(path).resolve().is_relative_to(directory.resolve())
+    except OSError:
+        return False
+
+
+def make_venv(tool: str, base: Path, name: str) -> Path | None:
+    venv = base / name
+    rc, out = run([tool, "-m", "venv", str(venv)], cwd=base, timeout=900)
+    if rc != 0:
+        emit(out[-1500:])
+        return None
+    return venv
 
 
 def main(argv: list[str]) -> int:
-    skip_battery = "--skip-battery" in argv
-    keep_venv = "--keep" in argv
-    argv = [a for a in argv if a not in ("--skip-battery", "--keep")]
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--keep", action="store_true", help="leave the temp tree behind")
+    ap.add_argument("--witness", type=Path, help="write this run's print here")
+    args = ap.parse_args(argv)
 
-    print("=" * 60)
-    print("SPEC R-7.5: Fresh Clone pip Install Verification")
-    print("=" * 60)
-
-    # Validate tree
-    print("\n[1/5] Validating checkout...")
-    rc, out, err = run(["git", "status", "--porcelain"], cwd=ROOT)
-    if rc != 0:
-        die("git status failed")
-    if out.strip():
-        print("WARNING: uncommitted changes present:")
-        for line in out.splitlines()[:5]:
-            print(f"  {line}")
-
-    # Build sdist
-    print("\n[2/5] Building source distribution...")
-    dist_dir = ROOT / "dist"
-    if dist_dir.exists():
-        shutil.rmtree(dist_dir)
-    dist_dir.mkdir()
-
-    rc, out, err = run([PYTHON, "-m", "build", "--sdist", "--outdir", str(dist_dir)], cwd=ROOT)
-    if rc != 0:
-        print(f"BUILD FAILED:\n{err}")
-        die("source distribution build failed")
-
-    sdist_files = list(dist_dir.glob("*.tar.gz"))
-    if not sdist_files:
-        die("no sdist found after build")
-    sdist = sdist_files[0]
-    print(f"✓ Built: {sdist.name} ({os.stat(sdist).st_size // 1024} KB)")
-
-    # Create throwaway venv
-    temp_base = Path("/tmp")
-    try:
-        temp_base.touch(exist_ok=True)
-    except OSError:
-        temp_base = Path(tempfile.gettempdir())
-    venv_dir = temp_base / f"{VENV_PREFIX}{os.getpid()}"
-
-    try:
-        print(f"\n[3/5] Creating isolated venv at {venv_dir}...")
-        rc, out, err = run([PYTHON, "-m", "venv", str(venv_dir)])
-        if rc != 0:
-            die(f"failed to create venv: {err}")
-
-        if sys.platform.startswith("win"):
-            venv_python = venv_dir / "Scripts" / "python.exe"
-            venv_pip = venv_dir / "Scripts" / "pip.exe"
-        else:
-            venv_python = venv_dir / "bin" / "python"
-            venv_pip = venv_dir / "bin" / "pip"
-
-        print("[4/5] Installing sdist into venv...")
-        rc, out, err = run([str(venv_pip), "install", "--upgrade", "pip", "setuptools", "wheel"])
-        if rc != 0:
-            die("failed to install build dependencies")
-        
-        rc, out, err = run([str(venv_pip), "install", str(sdist)])
-        if rc != 0:
-            print(f"INSTALL FAILED:\n{err}")
-            die("installation failed")
-        print(f"✓ Installed: flash-coder from {sdist.name}")
-
-        # Verify flash --version
-        print("\n[5/5] Verifying installation...")
-        rc, out, err = run([str(venv_python), "-m", "pip", "show", "flash-coder"])
-        if rc != 0:
-            die("flash-coder not properly installed")
-
-        print(out.strip())
-
-        # Test flash --version
-        print("\ntesting flash --version...")
-        rc, out, err = run([str(venv_python), "-m", "flash.cli", "--version"])
-        if rc != 0:
-            print(f"FLASH VERSION FAILED:\n{err}")
-            die("entry point broken")
-        print(f"✓ {out.strip()}")
-
-        # Test flash doctor
-        print("\ntesting flash doctor...")
-        rc, out, err = run([str(venv_python), "-m", "flash.cli", "doctor"])
-        if rc not in (0, 1):
-            die("doctor failed unexpectedly")
-        print(f"✓ doctor passed (exit code {rc})")
-
-        # Optional: Run subset of battery for quick validation
-        if not skip_battery:
-            print("\nrunning battery_reread.py --quick...")
-            
-            bat_script = ROOT / "benchmarks" / "battery_reread.py"
-            site_lib = venv_dir / "lib" / f"python{sys.version_info.major}.{sys.version_info.minor}" / "site-packages"
-            python_path = str(site_lib)
-            bat_env = os.environ.copy()
-            bat_env["PYTHONPATH"] = python_path
-            
-            # Run quick subset to verify flash can be imported from installed location
-            rc, out, err = run([str(venv_python), str(bat_script), "--quick", "harness", "lsp", "power"], 
-                              timeout_seconds=300, env=bat_env)
-            if rc != 0 and "expected" not in out.lower():
-                print(f"BATTERY QUICK FAILED:\n{err[:500]}")
-                die("battery quick subset failed")
-            print("✓ battery quick subset passed")
-            
-            # Print summary
-            for line in out.splitlines():
-                if line.startswith(("OK", "BAD")) or "total" in line.lower():
-                    print(f"  {line}")
-
-        print("\n" + "=" * 60)
-        print("✓ R-7.5 VERIFIED: Fresh install produces working flash CLI")
-        print("=" * 60)
-        
-        if skip_battery:
-            print("NOTE: Battery subset skipped (--skip-battery flag)")
-        
-        return 0
-
-    except KeyboardInterrupt:
-        print("\nkilled by user")
+    base = Path(tempfile.gettempdir()).resolve() / f"flash-r75c-{os.getpid()}"
+    ask = base / "nowhere"
+    ask.mkdir(parents=True, exist_ok=True)
+    builder = tool()
+    if not builder:
+        emit("R-7.5 clause 1 — the two installs a stranger can make")
+        emit("")
+        emit("BAD  no interpreter here can `import build`, so no sdist can be made to "
+             "install — `pip install -e .[dev]` ships it")
         return 2
-    except Exception as e:
-        print(f"\nERROR: {e}", file=sys.stderr)
-        import traceback
-        traceback.print_exc()
-        return 1
+    emit("R-7.5 clause 1 — the two installs a stranger can make")
+    _, builder_version = run([builder, "-c", "import sys; print(sys.version.split()[0])"],
+                             cwd=base)
+    emit(f"interpreter: python {sys.version.split()[0]}, builder: "
+         f"python {builder_version.strip()}")
+    emit("the checkout is the source of the build only; it is never the answer")
+    emit("")
+
+    try:
+        dist = base / "dist"
+        dist.mkdir()
+        rc, out = run([builder, "-m", "build", "--sdist", "--outdir", str(dist)],
+                      cwd=ROOT, timeout=900)
+        tarballs = sorted(dist.glob("*.tar.gz"))
+        if rc != 0 or not tarballs:
+            emit(out[-1500:])
+            return 2
+        tarball = tarballs[0]
+        emit(f"sdist: {tarball.name} ({tarball.stat().st_size // 1024} KB)")
+
+        # ---- shape 1: installed from the tarball, asked from outside every tree
+        venv_a = make_venv(builder, base, "venv-a")
+        if venv_a is None:
+            return 2
+        rc, out = run([str(venv_a / "bin" / "pip"), "install", "--quiet", str(tarball)],
+                      cwd=base, timeout=1800)
+        if rc != 0:
+            emit(out[-1500:])
+            return 2
+        flash_a = venv_a / "bin" / "flash"
+
+        resolved = answered_from(venv_a / "bin" / "python", ask)
+        check("the child that answers is the installed copy",
+              bool(resolved) and "site-packages" in resolved and not under(resolved, ROOT),
+              "`import flash` from a bare directory -> site-packages")
+
+        rc, out = run([str(flash_a), "--version"], cwd=ask)
+        printed = out.strip()
+        check("`flash --version` on a tarball install answers with the version",
+              rc == 0 and printed.startswith("flash "), f"{printed!r} [rc {rc}]")
+
+        rc, out = run([str(flash_a), "doctor"], cwd=ask)
+        check("`flash doctor` on a tarball install names the missing surface, the remedy, "
+              "and the copy it is describing",
+              rc == 1 and "(installed copy)" in out
+              and "verification surface beside the package" in out
+              and "the offline battery CANNOT run from this install" in out,
+              f"rc {rc}, two `no` answers, each with its own remedy")
+        check("and it does not call itself an editable checkout",
+              "(editable checkout)" not in out,
+              "R-7.10b's claim re-measured from the install side rather than the "
+              "package's")
+
+        rc, out = run([str(flash_a), "selftest", "--all"], cwd=ask)
+        check("`flash selftest --all` refuses rather than totalling checks that never "
+              "ran",
+              rc == 2 and "battery_reread.py" in out and "site-packages" in out,
+              f"rc {rc}, refusing with the path it wanted")
+
+        # ---- the shadowing, shown rather than asserted away
+        tree = base / "tree"
+        tree.mkdir()
+        rc, _ = run(["tar", "xzf", str(tarball), "-C", str(tree)], cwd=base, timeout=300)
+        if rc != 0:
+            check("the sdist unpacks", False, "tar failed")
+            return 2
+        unpacked = tree / tarball.name[: -len(".tar.gz")]
+        shadow = answered_from(venv_a / "bin" / "python", unpacked)
+        rc, out = run([str(venv_a / "bin" / "python"), "-m", "flash.cli", "doctor"],
+                      cwd=unpacked)
+        check("a `-m` run from inside a tree answers from THAT tree, not from the "
+              "install — the shape that produced the old driver's rc 0",
+              under(shadow, unpacked) and rc == 0 and "(editable checkout)" in out,
+              f"same interpreter, same install: rc {rc}, `import flash` -> "
+              + ("the unpacked sdist" if under(shadow, unpacked) else "site-packages"))
+
+        # ---- shape 2: a real clone, installed editable, asked from inside itself
+        clone = base / "clone"
+        rc, out = run(["git", "clone", "--quiet", str(ROOT), str(clone)], cwd=base,
+                      timeout=900)
+        if rc != 0:
+            emit(out[-1500:])
+            return 2
+        venv_b = make_venv(builder, base, "venv-b")
+        if venv_b is None:
+            return 2
+        rc, out = run([str(venv_b / "bin" / "pip"), "install", "--quiet", "-e", ".[dev]"],
+                      cwd=clone, timeout=1800)
+        if rc != 0:
+            emit(out[-1500:])
+            return 2
+        flash_b = venv_b / "bin" / "flash"
+
+        resolved_b = answered_from(venv_b / "bin" / "python", clone)
+        check("the editable install resolves `flash` to the clone and not to this "
+              "checkout",
+              under(resolved_b, clone) and not under(resolved_b, ROOT),
+              "`import flash` -> " + ("the clone" if under(resolved_b, clone) else "elsewhere"))
+
+        rc, out = run([str(flash_b), "doctor"], cwd=clone)
+        check("`flash doctor` on a cloned, editable install exits 0 and advertises the "
+              "battery",
+              rc == 0 and "(editable checkout)" in out
+              and "the offline battery runs here" in out, f"rc {rc}")
+
+        rc, out = run([str(flash_b), "selftest", "--all", "--quick",
+                       "harness", "lsp", "power"], cwd=clone, timeout=1200)
+        subset = sum(1 for line in out.splitlines() if line.startswith("OK   "))
+        check("and the battery it advertises really runs from the clone",
+              rc == 0 and "run of 3/33 lines" in out and subset == 3,
+              f"rc {rc}, {subset}/3 lines OK, and the print says its own totals are "
+              "partial")
+
+        total = len(CHECKS)
+        green = sum(1 for _, ok, _ in CHECKS if ok)
+        emit("")
+        emit(f"R-7.5 clause 1 shapes: {green}/{total}")
+        for name, ok, detail in CHECKS:
+            if not ok:
+                emit(f"  BAD {name} — {detail}")
+        verdict = 0 if green == total else 1
+
+        if args.witness:
+            body = "\n".join(LINES) + "\n"
+            subs = body.count(HOME)
+            body = body.replace(HOME, "<home>")
+            if str(ROOT) in body:
+                emit(f"REFUSED the witness: this checkout's path appears in it "
+                     f"({body.count(str(ROOT))} time(s)); the run is reported on "
+                     f"stdout only")
+                return 1
+            args.witness.parent.mkdir(parents=True, exist_ok=True)
+            args.witness.write_text(body + f"provenance  host paths in this witness: 0 "
+                                           f"(substitutions: {subs} `<home>`)\n")
+            emit(f"witness: {args.witness}")
+        return verdict
     finally:
-        if not keep_venv and venv_dir.exists():
-            print(f"\ncleaning up venv at {venv_dir}...")
-            try:
-                shutil.rmtree(venv_dir)
-            except Exception as cleanup_err:
-                print(f"WARNING: cleanup failed: {cleanup_err}", file=sys.stderr)
+        if args.keep:
+            emit(f"kept: {base}")
+        else:
+            shutil.rmtree(base, ignore_errors=True)
 
 
 if __name__ == "__main__":

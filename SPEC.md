@@ -925,9 +925,10 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   interpreter path with it — a line that was not a leaked home directory and was
   still a command a stranger could not run.
   **What is NOT claimed: that the repo is path-free.** It is not, and the residue
-  above is the published count, not a rounding. Claiming the clone-and-run
-  property itself — `pip install .` in a throwaway venv on a fresh clone — is
-  R-7.5's open box, not this clause's.
+  above is the published count, not a rounding. Claiming the clone-and-run property
+  itself — `pip install .` in a throwaway venv on a fresh clone — belongs to R-7.5 and
+  not to this clause; R-7.5 closed it on 2026-09-28, which is why the sentence here no
+  longer points at an open box.
 - **R-7.5 (CLOSED 2026-09-28, both clauses met, second one met in the reading that
   is physically available and labelled as such)**
   `pip install .` on a FRESH CLONE, in a throwaway venv, MUST
@@ -937,9 +938,28 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   `flash doctor` (R-7.6) as the one command a stranger types to prove it. This is
   the sentence a README may print as "works on your machine" only after it has been
   true on a machine that is not the author's.
-  **Clause 1, measured 2026-09-28 by `python benchmarks/r75_fresh_install_check.py`:**
-  the sdist builds, installs into a temp venv, `flash --version` prints `flash 0.0.1`
-  and `flash doctor` exits **0** against the installed copy.
+  **Clause 1, measured 2026-09-28 by `python benchmarks/r75_fresh_install_check.py`,
+  and re-measured on the day it closed because the first version of that driver did not
+  test the install.** It builds the sdist, installs it into a throwaway venv, and then
+  interrogates **the venv's `flash` console script from a directory holding no Python**,
+  printing which `flash` each child resolved before asserting anything about its answer:
+  **9/9 shapes** (`benchmarks/results/r75_clause1_20260928.log`, 0 host paths).
+  A tarball install gives `flash --version` → `flash 0.0.1` at rc 0, `flash doctor` → rc
+  **1** with `(installed copy)`, `verification surface beside the package: benchmarks/
+  ABSENT` and `the offline battery CANNOT run from this install` naming its remedy, and
+  `flash selftest --all` → rc **2** naming the `site-packages` battery path it wanted.
+  A cloned, editable install gives an `import flash` that resolves to the clone,
+  `flash doctor` → rc **0** with the battery line on `yes`, and
+  `flash selftest --all --quick harness lsp power` → **3/3** vectors run from the clone,
+  printing its own `run of 3/33 lines: totals are partial`.
+  So the clause's "working entry point" is working in both shapes and the rc differs
+  because the two shapes genuinely have different surfaces: a wheel carries `flash`
+  alone, which is R-7.10's refusal-by-design, not a regression. The superseded sentence
+  here — "`flash doctor` exits 0 against the installed copy" — was true of neither: it was
+  the old driver's `-m` child answering from this checkout, because `python -m` puts the
+  cwd on `sys.path[0]`. That shadowing is now the run's sixth gate, measured rather than
+  explained: same interpreter, same install, cwd inside the unpacked sdist, and
+  `doctor` reports `(editable checkout)`.
   **Clause 2 needed a reading before it could be measured, and the two readings
   are not the same claim.** Read literally — every child imports `flash` out of
   `site-packages`, with no source tree present — it is **unsatisfiable by design**:
@@ -1610,6 +1630,16 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
    `documented_commands_check.py` **8/8 (+ 5 mutants)** and `portable_paths_check.py`
    **15/15 (+ 7 mutants)** — stayed green on the edited text rather than being retyped
    to match it.)
+   (Updated again the same day for R-7.5's **first** clause: **+0 checks, +0 mutants,
+   +0 lines**, and again the reason is the finding. `benchmarks/r75_fresh_install_check.py`
+   was rewritten to stop interrogating this checkout through a `python -m` child that
+   imported the package from its own cwd, and the rewrite is not a §6 vector either —
+   it builds an sdist and a `git clone`, makes two throwaway venvs and asks their console
+   scripts. It printed **9/9 shapes** (`benchmarks/results/r75_clause1_20260928.log`,
+   **0** host paths, so the floor holds at **411 over 36** while the record-file count
+   moves to **174**). What it changes is not a total but a sentence: the run now backs
+   `flash doctor`'s two different exit codes for two different install shapes, which is
+   the claim R-7.5's clause 1 makes in this file and in `README.md`.)
    (Updated 2026-09-27, when R-7.9, R-7.10 and R-7.10b closed: **+2 checks and +1
    mutant** on `python benchmarks/lora_path_check.py` (**31 → 33**, **14 → 15**) for
    `--dry-run`, **+1 check and +1 mutant** on

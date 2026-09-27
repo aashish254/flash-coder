@@ -32,8 +32,10 @@ dependencies = [
   # narrated: `benchmarks/backend_free_check.py` sweeps the package under the blocker
   # and requires the call to explain itself, and `flash doctor` reports which half of
   # the project a machine is holding. What is NOT measured here is a Linux or Windows
-  # machine actually installing this file — that is SPEC R-7.5's open box, and this
-  # marker is a dependency resolver's statement, not a test report.
+  # machine actually installing this file. SPEC R-7.5 closed on the four shapes this
+  # box can produce — fresh clone, wheel, editable clone, unpacked sdist, all on Apple
+  # Silicon — so this marker is not an open box any more, but it is still a dependency
+  # resolver's statement rather than a test report from someone else's platform.
   "mlx-lm>=0.31; sys_platform == 'darwin' and platform_machine == 'arm64'",
 ]
 dynamic = ["version"]

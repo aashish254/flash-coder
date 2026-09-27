@@ -1143,7 +1143,14 @@ here rather than folded into P6's confidence work.
       because it loads both lazily; `benchmarks/trace_resume_check.py` was likewise
       still **11/11** under the same block, so `--backend-free` is a measured subset
       and not a list of names. `flash/__init__.py` is `__version__ = "0.0.1"`, which
-      is what a wheel built today would be labelled — TODO #32 bumps it.
+      is what a wheel built today would be labelled. **Decided 2026-09-28, on the day
+      R-7.5 closed: the tag is `v0.0.1` and the version does not move.** The printed
+      version is one fact repeated in `flash/__init__.py`, the landing page's own
+      `VERSION` constant, the transcript the exporter captures from a live `flash
+      doctor`, and the `flash 0.0.1` lines of SPEC, CONTRIBUTING and every witness
+      under `benchmarks/results/`; bumping it to reach a rounder-sounding `0.1.0` would
+      invalidate a set of recorded prints to change a label, which is not what this
+      project spends verification on. `0.1.0` stays the next milestone's number.
 - [x] [B] [V] [offline] R-7.7 whole package imports with no MLX present: move
       `flash/decide.py`'s top-level `import mlx.core` behind the call so
       `import flash.route` works everywhere, keeping the failure at the generation
@@ -1252,16 +1259,29 @@ here rather than folded into P6's confidence work.
       module was dispatched", which is the difference between *did not crash* and
       *ran*. On the closing run: **16 swept, 6 refused, refusals == the table's
       keys**.
-- [x] [V] [offline] R-7.5 `pip install .` on a FRESH CLONE produces a working `flash`
-      entry point. **Closed 2026-09-28 by
-      `benchmarks/r75_fresh_install_check.py`: the sdist builds, installs into a
-      throwaway venv, `flash --version` prints `flash 0.0.1` and `flash doctor` exits 0
-      against the installed copy — about 2 min including venv creation and cleanup.**
+- [x] [V] [offline] R-7.5 clause 1: the install a stranger can make answers the way the
+      documents say it does. **Closed 2026-09-28, then re-measured the same day by a
+      rewritten `benchmarks/r75_fresh_install_check.py` — 9/9 shapes**
+      (`benchmarks/results/r75_clause1_20260928.log`). What the box originally recorded as
+      evidence was not evidence: the old driver built and installed the sdist correctly
+      and then ran `python -m flash.cli doctor` with no `cwd`, so the child inherited this
+      checkout, `python -m` put it on `sys.path[0]` ahead of the venv's `site-packages`,
+      and every answer came from the source tree. Measured properly — the venv's own
+      console script, asked from a directory holding no Python, with `flash.__file__`
+      printed before any assertion about it — the two shapes are:
+      **editable clone** → `import flash` resolves to the clone, `flash doctor` rc **0**
+      with the battery line on `yes`, `flash selftest --all --quick harness lsp power`
+      **3/3** vectors from that clone, printing its own `run of 3/33 lines: totals are
+      partial`; **tarball install** → `flash --version` rc 0, `flash doctor` rc **1**
+      naming `verification surface beside the package: benchmarks/ ABSENT` and its remedy,
+      `flash selftest --all` rc **2** naming the `site-packages` battery path. The shadow
+      is a gate now, so the mistake cannot silently return.
       This box is clause 1 only; the battery half of R-7.5 is the box above, which is
       where the 33-line download run and the witness that was mislabelled as one are
       recorded. The entry point itself comes from `[project.scripts]` in
       `pyproject.toml`, and the verification surface a stranger needs to re-run the
-      numbers ships with the source per `MANIFEST.in`.
+      numbers ships with the source per `MANIFEST.in` — in the sdist, which is why
+      unpacking it runs the battery and installing the wheel it built does not.
 - [x] [V] [offline] R-7.11 a landing page whose numbers cannot be invented:
       **Closed 2026-09-28. `site/` is a Vite + React page and its only data source is
       `site/src/data/{benchmarks,graph,transcripts}.json`, written by
