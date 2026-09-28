@@ -15,6 +15,14 @@ Two things about this repo are load-bearing, and both are visible in the files:
   sdist, installs it into a throwaway venv, checks which `flash` a child imports,
   and runs all 33 lines **inside the download** — 33/33, the same
   `checks 1119  oracle 20  §6 total 1139  mutants 85`, in 13 min 2 s.
+- **The one cross-tool comparison here is a run, not a claim.** `python
+  benchmarks/market_compare.py --arms oneshot,aider,flash` answers the same 8 held-out
+  tasks from the same 4-bit weights and grades every arm with the same harness oracle:
+  single-shot **5/8**, aider 0.86.2 **6/8**, `flash run-suite` **8/8**, at **2,021**,
+  **13,084** and **3,470** tokens. There is no Cursor or Copilot row and no
+  dollar-per-month column, because neither is drivable on this machine and both generate
+  in their own cloud — R-7.13 keeps that box open rather than filling it with a number
+  borrowed from a vendor's blog.
 - **The failures sit in the same file as the wins.** Speculative decoding faults the
   GPU on this hardware (R-8.1, measured negative); the live hint A/B is a nil
   (R-1.1b); the trained adapter has never been played against the frozen harness

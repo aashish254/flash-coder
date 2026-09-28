@@ -53,7 +53,10 @@ behind the probe for a context lost after mount.
 **An earlier version of this page's numbers were invented.** Four dashboard PNGs
 with competitor latencies and a cost column that no run had produced were committed
 as benchmarks and reverted; the commit pair is in the history, and the page says so
-in its own "Panel 3.5 does not exist" box. The generated-data pipeline above is the
+in its own amber box, "What this page still refuses to print". Panel 3.5 — the bar
+that heading used to declare nonexistent — now exists because one competitor was run
+on this machine against these weights, and its rows are parsed from that run's witness
+by the same pipeline. The generated-data pipeline above is the
 control, not the promise.
 
 ## Verifying a change here

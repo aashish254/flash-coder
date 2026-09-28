@@ -2921,8 +2921,8 @@
  "sampled": {
   "shown_nodes": 150,
   "shown_edges": 192,
-  "repo_nodes": 4091,
-  "repo_edges": 22219,
+  "repo_nodes": 4225,
+  "repo_edges": 22894,
   "note": "the 150 most-connected functions, classes and methods under flash/, joined by their call and import edges; `reads` edges and the rest of the index are not drawn"
  },
  "extracted_by": "python -c 'from flash.graph import build; build(...)'"

@@ -10,8 +10,9 @@ imports the JSON this writes, so a figure that is not in
 It writes three things under `site/src/data/`:
 
 - `benchmarks.json` — totals, per-vector fractions, selftest wall clocks, the
-  graph latency. Each entry carries the command that prints it, taken from the
-  battery's own label, so the page can attribute every figure on screen.
+  graph latency and the cross-tool table. Each entry carries the command that
+  prints it, taken from the battery's own label, so the page can attribute every
+  figure on screen.
 - `graph.json` — the repo's own AST call graph, extracted by `flash.graph`, for
   the hero scene. Positions are computed here so the scene is deterministic and
   the component stays dumb.
@@ -92,6 +93,7 @@ def build_benchmarks(source: dict) -> dict:
         "vectors": sorted(vectors, key=lambda v: -v["checks"]),
         "timings": sorted(timings, key=lambda t: -t["median_s"]),
         "graph": source["graph_latency"],
+        "market": source["market"],
         "provenance": source["source_of_truth"],
     }
 

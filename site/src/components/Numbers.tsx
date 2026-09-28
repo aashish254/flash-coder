@@ -26,9 +26,11 @@ export function Numbers() {
             <span className="num text-fog-1">({benchmarks.witness})</span> or timed
             by{' '}
             <span className="num text-fog-1">benchmarks/dashboard_data.py</span> on
-            a 32 GB Apple Silicon box. Nothing here is a comparison with another
-            product, because no competitor was measured here — and a chart with a
-            made-up bar next to a real one is how a project stops being verifiable.
+            a 32 GB Apple Silicon box. None of these numbers compares this product
+            with another — the one cross-tool table this machine has produced is
+            panel 3.5 of the benchmarks section, with the witness it was parsed from
+            named there — and a chart with a made-up bar next to a real one is how a
+            project stops being verifiable.
           </>
         }
       />

@@ -150,8 +150,59 @@ versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   36**, record files **175**). Three identical totals now exist: the checkout before the
   correction, the download, and the checkout after it. `docs/portability.md` says why a
   fourth copy of the same numbers is worth a record file.
+- **R-7.12: the first cross-tool run this machine has made.** `python
+  benchmarks/market_compare.py --arms oneshot,aider,flash --tasks
+  benchmarks/tasks/m7_heldout_tasks.jsonl` answers the same 8 held-out tasks from the
+  same `Qwen2.5-Coder-7B-Instruct-4bit` weights and grades every answer with
+  `flash.harness.run_test` — the oracle that printed the published 20 — behind three
+  gates: the grader self-checks **8/8** against its own stored references, the server
+  must name the model the driver thinks it is talking to, and tokens are counted by a
+  proxy reading the server's own `usage` rather than re-tokenised by the thing being
+  measured. What printed
+  (`benchmarks/results/market_compare_20260928.log`, 0 host paths): single-shot with no
+  agent loop **5/8**, 6.9 s/task, 8 requests, **2,021** tokens; aider 0.86.2 **6/8**,
+  14.9 s/task, 16 requests, **13,084**; `flash run-suite` **8/8**, 10.6 s/task, 11
+  requests, **3,470** — from trace session `20260928-081056-run-suite-b660`, with
+  `--allow-big never` so the loop never reaches its second, larger model and the table
+  stays a comparison of agents rather than of weights. Two instrument bugs died in this
+  pass: `--tasks` was accepted and ignored (the HTTP arms called `m0_bakeoff.load_tasks()`,
+  which always reads the frozen m0 suite — caught because the "held-out" run reproduced
+  m0's exact totals), and the flash arm parsed PASS/FAIL out of `run-suite`'s stdout and
+  printed **0/8** while that same run's trace recorded **8/8**. Nothing in §6 moved: the
+  driver needs weights, so it is not an offline vector — but the first re-read after this
+  pass came back **31/33**, and both failures were this pass's fault rather than the
+  machine's. `benchmarks/checkpoint_resume_check.py` printed nothing because the power
+  governor offered width 1 with 4.8 GB free against the 6.9 GB its tournament arm wants
+  (another project's 14.8 GB model was resident for the whole run), and
+  `benchmarks/portable_paths_check.py` fell to **13/15** because `market_compare.py` — the
+  file written to keep host paths out of a published witness — carried two host prefixes as
+  literals in its own marker list. The exemption was not widened and nothing was reworded:
+  the driver imports `portable_paths_check.HOST_PATHS` now and spells no prefix itself. The
+  re-read of that corrected tree printed
+  `checks 1119  oracle 20  §6 total 1139  mutants 85` with **33** OK lines in **18 min 41 s**
+  (`benchmarks/results/battery_reread_r712_20260928.log`, 0 host paths, floor **411 over
+  36**, record files **179**) — the same totals, on a busier box, quoted with the condition
+  that made it slower.
+- **R-7.13 (OPEN): Cursor and Copilot are not in that table, and cannot be here.**
+  `cursor-agent` and the standalone Copilot CLI are not installed, `gh extension list`
+  is empty, `Cursor.app` ships only the IDE launchers, and the `github.copilot-chat`
+  VS Code extension has no headless entry point; both products generate in their own
+  cloud under a paid plan, so a row for either would swap the model, the machine and the
+  token accounting all at once and measure which vendor has the bigger model. No
+  multiplier, no rival latency and no dollar-per-month figure for them is published
+  anywhere in this repo.
 
 ### Corrected — claims this file made that the tree does not support
+- **Four documents said no competitor had ever been run on this machine.** `SPEC.md`'s
+  R-7.11 clause 2, `docs/methodology.md`, `site/README.md` and the site's own Numbers and
+  Honesty panels each rested that refusal on "no competitor has been run here", and one
+  of them was the heading **"Panel 3.5 does not exist"**. R-7.12 ran one, so the sentence
+  is false in its reason even while the rule it protected stands: the rule is *no bar for
+  a tool that was not run*, and aider's row exists precisely because it was. Panel 3.5 is
+  now a measured table parsed from the witness by `dashboard_data.py`, the amber box is
+  headed **What this page still refuses to print**, and the two products it still refuses
+  are named with the reason they cannot be measured here (R-7.13) instead of a reason that
+  no longer holds. The rule did not move; the sentence about the tree did.
 - **`flash doctor` does not exit 0 against an installed copy, and this file, `SPEC.md`,
   `TODO.md` and `CONTRIBUTING.md` all said it did.** What is true, measured by the
   rewritten driver: against a tarball install it exits **1** and says why — the

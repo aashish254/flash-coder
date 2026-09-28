@@ -239,110 +239,143 @@
     "total": 1139,
     "mutants": 85
   },
+  "market": {
+    "witness": "market_compare_20260928.log",
+    "suite": "m7_heldout_tasks.jsonl",
+    "tasks": 8,
+    "grader_check": "8/8",
+    "arms": [
+      {
+        "arm": "single-shot (no agent loop)",
+        "passed": 5,
+        "tasks": 8,
+        "seconds_per_task": 6.9,
+        "requests": 8,
+        "tokens": 2021
+      },
+      {
+        "arm": "aider aider",
+        "passed": 6,
+        "tasks": 8,
+        "seconds_per_task": 14.9,
+        "requests": 16,
+        "tokens": 13084
+      },
+      {
+        "arm": "flash run-suite",
+        "passed": 8,
+        "tasks": 8,
+        "seconds_per_task": 10.6,
+        "requests": 11,
+        "tokens": 3470
+      }
+    ],
+    "note": "Watts per task is not in this table: measuring it needs sudo (SPEC \u00a79, G6)."
+  },
   "timings": [
     {
       "module": "harness",
-      "median_s": 0.768,
-      "min_s": 0.763,
-      "max_s": 0.81,
+      "median_s": 0.99,
+      "min_s": 0.941,
+      "max_s": 1.144,
       "repeats": 3
     },
     {
       "module": "power",
-      "median_s": 0.428,
-      "min_s": 0.421,
-      "max_s": 0.434,
+      "median_s": 0.548,
+      "min_s": 0.521,
+      "max_s": 0.575,
       "repeats": 3
     },
     {
       "module": "jobs",
-      "median_s": 0.085,
-      "min_s": 0.085,
-      "max_s": 0.086,
+      "median_s": 0.136,
+      "min_s": 0.116,
+      "max_s": 0.158,
       "repeats": 3
     },
     {
       "module": "trace",
-      "median_s": 0.028,
-      "min_s": 0.027,
-      "max_s": 0.028,
+      "median_s": 0.037,
+      "min_s": 0.035,
+      "max_s": 0.038,
       "repeats": 3
     },
     {
       "module": "web",
-      "median_s": 0.058,
-      "min_s": 0.057,
-      "max_s": 0.058,
+      "median_s": 0.078,
+      "min_s": 0.077,
+      "max_s": 0.079,
       "repeats": 3
     },
     {
       "module": "grammar",
-      "median_s": 14.657,
-      "min_s": 14.53,
-      "max_s": 15.15,
+      "median_s": 21.78,
+      "min_s": 17.83,
+      "max_s": 25.875,
       "repeats": 3
     },
     {
       "module": "patches",
-      "median_s": 1.894,
-      "min_s": 1.889,
-      "max_s": 1.908,
+      "median_s": 2.035,
+      "min_s": 2.032,
+      "max_s": 2.178,
       "repeats": 3
     },
     {
       "module": "debug",
-      "median_s": 4.452,
-      "min_s": 4.407,
-      "max_s": 4.466,
+      "median_s": 4.748,
+      "min_s": 4.7,
+      "max_s": 4.763,
       "repeats": 3
     },
     {
       "module": "tourney",
-      "median_s": 15.75,
-      "min_s": 15.668,
-      "max_s": 15.825,
+      "median_s": 16.475,
+      "min_s": 15.944,
+      "max_s": 16.644,
       "repeats": 3
     },
     {
       "module": "confidence",
-      "median_s": 6.61,
-      "min_s": 6.595,
-      "max_s": 6.612,
+      "median_s": 6.684,
+      "min_s": 6.666,
+      "max_s": 6.737,
       "repeats": 3
     },
     {
       "module": "sandbox",
-      "median_s": 3.082,
-      "min_s": 3.033,
-      "max_s": 3.259,
+      "median_s": 3.174,
+      "min_s": 3.132,
+      "max_s": 3.605,
       "repeats": 3
     },
     {
       "module": "checkpoint",
-      "median_s": 2.882,
-      "min_s": 2.88,
-      "max_s": 2.882,
+      "median_s": 2.913,
+      "min_s": 2.911,
+      "max_s": 2.965,
       "repeats": 3
     },
     {
       "module": "train",
-      "median_s": 1.714,
-      "min_s": 1.698,
-      "max_s": 1.752,
+      "median_s": 2.071,
+      "min_s": 2.071,
+      "max_s": 2.091,
       "repeats": 3
     },
     {
       "module": "graph",
-      "median_s": 1.166,
-      "min_s": 1.14,
-      "max_s": 1.172,
+      "median_s": 1.345,
+      "min_s": 1.344,
+      "max_s": 1.397,
       "repeats": 3
     },
     {
       "module": "ambient",
-      "median_s": 11.492,
-      "min_s": 11.439,
-      "max_s": 11.583,
+      "median_s": 13.218,
+      "min_s": 12.978,
+      "max_s": 13.433,
       "repeats": 3
     }
   ],
@@ -350,15 +383,15 @@
     "measured": true,
     "fixture_ms": 0.1,
     "budget_ms": 200.0,
-    "wide_ms": 30.5,
+    "wide_ms": 38.2,
     "wide_nodes": 5377,
     "wide_edges": 10058,
-    "build_ms": 603.0,
-    "warm_ms": 8.8
+    "build_ms": 740.0,
+    "warm_ms": 13.6
   },
   "source_of_truth": {
     "counts": "the \u00a76 battery print named in `witness`",
     "timings": "wall clock of `python -m flash.<mod> --selftest` on this box",
-    "competitor_figures": "none measured here; none may appear in a chart"
+    "competitor_figures": "one arm measured on this box against these weights, named in `market.witness`; a tool that was not run has no figure here"
   }
 }

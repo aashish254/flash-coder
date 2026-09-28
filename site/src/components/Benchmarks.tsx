@@ -11,7 +11,7 @@ import {
   YAxis,
 } from 'recharts'
 import type { ReactNode } from 'react'
-import { benchmarks, int, ms, sec } from '../lib/data'
+import { BATTERY_WALL, benchmarks, int, ms, sec } from '../lib/data'
 import { Reveal, Section, SectionHead } from './ui'
 
 const AXIS = { stroke: '#6d7a85', fontSize: 11, fontFamily: 'JetBrains Mono, monospace' }
@@ -98,12 +98,13 @@ export function Benchmarks() {
     <Section id="benchmarks" className="border-t border-line">
       <SectionHead
         index="03"
-        title="Four panels, each one traceable to a command"
+        title="Five panels, each one traceable to a command"
         lede={
           <>
             These are the measurements that exist. Wall clock of the offline
-            battery’s parts, the mass of the battery itself, and R-1.3’s latency
-            clause split into what it answers and what it costs to build. The
+            battery’s parts, the mass of the battery itself, R-1.3’s latency
+            clause split into what it answers and what it costs to build, and one
+            cross-tool run against another agent on the same weights. The
             generator is{' '}
             <span className="num text-fog-0">benchmarks/dashboard_data.py</span>; the
             page imports its JSON and adds nothing.
@@ -340,20 +341,95 @@ export function Benchmarks() {
       </Reveal>
 
       <Reveal delay={0.1}>
+        <div className="mt-6 card p-5">
+          <h3 className="text-[15px] font-medium text-fog-0">
+            <span className="num mr-3 text-[11px] tracking-[0.16em] text-fog-2">
+              PANEL 3.5
+            </span>{' '}
+            The one cross-tool run this machine has made
+          </h3>
+          <p className="mt-1 max-w-[76ch] text-[13px] leading-relaxed text-fog-1">
+            {benchmarks.market.tasks} held-out tasks, one model behind every row and
+            one oracle grading every answer — the same{' '}
+            <span className="num text-fog-0">flash.harness.run_test</span> that
+            produced the {int(benchmarks.totals.oracle)} published oracle figures, and
+            it self-checks first:{' '}
+            <span className="num text-fog-0">{benchmarks.market.grader_check}</span>{' '}
+            stored reference solutions pass it before an arm is allowed to score. Bar
+            length is tokens, because tokens are what a loop costs; the pass column is
+            what it wins.
+          </p>
+          <table className="mt-4 w-full border-collapse text-left">
+            <thead className="text-[11px] uppercase tracking-[0.12em] text-fog-2">
+              <tr>
+                <th className="py-2 pr-3 font-normal">arm</th>
+                <th className="py-2 pr-3 font-normal">tasks passed</th>
+                <th className="py-2 pr-3 font-normal">s / task</th>
+                <th className="py-2 pr-3 font-normal">requests</th>
+                <th className="w-[30%] py-2 pr-3 font-normal">tokens</th>
+              </tr>
+            </thead>
+            <tbody>
+              {benchmarks.market.arms.map((a) => (
+                <tr key={a.arm} className="border-t border-line/60">
+                  <td className="py-1.5 pr-3 text-[12px] text-fog-0">{a.arm}</td>
+                  <td className="num py-1.5 pr-3 text-[12px] text-pass">
+                    {a.passed}/{a.tasks}
+                  </td>
+                  <td className="num py-1.5 pr-3 text-[12px] text-fog-1">
+                    {sec(a.seconds_per_task)}
+                  </td>
+                  <td className="num py-1.5 pr-3 text-[12px] text-fog-1">
+                    {a.requests}
+                  </td>
+                  <td className="py-1.5 pr-3">
+                    <span className="flex items-baseline gap-2">
+                      <span
+                        className="block h-[3px] bg-signal/70"
+                        style={{
+                          width: `${Math.max(
+                            2,
+                            (a.tokens /
+                              Math.max(
+                                ...benchmarks.market.arms.map((x) => x.tokens),
+                              )) *
+                              100,
+                          )}%`,
+                        }}
+                      />
+                      <span className="num text-[12px] text-fog-0">
+                        {int(a.tokens)}
+                      </span>
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="num mt-3 border-t border-line pt-2.5 text-[11px] leading-relaxed text-fog-2">
+            {`python benchmarks/market_compare.py --arms oneshot,aider,flash`} — the
+            print is {benchmarks.market.witness}. {benchmarks.market.note}
+          </p>
+        </div>
+      </Reveal>
+
+      <Reveal delay={0.1}>
         <div className="mt-6 border border-refuse/40 bg-refuse/[0.04] p-5">
           <h3 className="num text-[12px] uppercase tracking-[0.16em] text-refuse">
-            Panel 3.5 does not exist
+            What this page still refuses to print
           </h3>
           <p className="mt-2 max-w-[76ch] text-[14px] leading-relaxed text-fog-1">
-            There is no “Flash Coder vs. Cursor / Copilot / LlamaIndex” bar on this
-            page, and no dollar-per-month table. Those numbers would have to come
-            from a run, and no competitor has been run here. An earlier commit
-            published a dashboard with invented rival latencies and a fabricated
-            cost column; it is reverted and the revert is in the history.{' '}
+            There is still no Cursor or Copilot bar and no dollar-per-month table. The
+            row above exists because one tool could be run here against these weights;
+            those two cannot be, and neither a borrowed latency nor a screenshot of one
+            would be the same measurement. An earlier commit published a dashboard with
+            invented rival latencies and a fabricated cost column; it is reverted and the
+            revert is in the history.{' '}
             <span className="text-fog-0">
-              The claim this page makes instead is narrower and checkable: 1,139
-              offline assertions, 85 of them mutation-gated, run in about fifteen
-              minutes on a laptop, with no API key.
+              The claim this page makes instead is narrower and checkable:{' '}
+              {int(benchmarks.totals.total)} offline assertions,{' '}
+              {int(benchmarks.totals.mutants)} of them mutation-gated, run in about{' '}
+              {BATTERY_WALL.minutes} minutes on a laptop, with no API key.
             </span>
           </p>
         </div>

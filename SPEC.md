@@ -1242,13 +1242,16 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   vector the battery does not run), and every captured transcript is redacted before it
   is stored — `<checkout>` for the repo root, `~` for the home directory — with the
   capture printing the substitutions it carries. **(2) The page may not claim a
-  comparison it did not run:** there is no competitor bar and no cost table, because no
-  competitor has been run on this machine. That clause exists because the first version
+  comparison it did not run:** no cost table, and no bar for a tool that was not run
+  against these weights on this machine. That clause exists because the first version
   of this surface violated it: commit `54a2117` published four dashboard PNGs with
   invented rival latencies and a fabricated dollar column under a message calling them
   benchmarks, reverted as `69a4d2d`. The page states the breach in its own amber panel
-  ("Panel 3.5 does not exist") rather than only in the history, on the grounds that a
-  reader who cannot see the failure cannot see the rule.
+  rather than only in the history, on the grounds that a reader who cannot see the
+  failure cannot see the rule. That panel's heading — **Panel 3.5 does not exist**,
+  naming the bar that had been fabricated — was retired by **R-7.12**, which ran one
+  competitor on this machine: panel 3.5 is now a measured table, and the amber box
+  names only what is still refused.
   Vector: `python benchmarks/dashboard_data.py --repeats 3 && python
   benchmarks/export_site_data.py`, then the render check below. The exporter's own
   cross-check against `BATTERY` is what caught `build_ms` reading the cold-index line's
@@ -1272,6 +1275,77 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   entrance paints blank, which is indistinguishable from broken. With the probe in place
   the rendered DOM is **173 KB** with all eight sections present; `npx tsc -b` silent and
   `npm run build` clean with the WebGL and recharts chunks deferred.
+- **R-7.12 (CLOSED 2026-09-28)** A rival's number may enter a chart only by being run
+  against these weights on this machine. `python benchmarks/market_compare.py --arms
+  oneshot,aider,flash --tasks benchmarks/tasks/m7_heldout_tasks.jsonl` produces the
+  project's first cross-tool table. **One variable at a time is the whole design:** all
+  three arms answer the same 8 held-out tasks, the same
+  `mlx-community/Qwen2.5-Coder-7B-Instruct-4bit` weights are behind every row, and every
+  answer is graded by `flash.harness.run_test` — the same oracle that printed the
+  published **20** — so the grader is not a fourth thing being compared. Three gates run
+  before an arm is allowed to score: the grader self-checks against its own suite (**8/8
+  stored reference solutions pass**), the server is asked `/v1/models` and must name the
+  model the driver thinks it is talking to, and a **proxy that counts tokens by reading
+  the server's own `usage` field** sits between them, so the token column is counted at
+  the seam instead of re-tokenised by the thing being measured; a row with 0 proxied
+  requests is refused, not printed.
+  Measured, same machine, no API key (wall clock 4 min 38 s, quoted from the redirect
+  file's own birth and last-write timestamps because the witness is a shell redirect and
+  says nothing about itself): **single-shot, no agent loop — 5/8 (62%), 6.9 s/task, 8
+  requests, 2,021 tokens**; **aider 0.86.2 — 6/8 (75%), 14.9 s/task, 16 requests, 13,084
+  tokens**; **flash run-suite — 8/8 (100%), 10.6 s/task, 11 requests, 3,470 tokens**,
+  from trace session `20260928-081056-run-suite-b660` (72.97 s generating + 11.8 s
+  verifying of 84.8 s task time). Both aider's failures (`text_wrap`, `fraction_add`) are
+  two of the three the bare one-shot also failed, which is what says the loop is doing
+  work rather than the prompt having been written differently. `--allow-big never` is
+  load-bearing: the loop's escalation tier is a second, larger model, and letting it
+  answer would have made the table a comparison of weights rather than of agents. The
+  arms are not the same shape of tool and the page does not pretend otherwise — aider is
+  a repository-editing agent given one file to write (`--edit-format whole`, a fresh
+  `git init` per task so it cannot see its neighbour), and a large part of its token
+  column is its repo map and chat scaffolding, which is the honest reading of why it
+  costs more per task rather than a gotcha. That row is labelled `aider aider` in the
+  witness because the arm's display name sat beside the binary's basename; the driver
+  prints the single word now, and the committed print is left exactly as the run made it.
+  Two instrument bugs this driver found in itself, both the class the release has been
+  correcting: **`--tasks` was accepted and ignored**, because the HTTP arms called
+  `m0_bakeoff.load_tasks()`, which always reads the frozen m0 suite — so a run would
+  have printed held-out totals under a suite the reader never asked for; the fix is a
+  `read_tasks(path)` the arms must use, plus a printed `suite: … ids h41…h48` line, and
+  it was caught because the "held-out" run reproduced m0's exact numbers. Second, **the
+  flash arm parsed PASS/FAIL out of `run-suite`'s stdout** and printed **0/8** while that
+  same run's trace recorded **8/8 solved**; the arm now reads `trace.summarize` and the
+  stdout parsing is gone. A third, not a measurement bug but a live one: one aider
+  process per task calls `webbrowser.open` for release notes it has not shown before, so
+  the arm opened a browser tab every 6–19 s on the user's desktop until `BROWSER=/usr/bin/true`
+  went into the arm's env. The witness write path substitutes this machine's markers
+  before it saves — the checkout, the home directory and the Homebrew prefix become
+  `<checkout>`, `<home>` and `<homebrew>`, longest marker first because the checkout path
+  *starts with* the home directory — and prints the count it made, because the aider arm's
+  failure detail is another process's log and it will quote whatever it was launched with.
+  That path went in after this run, so the committed print carries no provenance line; it
+  holds **0** host markers, which is what `benchmarks/portable_paths_check.py` measures
+  rather than what this sentence asserts.
+  Vector: `python benchmarks/dashboard_data.py`, which refuses
+  to write the site JSON when the witness has no parsable arm rows, and
+  `python benchmarks/export_site_data.py` after it — panel 3.5 renders from those rows
+  and nothing else.
+- **R-7.13 (OPEN)** No bar on this page for Cursor or Copilot, and none is obtainable
+  here. `cursor-agent` and the standalone Copilot CLI are not installed on this machine,
+  `gh extension list` is empty, and the two products that *are* present — `Cursor.app`,
+  which ships only the IDE launchers `cursor` and `cursor-tunnel`, and the
+  `github.copilot-chat` VS Code extension — have no headless entry point at all. Both
+  generate in their own cloud under a paid plan, so running either would replace the one
+  controlled variable of R-7.12's table (same weights, one machine, one oracle) with a
+  different model, different hardware and vendor-side token accounting, and the result
+  would measure which vendor has the larger model rather than which loop is cheaper.
+  Vector: a cloud arm behind the same proxy and the same harness oracle, on the same
+  8-task held-out suite, labelled in the table as a different-weights comparison.
+  *(Needs a paid account and a machine that is not this one — SPEC §9 register. Offered
+  and declined by the author on 2026-09-28: a cloud row bills his own subscription and
+  changes the model, the hardware and the token accounting in one move, so it would not
+  be the comparison the table above is. Adding it later does not make it like-for-like;
+  the label is the requirement.)*
 - **R-7.3 (OPEN)** Hands-free control (voice) at the measured spike latency:
   command-to-ack ~4.8s. Vector: real-microphone arm of the spike with VAD
   barge-in, ≥ 90% command recognition over 50 utterances.
@@ -1649,6 +1723,28 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
    identical totals now exist — this checkout, the unpacked sdist, this checkout again
    after the install driver stopped answering about the wrong copy — and that agreement
    is the point: a total that only one tree has ever printed is a moment, not a property.)
+   (Updated again the same day, for **R-7.12** and the four documents its run made false:
+   **+0 checks, +0 mutants, +0 lines**, and the first re-read did not print the totals at
+   all — which is the interesting part of this entry. `benchmarks/market_compare.py` is not
+   a §6 vector, because it needs weights, so the battery it exercises cannot move a count;
+   but the tree it left behind failed two lines. `benchmarks/checkpoint_resume_check.py`
+   printed nothing, naming its own cause: *the tournament arm needs the governor's width
+   >= 2 and this machine offers 1 (free memory 4.8GB < 6.9GB needed)* — another project's
+   14.8 GB model was resident for the whole run. And
+   `benchmarks/portable_paths_check.py` fell to **13/15** because `market_compare.py` had
+   written its own marker list, so the file whose job is keeping host paths out of a
+   published witness was itself carrying two of them as literals. The gate was not widened
+   and the sentence was not reworded: the driver now imports the marker list from
+   `portable_paths_check.py` and spells no prefix in its own source. That is exactly the
+   asymmetry the exemption exists to enforce — the only forgiven line is the one that
+   declares the list, in the file that declares it. The re-read after that fix printed
+   `checks 1119  oracle 20  §6 total 1139  mutants 85`, **33** OK lines, no FAIL line, in
+   **18 min 41 s** (witness `benchmarks/results/battery_reread_r712_20260928.log`, 0 host
+   paths, floor **411 over 36**, record files **179**) — the slowest of the four identical
+   prints, on the same resident-model box, and the number is quoted with that condition
+   rather than smoothed to the 15 minutes the unloaded machine takes. Four trees now print
+   the same totals; the cross-tool table that this pass added is in
+   `benchmarks/results/market_compare_20260928.log`.)
    (Updated 2026-09-27, when R-7.9, R-7.10 and R-7.10b closed: **+2 checks and +1
    mutant** on `python benchmarks/lora_path_check.py` (**31 → 33**, **14 → 15**) for
    `--dry-run`, **+1 check and +1 mutant** on

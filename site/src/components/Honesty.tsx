@@ -5,9 +5,9 @@ import { Chip, Reveal, Section, SectionHead } from './ui'
  *  exists because a page that lists only wins is a page you cannot check. */
 const NOT_CLAIMED = [
   {
-    t: 'No comparison with any other product',
-    d: 'No competitor has been run on this machine, so this page carries no rival bar, no “× faster” multiplier and no dollar-per-month table. The one time such a dashboard was generated here, it was invented, caught, and reverted in public.',
-    tag: 'R-7.5',
+    t: 'No comparison with Cursor or Copilot',
+    d: 'One competitor has been run on this machine — aider, against the same 4-bit weights, on the held-out suite, and that table is on the benchmarks page with its witness named. Cursor and Copilot have not been, and cannot be here: there is no headless driver for either on this box, and both generate in their own cloud, so a row for them would change the model, the machine and the token accounting all at once. This page carries no “× faster” multiplier and no dollar-per-month table for anyone. The one time such a dashboard was generated here, it was invented, caught, and reverted in public.',
+    tag: 'R-7.12',
   },
   {
     t: 'Speculative decoding is measured negative',

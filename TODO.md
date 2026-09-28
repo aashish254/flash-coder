@@ -1313,6 +1313,83 @@ here rather than folded into P6's confidence work.
       blank, which is indistinguishable from broken. `npx tsc -b` silent,
       `npm run build` clean, `python -m pyflakes flash/*.py benchmarks/*.py` **0
       findings**, `benchmarks/portable_paths_check.py` **15/15 + 7/7 mutants**.**
+- [x] [V] [L] R-7.12 the first cross-tool run on this machine: one model, one suite,
+      one oracle, three arms.
+      **Closed 2026-09-28.** `python benchmarks/market_compare.py --arms
+      oneshot,aider,flash --tasks benchmarks/tasks/m7_heldout_tasks.jsonl` printed, in
+      `benchmarks/results/market_compare_20260928.log`: single-shot with no agent loop
+      **5/8** (62%) at **6.9 s/task**, 8 requests, **2,021** tokens; **aider 0.86.2
+      6/8** (75%) at **14.9 s/task**, 16 requests, **13,084** tokens; **`flash
+      run-suite` 8/8** (100%) at **10.6 s/task**, 11 requests, **3,470** tokens (trace
+      session `20260928-081056-run-suite-b660`: 72.97 s generating + 11.8 s verifying of
+      84.8 s task time). Wall clock of the whole three-arm run is **4 min 38 s**, quoted
+      from the redirect file's own birth and last-write timestamps — the witness is a
+      shell redirect and says nothing about itself, which the entry in SPEC says rather
+      than letting the file imply it.
+      What makes it a measurement instead of a screenshot: every arm answers the same 8
+      held-out tasks behind the same `Qwen2.5-Coder-7B-Instruct-4bit` weights, and every
+      answer is graded by `flash.harness.run_test`, the oracle that printed the published
+      **20**. Three gates run before an arm may score — the grader self-checks **8/8**
+      against its own stored reference solutions, the server must answer `/v1/models`
+      with the model the driver believes it is talking to, and tokens are counted by a
+      stdlib proxy reading the server's own `usage` field, so no arm's token column is
+      re-tokenised by the code being measured; 0 proxied requests is refused, not printed.
+      `--allow-big never` is load-bearing: the loop's escalation tier is a second, larger
+      model, and letting it answer would have made the table a comparison of weights.
+      Both aider failures (`text_wrap`, `fraction_add`) are two of the three the bare
+      one-shot also failed — that is what says the loop is doing work rather than the
+      prompt having been written differently. The arms are not the same shape of tool and
+      the table does not pretend they are: aider is a repository-editing agent given one
+      file to write (`--edit-format whole`, a fresh `git init` per task), and much of its
+      token column is its repo map and scaffolding.
+      Two instrument bugs this driver found in itself, both of the class the release has
+      been correcting: **`--tasks` was accepted and ignored** — the HTTP arms called
+      `m0_bakeoff.load_tasks()`, which always reads the frozen m0 suite, so a run would
+      have printed held-out totals under a suite the reader never asked for; it was caught
+      because the "held-out" run reproduced m0's exact numbers, and the fix is a
+      `read_tasks(path)` the arms must use plus a printed `suite: … ids h41…h48` line.
+      Second, **the flash arm read PASS/FAIL out of `run-suite`'s stdout** and printed
+      **0/8** while that same run's trace recorded **8/8**; the arm now reads
+      `trace.summarize`. A third, live rather than measured: one aider process per task
+      calls `webbrowser.open` for release notes it has not shown before, so the arm
+      opened a browser tab every 6–19 s on the user's desktop until
+      `BROWSER=/usr/bin/true` went into the arm's env. The witness write path substitutes
+      the checkout, the home directory and the Homebrew prefix with `<checkout>`,
+      `<home>` and `<homebrew>` (longest first, because the checkout path starts with the
+      home directory) and prints how many it replaced. That path landed after this run, so
+      the committed print carries no provenance line; it holds **0** host markers, which is
+      what `benchmarks/portable_paths_check.py` measures rather than what this box
+      asserts.
+      Published through the only path that is allowed to put a number on screen:
+      `python benchmarks/dashboard_data.py` parses that witness for the arm rows and
+      **refuses to write the JSON when there are none**, `python
+      benchmarks/export_site_data.py` copies them into `site/src/data/benchmarks.json`,
+      and panel 3.5 renders them — `npx tsc -b` silent, `npm run build` clean, and the
+      built page read back over the DevTools Protocol to confirm the three rows and their
+      provenance line are in the DOM. §6 did not move — this driver needs weights, so it
+      is not an offline vector — but the first re-read after it came back **31/33**, and
+      both failures were this box's doing: `checkpoint_resume_check.py` was refused by the
+      power governor (width 1 offered, 4.8 GB free against the 6.9 GB its tournament arm
+      wants, with another project's 14.8 GB model resident), and `portable_paths_check.py`
+      fell to **13/15** because `market_compare.py` carried two host prefixes as literals in
+      its own marker list — the file written to keep paths out of a published witness was
+      itself leaking one class of path into the scanned tree. The gate was not widened; the
+      driver imports `portable_paths_check.HOST_PATHS` instead of copying it. The re-read of
+      the corrected tree printed `checks 1119  oracle 20  §6 total 1139  mutants 85`,
+      **33/33**, in **18 min 41 s** (`battery_reread_r712_20260928.log`, 0 host paths, floor
+      **411 over 36**, record files **179**) — the slowest of the four identical prints, on
+      the busiest box, and said so. **What is not claimed: no multiplier is published** (the
+      page shows the printed columns, not a ratio), no watts per task (`powermetrics`
+      needs sudo — SPEC §9, G6), and nothing at all for Cursor or Copilot — see R-7.13.**
+- [ ] [V] [L] R-7.13 a cloud arm behind the same proxy and the same harness oracle, on
+      the same 8-task held-out suite, labelled in the table as a different-weights
+      comparison.
+      *(Needs a paid account and a machine that is not this one — SPEC §9 register. This
+      machine has no headless driver for either product: `cursor-agent` and the
+      standalone Copilot CLI are absent, `gh extension list` is empty, `Cursor.app` ships
+      only `cursor`/`cursor-tunnel`, and `github.copilot-chat` is an editor extension with
+      no CLI entry point. A row from either would change the model, the hardware and the
+      token accounting all at once.)*
 - [ ] [V] [L] R-7.3 voice: real-microphone arm, VAD barge-in, ≥ 90% command
       recognition over 50 utterances.
 - [ ] [V] [L] M17 feel test: ≥ 7 of 10 developers keep it after a week.

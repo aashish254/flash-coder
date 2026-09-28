@@ -78,7 +78,7 @@ RECORD_RESIDUE = 411
 
 That is what the widened scan counts on the committed tree at the time of writing
 (`traces` 241, top-level records 154, `adapters` 9, `p6` 6, `jobs` 1) across 36
-of the 175 record files. Every step between 395 and 411 is named below, because a
+of the 179 record files. Every step between 395 and 411 is named below, because a
 residue figure that moves without an explanation is the same failure as one that
 was never published:
 
@@ -168,6 +168,24 @@ was never published:
   rather than a moment. Its wall clock comes from the file's own timestamps again
   (05:09:18 → 05:24:25, 15 min 7 s), because it is another shell redirect with no driver
   to label it.
+- R-7.12's cross-tool run (`market_compare_20260928.log`) and the two `run-suite` trace
+  sessions it produced added a 176th and two more record files, all **zero**. The market
+  witness is the one that could easily have leaked: its per-task failure detail is a
+  *foreign* process's log, and aider runs from a virtualenv under the Homebrew prefix with
+  its working tree under `/tmp`, so anything it prints about itself is a path this machine
+  owns. This print happens to carry none, which is a fact about the run rather than a
+  property of the driver — so the driver now substitutes before it saves, and it borrows
+  the marker list from `benchmarks/portable_paths_check.py` instead of re-spelling a home
+  prefix in its own source. That import is the point: a file written to keep host paths
+  out of a published witness cannot itself carry one as a literal, and the only exemption
+  this gate grants is the line in the gate that declares the list.
+- The §6 re-read of the tree carrying R-7.12 (`battery_reread_r712_20260928.log`) is the
+  179th record file and carries **zero** for the ordinary reason — a battery print is
+  vector names, relative paths and counts. Its wall clock is **18 min 41 s** (08:54:40 →
+  09:13:21), the slowest of the four identical totals, because another project's 14.8 GB
+  model was resident in RAM for the whole run; the print itself does not say so, so
+  `SPEC.md` §6 says it next to the number rather than letting the figure imply a property
+  of the code.
 
 Eight of the 411 are this vector's pass-1 and reproduction logs and three are its
 pass-2 table — a count that includes the counter is the kind of detail worth

@@ -11,13 +11,15 @@ So this script does not draw anything. It measures, and it writes JSON:
     python benchmarks/dashboard_data.py            # -> benchmarks/results/...json
     python benchmarks/dashboard_data.py --repeats 5
 
-Three sources, all local:
+Four sources, all local:
 
 1. A committed §6 battery witness (a `battery_reread` print). Per-vector check
    counts and mutant counts come out of the log's own text, never retyped.
-2. Wall-clock timing of every module selftest, `--repeats` runs each, reported as
+2. A committed cross-tool witness (a `market_compare` print). Every competitor
+   figure on the page is a row of that table.
+3. Wall-clock timing of every module selftest, `--repeats` runs each, reported as
    median with the min/max spread beside it. A single timing is not a property.
-3. The graph blast-radius query against its own budget, read from the line
+4. The graph blast-radius query against its own budget, read from the line
    `flash.graph --selftest` prints.
 
 Everything is relative to this file's parent directory, so it runs from a clone or
@@ -40,6 +42,10 @@ RESULTS = ROOT / "benchmarks" / "results"
 # The §6 witness the counts are parsed from. A dated print, not a live run: the
 # counts it carries are the counts the README publishes.
 WITNESS = RESULTS / "battery_reread_r710c_20260927.log"
+
+# The cross-tool print, same rule: a competitor's number enters the page only if a
+# run wrote it into this file. One dated witness, parsed rather than quoted.
+MARKET_WITNESS = RESULTS / "market_compare_20260928.log"
 
 # `OK   <label>   <n>/<m>` with an optional `(+ k mutants)` tail, which is exactly
 # what battery_reread prints.
@@ -65,6 +71,14 @@ GRAPH_COLD = re.compile(r"cold index: fixtures ([\d.]+) ms, wide ([\d.]+) ms "
                         r"\((?P<nodes>\d+) nodes, (?P<edges>\d+) edges, "
                         r"after a (?P<build>[\d.]+) ms build\)")
 GRAPH_WARM = re.compile(r"a second pass over the wide repo costs ([\d.]+) ms")
+
+# The cross-tool table: `arm  pass  s/task  requests  tokens`. The header row cannot
+# match it (its second field is the word `pass`, not a fraction), so the parser needs
+# no special case to skip it.
+MARKET_ROW = re.compile(r"^(?P<arm>.+?)\s+(?P<passed>\d+)/(?P<n>\d+)\s+"
+                        r"(?P<seconds>[\d.]+)\s+(?P<requests>\d+)\s+(?P<tokens>\d+)\s*$")
+MARKET_SUITE = re.compile(r"^suite: (?P<suite>\S+) .*?(?P<tasks>\d+) tasks")
+MARKET_GRADER = re.compile(r"^grader check: (?P<got>\d+)/(?P<want>\d+) stored reference")
 
 
 def run(argv: list[str], timeout: int = 900) -> tuple[int, float, str]:
@@ -100,6 +114,40 @@ def parse_witness(path: Path) -> dict:
     if not vectors or totals is None:
         raise SystemExit(f"dashboard_data: {path.name} carries no parsable §6 print")
     return {"witness": path.name, "vectors": vectors, "totals": totals}
+
+
+def parse_market(path: Path) -> dict:
+    """The cross-tool table and its two gates, read out of the committed print.
+
+    Refuses rather than emitting an empty `arms` list: a panel that renders "no
+    competitor was run" from a file it failed to parse is the invention this
+    pipeline exists to prevent."""
+    text = path.read_text(errors="ignore")
+    arms, suite, grader = [], None, None
+    for line in text.splitlines():
+        m = MARKET_ROW.match(line)
+        if m:
+            arms.append({"arm": m["arm"].strip(), "passed": int(m["passed"]),
+                         "tasks": int(m["n"]), "seconds_per_task": float(m["seconds"]),
+                         "requests": int(m["requests"]), "tokens": int(m["tokens"])})
+            continue
+        if suite is None:
+            suite = MARKET_SUITE.match(line)
+        elif grader is None:
+            grader = MARKET_GRADER.match(line)
+    if not arms or suite is None or grader is None:
+        raise SystemExit(f"dashboard_data: {path.name} carries no parsable cross-tool "
+                         f"table ({len(arms)} arm rows, suite {bool(suite)}, "
+                         f"grader check {bool(grader)})")
+    return {
+        "witness": path.name,
+        "suite": suite["suite"],
+        "tasks": int(suite["tasks"]),
+        "grader_check": f"{grader['got']}/{grader['want']}",
+        "arms": arms,
+        "note": "Watts per task is not in this table: measuring it needs sudo "
+                "(SPEC §9, G6).",
+    }
 
 
 def time_selftests(repeats: int) -> list[dict]:
@@ -159,13 +207,21 @@ def main(argv: list[str]) -> int:
     data = parse_witness(WITNESS)
     print(f"  {len(data['vectors'])} vectors, totals {data['totals']}")
 
+    print(f"dashboard_data: parsing {MARKET_WITNESS.name}")
+    data["market"] = parse_market(MARKET_WITNESS)
+    print(f"  {len(data['market']['arms'])} arms on {data['market']['tasks']} "
+          f"{data['market']['suite']} tasks, grader self-check "
+          f"{data['market']['grader_check']}")
+
     print(f"dashboard_data: timing {len(TIMED)} module selftests x {args.repeats}")
     data["timings"] = time_selftests(args.repeats)
     data["graph_latency"] = graph_latency()
     data["source_of_truth"] = {
         "counts": "the §6 battery print named in `witness`",
         "timings": "wall clock of `python -m flash.<mod> --selftest` on this box",
-        "competitor_figures": "none measured here; none may appear in a chart",
+        "competitor_figures": "one arm measured on this box against these weights, "
+                              "named in `market.witness`; a tool that was not run has "
+                              "no figure here",
     }
 
     out = Path(args.out) if args.out else RESULTS / "dashboard_data.json"

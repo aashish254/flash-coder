@@ -156,10 +156,19 @@ This rule is not theoretical. Commit `54a2117` put four dashboard PNGs on this
 repo carrying invented competitor latencies and a hand-typed monthly-cost table;
 the revert is `69a4d2d`, and what replaced them is structure: there is
 no code path from a typed figure to the screen, so a chart cannot draw what a run
-did not print. The page therefore has four benchmark panels and an amber box where
-a fifth would sit, labelled **Panel 3.5 does not exist** — no "vs. Cursor /
-Copilot" bar and no dollar-per-month table, because no competitor has been run
-here and the axis would be invented, not measured.
+did not print. The page therefore has five benchmark panels and an amber box. The
+fifth is the one cross-tool comparison this machine has produced — `aider` 0.86.2,
+a no-agent-loop single shot and `flash run-suite` on the same 4-bit weights, graded
+by the same harness oracle — printed by `python benchmarks/market_compare.py` into
+`benchmarks/results/market_compare_20260928.log` and read out of that file's own
+table by `dashboard_data.py`, which refuses to write the JSON when the print has no
+parsable rows. The amber box names what is **still** refused: no "vs. Cursor /
+Copilot" bar and no dollar-per-month table. That is not a matter of not having got
+round to it. This machine has no headless driver for either product, and both
+generate in their own cloud, so a row for them would replace the single controlled
+variable of the table above — same weights, one machine, one oracle — with two
+unknowns and a vendor's own token accounting. That axis would be invented, not
+measured.
 
 Two findings from inside the pipeline, both of which it produced:
 

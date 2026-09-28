@@ -44,6 +44,15 @@ export type GraphNode = {
 
 export type GraphEdge = { s: string; d: string; kind: string }
 
+export type MarketArm = {
+  arm: string
+  passed: number
+  tasks: number
+  seconds_per_task: number
+  requests: number
+  tokens: number
+}
+
 export const benchmarks = rawBenchmarks as unknown as {
   witness: string
   totals: {
@@ -66,6 +75,14 @@ export const benchmarks = rawBenchmarks as unknown as {
     wide_edges: number
     build_ms: number
     warm_ms: number
+  }
+  market: {
+    witness: string
+    suite: string
+    tasks: number
+    grader_check: string
+    arms: MarketArm[]
+    note: string
   }
   provenance: Record<string, string>
 }
