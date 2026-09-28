@@ -1390,6 +1390,33 @@ here rather than folded into P6's confidence work.
       only `cursor`/`cursor-tunnel`, and `github.copilot-chat` is an editor extension with
       no CLI entry point. A row from either would change the model, the hardware and the
       token accounting all at once.)*
+- [x] [V] [offline] R-7.14 the repo sweeps clean before a push, and the sweep proves
+      its own patterns bite:
+      `python benchmarks/publish_secret_scan.py` → **359 files in the working tree
+      (4 not yet tracked) and 713 blobs ever committed**, 7 credential families plus
+      filename shapes, **2 matches both accepted by name, 0 unlisted**, **21 NUL-padded
+      blobs swept with the padding removed rather than skipped**, identity reported as
+      noreply email **7**, personal email **0**, host paths **1117**, and
+      **8/8 families biting on planted synthetic secrets** (witness
+      `benchmarks/results/publish_secret_scan_20260928.log`).
+      *Closed 2026-09-28. What the pass found is the useful part. The scanner's own PEM
+      sample tripped its own rule, and the choice was to split the sample rather than
+      let the gate exempt the file that houses it; the witness then tripped it too,
+      because the printed reason quoted the `KEY="value"` shape it was excusing, so the
+      reasons are worded without that shape and a second run over the log it had just
+      written is clean. The portability gate then caught this new file for spelling a
+      host prefix in its own source — the rule R-7.5 booked, and the gate worked: the
+      identity pattern is assembled from `HOST_PATHS` imported from
+      `portable_paths_check.py`, which is back to 15/15 with 7/7 mutants defeated. The
+      two accepted matches are the `proxy-no-auth` string aider is handed for a local
+      server that authenticates nobody, and a base64 stretch inside an
+      `sha512-…==` integrity hash in `site/package-lock.json`.
+      **Nothing was deleted.** The four decisions on this repo's contents — `SPEC.md`
+      and `TODO.md` at top level, all 180 committed records, the `.npz` caches in git,
+      host paths as documented policy — were made on the same day, so the deliverable
+      is a re-runnable proof rather than a cleanup. Not a §6 battery line: its history
+      arm needs `.git`, so an unpacked sdist cannot print it — cited, not counted, like
+      `benchmarks/market_compare.py`. It is a pattern sweep, not a proof of absence.*
 - [ ] [V] [L] R-7.3 voice: real-microphone arm, VAD barge-in, ≥ 90% command
       recognition over 50 utterances.
 - [ ] [V] [L] M17 feel test: ≥ 7 of 10 developers keep it after a week.
@@ -1654,17 +1681,38 @@ here rather than folded into P6's confidence work.
       over 4446/24574, and 151 unplaceable uses each with its own sentence (npm
       package, non-exported name, `export *`, re-export, unknown name,
       unparseable file, missing grammar). `flash.graph --selftest` still 44/44.
+      **Closed the same day, on the ACT side:** `flash/patches.py` now dispatches an
+      address by the file it names — `.ts`/`.tsx` to `flash.lang_ts`, everything else
+      to `ast` including the empty path `flash.graph` passes, so the published Python
+      figures are the same numbers from the same code path — and takes TypeScript
+      spans from the same `_declarations` walk the graph's node comes out of. A
+      replacement must keep the symbol's name and the `export` keyword its own span
+      begins with (the TS shape of Python's decorator rule: dropping it un-exports
+      the symbol while the file still looks fine), and a replacement that does not
+      parse is refused with the grammar's line and marker, not Python's
+      `invalid syntax`. Vector `benchmarks/ts_patch_check.py`: **44 checks + 13
+      mutants**, green in this process and one fresh process per mutant, two of the
+      checks driving `loop._solve_edits` with its generation and verification seams
+      stubbed. On this repo's own front end: `Hero` resolves to **L31-L180** of a
+      181-line `site/src/components/Hero.tsx` where it was refused as an unknown
+      symbol, re-emitting those bytes applies with 0 lines changed outside the span,
+      and dropping the keyword refuses with `no longer exports Hero (as
+      Hero L31-L180)`. `flash.patches --selftest` still 46/46 and `--suite` 60/60.
       **Why the box stays unchecked — the vector is "R-1.1..1.2 equivalents pass
-      on a fixture tree in that language", and three of its equivalents do not
+      on a fixture tree in that language", and two of its equivalents do not
       run on TypeScript yet:** (1) the loop's PERCEIVE hint still ranks symbols
       with `flash.lsp.symbols_involved` and `graph.scope_graph()`, both
       Python-only, so a `.tsx` failure gets no ranked hint; (2) `live_upgrade`
       asks jedi, and there is no `tsserver` bound, so the R-1.2 live-upgrade
-      behaviour has no TS counterpart; (3) `flash/patches.py` validates a
-      replacement with `ast.parse` and takes spans from Python `definitions()`,
-      so `# edit: App.tsx :: Widget` is refused as an unknown symbol while
-      `# edit: App.tsx :: L11-L15` applies. Each is named in SPEC R-1.4 rather
-      than described as shipped.
+      behaviour has no TS counterpart. The third item this record carried —
+      `# edit: App.tsx :: Widget` refused as an unknown symbol while
+      `# edit: App.tsx :: L11-L15` applied — closed on 2026-09-28 as above, and a
+      fourth opened in its place: what closed is the ACT leg, not a verdict. The
+      whole-file control arm (`harness.CODE_FENCE` and its `# file:` heading regex)
+      is still Python, and no TypeScript edit is *verified* — `diagnose_files` has
+      no `node`/`vitest` runner behind it, so a `.tsx` patch that parses is accepted
+      on the strength of a parse. Each is named in SPEC R-1.4 rather than described
+      as shipped.
 - [ ] R-8.2 latent compute — adopt only on a measured ≥ 20% token saving
 - [ ] G6 watts/task (blocked: `powermetrics` needs sudo)
 - [ ] §34.1 16GB co-residency arm (blocked: this box is 32GB)

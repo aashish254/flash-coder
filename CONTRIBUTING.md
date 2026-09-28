@@ -105,6 +105,14 @@ as the package shipped, because `flash.cli` imports both lazily.
   flash selftest --all                            # == benchmarks/battery_reread.py
   ```
 
+- Before anything goes public, `python benchmarks/publish_secret_scan.py` reads every
+  file a push would send (working tree included, so a file you have not committed yet
+  is in scope) **and every blob ever committed**, against credential shapes and
+  key-file filenames, and refuses to print a clean line unless each pattern bites on a
+  secret it planted itself. It needs `.git`, which is the only reason it is not one of
+  the §6 battery's lines — a ZIP download cannot run it, and a total that one tree
+  shape can print is not a total.
+
 - If you changed a number that appears in prose, re-derive it from the tree — a
   battery total comes from the counts the runs print, never from an exit code.
 - `docs/` answers the three questions this repo gets asked by email, and each page

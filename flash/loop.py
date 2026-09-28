@@ -352,7 +352,8 @@ def _solve_edits(model, tokenizer, task: dict, max_attempts: int,
     protocol, and no grammar exists for this one (SPEC §10.4).
     """
     from flash.harness import diagnose_files
-    from flash.patches import apply_patches, edit_prompt, outside_lines, parse_patches
+    from flash.patches import (apply_patches, edit_prompt, is_python,
+                               outside_lines, parse_patches)
     t0 = time.perf_counter()
     res = SolveResult(task_id=task["id"], solved=False)
     workspace = dict(task["files"])
@@ -399,7 +400,10 @@ def _solve_edits(model, tokenizer, task: dict, max_attempts: int,
             # rest of the file is byte-identical.
             static_err = []
             for p, c in result.files.items():
-                if c == before.get(p):
+                if c == before.get(p) or not is_python(p):
+                    # `static_check` is an `ast` pass: a `.tsx` it looked at would
+                    # come back a confident false syntax error, and a false
+                    # STATIC costs the retry that a refusal is supposed to be for.
                     continue
                 e = format_errors(static_check(c))
                 if e:

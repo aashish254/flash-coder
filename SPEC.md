@@ -55,8 +55,9 @@ the outcome flywheel, hardware governance, observability, recovery.
 - IDE plugins (VS Code/JetBrains) — the CLI is the dogfood surface until M17.
 - Computer-use / GUI agent (§20), voice productization (§12.2 spike is done).
 - Non-Python languages (perceive/context/lsp remain Python-only by construction;
-  R-1.4 moved `flash.graph`'s perception onto TypeScript, and its retry path, live
-  server and patch arm are still Python-only — see R-1.4's PARTIAL).
+  R-1.4 moved `flash.graph`'s perception and `flash.patches`' addresses onto
+  TypeScript, and its retry path, live server, `lsp` and the whole-file control
+  arm are still Python-only — see R-1.4's PARTIAL).
 - Multi-user or server deployment; anything needing a network at run time.
 - RL / phase-2 weight training beyond a LoRA experiment (see §9: hardware time).
 
@@ -356,18 +357,44 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   a re-export, an unparseable file's floor, and a missing grammar.
   `benchmarks/ts_perception_check.py --sweep` is **47/47 checks + 13/13 mutants**,
   in this process and one fresh process per mutant.
+  **The patch arm learned it on 2026-09-28** (the gap this row filed as (c)):
+  `flash/patches.py` now dispatches an address by the file it names — `.ts`/`.tsx`
+  to `flash.lang_ts`, everything else to `ast`, including the empty path
+  `flash.graph` has always passed, which is what leaves the published Python
+  figures the same numbers from the same code path (`46/46` and `60/60` here). A
+  TypeScript span comes out of the same `_declarations` walk the graph's node
+  comes out of, so "what this patch replaces" and "what breaks if this changes"
+  cannot be two different ranges. A replacement must keep the symbol's name and —
+  the TypeScript shape of Python's decorator rule — the `export` keyword the owned
+  span begins with; silently dropping it un-exports the symbol while the edited
+  file still looks fine, so `check_result` refuses it by name. Measured on this
+  repo's own front end, not a fixture (`site/src/components/Hero.tsx`, 181 lines):
+  `# edit: … :: Hero` resolves to **L31–L180** where it used to be refused as an
+  unknown symbol, re-emitting the file's own bytes there applies with **0** lines
+  changed outside the span, dropping the keyword refuses with
+  `no longer exports Hero (as Hero L31-L180)`, and a replacement that is not valid
+  TypeScript refuses at the line the grammar marked (`line 32: error 'return <div>'`)
+  instead of with Python's `invalid syntax`. `workspace_from_dir("site/src")`
+  gathers **20** files, all 20 TypeScript, so a symbol address names a file the
+  project has. Vector: `benchmarks/ts_patch_check.py --sweep` — **44/44 checks +
+  13/13 mutants**, one of which is `loop.py`'s own edit arm driven with
+  `_generate` and `diagnose_files` stubbed, because its `ast` static pass would
+  otherwise hand a clean TypeScript edit a confident false syntax error and spend
+  the retry the refusal exists to save.
   **What is NOT closed, and is the reason this row is PARTIAL:** the vector names
   R-1.1 and R-1.2's equivalents, and neither runs on TypeScript yet. (a) The
   loop's PERCEIVE hint still ranks symbols with `flash.lsp.symbols_involved` and
   `graph.scope_graph()` builds Python-only, so a failing `.tsx` test gets no graph
   block — 47/47 of it is offline perception, not the retry path. (b) R-1.2's
   live-upgrade equivalent needs a `tsserver` seam; `graph.live_upgrade` still asks
-  jedi, which answers about Python and nothing else. (c) The patch arm cannot
-  address a TypeScript symbol: `flash/patches.py` validates with `ast.parse` and
-  takes spans from Python `definitions()`, so `# edit: App.tsx :: Widget` is
-  refused as an unknown symbol while `# edit: App.tsx :: L11-L15` applies — the
-  ranges are line numbers, so the range form is as precise as the symbol form
-  would be. Vector for the rest: a TypeScript fixture suite run through
+  jedi, which answers about Python and nothing else. (c) is closed; the range form
+  and the symbol form are now equally precise, and the symbol form is the one the
+  protocol tells the model to prefer. (d) What (c) bought is the ACT leg, not a
+  verdict: the whole-file control arm (`harness.CODE_FENCE` and its `# file:`
+  heading regex) is still Python, and nothing here *verifies* a TypeScript edit —
+  `diagnose_files` has no `vitest`/`node` runner behind it, so a `.tsx` patch that
+  parses is accepted on the strength of a parse. Vector for the rest: a TypeScript
+  fixture suite run through
   `flash run-suite` with the graph block asserted per retry, plus a `tsserver`
   `--live` equivalent.*
 
@@ -1392,6 +1419,49 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   changes the model, the hardware and the token accounting in one move, so it would not
   be the comparison the table above is. Adding it later does not make it like-for-like;
   the label is the requirement.)*
+- **R-7.14 (CLOSED 2026-09-28)** Nothing that could be used against the author may
+  leave this repository, and the claim has to be re-runnable rather than remembered.
+  A download-and-run project publishes more than source: it publishes the traces of its
+  own development and the whole git history, so "grep the tree for a key today" answers
+  the wrong question in two ways — a secret scrubbed from HEAD still ships in
+  `git log -p`, and a file written since the last commit is what a push actually sends.
+  Vector: `python benchmarks/publish_secret_scan.py`, which swept **359 files in the
+  working tree (4 of them not yet tracked) and 713 blobs ever committed** against
+  **7 credential families plus filename shapes**, printed **2 matches, both accepted by
+  name with their reason beside them and 0 unlisted**, and exited with
+  `OK  no unlisted credential shape in the 359 files a push sends or in any of the 713
+  blobs ever committed, and 8/8 families proved they can bite.` The 21 blobs carrying NUL
+  padding (the committed `.npz` arrays) were **not skipped**: their padding was removed
+  and the bytes swept anyway, because archive padding is where a planted secret would
+  sit. Identity is reported rather than gated: `github-noreply-email` **7**,
+  `personal-email` **0**, `host-path` **1117** occurrences across the tree and history.
+  Witness `benchmarks/results/publish_secret_scan_20260928.log`.
+  Three things this pass produced that are worth more than the green line, each kept as
+  a mutant-shaped fact. **(1) A scan that cannot match anything is green forever**, so
+  `plant()` puts a synthetic secret through every family and fails the run if any family
+  passes it — 8/8, and separately proved end-to-end by planting a fake `ghp_` token and a
+  `deploy.pem` filename in the working tree, which the sweep named as `UNLISTED` and
+  exited 1 on before both were deleted. **(2) The scanner caught itself twice.** Its own
+  `private_key` test sample was a whole PEM header, so the new file tripped its own rule
+  on the day it was written; the sample is now written in two pieces rather than adding
+  an allowlist entry that lets this file exempt itself, which is the one exemption that
+  makes a secret gate meaningless. Then its own **witness** tripped it, because the
+  printed reason quoted the `KEY="value"` shape it was excusing — the reasons are now
+  worded without that shape and a second run over the log it had just written is clean.
+  **(3) An existing gate caught the new one**: `benchmarks/portable_paths_check.py` fell
+  to 13/15 when this file spelled a host prefix literally in its identity pattern, which
+  is the exact rule R-7.5's marker-list finding established — only the file declaring
+  the markers may carry them. The pattern is now assembled from `HOST_PATHS` imported
+  from that gate, and
+  the portability line is back to 15/15 with 7/7 mutants defeated.
+  What is NOT claimed: this is a pattern sweep, not a proof of absence — it finds the
+  shapes credentials have and every match it excuses is listed with a reason a reader can
+  refute. It sweeps what a push sends, so a gitignored file is out of scope unless it is
+  force-added. It is **not** a §6 battery line, for the same reason as
+  `benchmarks/market_compare.py`: its history arm needs `.git`, so an unpacked sdist or a
+  ZIP download cannot run it, and a count that only one tree shape can print would move
+  the totals without meaning them. It is cited here and in `docs/privacy.md`, and the §6
+  totals are unchanged by it.
 - **R-7.3 (OPEN)** Hands-free control (voice) at the measured spike latency:
   command-to-ack ~4.8s. Vector: real-microphone arm of the spike with VAD
   barge-in, ≥ 90% command recognition over 50 utterances.
@@ -1581,6 +1651,7 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
    `python benchmarks/router_portable_check.py` 20 (+ 5 mutants) ·
    `python benchmarks/graph_perceive_check.py --sweep` 33 (+ 12 mutants) ·
    `python benchmarks/ts_perception_check.py --sweep` 47 (+ 13 mutants) ·
+   `python benchmarks/ts_patch_check.py --sweep` 44 (+ 13 mutants) ·
    `python benchmarks/hint_ab_check.py` 14 (+ 8 mutants) ·
    `python benchmarks/portable_paths_check.py` 15 (+ 7 mutants) ·
    `python benchmarks/backend_free_check.py` 42 (+ 10 mutants) ·
@@ -1588,12 +1659,12 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
    `python -m flash.debug --suite` 32 ·
    `python -m flash.patches --suite benchmarks/tasks/edit_tasks.jsonl` 60 ·
    `python benchmarks/m0_bakeoff.py --dry-run` 20 reference solutions.
-   **Total: 1166 selftest / end-to-end / premise checks + 20 oracle
+   **Total: 1210 selftest / end-to-end / premise checks + 20 oracle
    verifications (m0_bakeoff's 20 reference solutions, which are the only
    numbers in that 20 — the 6 ambient, 15 lora, 5 band, 5 router-portability,
-   12 graph, 12 graph-perceive, 13 ts-perception, 8 hint-ab, 7 path-portability,
-   10 backend-free and 5 documented-command mutants are extra to both totals,
-   98 in all) = 1186 green, offline.** Read those two
+   12 graph, 12 graph-perceive, 13 ts-perception, 13 ts-patch, 8 hint-ab,
+   7 path-portability, 10 backend-free and 5 documented-command mutants are
+   extra to both totals, 111 in all) = 1230 green, offline.** Read those two
    numbers with care: CHECKS and TOTAL are different columns, and this page has
    been quoted wrongly by its own notes before — R-1.1b's checks count (1052) was
    exactly the total the page had claimed one commit earlier, and the number the
@@ -1813,6 +1884,35 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
    every Python figure this page has published. The Python default still prints 44/44
    and the graph's published 4446 nodes / 24574 edges are unchanged — the mixed build
    adds 103 nodes and 240 edges only when `--lang py,ts` is asked for.)
+   (Updated again the same day, when R-1.4's **patch arm** learned the second
+   language — the gap that entry filed as (c): **+44 checks and +13 mutants** on a
+   second brand-new vector, `python benchmarks/ts_patch_check.py --sweep` — **1166 →
+   1210** checks, mutants **98 → 111**, §6 total **1186 → 1230**, lines **34 → 35**,
+   again because a second thing the tool can now *do* is a new thing to verify rather
+   than another gate inside a vector that already had a line. The re-read printed
+   `checks 1210  oracle 20  §6 total 1230  mutants 111` with **35** OK lines, no BAD
+   line, in **15 min 18 s** (witness `benchmarks/results/battery_reread_r14b_20260928.log`,
+   its wall clock taken from the file's own timestamps, since a shell redirect credits the
+   run no provenance),
+   against a `CLAIM` again written by arithmetic before the run started. What the 44
+   hold: an address dispatches on the file it names, and the empty path
+   `flash.graph` passes stays on `ast`, which is why `flash.patches --selftest` is
+   still **46/46** and `--suite` still **60/60** on this tree; a TypeScript span is
+   read off the same `_declarations` walk the graph's node comes from, checked symbol
+   by symbol over a fixture file and again after a real `build()`; a replacement must
+   keep the symbol's name *and* its `export` keyword; a replacement that does not
+   parse is refused with the grammar's own line and marker rather than Python's
+   `invalid syntax`; a `tsx` fence is read as a patch and a fenced log line is not;
+   and two of the checks drive `loop._solve_edits` with `_generate` and
+   `diagnose_files` stubbed, because that arm's `ast` pass is where a false syntax
+   error would have cost a retry. One of the 13 mutants is not about the new
+   language at all: it routes every file to the TypeScript grammar, which would
+   redefine every published Python figure — the same trap its perception counterpart
+   tests on the other side of the seam. What this
+   does NOT buy is R-1.4's (d): nothing here *verifies* a TypeScript edit — a `.tsx`
+   patch that parses is accepted on the strength of a parse, because
+   `diagnose_files` still has no `node`/`vitest` runner behind it, and the whole-file
+   control arm is still Python.)
    (Updated 2026-09-27, when R-7.9, R-7.10 and R-7.10b closed: **+2 checks and +1
    mutant** on `python benchmarks/lora_path_check.py` (**31 → 33**, **14 → 15**) for
    `--dry-run`, **+1 check and +1 mutant** on

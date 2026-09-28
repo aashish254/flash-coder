@@ -245,6 +245,71 @@ versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   turned out to require exactly 33 OK lines, which would have made the 34th line a
   failure for the wrong reason — it now reads its expectation from
   `battery_reread.BATTERY`.
+- **R-1.4's third gap closed the same day: the patch arm can address a TypeScript
+  symbol.** The defect was printed, not inferred — `# edit: site/src/components/Hero.tsx
+  :: Hero` came back `no symbol 'Hero' … (it defines: nothing)` while
+  `# edit: … :: L16-L18` applied, because `flash/patches.py` validated every
+  replacement with `ast.parse` and took its spans from Python `definitions()`. It now
+  dispatches on the file the address names: `.ts`/`.tsx` go to `flash.lang_ts`, every
+  other name — including the empty path `flash.graph` has always passed — stays on
+  `ast`, which is what keeps the published Python figures the same numbers from the
+  same code path (`--selftest` **46/46**, `--suite` **60/60** re-run on this tree).
+  A TypeScript span is read off the same `_declarations` walk that produces the
+  graph's `Node`, so "what this patch replaces" and "what breaks if this changes"
+  cannot drift into two ranges, and a replacement has to keep the symbol's name *and*
+  the `export` keyword its owned span begins with — the TypeScript shape of Python's
+  decorator rule, and the failure mode is silent: drop it and the edited file still
+  looks fine while every importer breaks. A replacement that does not parse is refused
+  with the grammar's own line and marker instead of Python's `invalid syntax`.
+  Measured on the front end in this repo: `Hero` resolves to **L31-L180** of a
+  181-line file, re-emitting those bytes applies with **0** lines changed outside the
+  span, dropping the keyword refuses as `no longer exports Hero (as Hero L31-L180)`,
+  and a broken body refuses at `line 32: error 'return <div>'`. Vector:
+  `python benchmarks/ts_patch_check.py --sweep` → **44 checks + 13 mutants**, green in
+  this process and with one fresh process per mutant; two of the checks drive
+  `loop._solve_edits` with `_generate` and `diagnose_files` stubbed, because that
+  arm's per-file `ast` pass is where a clean TypeScript edit used to come back a
+  confident false `STATIC` — costing the retry a refusal exists to save. What it does
+  **not** buy: nothing here verifies a TypeScript edit (`diagnose_files` still has no
+  `node`/`vitest` runner behind it, so a `.tsx` patch that parses is accepted on the
+  strength of a parse), and the whole-file control arm is still Python — both booked
+  as open in SPEC R-1.4 rather than described as shipped. The §6 re-read that follows
+  is the printed line `checks 1210  oracle 20  §6 total 1230  mutants 111` with **35**
+  OK lines, no BAD line, in **15 min 18 s** (witness
+  `benchmarks/results/battery_reread_r14b_20260928.log`, wall clock from the file's own
+  timestamps).
+- **R-7.14: the secrets question got a re-runnable answer instead of a memory.**
+  The ask was "check every line, because I don't want to get breached later", and a
+  grep today answers it in the wrong two directions: a credential scrubbed from the
+  tree still ships inside `git log -p`, and a file written since the last commit is
+  what a push actually sends. `benchmarks/publish_secret_scan.py` now sweeps **359
+  files in the working tree (4 of them not yet tracked) and 713 blobs ever
+  committed** against **7 credential shapes plus key-file filenames** and printed
+  **2 matches, each with the reason it is not a credential, 0 unlisted** — the
+  `proxy-no-auth` string aider is handed for the local token-counting server, and a
+  base64 stretch inside an `sha512-…==` integrity hash in `site/package-lock.json`.
+  The 21 NUL-padded blobs (the committed `.npz` arrays) were **swept with their
+  padding removed, not skipped**, because padding is where a planted secret would
+  sit; identity is reported rather than gated — noreply email **7**, personal email
+  **0**, host paths **1117**. A clean sweep by patterns that cannot match is the
+  worthless kind of green, so the file also plants a synthetic secret through every
+  family and fails if any passes it (**8/8 bite**), which was proved end-to-end by
+  planting a fake `ghp_` token and a `deploy.pem` filename and watching the sweep
+  name both and exit 1. It caught its own author twice on the day it was written:
+  the scanner's PEM test sample is now split rather than allowlisted, because a file
+  that exempts itself is the one exemption that empties a secret gate; and its own
+  **witness** tripped it, since the printed reason quoted the `KEY="value"` shape it
+  was excusing — the reasons are worded without that shape, and a second run over the
+  log it had just written is clean. An existing gate then caught the new one:
+  `benchmarks/portable_paths_check.py` fell to **13/15** because this file spelled a
+  host prefix in its own source, the exact rule R-7.5 booked, and the pattern is now
+  assembled from `HOST_PATHS` imported from that gate, which is back to 15/15 with
+  7/7 mutants defeated. Nothing was deleted from the repo: the author's four
+  decisions on this page's contents (SPEC/TODO at top level, all 180 records, the `.npz`
+  caches in git, host paths as documented policy) stand, so the deliverable is proof
+  rather than cleanup. Not a §6 line — its history arm needs `.git`, so an unpacked
+  sdist cannot print it; it is cited, not counted, and the totals above are unchanged
+  by it. Witness `benchmarks/results/publish_secret_scan_20260928.log`.
 
 ### Corrected — claims this file made that the tree does not support
 - **Four documents said no competitor had ever been run on this machine.** `SPEC.md`'s
@@ -489,8 +554,8 @@ own `VERSION` constant, in the exported transcript the page renders, and in the
 mean re-measuring the generated page for a digit. The notes below are the release's,
 and its counts are the tree's printed ones as of the last §6 re-read.
 
-A local, verify-first coding agent for Apple Silicon, with 1,166 offline checks +
-20 oracle verifications + 98 mutation gates, and a `SPEC.md` that records which of
+A local, verify-first coding agent for Apple Silicon, with 1,210 offline checks +
+20 oracle verifications + 111 mutation gates, and a `SPEC.md` that records which of
 its own gates measured NO. (The tree this tag points at printed 1,119 + 20 + 85; the
 counts above are the newest printed ones, because the tag is not downloadable and
 these notes follow the tree, as the paragraph above says they do.)

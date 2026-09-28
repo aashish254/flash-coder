@@ -26,8 +26,11 @@ Refusals (all of them, in one attempt, are atomic — see `apply_patches`):
   whose result does not parse | a patch whose result loses the symbol it was
   addressing.
 
-The address→range resolution is pure AST (stdlib), so this module works with
-no language server; `flash.lsp` is what makes the same ranges resolvable
+The address→range resolution is pure AST (stdlib) for Python, so this module
+works with no language server and no extras; `flash.lang_ts` answers for a
+`.ts`/`.tsx` address, and where that optional grammar is not installed the patch
+is refused with the sentence that says how to install it, never resolved by
+feeding TypeScript to `ast`. `flash.lsp` is what makes the same ranges resolvable
 across files, and a patch set is per-file by construction.
 """
 from __future__ import annotations
@@ -39,10 +42,41 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-FENCE = re.compile(r"```(?:python|py)?\s*\n(.*?)```", re.DOTALL)
+#: The fence tags a patch body may arrive in. A model mirrors the tag the project
+#: listing uses for the file it is editing, so a `tsx` block has to read here as
+#: readily as a `python` one. The tags are this tool's own languages rather than
+#: any info string, so a fenced diagram or log line stays out of the protocol.
+FENCE = re.compile(r"```[ \t]*(?:python|typescript|tsx|ts|jsx|js|py)?"
+                   r"[ \t]*\n(.*?)```", re.DOTALL)
 EDIT_MARKER = re.compile(r"^\s*\**\s*#\s*edit:\s*(?P<file>[\w./-]+)\s*::\s*"
                         r"(?P<addr>\S+?)\s*\**\s*$", re.MULTILINE)
 RANGE_ADDR = re.compile(r"^[Ll](?P<a>\d+)(?:\s*-\s*[Ll]?(?P<b>\d+))?$")
+
+#: The suffixes whose spans the second grammar owns. Everything else — including
+#: the empty path every Python caller passes — is Python, which is what keeps the
+#: published Python figures byte-identical while this module dispatches at all.
+TS_SUFFIXES = (".ts", ".tsx")
+
+
+def _is_ts(path: str) -> bool:
+    """Whether an address names a file the second grammar owns.
+
+    The test is on the tail of the name and nothing more: a patch carries no
+    language flag, and a workspace is keyed by filename, so the name the model
+    writes is the only evidence of what the file is written in.
+    """
+    return str(path or "").endswith(TS_SUFFIXES)
+
+
+def is_python(path: str) -> bool:
+    """Whether the stdlib has an opinion about this file's syntax.
+
+    `perceive.static_check` is an `ast` pass. Run on a `.tsx` it reports a
+    confident syntax error about code the other grammar is happy with, so the
+    loop asks this before it checks: a false STATIC is a refusal, and a refusal
+    costs a retry.
+    """
+    return not _is_ts(path)
 
 PROTOCOL = (
     "Reply ONLY with patches. One patch is a header line naming what it "
@@ -59,6 +93,9 @@ PROTOCOL = (
     "file's indentation;\n"
     "* the replacement must be the symbol's COMPLETE definition including its "
     "decorators, and must keep its name;\n"
+    "* in a `.ts` or `.tsx` file it must also keep the `export` keyword the "
+    "definition's own line begins with — the address spans it, so a replacement "
+    "that drops it would un-export the symbol every other file imports;\n"
     "* to change a single statement inside a symbol, address the exact lines: "
     "`# edit: <file> :: L<start>-L<end>`; write that text exactly as it should "
     "appear, indentation included;\n"
@@ -103,6 +140,12 @@ class Def:
     start: int          # 1-based, first decorator line
     end: int            # 1-based, inclusive
     col: int            # 0-based indentation the replacement is restored to
+    #: TypeScript only, and only ever True there: the span's first line is an
+    #: `export` statement, so the replacement has to re-emit that keyword or the
+    #: symbol stops being visible to the files that import it. Python's decorator
+    #: rule has no equivalent field because `ast` puts the decorator inside the
+    #: span and a decorator is not an interface.
+    exported: bool = False
 
     def __str__(self) -> str:
         qual = f"{self.container}.{self.name}" if self.container else self.name
@@ -201,13 +244,21 @@ def parse_patches(text: str) -> list[Patch]:
 
 # -------------------------------------------------------------- resolution
 
-def definitions(src: str) -> list[Def]:
+def definitions(src: str, path: str = "") -> list[Def]:
     """Every addressable definition in one file, decorators included.
 
     `@property def total_cents` starts one line above `ast`'s `lineno`, and
     a patch that dropped the decorator would silently change every caller —
     so the owned span begins at the first decorator.
+
+    `path` picks the grammar. Left empty it is Python, which is how `flash.graph`
+    calls it and how every published Python count was measured; a `.ts`/`.tsx`
+    name asks `flash.lang_ts` for the same file's spans, so the graph's node and
+    the patch's `Def` are the two line numbers of one walk rather than two
+    approximations of the same idea.
     """
+    if _is_ts(path):
+        return _ts_definitions(path, src)
     try:
         tree = ast.parse(src)
     except (SyntaxError, ValueError, MemoryError, RecursionError):
@@ -236,6 +287,37 @@ def definitions(src: str) -> list[Def]:
 
     walk(tree, "")
     return out
+
+
+def _ts_syntax(path: str, src: str) -> str:
+    """The second grammar's parse verdict for a file: `""` when it is clean.
+
+    Reached lazily because `flash.lang_ts` imports `flash.graph`, which imports
+    this module at load time (R-7.7's rule for an optional grammar). A machine
+    without `tree-sitter-typescript` gets a refusal that names the install, not
+    an `ast` error over code that is perfectly good TypeScript.
+    """
+    from flash import lang_ts
+    try:
+        return lang_ts.syntax_error(path, src)
+    except RuntimeError as exc:               # the grammar's own refusal
+        raise Refused(f"{path}: {exc}") from exc
+
+
+def _ts_definitions(path: str, src: str) -> list[Def]:
+    """The second language's spans, or a refusal that says what is missing.
+
+    Two reasons this cannot answer, kept apart because they need different
+    sentences: the optional extra is not installed (so the fix is one `pip
+    install`, and the patch must not be quietly resolved by `ast`, which finds a
+    hundred syntax errors in valid TypeScript), and the file itself does not
+    parse (so its spans are guesses).
+    """
+    from flash import lang_ts
+    bad = _ts_syntax(path, src)
+    if bad:
+        raise Refused(f"{path} does not parse: {bad}")
+    return lang_ts.definitions(path, src)
 
 
 def find_defs(defs: list[Def], address: str) -> list[Def]:
@@ -282,7 +364,7 @@ def resolve(patch: Patch, src: str) -> Applied:
     if patch.kind == "whole":
         return Applied(patch, 1, n, 0, n)
 
-    defs = definitions(src)
+    defs = definitions(src, patch.file)
     if patch.kind == "range":
         m = RANGE_ADDR.match(patch.address)
         a = int(m.group("a"))
@@ -381,25 +463,48 @@ def _touched(a: Applied, runs: list[tuple[int, int, str]]) -> tuple[tuple[int, i
     return tuple(out)
 
 
-def _names(src: str) -> set[tuple[str, str]]:
-    return {(d.container, d.name) for d in definitions(src)}
+def _names(src: str, path: str = "") -> dict[tuple[str, str], bool]:
+    """What one file defines, and whether each definition is still exported.
+
+    A set would answer "is this name still here"; the value answers the harder
+    question the TypeScript arm asks, which is "is it still visible to the file
+    that imports it?" Python definitions always answer False, so the set form's
+    behaviour — and every Python count — is unchanged.
+    """
+    return {(d.container, d.name): d.exported for d in definitions(src, path)}
 
 
 def check_result(patch: Patch, before: str, after: str) -> None:
     """A patch may not break the file or lose the thing it addressed."""
-    try:
-        ast.parse(after)
-    except SyntaxError as e:
-        raise Refused(f"replacement does not parse: line {e.lineno}: {e.msg}")
+    if _is_ts(patch.file):
+        bad = _ts_syntax(patch.file, after)
+        if bad:
+            raise Refused(f"replacement does not parse: {bad}")
+    else:
+        try:
+            ast.parse(after)
+        except SyntaxError as e:
+            raise Refused(f"replacement does not parse: line {e.lineno}: {e.msg}")
     if patch.kind != "symbol":
         return
     # a symbol patch must still define that symbol — a "fix" that renames or
     # deletes it is a different change than the one that was asked for
-    lost = [d for d in find_defs(definitions(before), patch.address)
-            if (d.container, d.name) not in _names(after)]
+    hits = find_defs(definitions(before, patch.file), patch.address)
+    keeps = _names(after, patch.file)
+    lost = [d for d in hits if (d.container, d.name) not in keeps]
     if lost:
         raise Refused(f"replacement no longer defines {patch.address} "
                       f"(as {', '.join(str(d) for d in lost)})")
+    # ...and it must still be the interface the rest of the tree imports. The
+    # span an address owns begins at the `export` keyword, so a replacement that
+    # re-types the definition without it leaves the file looking fine while every
+    # importer breaks — TypeScript's version of dropping a decorator.
+    unexported = [d for d in hits
+                  if d.exported and not keeps.get((d.container, d.name))]
+    if unexported:
+        raise Refused(f"replacement no longer exports {patch.address} "
+                      f"(as {', '.join(str(d) for d in unexported)}) — the "
+                      f"definition has to begin with `export`")
 
 
 # ----------------------------------------------------------------- applying
@@ -513,7 +618,8 @@ def outside_lines(workspace: dict[str, str], result: ApplyResult,
     src = workspace.get(target.get("file", ""), "")
     if not src:
         return 0
-    hits = find_defs(definitions(src), target.get("symbol", ""))
+    hits = find_defs(definitions(src, target.get("file", "")),
+                     target.get("symbol", ""))
     allowed = set(range(hits[0].start, hits[0].end + 1)) if hits else set()
     total = 0
     for a in result.applied:
@@ -533,6 +639,19 @@ def outside_lines(workspace: dict[str, str], result: ApplyResult,
 
 # ------------------------------------------------------------------ prompts
 
+def _fence_tag(fname: str) -> str:
+    """The language a listing should claim for a file, or the model will not
+    answer in the one the applier can read.
+
+    `describe` is the only place the project's text reaches the patch protocol,
+    and a `.tsx` shown inside a `python` fence is an invitation to write Python
+    at it.
+    """
+    if fname.endswith(".tsx"):
+        return "tsx"
+    return "ts" if _is_ts(fname) else "python"
+
+
 def describe(workspace: dict[str, str], max_chars: int = 6000) -> str:
     """The project as the patch protocol needs to see it: names + real text.
 
@@ -542,25 +661,35 @@ def describe(workspace: dict[str, str], max_chars: int = 6000) -> str:
     parts = []
     used = 0
     for fname, src in workspace.items():
-        block = f"# file: {fname}\n```python\n{src.rstrip()}\n```"
+        tag = _fence_tag(fname)
+        block = f"# file: {fname}\n```{tag}\n{src.rstrip()}\n```"
         if used + len(block) > max_chars:
-            block = f"# file: {fname}\n```python\n{src[:1200].rstrip()}\n```"
+            block = f"# file: {fname}\n```{tag}\n{src[:1200].rstrip()}\n```"
         parts.append(block)
         used += len(block)
     return "\n\n".join(parts)
 
 
 def workspace_from_dir(root: str | Path, limit: int = 20) -> dict[str, str]:
-    """A directory's Python files as a patchable workspace.
+    """A directory's source files as a patchable workspace.
 
     Keyed by path relative to `root`, because that is what the model has to
     write in an address, and two `__init__.py` files in one tree are not the
     same file.
+
+    Python first, then TypeScript: on a pure-Python tree the order and the cap
+    are exactly what they always were, and on a mixed one a `.tsx` is still
+    addressable — which is the thing R-1.4's patch arm needs. Listing a `.tsx`
+    does not need the grammar; using it needs the grammar, and asks for it by
+    name if it is not installed.
     """
     from flash.lsp import python_files
     root = Path(root)
+    files = list(python_files(root))
+    from flash import lang_ts  # filename walk only, lazy by R-7.7
+    files += lang_ts.ts_files(root)
     out = {}
-    for p in python_files(root)[:limit]:
+    for p in files[:limit]:
         try:
             key = str(p.relative_to(root)) if root.is_dir() else p.name
             out[key] = p.read_text(encoding="utf-8", errors="replace")
@@ -627,7 +756,8 @@ def run_premise(tasks_path: str | Path, verbose: bool = True) -> int:
         check(f"{tid}: the task ships its own project text in the prompt "
               "(both arms read the same input)", ships,
               f"{len(t['files'])} file(s), {len(t['prompt'])} chars")
-        defs = find_defs(definitions(src), t["target"]["symbol"])
+        defs = find_defs(definitions(src, t["target"]["file"]),
+                         t["target"]["symbol"])
         check(f"{tid}: the target symbol exists to be addressed", bool(defs),
               str(defs[0]) if defs else f"not in {t['target']['file']}")
         ok_before, err_before = diagnose_files(dict(t["files"]), t["test"])

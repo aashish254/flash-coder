@@ -16,7 +16,7 @@ lora path: 33/33 checks passed
 mutations: 15/15 gates defeated by exactly their checks
 ```
 
-`python benchmarks/battery_reread.py` runs all 34 of them and adds the columns,
+`python benchmarks/battery_reread.py` runs all 35 of them and adds the columns,
 and it reads the *printed* number rather than the return code. That is not
 pedantry — the two capture traps that made this a rule are recorded in `SPEC.md`
 §6: a `grep "checks passed"` silently dropped two vectors that print a bare
@@ -24,7 +24,7 @@ fraction, and a last-line grep read one vector's `14/14 mutants` summary as if
 it were its check count, under-counting the published total by 17 while looking
 clean.
 
-So the totals in the README (`1,166 checks + 20 oracle verifications + 98
+So the totals in the README (`1,210 checks + 20 oracle verifications + 111
 mutation gates`) come from the line `battery_reread` prints, and the file holds
 one entry per §6 item with the exact fraction that item must print. When the
 numbers disagree, the run reports the disagreement out loud. It has: one CLAIM
@@ -105,8 +105,9 @@ sells, it has been run: `python benchmarks/r75_sdist_battery_check.py` builds th
 sdist, installs the tarball into a throwaway venv, prints which `flash` a child
 imports from inside the unpacked tree and from outside it, and then runs all 33
 lines there. **33/33, `checks 1119  oracle 20  §6 total 1139  mutants 85`, 13 min 2
-s.** That print is of the day it ran: the battery has since grown a 34th vector and
-re-printed as `1166 + 20 = 1186, 98 mutants` in the checkout, and **the download has
+s.** That print is of the day it ran: the battery has since grown two vectors (a
+second language's perception check, then its patch check) and re-printed as
+`1210 + 20 = 1230, 111 mutants` over **35** lines in the checkout, and **the download has
 not been re-run since** — the sdist driver now takes its expected line count from
 `battery_reread.BATTERY` instead of a literal, so that pass will fail loudly rather
 than for the wrong reason whenever it is next run. The

@@ -476,9 +476,9 @@
    "degree": 8,
    "label": "ConstrainedSampler",
    "pos": [
-    -22.33,
-    -4.95,
-    16.0
+    -22.31,
+    -5.01,
+    15.74
    ]
   },
   {
@@ -489,9 +489,9 @@
    "degree": 9,
    "label": "Contract",
    "pos": [
-    -27.04,
-    -0.67,
-    14.66
+    -27.09,
+    -0.65,
+    14.26
    ]
   },
   {
@@ -502,9 +502,9 @@
    "degree": 11,
    "label": "feed",
    "pos": [
-    -18.5,
+    -18.51,
     -1.14,
-    13.32
+    12.78
    ]
   },
   {
@@ -515,22 +515,9 @@
    "degree": 7,
    "label": "_reference",
    "pos": [
-    -26.04,
-    -7.08,
-    11.98
-   ]
-  },
-  {
-   "id": "flash/grammar.py::answer_shaped",
-   "file": "flash/grammar.py",
-   "symbol": "answer_shaped",
-   "kind": "function",
-   "degree": 5,
-   "label": "answer_shaped",
-   "pos": [
-    -24.31,
-    2.7,
-    10.63
+    -25.97,
+    -6.95,
+    11.3
    ]
   },
   {
@@ -541,9 +528,9 @@
    "degree": 43,
    "label": "ck",
    "pos": [
-    -19.26,
-    -5.48,
-    9.29
+    -24.24,
+    2.34,
+    9.82
    ]
   },
   {
@@ -554,9 +541,9 @@
    "degree": 7,
    "label": "conformance",
    "pos": [
-    -27.44,
-    -2.98,
-    7.95
+    -19.85,
+    -5.04,
+    8.35
    ]
   },
   {
@@ -567,9 +554,9 @@
    "degree": 92,
    "label": "run_selftest",
    "pos": [
-    -21.56,
-    -0.58,
-    6.61
+    -25.93,
+    -2.82,
+    6.87
    ]
   },
   {
@@ -983,9 +970,9 @@
    "degree": 14,
    "label": "_binds",
    "pos": [
-    26.69,
-    -3.92,
-    8.14
+    26.68,
+    -3.89,
+    8.3
    ]
   },
   {
@@ -993,12 +980,12 @@
    "file": "flash/lang_ts.py",
    "symbol": "_declarations",
    "kind": "function",
-   "degree": 21,
+   "degree": 22,
    "label": "_declarations",
    "pos": [
-    22.33,
-    0.0,
-    7.23
+    22.36,
+    -0.01,
+    7.43
    ]
   },
   {
@@ -1009,9 +996,9 @@
    "degree": 10,
    "label": "_import_rows",
    "pos": [
-    30.5,
+    30.47,
     -0.38,
-    6.33
+    6.57
    ]
   },
   {
@@ -1023,8 +1010,8 @@
    "label": "_join",
    "pos": [
     23.0,
-    -6.42,
-    5.43
+    -6.41,
+    5.71
    ]
   },
   {
@@ -1036,8 +1023,8 @@
    "label": "_named",
    "pos": [
     24.69,
-    4.07,
-    4.52
+    4.08,
+    4.85
    ]
   },
   {
@@ -1048,9 +1035,9 @@
    "degree": 10,
    "label": "_pattern_names",
    "pos": [
-    30.83,
-    -5.39,
-    3.62
+    30.87,
+    -5.42,
+    3.99
    ]
   },
   {
@@ -1061,9 +1048,9 @@
    "degree": 13,
    "label": "_scope_locals",
    "pos": [
-    19.57,
-    -2.41,
-    2.71
+    19.47,
+    -2.42,
+    3.12
    ]
   },
   {
@@ -1074,9 +1061,9 @@
    "degree": 28,
    "label": "_text",
    "pos": [
-    30.01,
-    3.01,
-    1.81
+    30.11,
+    3.13,
+    2.26
    ]
   },
   {
@@ -1087,9 +1074,9 @@
    "degree": 10,
    "label": "_walk",
    "pos": [
-    25.97,
-    -7.91,
-    0.9
+    25.98,
+    -8.14,
+    1.4
    ]
   },
   {
@@ -1100,9 +1087,9 @@
    "degree": 21,
    "label": "add",
    "pos": [
-    21.76,
-    2.54,
-    0.0
+    21.54,
+    2.78,
+    0.54
    ]
   },
   {
@@ -1113,9 +1100,22 @@
    "degree": 14,
    "label": "extract_ts",
    "pos": [
-    31.31,
-    -2.1,
-    -0.9
+    31.76,
+    -2.13,
+    -0.33
+   ]
+  },
+  {
+   "id": "flash/lang_ts.py::parse",
+   "file": "flash/lang_ts.py",
+   "symbol": "parse",
+   "kind": "function",
+   "degree": 6,
+   "label": "parse",
+   "pos": [
+    21.57,
+    -5.15,
+    -1.19
    ]
   },
   {
@@ -1126,9 +1126,9 @@
    "degree": 13,
    "label": "ref_name",
    "pos": [
-    22.06,
-    -4.76,
-    -1.81
+    26.58,
+    3.03,
+    -2.05
    ]
   },
   {
@@ -1139,9 +1139,9 @@
    "degree": 7,
    "label": "scan",
    "pos": [
-    26.45,
-    2.14,
-    -2.71
+    27.99,
+    -4.96,
+    -2.91
    ]
   },
   {
@@ -1152,9 +1152,9 @@
    "degree": 77,
    "label": "walk",
    "pos": [
-    27.15,
-    -3.69,
-    -3.62
+    23.59,
+    -1.17,
+    -3.77
    ]
   },
   {
@@ -1344,7 +1344,7 @@
    "file": "flash/patches.py",
    "symbol": "Refused",
    "kind": "class",
-   "degree": 7,
+   "degree": 11,
    "label": "Refused",
    "pos": [
     -27.91,
@@ -1383,7 +1383,7 @@
    "file": "flash/patches.py",
    "symbol": "check_result",
    "kind": "function",
-   "degree": 6,
+   "degree": 10,
    "label": "check_result",
    "pos": [
     -25.51,
@@ -1396,7 +1396,7 @@
    "file": "flash/patches.py",
    "symbol": "definitions",
    "kind": "function",
-   "degree": 8,
+   "degree": 10,
    "label": "definitions",
    "pos": [
     -19.44,
@@ -2199,11 +2199,6 @@
   },
   {
    "s": "flash/grammar.py::run_selftest",
-   "d": "flash/grammar.py::answer_shaped",
-   "kind": "calls"
-  },
-  {
-   "s": "flash/grammar.py::run_selftest",
    "d": "flash/grammar.py::conformance",
    "kind": "calls"
   },
@@ -2468,6 +2463,11 @@
    "kind": "calls"
   },
   {
+   "s": "flash/lang_ts.py::parse",
+   "d": "flash/lang_ts.py::parse",
+   "kind": "calls"
+  },
+  {
    "s": "flash/lang_ts.py::_declarations",
    "d": "flash/lang_ts.py::_named",
    "kind": "calls"
@@ -2645,6 +2645,11 @@
   {
    "s": "flash/lang_ts.py::extract_ts",
    "d": "flash/lang_ts.py::walk",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/lang_ts.py::scan",
+   "d": "flash/lang_ts.py::parse",
    "kind": "calls"
   },
   {
@@ -3005,9 +3010,9 @@
  },
  "sampled": {
   "shown_nodes": 150,
-  "shown_edges": 209,
-  "repo_nodes": 4446,
-  "repo_edges": 24574,
+  "shown_edges": 210,
+  "repo_nodes": 4616,
+  "repo_edges": 25615,
   "note": "the 150 most-connected functions, classes and methods under flash/, joined by their call and import edges; `reads` edges and the rest of the index are not drawn"
  },
  "extracted_by": "python -c 'from flash.graph import build; build(...)'"

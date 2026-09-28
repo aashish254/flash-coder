@@ -1,5 +1,5 @@
 {
-  "witness": "battery_reread_r14_20260928.log",
+  "witness": "battery_reread_r14b_20260928.log",
   "vectors": [
     {
       "label": "flash.harness --selftest",
@@ -191,6 +191,13 @@
       "kind": "vector"
     },
     {
+      "label": "benchmarks/ts_patch_check.py",
+      "checks": 44,
+      "expected": 44,
+      "mutants": 13,
+      "kind": "vector"
+    },
+    {
       "label": "benchmarks/hint_ab_check.py",
       "checks": 14,
       "expected": 14,
@@ -241,10 +248,10 @@
     }
   ],
   "totals": {
-    "checks": 1166,
+    "checks": 1210,
     "oracle": 20,
-    "total": 1186,
-    "mutants": 98
+    "total": 1230,
+    "mutants": 111
   },
   "market": {
     "witness": "market_compare_20260928.log",
@@ -282,107 +289,107 @@
   "timings": [
     {
       "module": "harness",
-      "median_s": 0.875,
-      "min_s": 0.846,
-      "max_s": 0.922,
+      "median_s": 0.616,
+      "min_s": 0.616,
+      "max_s": 0.622,
       "repeats": 3
     },
     {
       "module": "power",
-      "median_s": 0.463,
-      "min_s": 0.461,
-      "max_s": 0.465,
+      "median_s": 0.444,
+      "min_s": 0.442,
+      "max_s": 0.444,
       "repeats": 3
     },
     {
       "module": "jobs",
-      "median_s": 0.096,
-      "min_s": 0.093,
-      "max_s": 0.096,
+      "median_s": 0.071,
+      "min_s": 0.071,
+      "max_s": 0.071,
       "repeats": 3
     },
     {
       "module": "trace",
-      "median_s": 0.03,
-      "min_s": 0.03,
-      "max_s": 0.048,
+      "median_s": 0.023,
+      "min_s": 0.022,
+      "max_s": 0.023,
       "repeats": 3
     },
     {
       "module": "web",
-      "median_s": 0.064,
-      "min_s": 0.064,
-      "max_s": 0.064,
+      "median_s": 0.048,
+      "min_s": 0.047,
+      "max_s": 0.048,
       "repeats": 3
     },
     {
       "module": "grammar",
-      "median_s": 17.199,
-      "min_s": 17.077,
-      "max_s": 17.445,
+      "median_s": 12.722,
+      "min_s": 12.532,
+      "max_s": 12.988,
       "repeats": 3
     },
     {
       "module": "patches",
-      "median_s": 1.985,
-      "min_s": 1.949,
-      "max_s": 1.99,
+      "median_s": 1.776,
+      "min_s": 1.775,
+      "max_s": 1.778,
       "repeats": 3
     },
     {
       "module": "debug",
-      "median_s": 4.494,
-      "min_s": 4.482,
-      "max_s": 4.566,
+      "median_s": 4.146,
+      "min_s": 4.146,
+      "max_s": 4.15,
       "repeats": 3
     },
     {
       "module": "tourney",
-      "median_s": 15.849,
-      "min_s": 15.699,
-      "max_s": 15.892,
+      "median_s": 14.807,
+      "min_s": 14.769,
+      "max_s": 14.85,
       "repeats": 3
     },
     {
       "module": "confidence",
-      "median_s": 6.725,
-      "min_s": 6.543,
-      "max_s": 6.773,
+      "median_s": 6.136,
+      "min_s": 6.115,
+      "max_s": 6.153,
       "repeats": 3
     },
     {
       "module": "sandbox",
-      "median_s": 3.106,
-      "min_s": 3.089,
-      "max_s": 3.5,
+      "median_s": 2.865,
+      "min_s": 2.865,
+      "max_s": 3.576,
       "repeats": 3
     },
     {
       "module": "checkpoint",
-      "median_s": 2.891,
-      "min_s": 2.886,
-      "max_s": 2.969,
+      "median_s": 2.877,
+      "min_s": 2.876,
+      "max_s": 2.879,
       "repeats": 3
     },
     {
       "module": "train",
-      "median_s": 1.944,
-      "min_s": 1.924,
-      "max_s": 1.946,
+      "median_s": 1.469,
+      "min_s": 1.464,
+      "max_s": 1.476,
       "repeats": 3
     },
     {
       "module": "graph",
-      "median_s": 1.334,
-      "min_s": 1.326,
-      "max_s": 1.448,
+      "median_s": 1.069,
+      "min_s": 1.061,
+      "max_s": 1.074,
       "repeats": 3
     },
     {
       "module": "ambient",
-      "median_s": 12.362,
-      "min_s": 12.339,
-      "max_s": 12.68,
+      "median_s": 9.783,
+      "min_s": 9.691,
+      "max_s": 10.037,
       "repeats": 3
     }
   ],
@@ -390,11 +397,11 @@
     "measured": true,
     "fixture_ms": 0.1,
     "budget_ms": 200.0,
-    "wide_ms": 33.8,
+    "wide_ms": 28.7,
     "wide_nodes": 5377,
     "wide_edges": 10058,
-    "build_ms": 653.0,
-    "warm_ms": 8.9
+    "build_ms": 571.0,
+    "warm_ms": 7.8
   },
   "source_of_truth": {
     "counts": "the \u00a76 battery print named in `witness`",

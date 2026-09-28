@@ -71,8 +71,9 @@ needs and less than what a hostile verifier needs. If you would not run a
 
 ## This repository's own records
 
-166 files under `benchmarks/results/` are committed, and they are the reason
-the numbers in `SPEC.md` can be checked instead of believed. They contain
+180 files under `benchmarks/results/` are committed (194 exist on disk; the rest
+are this pass's own outputs), and they are the reason the numbers in `SPEC.md`
+can be checked instead of believed. They contain
 prompts and outputs from this project's own benchmark suites — synthetic tasks
 and `benchmarks/fixtures/`, never a user's repository — which is also why
 `docs/portability.md` tolerates 411 absolute-path occurrences inside records
@@ -80,6 +81,47 @@ and gates every path outside them. A record whose text had been rewritten to
 look portable would no longer be a record, so the exclusion is listed group by
 group and a new record directory fails the gate until the document says why it
 is one.
+
+## What was swept before this was published
+
+Because a privacy page is the place a reader looks *after* the damage, the
+sweep is the thing to point at instead:
+`python benchmarks/publish_secret_scan.py` reads every file a `git push` would
+send (working tree, including files not yet tracked) **and every blob ever
+committed**, against seven credential shapes plus key-file filenames, and
+refuses to call itself clean unless each pattern can match — it plants a
+synthetic secret in every family and exits 1 if any family passes it.
+
+The run that shipped this page printed: **359 files in the working tree (4 not
+yet tracked) and 713 historical blobs**, **2 matches, both named with the
+reason they are not credentials, 0 unlisted**, **21 NUL-padded blobs swept with
+their padding removed rather than skipped**, and identity counts of
+**7** occurrences of the author's GitHub noreply address, **0** personal email
+addresses, and **1117** host paths. That last count is not the one
+`docs/portability.md` argues about: it counts every occurrence in the working
+tree *and in every blob ever committed*, while the portability page's **411** is
+the residue in the 182 record files that gate reads, once the history blobs and
+the decompressed archive members are left out. The two numbers measure
+different sets, and `docs/portability.md` explains why the records keep their
+paths at all. The witness is
+`benchmarks/results/publish_secret_scan_20260928.log`.
+
+The two accepted matches, since "trust me" is not an answer here either: the
+OpenAI key aider is handed in `benchmarks/market_compare.py` is the literal
+`proxy-no-auth` for a local server that authenticates nobody, and the
+credential-shaped run in `site/package-lock.json` is a base64 stretch inside an
+`sha512-…==` integrity hash, which is a content digest of a published npm
+tarball.
+
+Two limits worth stating plainly. It is a pattern sweep, not a proof of
+absence — it finds the shapes credentials have, so a secret written in a shape
+nobody has named would pass. And it sweeps what a push sends: a gitignored file
+is not in scope, unless it gets force-added, which is why the working-tree arm
+runs over `git ls-files --others --exclude-standard` rather than the tip alone.
+
+`python benchmarks/publish_secret_scan.py` is not one of the §6 battery's lines,
+and the reason is honest rather than convenient: its history arm needs `.git`,
+so an unpacked sdist cannot run it. It is cited, not counted.
 
 ## Telemetry
 

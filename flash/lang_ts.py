@@ -46,14 +46,15 @@ Four decisions worth their comments:
   that appears exactly once repo-wide — are labelled so a reader can discount them.
 
 **What this does not buy, stated so nobody has to discover it.** The patch arm
-still cannot address a TypeScript symbol: `flash/patches.py` validates a
-replacement with `ast.parse` and takes spans from Python `definitions()`, so
-`# edit: App.tsx :: Widget` is refused as an unknown symbol while
-`# edit: App.tsx :: L11-L15` applies. The spans below are file line numbers, so the
-range form is as precise as the symbol form would be. R-1.2's live-upgrade
-equivalent is also not here — there is no `tsserver` bound, and
-`graph.live_upgrade` still asks jedi about Python blind spots only. Both stay open
-in SPEC R-1.4 rather than being described as shipped.
+learned to address a TypeScript symbol on 2026-09-28 — `flash/patches.py` dispatches
+by file suffix, so `# edit: App.tsx :: Widget` resolves to the span this module's
+`_declarations` reports, the same span the `L11-L15` form always gave. Three things
+are still Python-only: the loop's PERCEIVE hint ranks symbols with
+`flash.lsp.symbols_involved` and `graph.scope_graph()`, so a failing `.tsx` test
+gets no ranked hint; R-1.2's live-upgrade equivalent asks jedi and there is no
+`tsserver` bound; and `harness.diagnose_files` has no `node`/`vitest` runner behind
+it, so a `.tsx` patch that parses is accepted on the strength of a parse. All three
+stay open in SPEC R-1.4 rather than being described as shipped.
 """
 from __future__ import annotations
 
@@ -402,6 +403,88 @@ def _declarations(rel: str, root_node) -> tuple[list[Node], FileIndex]:
 def _is_exported(decl) -> bool:
     """`export` is the only truth about what another file may import."""
     return False
+
+
+# ------------------------------------------------- one file, as an address
+
+# tree-sitter's own markers. `ERROR` is a run of text it could not place, and
+# `MISSING` is a token it needed and did not find; both are anonymous enough
+# that the named-children walk the index uses never sees them.
+_MARKED = frozenset({"ERROR", "MISSING"})
+
+
+def _error_site(node):
+    """The narrowest node the grammar marked as broken, or None.
+
+    `node.has_error` is inherited, so the root is True for any error anywhere;
+    a refusal that has to say WHERE has to look for the marker itself.
+    """
+    if node.type in _MARKED:
+        return node
+    for c in node.children:
+        hit = _error_site(c)
+        if hit is not None:
+            return hit
+    return None
+
+
+def syntax_error(rel: str, src: str) -> str:
+    """Why this file's TypeScript does not parse, or `""` when it does.
+
+    The grammar never raises on a broken program: it marks the region and carries
+    on, which is what an editor wants and what a patch protocol must not accept.
+    A span read off a tree that had to resynchronise is a guess about where a
+    statement ends, and `flash.patches` refuses guesses — this is the check its
+    `ast.parse` is for Python.
+    """
+    root = parse(rel, src).root_node
+    if not root.has_error and root.type not in _MARKED:
+        return ""
+    err = _error_site(root)
+    if err is None:
+        # An error the grammar swallowed at the end of the file: `has_error` is
+        # set and no node is marked, so the far edge of the tree is the truth.
+        return (f"line {root.end_point[0] + 1}: the grammar resynchronised past "
+                f"a statement that never closes")
+    shown = _text(err).splitlines()[0].strip()[:48]
+    return f"line {err.start_point[0] + 1}: {err.type.lower()} {shown!r}"
+
+
+def _begins_export(line: str) -> bool:
+    """Whether a definition's own span starts with the `export` keyword.
+
+    The keyword is inside the span `_declarations` reports, so a splice that
+    replaces the span deletes it unless the replacement re-emits it. That is the
+    TypeScript shape of Python's decorator rule, and it earns a check because a
+    silently un-exported symbol breaks every file that imports it while the
+    edited file still looks fine.
+    """
+    t = line.lstrip()
+    if not t.startswith("export"):
+        return False
+    nxt = t[6:7]
+    return not nxt.isalnum() and nxt not in ("_", "$")
+
+
+def definitions(rel: str, src: str) -> list:
+    """Every addressable definition in one TypeScript file.
+
+    The spans come from `_declarations`, the same walk that fills the graph, so
+    `# edit: Hero.tsx :: Cart.total` replaces exactly the lines `blast()` says
+    that symbol owns — one rule for both arms, which is what `graph._patch_span`
+    relies on for Python. `col` is the indentation of the span's first line, so
+    `normalise` restores a column-0 replacement to the member's real nesting.
+    """
+    from flash.patches import Def          # lazy: flash.graph imports both
+    nodes, _ix = _declarations(rel, parse(rel, src).root_node)
+    lines = src.split("\n")
+    out = []
+    for n in nodes[1:]:                    # nodes[0] is the module itself
+        head = lines[n.start - 1] if 0 < n.start <= len(lines) else ""
+        container, _, name = n.symbol.rpartition(".")
+        out.append(Def(name, container, n.start, n.end,
+                       len(head) - len(head.lstrip()), _begins_export(head)))
+    return out
 
 
 def _walk(node, want: str) -> list:

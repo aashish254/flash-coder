@@ -7,7 +7,7 @@ again — no API key, no container, nothing leaving the machine.
 Two things about this repo are load-bearing, and both are visible in the files:
 
 - **Every claim is a printed number.** The offline verification battery is
-  **1,166 checks + 20 oracle verifications + 98 mutation gates**, and `SPEC.md` §6
+  **1,210 checks + 20 oracle verifications + 111 mutation gates**, and `SPEC.md` §6
   records why the totals come from the fraction each run *prints* — never an exit
   code, never a phrase grep — after both of those shortcuts produced a wrong total
   that looked clean on this project's own output. That total is not a property of
@@ -15,9 +15,10 @@ Two things about this repo are load-bearing, and both are visible in the files:
   sdist, installs it into a throwaway venv, checks which `flash` a child imports,
   and runs the whole battery **inside the download** — the run on record printed
   33/33 and `checks 1119  oracle 20  §6 total 1139  mutants 85` in 13 min 2 s, and
-  the checkout has since printed a 34th line and `checks 1166 … mutants 98`, so the
-  sdist number is one pass behind and the driver reads its expected line count from
-  the battery rather than from a literal.
+  the checkout has since printed two more lines — the second language's perception
+  vector and then its patch vector — most recently `checks 1210 … mutants 111` over
+  **35** lines, so the sdist number is two passes behind and the driver reads its
+  expected line count from the battery rather than from a literal.
 - **The one cross-tool comparison here is a run, not a claim.** `python
   benchmarks/market_compare.py --arms oneshot,aider,flash` answers the same 8 held-out
   tasks from the same 4-bit weights and grades every arm with the same harness oracle:
@@ -118,7 +119,7 @@ re-run.
 | `TODO.md` | the same requirements as boxes, each carrying the measurement that closed it |
 | `CHANGELOG.md` | what shipped, and the claims this project struck from its own docs |
 | `benchmarks/` | the vectors. `benchmarks/results/` holds the runs that published numbers cite |
-| `docs/` | `architecture.md` (the loop and its seams), `models.md` (tiers, versions, platform), `portability.md` (what a stranger's machine must not need), `config.md` (every knob is a flag; there is no config file), `privacy.md` (what leaves the machine, what gets written where), `methodology.md` (how the numbers above were produced, and the five rules that catch a green lie) |
+| `docs/` | `architecture.md` (the loop and its seams), `models.md` (tiers, versions, platform), `portability.md` (what a stranger's machine must not need), `config.md` (every knob is a flag; there is no config file), `privacy.md` (what leaves the machine, what gets written where, and the sweep of every file and every commit that ran before this was published), `methodology.md` (how the numbers above were produced, and the five rules that catch a green lie) |
 | `flash/` | the package. `cli.py` is the whole surface, in one `argparse` object, so a check can parse commands without running them |
 | `site/` | the landing page (Vite + React). Its numbers come from `site/src/data/*.json`, which `benchmarks/export_site_data.py` writes from a measured run — a figure that is not in that JSON cannot render, and no figure is typed into the page by hand |
 
@@ -237,7 +238,7 @@ Vision is benchmarked once the text brain is picked (PLAN §M1–M2).
 .venv/bin/python -m flash.harness --selftest        # 20 offline checks on the oracle
 .venv/bin/python benchmarks/m0_bakeoff.py --dry-run # 20/20 reference solutions pass
 
-# All 33 offline vectors in this file (32 check-summing + m0_bakeoff's oracle) in
+# All 35 offline vectors in this file (34 check-summing + m0_bakeoff's oracle) in
 # one command, summed from the fraction each run
 # PRINTS (never an exit code, never a phrase grep — see SPEC §6 for the two
 # capture traps that rule is there to prevent). Fails if the tree's total moves
@@ -314,11 +315,14 @@ Vision is benchmarked once the text brain is picked (PLAN §M1–M2).
 #   Python alone stays the default, on purpose: every graph number published here
 #   was built with it, and a second language entering silently would make those
 #   figures describe an index the tool does not build.
-#   What the second language does NOT do yet, all three open in SPEC R-1.4: the
+#   What the second language does NOT do yet, all open in SPEC R-1.4: the
 #   loop's retry hint ranks symbols over a Python-only index, `--live` asks jedi
-#   (there is no `tsserver` seam), and the patch arm refuses
-#   `# edit: App.tsx :: Widget` while `# edit: App.tsx :: L11-L15` applies.
+#   (there is no `tsserver` seam), and nothing verifies a `.tsx` edit — a patch
+#   that parses is accepted on the strength of a parse. The patch arm learned
+#   addresses on 2026-09-28: `flash/patches.py` dispatches by file suffix, so the
+#   symbol form resolves to the span the `L11-L15` range form always gave.
 .venv/bin/python benchmarks/ts_perception_check.py --sweep   # 47 checks + 13 mutants
+.venv/bin/python benchmarks/ts_patch_check.py --sweep        # 44 checks + 13 mutants
 #   `--sweep` is the quoted form: it runs the checks, then all thirteen bugs twice —
 #   once in this process and once in a fresh process per bug, because two of them
 #   patch the same module functions the next one reads.
