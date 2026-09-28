@@ -423,8 +423,9 @@ versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.0.1] - tagged 2026-09-28, still not published
 
-**Tagged, not released.** `v0.0.1` is an annotated tag on this commit, cut the day
-R-7.5 closed — the box that gated it. It is still not downloadable, because no remote
+**Tagged, not released.** `v0.0.1` is an annotated tag on `6a0868b`, the commit that
+closed R-7.5 — the box that gated it — and work has landed since it was cut, including
+the cross-tool run above. It is still not downloadable, because no remote
 is configured: a tag on a laptop is a promise, and the promise is kept only when
 someone pushes it. The version was deliberately not bumped to `0.1.0` for this; the
 number the package prints is repeated in `flash/__init__.py`, in the landing page's
