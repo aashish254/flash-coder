@@ -1435,7 +1435,12 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   and the bytes swept anyway, because archive padding is where a planted secret would
   sit. Identity is reported rather than gated: `github-noreply-email` **7**,
   `personal-email` **0**, `host-path` **1117** occurrences across the tree and history.
-  Witness `benchmarks/results/publish_secret_scan_20260928.log`.
+  Witness `benchmarks/results/publish_secret_scan_20260928.log`. The file and blob
+  counts belong to that run, not to the repository forever: the history arm counts every
+  blob that exists at the moment of the sweep, so re-running the same command after this
+  entry was committed printed **735 blobs and 0 files not yet tracked**. A larger blob
+  count on re-read is the history growing, which is what it measures; a *smaller* one
+  would mean someone rewrote it.
   Three things this pass produced that are worth more than the green line, each kept as
   a mutant-shaped fact. **(1) A scan that cannot match anything is green forever**, so
   `plant()` puts a synthetic secret through every family and fails the run if any family

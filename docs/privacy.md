@@ -104,7 +104,11 @@ the residue in the 182 record files that gate reads, once the history blobs and
 the decompressed archive members are left out. The two numbers measure
 different sets, and `docs/portability.md` explains why the records keep their
 paths at all. The witness is
-`benchmarks/results/publish_secret_scan_20260928.log`.
+`benchmarks/results/publish_secret_scan_20260928.log`. Those two counts belong to that
+run, not to the repository forever: every commit adds blobs to the history arm, so the
+same command on the commit that carried this page printed **735** historical blobs and
+**0** untracked files. A bigger number when you re-run it is the history growing, not
+this claim failing.
 
 The two accepted matches, since "trust me" is not an answer here either: the
 OpenAI key aider is handed in `benchmarks/market_compare.py` is the literal

@@ -410,6 +410,13 @@ versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   by a driver, so nothing in it says which tree it was read from. The replacement
   asserts its provenance before it reports a total and refuses to write the witness
   if the checkout's path appears in it.
+- **The secret sweep's blob count was written as though it were a property of the
+  repository.** `SPEC.md` and `docs/privacy.md` both cited **713 blobs ever committed**,
+  which is true of the run that produced the witness and false of the next one: the
+  history arm counts every blob that exists at the moment of the sweep, so the same
+  command on the commit that carried that witness printed **735 blobs and 0 untracked
+  files**. Both pages now say which number they are quoting and that a larger count on
+  re-run is the history growing — a *smaller* one would mean somebody rewrote it.
 
 ### Fixed
 - **R-7.9** `python -m flash.train --dry-run` writes nothing, on both of its
