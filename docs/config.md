@@ -92,14 +92,24 @@ reproduce, never read as user configuration.
 
 ## Optional installs
 
-`pyproject.toml` carries three extras, and each one's absence is a message
+`pyproject.toml` carries four extras, and each one's absence is a message
 rather than a crash:
 
 ```bash
 pip install -e .[dev]   # pyflakes + build: what CI runs and what you run to check your own work
 pip install .[vlm]      # mlx-vlm: `flash run-vis-suite`, screenshots through a VLM
 pip install .[web]      # transformers + torch: bge embeddings for `flash web` ranking
+pip install .[ts]       # tree-sitter + its TypeScript grammar: `flash graph --lang ts`
 ```
+
+The `ts` extra is the one a person with a front end in their repo will want, and
+its absence is measured rather than described: without it the Python pass still
+builds the graph, `--lang ts` prints one refusal naming the command above, and the
+refusal is counted as a blind spot so a `summary()` cannot read as complete.
+`benchmarks/ts_perception_check.py` gates that sentence by faking the grammar's
+absence three times (47 checks: 3 require the printed refusal, the still-answering
+Python pass and the counted blind spot; 2 more gate what the grammar refuses to
+guess, an unparseable file and a broken one's neighbours).
 
 MLX itself is not an extra — it is a marked dependency
 (`sys_platform == 'darwin' and platform_machine == 'arm64'`), and with it

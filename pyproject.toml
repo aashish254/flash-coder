@@ -47,6 +47,12 @@ vlm = ["mlx-vlm>=0.7; sys_platform == 'darwin' and platform_machine == 'arm64'"]
 # flash web's doc ranker embeds with bge via torch. Without it `flash web`
 # falls back to keyword ranking, which is measured and reported as a fallback.
 web = ["transformers>=4.44", "torch>=2.4"]
+# R-1.4's second language. Without it `flash graph --lang ts` prints one refusal
+# sentence naming this command and still answers about Python; the pass never
+# falls back to string matching. Measured on: tree-sitter 0.26.0 and
+# tree-sitter-typescript 0.23.2, the pair `benchmarks/ts_perception_check.py` was
+# run green against (47/47 + 13/13 mutants).
+ts = ["tree-sitter>=0.25", "tree-sitter-typescript>=0.23"]
 # What CI and a contributor run: the offline battery needs no model, and
 # pyflakes is a gate rather than a suggestion (`python -m pyflakes flash/*.py
 # benchmarks/*.py` must print nothing).

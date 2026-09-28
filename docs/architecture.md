@@ -22,7 +22,10 @@ the two rules that make the rest of the design necessary.
   turns 0 into a first answer that knows the project; `flash/perceive.py` runs one
   file's static diagnostics as an oracle; `flash/lsp.py` ranks the symbols a
   failure is actually about and quotes their real source; `flash/graph.py` answers
-  who calls this symbol and what breaks if it changes.
+  who calls this symbol and what breaks if it changes — of a Python file by
+  default, and of TypeScript/TSX too when the optional `ts` grammar is installed,
+  because `flash/lang_ts.py` fills the same `Node`/`Edge`/`Unresolved` records so
+  there is one query engine and one `blast()` rather than a second graph.
 - **ROUTE** `flash/route.py` + `flash/decide.py` pick the cheapest tier that can
   solve this task. The learned version (`flash/learn.py` fit on
   `flash/ledger.py`'s outcomes) is gated off until its held-out AUC earns it —

@@ -14,9 +14,10 @@ have been there instead.
 it can be measured, because the two readings differ:
 
 * **literal** — every child process imports `flash` out of `site-packages`, with no
-  source tree present. This one is **unsatisfiable by design**: eleven of the 33
-  vectors index *this tree* (the graph selftest builds its index over the source it
-  is standing in, `portable_paths_check.py` scans it, `documented_commands_check.py`
+  source tree present. This one is **unsatisfiable by design**: eleven of the
+  battery's own vectors index *this tree* (the graph selftest builds its index over
+  the source it is standing in, `portable_paths_check.py` scans it,
+  `documented_commands_check.py`
   reads its documents), and R-7.10 made the rest refuse rather than pass quietly on
   a wheel install with no `benchmarks/` beside the package. A battery run that way
   would report a total from checks that could not have run.
@@ -41,7 +42,8 @@ witness carries both shapes. Steps, each of which prints a provenance line:
     python benchmarks/r75_sdist_battery_check.py            # ~18 min, one battery
     python benchmarks/r75_sdist_battery_check.py --keep     # leave /tmp alone
 
-Exit codes: 0 the battery printed all 33 lines green and the provenance held; 1 a
+Exit codes: 0 the battery printed every one of its lines green (the count is read
+from `battery_reread.BATTERY`, not written here) and the provenance held; 1 a
 line failed or the provenance did not; 2 setup failed (no build tool, no /tmp).
 """
 from __future__ import annotations
@@ -54,6 +56,9 @@ import tarfile
 import time
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import battery_reread                                        # noqa: E402
+
 ROOT = Path(__file__).resolve().parent.parent
 RESULTS = ROOT / "benchmarks" / "results"
 PY = sys.executable
@@ -65,6 +70,11 @@ PY = sys.executable
 BUILDERS = [PY, *[str(p) for name in ("python3.11", "python3")
                  if (p := shutil.which(name))]]
 LINE = "OK   "
+# The line count comes from the battery's own list rather than a literal written
+# here: this gate's job is to require every published line to re-print, and a
+# hardcoded number would turn the day a 34th vector ships into a run that fails
+# for the wrong reason — or, worse, a run that is edited to match.
+WANT_LINES = len(battery_reread.BATTERY)
 
 
 def builder() -> str:
@@ -239,9 +249,9 @@ def main(argv: list[str]) -> int:
             die("the witness carries a host path", rc=1)
         witness.write_text(body)
         print(f"\nr75_sdist_battery: wrote benchmarks/results/{witness.name}")
-        print(f"r75_sdist_battery: {'ALL 33 LINES GREEN' if rc == 0 and ok_lines == 33 else 'see the BAD lines above'}"
+        print(f"r75_sdist_battery: {'ALL ' + str(WANT_LINES) + ' LINES GREEN' if rc == 0 and ok_lines == WANT_LINES else 'see the BAD lines above'}"
               f" (battery rc {rc}, {ok_lines} OK lines)")
-        return 0 if rc == 0 and ok_lines == 33 and rc2 == 2 else 1
+        return 0 if rc == 0 and ok_lines == WANT_LINES and rc2 == 2 else 1
     finally:
         if keep:
             print(f"r75_sdist_battery: leaving {base} in place (--keep)")

@@ -45,7 +45,14 @@ import sys
 import tempfile
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import battery_reread                                        # noqa: E402
+
 ROOT = Path(__file__).resolve().parent.parent
+# The subset print names the whole battery ("run of 3/N lines"), so N comes from
+# the battery's own list. A literal here would fail the day a vector is added —
+# the same defect `r75_sdist_battery_check.py` had.
+WANT_LINES = len(battery_reread.BATTERY)
 HOME = str(Path.home())
 CHECKS: list[tuple[str, bool, str]] = []
 LINES: list[str] = []
@@ -236,9 +243,9 @@ def main(argv: list[str]) -> int:
                        "harness", "lsp", "power"], cwd=clone, timeout=1200)
         subset = sum(1 for line in out.splitlines() if line.startswith("OK   "))
         check("and the battery it advertises really runs from the clone",
-              rc == 0 and "run of 3/33 lines" in out and subset == 3,
+              rc == 0 and f"run of 3/{WANT_LINES} lines" in out and subset == 3,
               f"rc {rc}, {subset}/3 lines OK, and the print says its own totals are "
-              "partial")
+              f"partial (of {WANT_LINES} vectors)")
 
         total = len(CHECKS)
         green = sum(1 for _, ok, _ in CHECKS if ok)

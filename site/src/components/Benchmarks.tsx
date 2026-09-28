@@ -296,7 +296,7 @@ export function Benchmarks() {
       <Reveal delay={0.05}>
         <div className="mt-6 card p-5">
           <h3 className="text-[15px] font-medium text-fog-0">
-            All 33 vectors, as printed
+            All {int(benchmarks.totals.vectors)} vectors, as printed
           </h3>
           <p className="mt-1 text-[13px] text-fog-1">
             Bar length is checks. A mutant column of zero means the vector asserts

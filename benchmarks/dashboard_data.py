@@ -41,7 +41,7 @@ RESULTS = ROOT / "benchmarks" / "results"
 
 # The §6 witness the counts are parsed from. A dated print, not a live run: the
 # counts it carries are the counts the README publishes.
-WITNESS = RESULTS / "battery_reread_r710c_20260927.log"
+WITNESS = RESULTS / "battery_reread_r14_20260928.log"
 
 # The cross-tool print, same rule: a competitor's number enters the page only if a
 # run wrote it into this file. One dated witness, parsed rather than quoted.

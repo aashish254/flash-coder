@@ -52,8 +52,9 @@ configured yet. The two installs a stranger can make from here **have** been run
 (SPEC **R-7.5**, closed 2026-09-28, `python benchmarks/r75_fresh_install_check.py`,
 9/9 shapes), and they are not the same experience:
 - an **editable install in a clone** — `flash doctor` exits **0** with the battery line
-  on `yes`, and `flash selftest --all --quick harness lsp power` runs 3 of 33 vectors
-  from that clone, printing its own warning that the totals are partial;
+  on `yes`, and `flash selftest --all --quick harness lsp power` runs 3 of the
+  battery's vectors from that clone, printing its own warning that the totals are
+  partial;
 - an **install from the built tarball** — `flash --version` answers, `flash doctor`
   exits **1** saying `verification surface beside the package: benchmarks/ ABSENT` and
   naming its remedy, and `flash selftest --all` exits **2** naming the `site-packages`

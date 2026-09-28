@@ -25,7 +25,7 @@ const SHAPES = [
     name: 'editable install of the clone, run from elsewhere',
     status: 'dated',
     detail:
-      'all 33 vectors green from a clone installed with -e. Run on 2026-09-27 against the totals of that day (1,104 + 20 = 1,124, 78 gates); not re-run since R-7.10c added 15 checks and 7 gates.',
+      'all 33 vectors green from a clone installed with -e. Run on 2026-09-27 against the totals of that day (1,104 + 20 = 1,124, 78 gates); not re-run since R-7.10c added 15 checks and 7 gates, nor since R-1.4 added a 34th vector (the battery prints 1,166 + 20 = 1,186 with 98 gates as of 2026-09-28).',
     witness: 'benchmarks/results/r75_install_shapes_20260927.log',
   },
   {

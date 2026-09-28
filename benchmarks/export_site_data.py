@@ -208,10 +208,11 @@ def capture(argv: list[str], keep: int, take: str = "head") -> dict:
 def build_transcripts(witness_lines: list[str]) -> list[dict]:
     doctor = capture(["-m", "flash.cli", "doctor"], 24)
     graph = capture(["-m", "flash.graph", "--selftest"], 4, take="tail")
+    lines = [ln for ln in witness_lines if ln.startswith("OK   ")]
     bat = {
         "command": "python benchmarks/battery_reread.py",
         "exit": 0,
-        "lines": witness_lines[:6] + ["  … 33 lines, one per §6 vector"]
+        "lines": lines[:6] + [f"  … {len(lines)} lines, one per §6 vector"]
                  + witness_lines[-3:],
         "redacted": [],
         "source": dashboard_data.WITNESS.name,

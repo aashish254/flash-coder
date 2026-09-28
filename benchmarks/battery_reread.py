@@ -71,6 +71,8 @@ BATTERY = [
      20, 5, "checks"),
     ("benchmarks/graph_perceive_check.py",
      "benchmarks/graph_perceive_check.py --sweep", 33, 12, "checks"),
+    ("benchmarks/ts_perception_check.py",
+     "benchmarks/ts_perception_check.py --sweep", 47, 13, "checks"),
     ("benchmarks/hint_ab_check.py", "benchmarks/hint_ab_check.py",
      14, 8, "checks"),
     ("benchmarks/portable_paths_check.py", "benchmarks/portable_paths_check.py",
@@ -86,7 +88,7 @@ BATTERY = [
      20, None, "oracle"),
 ]
 
-CLAIM = {"checks": 1119, "oracle": 20, "mutants": 85}
+CLAIM = {"checks": 1166, "oracle": 20, "mutants": 98}
 
 
 def run(argv: str) -> str:
@@ -107,7 +109,11 @@ def mutant_count(text: str) -> int:
     exactly this reason, and the two summaries agreeing on 12 is the run's own
     claim, not this parser's. `hint_ab_check.py` prints the FIRST shape — one
     `hint-ab mutants: 8/8 …` summary and `ok MUTATION:` verdicts that carry a
-    check count but no fraction of their own.
+    check count but no fraction of their own. `ts_perception_check.py --sweep` is
+    graph's shape a fourth time: thirteen lowercase `ok   MUTATION:` verdicts, then
+    three `13/13`-style summaries (this process, the fresh-process lane, and the
+    sweep's own verdict), which agree because the run refuses to print a
+    fresh-process total unless the child listed all thirteen.
     """
     best = 0
     for line in text.replace("\r", "\n").split("\n"):

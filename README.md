@@ -7,14 +7,17 @@ again — no API key, no container, nothing leaving the machine.
 Two things about this repo are load-bearing, and both are visible in the files:
 
 - **Every claim is a printed number.** The offline verification battery is
-  **1,119 checks + 20 oracle verifications + 85 mutation gates**, and `SPEC.md` §6
+  **1,166 checks + 20 oracle verifications + 98 mutation gates**, and `SPEC.md` §6
   records why the totals come from the fraction each run *prints* — never an exit
   code, never a phrase grep — after both of those shortcuts produced a wrong total
   that looked clean on this project's own output. That total is not a property of
   the author's disk: `python benchmarks/r75_sdist_battery_check.py` builds the
   sdist, installs it into a throwaway venv, checks which `flash` a child imports,
-  and runs all 33 lines **inside the download** — 33/33, the same
-  `checks 1119  oracle 20  §6 total 1139  mutants 85`, in 13 min 2 s.
+  and runs the whole battery **inside the download** — the run on record printed
+  33/33 and `checks 1119  oracle 20  §6 total 1139  mutants 85` in 13 min 2 s, and
+  the checkout has since printed a 34th line and `checks 1166 … mutants 98`, so the
+  sdist number is one pass behind and the driver reads its expected line count from
+  the battery rather than from a literal.
 - **The one cross-tool comparison here is a run, not a claim.** `python
   benchmarks/market_compare.py --arms oneshot,aider,flash` answers the same 8 held-out
   tasks from the same 4-bit weights and grades every arm with the same harness oracle:
@@ -293,6 +296,32 @@ Vision is benchmarked once the text brain is picked (PLAN §M1–M2).
 #   The trailing `?` line counts uses this pass could not place, so the number above it
 #   reads as a floor and not as a census.
 .venv/bin/python -m flash.graph --selftest --mutants   # 44 offline checks + 12 mutants
+
+# R-1.4 — the second language: TypeScript, picked by a census rather than by taste.
+# The requirement named the outcome ledger as its evidence, and the ledger cannot
+# answer: 1148 rows, 0 of them asking for SQL and 0 asking for TypeScript. The tie
+# therefore went to the tree this tool indexes — 21 `.ts`/`.tsx` files against 0
+# `.sql` (the count `flash.lang_ts.ts_files('.')` prints), which is the front end of
+# this own repo, previously blind to the graph.
+# `flash/lang_ts.py` parses it with tree-sitter into the SAME `Node`/`Edge`/
+# `Unresolved` records, so one `blast()` answers across both languages and every use
+# it cannot place is still counted: an npm specifier, a name the target does not
+# export, one that reaches through `export *`, one behind a re-export, a file that
+# does not parse. The grammar is an optional extra — without it `--lang ts` prints
+# one refusal naming `pip install 'flash-coder[ts]'`, the Python pass still answers,
+# and the pass never degrades into string matching.
+.venv/bin/python -m flash.cli graph Hero --path site/src --lang py,ts
+#   Python alone stays the default, on purpose: every graph number published here
+#   was built with it, and a second language entering silently would make those
+#   figures describe an index the tool does not build.
+#   What the second language does NOT do yet, all three open in SPEC R-1.4: the
+#   loop's retry hint ranks symbols over a Python-only index, `--live` asks jedi
+#   (there is no `tsserver` seam), and the patch arm refuses
+#   `# edit: App.tsx :: Widget` while `# edit: App.tsx :: L11-L15` applies.
+.venv/bin/python benchmarks/ts_perception_check.py --sweep   # 47 checks + 13 mutants
+#   `--sweep` is the quoted form: it runs the checks, then all thirteen bugs twice —
+#   once in this process and once in a fresh process per bug, because two of them
+#   patch the same module functions the next one reads.
 
 # §28.2 step 3 / R-1.3b — and the loop READS that graph on a retry. `graph.scope_hint`
 # takes the ≤3 symbols `lsp.symbols_involved` ranks as at issue and emits their

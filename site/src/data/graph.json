@@ -8,9 +8,9 @@
    "degree": 5,
    "label": "Finding",
    "pos": [
-    3.73,
-    -9.59,
-    29.75
+    3.67,
+    -9.44,
+    29.8
    ]
   },
   {
@@ -21,9 +21,9 @@
    "degree": 7,
    "label": "git",
    "pos": [
-    -0.9,
-    -5.39,
-    28.52
+    -0.96,
+    -5.24,
+    28.57
    ]
   },
   {
@@ -34,9 +34,9 @@
    "degree": 54,
    "label": "check",
    "pos": [
-    7.58,
-    -5.83,
-    27.28
+    7.52,
+    -5.68,
+    27.34
    ]
   },
   {
@@ -47,9 +47,9 @@
    "degree": 9,
    "label": "check_drift",
    "pos": [
-    -0.0,
-    -11.85,
-    26.05
+    -0.06,
+    -11.69,
+    26.1
    ]
   },
   {
@@ -60,9 +60,9 @@
    "degree": 7,
    "label": "draft_one",
    "pos": [
-    1.73,
-    -1.78,
-    24.82
+    1.67,
+    -1.62,
+    24.87
    ]
   },
   {
@@ -73,9 +73,9 @@
    "degree": 21,
    "label": "run",
    "pos": [
-    7.17,
-    -10.43,
-    23.58
+    7.11,
+    -10.27,
+    23.64
    ]
   },
   {
@@ -86,9 +86,9 @@
    "degree": 116,
    "label": "run_selftest",
    "pos": [
-    -2.13,
-    -7.76,
-    22.35
+    -2.19,
+    -7.6,
+    22.4
    ]
   },
   {
@@ -99,9 +99,9 @@
    "degree": 11,
    "label": "scan",
    "pos": [
-    5.54,
-    -4.12,
-    21.12
+    5.48,
+    -3.96,
+    21.17
    ]
   },
   {
@@ -112,9 +112,9 @@
    "degree": 14,
    "label": "state",
    "pos": [
-    2.86,
-    -9.77,
-    19.88
+    2.8,
+    -9.61,
+    19.94
    ]
   },
   {
@@ -125,9 +125,9 @@
    "degree": 9,
    "label": "active",
    "pos": [
-    -10.89,
-    3.58,
-    28.16
+    -10.65,
+    3.46,
+    28.32
    ]
   },
   {
@@ -138,9 +138,9 @@
    "degree": 6,
    "label": "arm",
    "pos": [
-    -15.3,
-    7.55,
-    27.21
+    -15.06,
+    7.43,
+    27.37
    ]
   },
   {
@@ -151,9 +151,9 @@
    "degree": 9,
    "label": "begin",
    "pos": [
-    -7.07,
-    7.16,
-    26.26
+    -6.83,
+    7.04,
+    26.42
    ]
   },
   {
@@ -164,9 +164,9 @@
    "degree": 9,
    "label": "carry",
    "pos": [
-    -14.6,
-    1.11,
-    25.31
+    -14.36,
+    0.99,
+    25.46
    ]
   },
   {
@@ -177,9 +177,9 @@
    "degree": 31,
    "label": "ck",
    "pos": [
-    -12.9,
-    11.57,
-    24.36
+    -12.66,
+    11.45,
+    24.51
    ]
   },
   {
@@ -190,9 +190,9 @@
    "degree": 6,
    "label": "disarm",
    "pos": [
-    -6.83,
-    2.18,
-    23.41
+    -6.59,
+    2.06,
+    23.56
    ]
   },
   {
@@ -203,9 +203,9 @@
    "degree": 19,
    "label": "load",
    "pos": [
-    -17.9,
-    5.13,
-    22.45
+    -17.66,
+    5.01,
+    22.61
    ]
   },
   {
@@ -216,9 +216,9 @@
    "degree": 9,
    "label": "note",
    "pos": [
-    -7.72,
-    10.39,
-    21.5
+    -7.48,
+    10.27,
+    21.66
    ]
   },
   {
@@ -229,9 +229,9 @@
    "degree": 6,
    "label": "path_for",
    "pos": [
-    -11.63,
-    -0.09,
-    20.55
+    -11.39,
+    -0.2,
+    20.71
    ]
   },
   {
@@ -242,9 +242,9 @@
    "degree": 103,
    "label": "run_selftest",
    "pos": [
-    -15.54,
-    9.77,
-    19.6
+    -15.3,
+    9.65,
+    19.75
    ]
   },
   {
@@ -255,9 +255,9 @@
    "degree": 8,
    "label": "save",
    "pos": [
-    -6.89,
-    5.47,
-    18.65
+    -6.65,
+    5.36,
+    18.8
    ]
   },
   {
@@ -268,9 +268,9 @@
    "degree": 5,
    "label": "started",
    "pos": [
-    -14.84,
-    3.33,
-    17.7
+    -14.6,
+    3.21,
+    17.85
    ]
   },
   {
@@ -281,9 +281,9 @@
    "degree": 5,
    "label": "update",
    "pos": [
-    -11.39,
-    8.15,
-    16.74
+    -11.15,
+    8.03,
+    16.9
    ]
   },
   {
@@ -294,9 +294,9 @@
    "degree": 23,
    "label": "_run_suite",
    "pos": [
-    17.1,
-    1.4,
-    20.09
+    16.79,
+    1.31,
+    20.35
    ]
   },
   {
@@ -307,9 +307,9 @@
    "degree": 17,
    "label": "_affordable",
    "pos": [
-    -8.93,
-    -18.68,
-    22.43
+    -8.76,
+    -18.39,
+    22.79
    ]
   },
   {
@@ -320,9 +320,9 @@
    "degree": 5,
    "label": "_counts_as_guard",
    "pos": [
-    -13.63,
-    -14.4,
-    21.08
+    -13.46,
+    -14.11,
+    21.44
    ]
   },
   {
@@ -333,9 +333,9 @@
    "degree": 10,
    "label": "_probe_calls",
    "pos": [
-    -5.09,
-    -14.86,
-    19.74
+    -4.92,
+    -14.57,
+    20.1
    ]
   },
   {
@@ -346,9 +346,9 @@
    "degree": 9,
    "label": "_shape",
    "pos": [
-    -12.64,
-    -20.81,
-    18.4
+    -12.46,
+    -20.52,
+    18.76
    ]
   },
   {
@@ -359,9 +359,9 @@
    "degree": 29,
    "label": "ck",
    "pos": [
-    -10.91,
-    -11.03,
-    17.06
+    -10.73,
+    -10.74,
+    17.42
    ]
   },
   {
@@ -372,9 +372,9 @@
    "degree": 5,
    "label": "edge_probe",
    "pos": [
-    -5.86,
-    -19.2,
-    15.71
+    -5.68,
+    -18.91,
+    16.07
    ]
   },
   {
@@ -385,9 +385,9 @@
    "degree": 11,
    "label": "evaluate",
    "pos": [
-    -14.04,
-    -16.71,
-    14.37
+    -13.86,
+    -16.42,
+    14.73
    ]
   },
   {
@@ -398,9 +398,9 @@
    "degree": 72,
    "label": "run_selftest",
    "pos": [
-    -8.16,
-    -14.3,
-    13.03
+    -7.98,
+    -14.01,
+    13.39
    ]
   },
   {
@@ -411,9 +411,9 @@
    "degree": 8,
    "label": "_run",
    "pos": [
-    -3.0,
-    17.8,
-    18.74
+    -2.93,
+    17.46,
+    19.2
    ]
   },
   {
@@ -424,9 +424,9 @@
    "degree": 11,
    "label": "ck",
    "pos": [
-    -7.99,
-    22.5,
-    16.49
+    -7.92,
+    22.16,
+    16.95
    ]
   },
   {
@@ -437,9 +437,9 @@
    "degree": 22,
    "label": "run_selftest",
    "pos": [
-    0.1,
-    21.79,
-    14.24
+    0.17,
+    21.45,
+    14.7
    ]
   },
   {
@@ -450,9 +450,9 @@
    "degree": 9,
    "label": "watch",
    "pos": [
-    -5.62,
-    18.03,
-    11.99
+    -5.56,
+    17.69,
+    12.45
    ]
   },
   {
@@ -463,9 +463,9 @@
    "degree": 6,
    "label": "answers",
    "pos": [
-    19.4,
-    -16.54,
-    13.0
+    19.13,
+    -16.34,
+    13.57
    ]
   },
   {
@@ -476,9 +476,9 @@
    "degree": 8,
    "label": "ConstrainedSampler",
    "pos": [
-    -22.66,
-    -4.93,
-    15.57
+    -22.33,
+    -4.95,
+    16.0
    ]
   },
   {
@@ -489,9 +489,9 @@
    "degree": 9,
    "label": "Contract",
    "pos": [
-    -27.3,
-    -0.73,
-    14.34
+    -27.04,
+    -0.67,
+    14.66
    ]
   },
   {
@@ -502,9 +502,9 @@
    "degree": 11,
    "label": "feed",
    "pos": [
-    -18.81,
-    -1.17,
-    13.1
+    -18.5,
+    -1.14,
+    13.32
    ]
   },
   {
@@ -515,9 +515,9 @@
    "degree": 7,
    "label": "_reference",
    "pos": [
-    -26.4,
-    -7.19,
-    11.87
+    -26.04,
+    -7.08,
+    11.98
    ]
   },
   {
@@ -528,9 +528,9 @@
    "degree": 5,
    "label": "answer_shaped",
    "pos": [
-    -24.67,
-    2.88,
-    10.64
+    -24.31,
+    2.7,
+    10.63
    ]
   },
   {
@@ -541,9 +541,9 @@
    "degree": 43,
    "label": "ck",
    "pos": [
-    -19.22,
-    -5.77,
-    9.4
+    -19.26,
+    -5.48,
+    9.29
    ]
   },
   {
@@ -554,22 +554,9 @@
    "degree": 7,
    "label": "conformance",
    "pos": [
-    -28.53,
-    -3.1,
-    8.17
-   ]
-  },
-  {
-   "id": "flash/grammar.py::run_overhead",
-   "file": "flash/grammar.py",
-   "symbol": "run_overhead",
-   "kind": "function",
-   "degree": 5,
-   "label": "run_overhead",
-   "pos": [
-    -20.86,
-    0.55,
-    6.94
+    -27.44,
+    -2.98,
+    7.95
    ]
   },
   {
@@ -580,9 +567,9 @@
    "degree": 92,
    "label": "run_selftest",
    "pos": [
-    -23.53,
-    -5.1,
-    5.7
+    -21.56,
+    -0.58,
+    6.61
    ]
   },
   {
@@ -593,9 +580,9 @@
    "degree": 9,
    "label": "Edge",
    "pos": [
-    17.07,
-    16.45,
-    15.01
+    16.9,
+    16.23,
+    15.65
    ]
   },
   {
@@ -606,9 +593,9 @@
    "degree": 7,
    "label": "_cache",
    "pos": [
-    12.92,
-    20.17,
-    14.3
+    12.72,
+    19.98,
+    14.92
    ]
   },
   {
@@ -619,9 +606,9 @@
    "degree": 9,
    "label": "blast",
    "pos": [
-    20.78,
-    19.83,
-    13.59
+    20.62,
+    19.63,
+    14.18
    ]
   },
   {
@@ -632,9 +619,9 @@
    "degree": 8,
    "label": "resolved",
    "pos": [
-    13.47,
-    13.91,
-    12.88
+    13.28,
+    13.69,
+    13.45
    ]
   },
   {
@@ -645,22 +632,9 @@
    "degree": 7,
    "label": "_bindings",
    "pos": [
-    15.12,
-    24.33,
-    12.18
-   ]
-  },
-  {
-   "id": "flash/graph.py::_binds",
-   "file": "flash/graph.py",
-   "symbol": "_binds",
-   "kind": "function",
-   "degree": 5,
-   "label": "_binds",
-   "pos": [
-    21.38,
-    14.76,
-    11.47
+    14.94,
+    24.13,
+    12.72
    ]
   },
   {
@@ -671,9 +645,9 @@
    "degree": 81,
    "label": "_checks",
    "pos": [
-    9.66,
-    17.8,
-    10.76
+    21.19,
+    14.57,
+    11.98
    ]
   },
   {
@@ -684,9 +658,9 @@
    "degree": 8,
    "label": "_join",
    "pos": [
-    20.81,
-    23.68,
-    10.05
+    9.51,
+    17.6,
+    11.25
    ]
   },
   {
@@ -697,9 +671,9 @@
    "degree": 8,
    "label": "_now_ms",
    "pos": [
-    16.42,
-    11.5,
-    9.34
+    20.59,
+    23.43,
+    10.51
    ]
   },
   {
@@ -710,9 +684,9 @@
    "degree": 15,
    "label": "_wide_checks",
    "pos": [
-    11.38,
-    23.64,
-    8.63
+    16.23,
+    11.37,
+    9.78
    ]
   },
   {
@@ -720,12 +694,12 @@
    "file": "flash/graph.py",
    "symbol": "build",
    "kind": "function",
-   "degree": 13,
+   "degree": 14,
    "label": "build",
    "pos": [
-    23.34,
-    18.04,
-    7.92
+    11.27,
+    23.36,
+    9.04
    ]
   },
   {
@@ -736,9 +710,9 @@
    "degree": 44,
    "label": "check",
    "pos": [
-    10.79,
-    14.13,
-    7.21
+    23.01,
+    17.85,
+    8.31
    ]
   },
   {
@@ -746,12 +720,12 @@
    "file": "flash/graph.py",
    "symbol": "dispatch",
    "kind": "function",
-   "degree": 5,
+   "degree": 6,
    "label": "dispatch",
    "pos": [
-    17.33,
-    25.3,
-    6.5
+    10.77,
+    14.05,
+    7.57
    ]
   },
   {
@@ -762,9 +736,9 @@
    "degree": 15,
    "label": "emit",
    "pos": [
-    19.95,
-    12.98,
-    5.79
+    17.11,
+    24.85,
+    6.84
    ]
   },
   {
@@ -775,9 +749,9 @@
    "degree": 19,
    "label": "expr",
    "pos": [
-    10.12,
-    20.03,
-    5.08
+    19.6,
+    13.04,
+    6.11
    ]
   },
   {
@@ -788,9 +762,9 @@
    "degree": 11,
    "label": "extract",
    "pos": [
-    21.47,
-    21.35,
-    4.37
+    10.33,
+    19.73,
+    5.37
    ]
   },
   {
@@ -801,9 +775,9 @@
    "degree": 15,
    "label": "merge",
    "pos": [
-    14.53,
-    13.41,
-    3.66
+    20.84,
+    20.9,
+    4.64
    ]
   },
   {
@@ -811,12 +785,12 @@
    "file": "flash/graph.py",
    "symbol": "python_files",
    "kind": "function",
-   "degree": 7,
+   "degree": 8,
    "label": "python_files",
    "pos": [
-    14.39,
-    22.82,
-    2.95
+    14.57,
+    13.85,
+    3.9
    ]
   },
   {
@@ -827,9 +801,9 @@
    "degree": 12,
    "label": "render",
    "pos": [
-    19.69,
-    17.0,
-    2.24
+    14.58,
+    21.76,
+    3.17
    ]
   },
   {
@@ -840,22 +814,9 @@
    "degree": 31,
    "label": "walk",
    "pos": [
-    14.17,
-    17.81,
-    1.53
-   ]
-  },
-  {
-   "id": "flash/harness.py::Score",
-   "file": "flash/harness.py",
-   "symbol": "Score",
-   "kind": "class",
-   "degree": 5,
-   "label": "Score",
-   "pos": [
-    1.52,
-    -27.88,
-    10.05
+    18.13,
+    17.41,
+    2.43
    ]
   },
   {
@@ -866,9 +827,9 @@
    "degree": 20,
    "label": "ck",
    "pos": [
-    -3.34,
-    -23.41,
-    8.4
+    1.6,
+    -27.87,
+    10.16
    ]
   },
   {
@@ -879,9 +840,9 @@
    "degree": 12,
    "label": "diagnose",
    "pos": [
-    5.23,
-    -23.94,
-    6.74
+    -3.39,
+    -23.17,
+    7.91
    ]
   },
   {
@@ -892,9 +853,9 @@
    "degree": 43,
    "label": "run_selftest",
    "pos": [
-    -2.02,
-    -29.5,
-    5.08
+    4.7,
+    -23.88,
+    5.66
    ]
   },
   {
@@ -905,22 +866,9 @@
    "degree": 16,
    "label": "score",
    "pos": [
-    -0.31,
-    -21.09,
-    3.42
-   ]
-  },
-  {
-   "id": "flash/harness.py::score_files",
-   "file": "flash/harness.py",
-   "symbol": "score_files",
-   "kind": "function",
-   "degree": 5,
-   "label": "score_files",
-   "pos": [
-    2.74,
-    -26.94,
-    1.77
+    -1.03,
+    -27.64,
+    3.41
    ]
   },
   {
@@ -931,9 +879,9 @@
    "degree": 20,
    "label": "check",
    "pos": [
-    -16.85,
-    16.21,
-    8.24
+    -16.74,
+    16.1,
+    9.22
    ]
   },
   {
@@ -944,9 +892,9 @@
    "degree": 8,
    "label": "eligibility",
    "pos": [
-    -21.55,
-    20.48,
-    6.9
+    -21.44,
+    20.37,
+    7.88
    ]
   },
   {
@@ -957,9 +905,9 @@
    "degree": 10,
    "label": "load_state",
    "pos": [
-    -13.01,
-    20.02,
-    5.56
+    -12.9,
+    19.91,
+    6.54
    ]
   },
   {
@@ -970,9 +918,9 @@
    "degree": 15,
    "label": "run_fit",
    "pos": [
-    -20.55,
-    14.08,
-    4.22
+    -20.45,
+    13.96,
+    5.19
    ]
   },
   {
@@ -983,9 +931,9 @@
    "degree": 13,
    "label": "run_lora",
    "pos": [
-    -18.82,
-    23.85,
-    2.87
+    -18.72,
+    23.74,
+    3.85
    ]
   },
   {
@@ -996,9 +944,9 @@
    "degree": 59,
    "label": "run_selftest",
    "pos": [
-    -13.78,
-    15.68,
-    1.53
+    -13.67,
+    15.57,
+    2.51
    ]
   },
   {
@@ -1009,9 +957,9 @@
    "degree": 12,
    "label": "save_state",
    "pos": [
-    -21.95,
-    18.18,
-    0.19
+    -21.85,
+    18.07,
+    1.17
    ]
   },
   {
@@ -1022,9 +970,191 @@
    "degree": 14,
    "label": "state",
    "pos": [
-    -16.07,
-    20.58,
-    -1.15
+    -15.97,
+    20.47,
+    -0.18
+   ]
+  },
+  {
+   "id": "flash/lang_ts.py::_binds",
+   "file": "flash/lang_ts.py",
+   "symbol": "_binds",
+   "kind": "function",
+   "degree": 14,
+   "label": "_binds",
+   "pos": [
+    26.69,
+    -3.92,
+    8.14
+   ]
+  },
+  {
+   "id": "flash/lang_ts.py::_declarations",
+   "file": "flash/lang_ts.py",
+   "symbol": "_declarations",
+   "kind": "function",
+   "degree": 21,
+   "label": "_declarations",
+   "pos": [
+    22.33,
+    0.0,
+    7.23
+   ]
+  },
+  {
+   "id": "flash/lang_ts.py::_import_rows",
+   "file": "flash/lang_ts.py",
+   "symbol": "_import_rows",
+   "kind": "function",
+   "degree": 10,
+   "label": "_import_rows",
+   "pos": [
+    30.5,
+    -0.38,
+    6.33
+   ]
+  },
+  {
+   "id": "flash/lang_ts.py::_join",
+   "file": "flash/lang_ts.py",
+   "symbol": "_join",
+   "kind": "function",
+   "degree": 6,
+   "label": "_join",
+   "pos": [
+    23.0,
+    -6.42,
+    5.43
+   ]
+  },
+  {
+   "id": "flash/lang_ts.py::_named",
+   "file": "flash/lang_ts.py",
+   "symbol": "_named",
+   "kind": "function",
+   "degree": 15,
+   "label": "_named",
+   "pos": [
+    24.69,
+    4.07,
+    4.52
+   ]
+  },
+  {
+   "id": "flash/lang_ts.py::_pattern_names",
+   "file": "flash/lang_ts.py",
+   "symbol": "_pattern_names",
+   "kind": "function",
+   "degree": 10,
+   "label": "_pattern_names",
+   "pos": [
+    30.83,
+    -5.39,
+    3.62
+   ]
+  },
+  {
+   "id": "flash/lang_ts.py::_scope_locals",
+   "file": "flash/lang_ts.py",
+   "symbol": "_scope_locals",
+   "kind": "function",
+   "degree": 13,
+   "label": "_scope_locals",
+   "pos": [
+    19.57,
+    -2.41,
+    2.71
+   ]
+  },
+  {
+   "id": "flash/lang_ts.py::_text",
+   "file": "flash/lang_ts.py",
+   "symbol": "_text",
+   "kind": "function",
+   "degree": 28,
+   "label": "_text",
+   "pos": [
+    30.01,
+    3.01,
+    1.81
+   ]
+  },
+  {
+   "id": "flash/lang_ts.py::_walk",
+   "file": "flash/lang_ts.py",
+   "symbol": "_walk",
+   "kind": "function",
+   "degree": 10,
+   "label": "_walk",
+   "pos": [
+    25.97,
+    -7.91,
+    0.9
+   ]
+  },
+  {
+   "id": "flash/lang_ts.py::add",
+   "file": "flash/lang_ts.py",
+   "symbol": "add",
+   "kind": "function",
+   "degree": 21,
+   "label": "add",
+   "pos": [
+    21.76,
+    2.54,
+    0.0
+   ]
+  },
+  {
+   "id": "flash/lang_ts.py::extract_ts",
+   "file": "flash/lang_ts.py",
+   "symbol": "extract_ts",
+   "kind": "function",
+   "degree": 14,
+   "label": "extract_ts",
+   "pos": [
+    31.31,
+    -2.1,
+    -0.9
+   ]
+  },
+  {
+   "id": "flash/lang_ts.py::ref_name",
+   "file": "flash/lang_ts.py",
+   "symbol": "ref_name",
+   "kind": "function",
+   "degree": 13,
+   "label": "ref_name",
+   "pos": [
+    22.06,
+    -4.76,
+    -1.81
+   ]
+  },
+  {
+   "id": "flash/lang_ts.py::scan",
+   "file": "flash/lang_ts.py",
+   "symbol": "scan",
+   "kind": "function",
+   "degree": 7,
+   "label": "scan",
+   "pos": [
+    26.45,
+    2.14,
+    -2.71
+   ]
+  },
+  {
+   "id": "flash/lang_ts.py::walk",
+   "file": "flash/lang_ts.py",
+   "symbol": "walk",
+   "kind": "function",
+   "degree": 77,
+   "label": "walk",
+   "pos": [
+    27.15,
+    -3.69,
+    -3.62
    ]
   },
   {
@@ -1035,22 +1165,9 @@
    "degree": 6,
    "label": "autofit_if_stale",
    "pos": [
-    27.05,
-    -4.67,
-    3.99
-   ]
-  },
-  {
-   "id": "flash/learn.py::bundle_labels",
-   "file": "flash/learn.py",
-   "symbol": "bundle_labels",
-   "kind": "function",
-   "degree": 5,
-   "label": "bundle_labels",
-   "pos": [
-    22.13,
-    0.13,
-    1.18
+    -19.08,
+    -19.38,
+    1.94
    ]
   },
   {
@@ -1061,35 +1178,9 @@
    "degree": 6,
    "label": "embed_prompts",
    "pos": [
-    28.93,
-    -0.86,
-    -1.63
-   ]
-  },
-  {
-   "id": "flash/loop.py::Attempt",
-   "file": "flash/loop.py",
-   "symbol": "Attempt",
-   "kind": "class",
-   "degree": 5,
-   "label": "Attempt",
-   "pos": [
-    -19.25,
-    -18.88,
-    2.62
-   ]
-  },
-  {
-   "id": "flash/loop.py::_solve_edits",
-   "file": "flash/loop.py",
-   "symbol": "_solve_edits",
-   "kind": "function",
-   "degree": 5,
-   "label": "_solve_edits",
-   "pos": [
-    -24.18,
-    -14.3,
-    0.72
+    -23.32,
+    -14.75,
+    -1.94
    ]
   },
   {
@@ -1100,9 +1191,9 @@
    "degree": 14,
    "label": "solve",
    "pos": [
-    -15.72,
-    -14.9,
-    -1.18
+    5.2,
+    22.46,
+    -0.32
    ]
   },
   {
@@ -1113,35 +1204,9 @@
    "degree": 18,
    "label": "solve_routed",
    "pos": [
-    -22.54,
-    -19.94,
-    -3.08
-   ]
-  },
-  {
-   "id": "flash/loop.py::with_conf",
-   "file": "flash/loop.py",
-   "symbol": "with_conf",
-   "kind": "function",
-   "degree": 5,
-   "label": "with_conf",
-   "pos": [
-    -20.84,
-    -13.43,
-    -4.98
-   ]
-  },
-  {
-   "id": "flash/lsp.py::Lsp._request",
-   "file": "flash/lsp.py",
-   "symbol": "Lsp._request",
-   "kind": "method",
-   "degree": 5,
-   "label": "_request",
-   "pos": [
-    4.82,
-    23.23,
-    2.16
+    0.97,
+    27.08,
+    -4.2
    ]
   },
   {
@@ -1152,22 +1217,9 @@
    "degree": 7,
    "label": "_send",
    "pos": [
-    0.42,
-    27.2,
-    1.21
-   ]
-  },
-  {
-   "id": "flash/lsp.py::_walk_name",
-   "file": "flash/lsp.py",
-   "symbol": "_walk_name",
-   "kind": "function",
-   "degree": 5,
-   "label": "_walk_name",
-   "pos": [
-    8.64,
-    26.81,
-    0.26
+    15.11,
+    -23.68,
+    0.41
    ]
   },
   {
@@ -1178,9 +1230,9 @@
    "degree": 6,
    "label": "ast_symbols",
    "pos": [
-    1.11,
-    20.76,
-    -0.69
+    10.48,
+    -19.48,
+    -0.82
    ]
   },
   {
@@ -1191,9 +1243,9 @@
    "degree": 23,
    "label": "check",
    "pos": [
-    2.82,
-    31.22,
-    -1.64
+    18.96,
+    -19.93,
+    -2.06
    ]
   },
   {
@@ -1204,9 +1256,9 @@
    "degree": 6,
    "label": "find_occurrences",
    "pos": [
-    8.89,
-    21.83,
-    -2.59
+    11.38,
+    -25.94,
+    -3.29
    ]
   },
   {
@@ -1217,9 +1269,9 @@
    "degree": 8,
    "label": "find_references",
    "pos": [
-    -2.19,
-    24.78,
-    -3.55
+    13.11,
+    -15.87,
+    -4.52
    ]
   },
   {
@@ -1230,22 +1282,9 @@
    "degree": 12,
    "label": "find_symbol",
    "pos": [
-    8.0,
-    30.04,
-    -4.5
-   ]
-  },
-  {
-   "id": "flash/lsp.py::python_files",
-   "file": "flash/lsp.py",
-   "symbol": "python_files",
-   "kind": "function",
-   "degree": 5,
-   "label": "python_files",
-   "pos": [
-    4.08,
-    19.57,
-    -5.45
+    18.55,
+    -24.52,
+    -5.76
    ]
   },
   {
@@ -1256,9 +1295,9 @@
    "degree": 42,
    "label": "run_selftest",
    "pos": [
-    0.17,
-    29.42,
-    -6.4
+    9.24,
+    -21.85,
+    -6.99
    ]
   },
   {
@@ -1269,22 +1308,9 @@
    "degree": 12,
    "label": "symbol_hint",
    "pos": [
-    8.83,
-    25.12,
-    -7.35
-   ]
-  },
-  {
-   "id": "flash/lsp.py::symbols_involved",
-   "file": "flash/lsp.py",
-   "symbol": "symbols_involved",
-   "kind": "function",
-   "degree": 5,
-   "label": "symbols_involved",
-   "pos": [
-    0.87,
-    22.98,
-    -8.3
+    16.92,
+    -18.21,
+    -8.22
    ]
   },
   {
@@ -1295,9 +1321,9 @@
    "degree": 9,
    "label": "walk",
    "pos": [
-    4.33,
-    27.8,
-    -9.26
+    14.24,
+    -23.86,
+    -9.46
    ]
   },
   {
@@ -1308,9 +1334,9 @@
    "degree": 28,
    "label": "Patch",
    "pos": [
-    14.88,
-    -23.27,
-    -0.03
+    -23.51,
+    3.8,
+    -1.07
    ]
   },
   {
@@ -1321,9 +1347,9 @@
    "degree": 7,
    "label": "Refused",
    "pos": [
-    10.52,
-    -19.35,
-    -0.94
+    -27.91,
+    7.76,
+    -2.02
    ]
   },
   {
@@ -1334,9 +1360,9 @@
    "degree": 34,
    "label": "apply_patches",
    "pos": [
-    18.68,
-    -19.72,
-    -1.84
+    -19.69,
+    7.38,
+    -2.98
    ]
   },
   {
@@ -1347,9 +1373,9 @@
    "degree": 52,
    "label": "check",
    "pos": [
-    11.18,
-    -25.76,
-    -2.74
+    -27.22,
+    1.32,
+    -3.93
    ]
   },
   {
@@ -1360,9 +1386,9 @@
    "degree": 6,
    "label": "check_result",
    "pos": [
-    12.88,
-    -15.28,
-    -3.65
+    -25.51,
+    11.79,
+    -4.88
    ]
   },
   {
@@ -1373,9 +1399,9 @@
    "degree": 8,
    "label": "definitions",
    "pos": [
-    19.01,
-    -24.74,
-    -4.55
+    -19.44,
+    2.4,
+    -5.83
    ]
   },
   {
@@ -1386,9 +1412,9 @@
    "degree": 10,
    "label": "find_defs",
    "pos": [
-    7.75,
-    -21.76,
-    -5.46
+    -30.52,
+    5.35,
+    -6.78
    ]
   },
   {
@@ -1399,9 +1425,9 @@
    "degree": 16,
    "label": "outside_lines",
    "pos": [
-    18.2,
-    -16.34,
-    -6.36
+    -20.33,
+    10.61,
+    -7.73
    ]
   },
   {
@@ -1412,9 +1438,9 @@
    "degree": 15,
    "label": "resolve",
    "pos": [
-    14.16,
-    -27.26,
-    -7.27
+    -24.25,
+    0.13,
+    -8.69
    ]
   },
   {
@@ -1425,9 +1451,9 @@
    "degree": 13,
    "label": "run_premise",
    "pos": [
-    9.95,
-    -16.8,
-    -8.17
+    -28.16,
+    9.98,
+    -9.64
    ]
   },
   {
@@ -1438,9 +1464,9 @@
    "degree": 118,
    "label": "run_selftest",
    "pos": [
-    19.5,
-    -21.44,
-    -9.07
+    -19.5,
+    5.69,
+    -10.59
    ]
   },
   {
@@ -1451,22 +1477,9 @@
    "degree": 15,
    "label": "run_wiring",
    "pos": [
-    10.24,
-    -24.11,
-    -9.98
-   ]
-  },
-  {
-   "id": "flash/patches.py::splice",
-   "file": "flash/patches.py",
-   "symbol": "splice",
-   "kind": "function",
-   "degree": 5,
-   "label": "splice",
-   "pos": [
-    14.63,
-    -17.21,
-    -10.88
+    -27.46,
+    3.54,
+    -11.54
    ]
   },
   {
@@ -1477,9 +1490,9 @@
    "degree": 10,
    "label": "walk",
    "pos": [
-    15.33,
-    -23.03,
-    -11.79
+    -24.0,
+    8.36,
+    -12.49
    ]
   },
   {
@@ -1490,9 +1503,9 @@
    "degree": 11,
    "label": "lsp_diagnostics",
    "pos": [
-    -22.71,
-    2.77,
-    -6.33
+    22.62,
+    8.54,
+    -7.1
    ]
   },
   {
@@ -1503,22 +1516,9 @@
    "degree": 6,
    "label": "send",
    "pos": [
-    -26.95,
-    7.39,
-    -10.22
-   ]
-  },
-  {
-   "id": "flash/power.py::_run",
-   "file": "flash/power.py",
-   "symbol": "_run",
-   "kind": "function",
-   "degree": 5,
-   "label": "_run",
-   "pos": [
-    21.79,
-    8.88,
-    -6.2
+    18.38,
+    13.17,
+    -10.99
    ]
   },
   {
@@ -1529,9 +1529,9 @@
    "degree": 10,
    "label": "_table",
    "pos": [
-    17.01,
-    13.25,
-    -7.68
+    -6.58,
+    -24.72,
+    -7.16
    ]
   },
   {
@@ -1542,9 +1542,9 @@
    "degree": 6,
    "label": "allow_model",
    "pos": [
-    25.59,
-    12.75,
-    -9.16
+    -11.44,
+    -20.25,
+    -8.82
    ]
   },
   {
@@ -1555,9 +1555,9 @@
    "degree": 9,
    "label": "check",
    "pos": [
-    18.14,
-    6.94,
-    -10.64
+    -2.87,
+    -20.78,
+    -10.48
    ]
   },
   {
@@ -1568,9 +1568,9 @@
    "degree": 12,
    "label": "profile_for",
    "pos": [
-    19.86,
-    16.24,
-    -12.12
+    -10.12,
+    -26.34,
+    -12.13
    ]
   },
   {
@@ -1581,9 +1581,9 @@
    "degree": 9,
    "label": "read_state",
    "pos": [
-    24.25,
-    8.85,
-    -13.6
+    -8.41,
+    -17.93,
+    -13.79
    ]
   },
   {
@@ -1594,9 +1594,9 @@
    "degree": 41,
    "label": "run_selftest",
    "pos": [
-    18.17,
-    11.08,
-    -15.07
+    -5.36,
+    -23.78,
+    -15.45
    ]
   },
   {
@@ -1607,9 +1607,9 @@
    "degree": 34,
    "label": "ck",
    "pos": [
-    -6.29,
-    -23.87,
-    -8.86
+    -7.89,
+    17.76,
+    -9.42
    ]
   },
   {
@@ -1620,9 +1620,9 @@
    "degree": 9,
    "label": "probe",
    "pos": [
-    -11.15,
-    -19.4,
-    -10.51
+    -12.75,
+    22.23,
+    -11.08
    ]
   },
   {
@@ -1633,9 +1633,9 @@
    "degree": 7,
    "label": "realpath",
    "pos": [
-    -2.58,
-    -19.94,
-    -12.17
+    -4.18,
+    21.69,
+    -12.74
    ]
   },
   {
@@ -1646,9 +1646,9 @@
    "degree": 65,
    "label": "run_selftest",
    "pos": [
-    -9.83,
-    -25.5,
-    -13.83
+    -11.43,
+    16.13,
+    -14.39
    ]
   },
   {
@@ -1659,9 +1659,9 @@
    "degree": 8,
    "label": "seatbelt",
    "pos": [
-    -8.12,
-    -17.08,
-    -15.49
+    -9.72,
+    24.55,
+    -16.05
    ]
   },
   {
@@ -1672,9 +1672,9 @@
    "degree": 6,
    "label": "status",
    "pos": [
-    -5.07,
-    -22.93,
-    -17.14
+    -6.67,
+    18.7,
+    -17.71
    ]
   },
   {
@@ -1685,9 +1685,9 @@
    "degree": 16,
    "label": "ck",
    "pos": [
-    -7.37,
-    16.56,
-    -11.57
+    19.89,
+    -11.01,
+    -12.03
    ]
   },
   {
@@ -1698,9 +1698,9 @@
    "degree": 9,
    "label": "plan",
    "pos": [
-    -12.3,
-    21.14,
-    -13.46
+    14.96,
+    -6.43,
+    -13.93
    ]
   },
   {
@@ -1711,9 +1711,9 @@
    "degree": 7,
    "label": "run",
    "pos": [
-    -3.84,
-    20.55,
-    -15.36
+    23.42,
+    -7.03,
+    -15.83
    ]
   },
   {
@@ -1724,9 +1724,9 @@
    "degree": 33,
    "label": "run_wiring",
    "pos": [
-    -10.66,
-    15.5,
-    -17.26
+    16.6,
+    -12.07,
+    -17.73
    ]
   },
   {
@@ -1737,9 +1737,9 @@
    "degree": 9,
    "label": "run_with",
    "pos": [
-    -8.96,
-    22.01,
-    -19.16
+    18.31,
+    -5.56,
+    -19.62
    ]
   },
   {
@@ -1750,9 +1750,9 @@
    "degree": 31,
    "label": "ck",
    "pos": [
-    18.53,
-    -10.63,
-    -14.91
+    -16.56,
+    -8.89,
+    -15.27
    ]
   },
   {
@@ -1763,9 +1763,9 @@
    "degree": 7,
    "label": "read",
    "pos": [
-    13.61,
-    -5.84,
-    -17.73
+    -21.49,
+    -4.09,
+    -18.09
    ]
   },
   {
@@ -1776,9 +1776,9 @@
    "degree": 32,
    "label": "run_selftest",
    "pos": [
-    20.41,
-    -6.82,
-    -20.54
+    -14.68,
+    -5.08,
+    -20.9
    ]
   },
   {
@@ -1789,9 +1789,9 @@
    "degree": 12,
    "label": "bump",
    "pos": [
-    -14.7,
-    -7.69,
-    -15.39
+    8.77,
+    11.75,
+    -15.65
    ]
   },
   {
@@ -1802,9 +1802,9 @@
    "degree": 36,
    "label": "check",
    "pos": [
-    -19.4,
-    -3.41,
-    -16.73
+    4.07,
+    16.02,
+    -16.99
    ]
   },
   {
@@ -1815,9 +1815,9 @@
    "degree": 11,
    "label": "end",
    "pos": [
-    -10.86,
-    -3.87,
-    -18.08
+    12.6,
+    15.56,
+    -18.33
    ]
   },
   {
@@ -1828,9 +1828,9 @@
    "degree": 12,
    "label": "ev",
    "pos": [
-    -18.41,
-    -9.82,
-    -19.42
+    5.06,
+    9.62,
+    -19.68
    ]
   },
   {
@@ -1841,9 +1841,9 @@
    "degree": 28,
    "label": "mine",
    "pos": [
-    -16.68,
-    -0.04,
-    -20.76
+    6.79,
+    19.39,
+    -21.02
    ]
   },
   {
@@ -1854,9 +1854,9 @@
    "degree": 93,
    "label": "run_selftest",
    "pos": [
-    -11.63,
-    -8.21,
-    -22.1
+    11.84,
+    11.22,
+    -22.36
    ]
   },
   {
@@ -1867,9 +1867,9 @@
    "degree": 7,
    "label": "sess",
    "pos": [
-    -19.81,
-    -5.72,
-    -23.45
+    3.66,
+    13.72,
+    -23.7
    ]
   },
   {
@@ -1880,9 +1880,9 @@
    "degree": 8,
    "label": "train_lora",
    "pos": [
-    -13.93,
-    -3.31,
-    -24.79
+    9.54,
+    16.12,
+    -25.05
    ]
   },
   {
@@ -1893,9 +1893,9 @@
    "degree": 9,
    "label": "check_task",
    "pos": [
-    7.56,
-    8.34,
-    -20.51
+    4.23,
+    -15.62,
+    -20.67
    ]
   },
   {
@@ -1906,9 +1906,9 @@
    "degree": 7,
    "label": "solve_vision",
    "pos": [
-    3.32,
-    12.96,
-    -24.4
+    -0.0,
+    -10.99,
+    -24.55
    ]
   },
   {
@@ -1919,9 +1919,9 @@
    "degree": 10,
    "label": "check",
    "pos": [
-    2.96,
-    -10.46,
-    -22.01
+    -5.15,
+    1.3,
+    -22.06
    ]
   },
   {
@@ -1932,9 +1932,9 @@
    "degree": 7,
    "label": "lookup",
    "pos": [
-    -1.96,
-    -5.67,
-    -24.82
+    -10.08,
+    6.1,
+    -24.87
    ]
   },
   {
@@ -1945,9 +1945,9 @@
    "degree": 20,
    "label": "selftest",
    "pos": [
-    4.84,
-    -6.65,
-    -27.63
+    -3.27,
+    5.11,
+    -27.68
    ]
   }
  ],
@@ -2173,16 +2173,6 @@
    "kind": "calls"
   },
   {
-   "s": "flash/grammar.py::run_overhead",
-   "d": "flash/grammar.py::Contract",
-   "kind": "calls"
-  },
-  {
-   "s": "flash/grammar.py::run_overhead",
-   "d": "flash/grammar.py::ConstrainedSampler",
-   "kind": "calls"
-  },
-  {
    "s": "flash/grammar.py::run_selftest",
    "d": "flash/grammar.py::Contract",
    "kind": "calls"
@@ -2230,11 +2220,6 @@
   {
    "s": "flash/graph.py::_bindings",
    "d": "flash/graph.py::Edge",
-   "kind": "calls"
-  },
-  {
-   "s": "flash/graph.py::walk",
-   "d": "flash/graph.py::_binds",
    "kind": "calls"
   },
   {
@@ -2398,23 +2383,8 @@
    "kind": "calls"
   },
   {
-   "s": "flash/harness.py::score_files",
-   "d": "flash/harness.py::Score",
-   "kind": "calls"
-  },
-  {
-   "s": "flash/harness.py::score_files",
-   "d": "flash/harness.py::score",
-   "kind": "calls"
-  },
-  {
    "s": "flash/harness.py::diagnose",
    "d": "flash/harness.py::score",
-   "kind": "calls"
-  },
-  {
-   "s": "flash/harness.py::score",
-   "d": "flash/harness.py::Score",
    "kind": "calls"
   },
   {
@@ -2430,11 +2400,6 @@
   {
    "s": "flash/harness.py::run_selftest",
    "d": "flash/harness.py::score",
-   "kind": "calls"
-  },
-  {
-   "s": "flash/harness.py::run_selftest",
-   "d": "flash/harness.py::score_files",
    "kind": "calls"
   },
   {
@@ -2503,8 +2468,188 @@
    "kind": "calls"
   },
   {
-   "s": "flash/learn.py::autofit_if_stale",
-   "d": "flash/learn.py::bundle_labels",
+   "s": "flash/lang_ts.py::_declarations",
+   "d": "flash/lang_ts.py::_named",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/lang_ts.py::_declarations",
+   "d": "flash/lang_ts.py::_walk",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/lang_ts.py::_declarations",
+   "d": "flash/lang_ts.py::_text",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/lang_ts.py::_declarations",
+   "d": "flash/lang_ts.py::add",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/lang_ts.py::_declarations",
+   "d": "flash/lang_ts.py::_join",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/lang_ts.py::_walk",
+   "d": "flash/lang_ts.py::_named",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/lang_ts.py::_pattern_names",
+   "d": "flash/lang_ts.py::_text",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/lang_ts.py::_pattern_names",
+   "d": "flash/lang_ts.py::_named",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/lang_ts.py::_pattern_names",
+   "d": "flash/lang_ts.py::_pattern_names",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/lang_ts.py::_binds",
+   "d": "flash/lang_ts.py::_pattern_names",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/lang_ts.py::_binds",
+   "d": "flash/lang_ts.py::_named",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/lang_ts.py::_binds",
+   "d": "flash/lang_ts.py::_binds",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/lang_ts.py::_binds",
+   "d": "flash/lang_ts.py::_walk",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/lang_ts.py::_binds",
+   "d": "flash/lang_ts.py::_text",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/lang_ts.py::_scope_locals",
+   "d": "flash/lang_ts.py::_binds",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/lang_ts.py::_scope_locals",
+   "d": "flash/lang_ts.py::_walk",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/lang_ts.py::_scope_locals",
+   "d": "flash/lang_ts.py::_named",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/lang_ts.py::_scope_locals",
+   "d": "flash/lang_ts.py::_pattern_names",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/lang_ts.py::_import_rows",
+   "d": "flash/lang_ts.py::_named",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/lang_ts.py::_import_rows",
+   "d": "flash/lang_ts.py::_text",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/lang_ts.py::extract_ts",
+   "d": "flash/lang_ts.py::_declarations",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/lang_ts.py::extract_ts",
+   "d": "flash/lang_ts.py::_named",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/lang_ts.py::extract_ts",
+   "d": "flash/lang_ts.py::_import_rows",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/lang_ts.py::extract_ts",
+   "d": "flash/lang_ts.py::add",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/lang_ts.py::add",
+   "d": "flash/lang_ts.py::_join",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/lang_ts.py::ref_name",
+   "d": "flash/lang_ts.py::_text",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/lang_ts.py::ref_name",
+   "d": "flash/lang_ts.py::ref_name",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/lang_ts.py::walk",
+   "d": "flash/lang_ts.py::_named",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/lang_ts.py::walk",
+   "d": "flash/lang_ts.py::_text",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/lang_ts.py::walk",
+   "d": "flash/lang_ts.py::add",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/lang_ts.py::walk",
+   "d": "flash/lang_ts.py::ref_name",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/lang_ts.py::walk",
+   "d": "flash/lang_ts.py::walk",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/lang_ts.py::walk",
+   "d": "flash/lang_ts.py::_join",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/lang_ts.py::walk",
+   "d": "flash/lang_ts.py::_scope_locals",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/lang_ts.py::walk",
+   "d": "flash/lang_ts.py::_walk",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/lang_ts.py::extract_ts",
+   "d": "flash/lang_ts.py::walk",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/lang_ts.py::scan",
+   "d": "flash/lang_ts.py::_declarations",
    "kind": "calls"
   },
   {
@@ -2513,43 +2658,8 @@
    "kind": "calls"
   },
   {
-   "s": "flash/loop.py::_solve_edits",
-   "d": "flash/loop.py::Attempt",
-   "kind": "calls"
-  },
-  {
-   "s": "flash/loop.py::solve",
-   "d": "flash/loop.py::_solve_edits",
-   "kind": "calls"
-  },
-  {
-   "s": "flash/loop.py::solve",
-   "d": "flash/loop.py::Attempt",
-   "kind": "calls"
-  },
-  {
    "s": "flash/loop.py::solve_routed",
    "d": "flash/loop.py::solve",
-   "kind": "calls"
-  },
-  {
-   "s": "flash/loop.py::solve_routed",
-   "d": "flash/loop.py::with_conf",
-   "kind": "calls"
-  },
-  {
-   "s": "flash/lsp.py::find_occurrences",
-   "d": "flash/lsp.py::python_files",
-   "kind": "calls"
-  },
-  {
-   "s": "flash/lsp.py::find_occurrences",
-   "d": "flash/lsp.py::_walk_name",
-   "kind": "calls"
-  },
-  {
-   "s": "flash/lsp.py::symbol_hint",
-   "d": "flash/lsp.py::symbols_involved",
    "kind": "calls"
   },
   {
@@ -2560,16 +2670,6 @@
   {
    "s": "flash/lsp.py::ast_symbols",
    "d": "flash/lsp.py::walk",
-   "kind": "calls"
-  },
-  {
-   "s": "flash/lsp.py::Lsp._request",
-   "d": "flash/lsp.py::Lsp._send",
-   "kind": "calls"
-  },
-  {
-   "s": "flash/lsp.py::find_symbol",
-   "d": "flash/lsp.py::python_files",
    "kind": "calls"
   },
   {
@@ -2664,11 +2764,6 @@
   },
   {
    "s": "flash/patches.py::apply_patches",
-   "d": "flash/patches.py::splice",
-   "kind": "calls"
-  },
-  {
-   "s": "flash/patches.py::apply_patches",
    "d": "flash/patches.py::check_result",
    "kind": "calls"
   },
@@ -2744,11 +2839,6 @@
   },
   {
    "s": "flash/patches.py::run_selftest",
-   "d": "flash/patches.py::splice",
-   "kind": "calls"
-  },
-  {
-   "s": "flash/patches.py::run_selftest",
    "d": "flash/patches.py::resolve",
    "kind": "calls"
   },
@@ -2760,11 +2850,6 @@
   {
    "s": "flash/perceive.py::lsp_diagnostics",
    "d": "flash/perceive.py::send",
-   "kind": "calls"
-  },
-  {
-   "s": "flash/power.py::read_state",
-   "d": "flash/power.py::_run",
    "kind": "calls"
   },
   {
@@ -2914,15 +2999,15 @@
   }
  ],
  "kinds": {
-  "class": 8,
-  "function": 135,
-  "method": 7
+  "class": 6,
+  "function": 138,
+  "method": 6
  },
  "sampled": {
   "shown_nodes": 150,
-  "shown_edges": 192,
-  "repo_nodes": 4225,
-  "repo_edges": 22894,
+  "shown_edges": 209,
+  "repo_nodes": 4446,
+  "repo_edges": 24574,
   "note": "the 150 most-connected functions, classes and methods under flash/, joined by their call and import edges; `reads` edges and the rest of the index are not drawn"
  },
  "extracted_by": "python -c 'from flash.graph import build; build(...)'"

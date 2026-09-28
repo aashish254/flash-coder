@@ -41,7 +41,19 @@ Plan: ../PLAN.md (v3.8). This package grows milestone by milestone:
                                      same answer into the loop — the at-issue
                                      symbols' depth-2 blast radius, ≤900 chars, as
                                      the second block `_perceive` appends, silent
-                                     when a name will not resolve to one node)
+                                     when a name will not resolve to one node.
+                                     R-1.4: `flash.lang_ts` adds the second
+                                     language — TypeScript, picked by a file census
+                                     of this tree (the ledger asked for neither it
+                                     nor SQL, and that null is recorded) — folded
+                                     into the SAME records, so one `blast()` answers
+                                     across both under
+                                     `build(langs=("python", "typescript"))` /
+                                     `--lang py,ts`. Python alone remains the
+                                     default, because every published graph number
+                                     was built that way, and the tree-sitter grammar
+                                     is an optional extra whose absence prints one
+                                     refusal rather than a graph of guesses)
       flash.route                   (the cheapest tier that can solve this task)
       flash.harness                 (multi-WRITER: '# file:' -> file sets.
                                      R-7.4: `harness.REPO` + the `<REPO>` token in

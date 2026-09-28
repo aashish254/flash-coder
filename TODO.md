@@ -1628,6 +1628,43 @@ here rather than folded into P6's confidence work.
       since shipped, and the shared-parse figure has reprinted 32 ms since, so the
       ratio rather than the millisecond is what holds.*
 - [ ] R-1.4 second language for perception (choose from ledger evidence)
+      *Opened 2026-09-28, PARTIAL — the choice is measured and the language has
+      arrived, the vector's own sentence is not yet true.*
+      **The choice, out of records not taste:** the ledger (1148 outcome rows,
+      every prompt template classified) has **0** rows asking for SQL and **0**
+      asking for TypeScript, so it cannot pick between them and that null is
+      booked as a finding; the tree the tool indexes holds **21 TypeScript-family
+      files** (14 `.tsx`, 7 `.ts`) — the number `flash.lang_ts.ts_files('.')` prints
+      — against **0** `.sql` and **0** `.db`. An earlier draft of this record said 23
+      by counting two `.css` files, one of them `site/dist`'s generated bundle; a
+      stylesheet is not indexed here and build output is not edited, so the count is
+      the tool's own. TypeScript by file count; SQL not chosen because nothing
+      here is written in it.
+      **What shipped:** `flash/lang_ts.py` — a tree-sitter TypeScript/TSX index
+      that emits `flash.graph`'s own `Node`/`Edge`/`Unresolved`, so `blast()`,
+      `Radius.summary()` and `--json` answer about `.ts`/`.tsx` with no second
+      query engine; `--lang py,ts` on `flash graph` (default stays `python`, so
+      every published figure still describes the index that built it); the
+      grammar as a fourth optional extra (`pip install .[ts]`) whose **absence is
+      one printed refusal, not a guess** — a hand-rolled scanner would be a regex
+      pretending to be a parser. Vector
+      `benchmarks/ts_perception_check.py`: **47 checks + 13 mutants**, green in
+      this process and one fresh process per mutant. On the real tree: 21 TS files
+      in 44–55 ms inside a mixed cold build of 1.03–1.09 s, +103 nodes / +240 edges
+      over 4446/24574, and 151 unplaceable uses each with its own sentence (npm
+      package, non-exported name, `export *`, re-export, unknown name,
+      unparseable file, missing grammar). `flash.graph --selftest` still 44/44.
+      **Why the box stays unchecked — the vector is "R-1.1..1.2 equivalents pass
+      on a fixture tree in that language", and three of its equivalents do not
+      run on TypeScript yet:** (1) the loop's PERCEIVE hint still ranks symbols
+      with `flash.lsp.symbols_involved` and `graph.scope_graph()`, both
+      Python-only, so a `.tsx` failure gets no ranked hint; (2) `live_upgrade`
+      asks jedi, and there is no `tsserver` bound, so the R-1.2 live-upgrade
+      behaviour has no TS counterpart; (3) `flash/patches.py` validates a
+      replacement with `ast.parse` and takes spans from Python `definitions()`,
+      so `# edit: App.tsx :: Widget` is refused as an unknown symbol while
+      `# edit: App.tsx :: L11-L15` applies. Each is named in SPEC R-1.4 rather
+      than described as shipped.
 - [ ] R-8.2 latent compute — adopt only on a measured ≥ 20% token saving
 - [ ] G6 watts/task (blocked: `powermetrics` needs sudo)
 - [ ] §34.1 16GB co-residency arm (blocked: this box is 32GB)

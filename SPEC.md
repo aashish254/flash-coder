@@ -54,7 +54,9 @@ the outcome flywheel, hardware governance, observability, recovery.
   button is a product decision, not an engineering gap).
 - IDE plugins (VS Code/JetBrains) — the CLI is the dogfood surface until M17.
 - Computer-use / GUI agent (§20), voice productization (§12.2 spike is done).
-- Non-Python languages (perceive/context/lsp are Python-only by construction).
+- Non-Python languages (perceive/context/lsp remain Python-only by construction;
+  R-1.4 moved `flash.graph`'s perception onto TypeScript, and its retry path, live
+  server and patch arm are still Python-only — see R-1.4's PARTIAL).
 - Multi-user or server deployment; anything needing a network at run time.
 - RL / phase-2 weight training beyond a LoRA experiment (see §9: hardware time).
 
@@ -321,9 +323,53 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   **0 of 248** pre-fix prompts. **No accuracy delta is claimed**: r03 still failed
   all three small-tier attempts, and whether either hint HELPS is R-1.1b's
   unmeasured question.*
-- **R-1.4 (OPEN)** Perception MUST extend to the second language of real work
+- **R-1.4 (PARTIAL)** Perception MUST extend to the second language of real work
   (TypeScript or SQL — pick by ledger evidence, not taste).
   Vector: R-1.1..1.2 equivalents pass on a fixture tree in that language.
+  *The choice was measured on 2026-09-28 and the named evidence source could not
+  make it: the ledger's 1148 outcome rows (202 task ids, every prompt template
+  classified) contain **0** rows asking for SQL and **0** asking for TypeScript —
+  all of its demand is this project's own Python suites plus 38 screenshot→HTML
+  rows. That null is the finding, so the tie was broken on the tree the tool
+  indexes instead: **21 TypeScript-family files (14 `.tsx`, 7 `.ts`) against 0
+  `.sql` and 0 `.db`** — the number `flash.lang_ts.ts_files('.')` prints, which is
+  what the tool reads and not a `find` over the tree (an earlier draft of this
+  sentence said 23 by counting two `.css` files, one of them `site/dist`'s
+  generated bundle; a stylesheet is no one's parse target here and build output is
+  no one's edit target). TypeScript was picked by a file count; SQL was
+  not picked because nothing here is written in it, and §10.2 keeps the call
+  overrulable.
+  **What shipped:** `flash/lang_ts.py` — a tree-sitter TypeScript/TSX extractor
+  that emits `flash.graph`'s own `Node`/`Edge`/`Unresolved` records, so one
+  `blast()`, `summary()` and `to_json()` answer across both languages with no
+  second query engine. `graph.build(langs=("python","typescript"))` folds it in
+  and `flash graph --lang py,ts` asks it, over a `--lang` that refuses a typo by
+  name. **Python alone stays the default**, and that default is load-bearing: the
+  committed graph figures describe the index the tool builds when nobody opts in.
+  Measured on this repo (2026-09-28, three runs of the same build, `python -m
+  flash.graph`): 21 indexed `.ts`/`.tsx` files in **44–55 ms** inside a mixed cold
+  build of **1.03–1.09 s**; **103 nodes and 240 edges** added to the Python index's
+  4446 nodes / 24574 edges, and **151** uses the pass could not place. Every one of
+  those 151 is a *counted* blind spot
+  with its own sentence — an npm specifier, a name the target file does not
+  export, a name that reaches through `export *`, a name that only passes through
+  a re-export, an unparseable file's floor, and a missing grammar.
+  `benchmarks/ts_perception_check.py --sweep` is **47/47 checks + 13/13 mutants**,
+  in this process and one fresh process per mutant.
+  **What is NOT closed, and is the reason this row is PARTIAL:** the vector names
+  R-1.1 and R-1.2's equivalents, and neither runs on TypeScript yet. (a) The
+  loop's PERCEIVE hint still ranks symbols with `flash.lsp.symbols_involved` and
+  `graph.scope_graph()` builds Python-only, so a failing `.tsx` test gets no graph
+  block — 47/47 of it is offline perception, not the retry path. (b) R-1.2's
+  live-upgrade equivalent needs a `tsserver` seam; `graph.live_upgrade` still asks
+  jedi, which answers about Python and nothing else. (c) The patch arm cannot
+  address a TypeScript symbol: `flash/patches.py` validates with `ast.parse` and
+  takes spans from Python `definitions()`, so `# edit: App.tsx :: Widget` is
+  refused as an unknown symbol while `# edit: App.tsx :: L11-L15` applies — the
+  ranges are line numbers, so the range form is as precise as the symbol form
+  would be. Vector for the rest: a TypeScript fixture suite run through
+  `flash run-suite` with the graph block asserted per retry, plus a `tsserver`
+  `--live` equivalent.*
 
 ### B. DECIDE & ROUTE — cheap decisions before expensive generation
 
@@ -1534,6 +1580,7 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
    `python benchmarks/dbg_band_check.py` 172 (+ 5 mutants) ·
    `python benchmarks/router_portable_check.py` 20 (+ 5 mutants) ·
    `python benchmarks/graph_perceive_check.py --sweep` 33 (+ 12 mutants) ·
+   `python benchmarks/ts_perception_check.py --sweep` 47 (+ 13 mutants) ·
    `python benchmarks/hint_ab_check.py` 14 (+ 8 mutants) ·
    `python benchmarks/portable_paths_check.py` 15 (+ 7 mutants) ·
    `python benchmarks/backend_free_check.py` 42 (+ 10 mutants) ·
@@ -1541,12 +1588,12 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
    `python -m flash.debug --suite` 32 ·
    `python -m flash.patches --suite benchmarks/tasks/edit_tasks.jsonl` 60 ·
    `python benchmarks/m0_bakeoff.py --dry-run` 20 reference solutions.
-   **Total: 1119 selftest / end-to-end / premise checks + 20 oracle
+   **Total: 1166 selftest / end-to-end / premise checks + 20 oracle
    verifications (m0_bakeoff's 20 reference solutions, which are the only
    numbers in that 20 — the 6 ambient, 15 lora, 5 band, 5 router-portability,
-   12 graph, 12 graph-perceive, 8 hint-ab, 7 path-portability, 10 backend-free and
-   5 documented-command mutants are extra to both totals, 85 in all) = 1139 green,
-   offline.** Read those two
+   12 graph, 12 graph-perceive, 13 ts-perception, 8 hint-ab, 7 path-portability,
+   10 backend-free and 5 documented-command mutants are extra to both totals,
+   98 in all) = 1186 green, offline.** Read those two
    numbers with care: CHECKS and TOTAL are different columns, and this page has
    been quoted wrongly by its own notes before — R-1.1b's checks count (1052) was
    exactly the total the page had claimed one commit earlier, and the number the
@@ -1745,6 +1792,27 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
    rather than smoothed to the 15 minutes the unloaded machine takes. Four trees now print
    the same totals; the cross-tool table that this pass added is in
    `benchmarks/results/market_compare_20260928.log`.)
+   (Updated 2026-09-28, when R-1.4's TypeScript pass arrived: **+47 checks and +13
+   mutants** on a brand-new vector, `python benchmarks/ts_perception_check.py --sweep`
+   — **1119 → 1166** checks, mutants **85 → 98**, §6 total **1139 → 1186**, and the
+   line count moves for the first time in five passes: **33 → 34**, because a second
+   language is a new thing to verify rather than another gate inside a vector that
+   already had a line. The re-read printed `checks 1166  oracle 20  §6 total 1186
+   mutants 98` with **34** OK lines, no BAD line, in **16 min 49 s** (witness
+   `benchmarks/results/battery_reread_r14_20260928.log`). The prediction in
+   `CLAIM` was set by arithmetic before the run (`checks 1166 … mutants 98`) and the
+   tree matched it, which is the only direction this project accepts: the number is
+   guessed first and then printed. Three of the 47 checks fake the grammar's absence
+   and gate what the tool says when it is missing — one sentence naming
+   `pip install 'flash-coder[ts]'`, the Python pass still answering, and the refusal
+   counted as a blind spot so a `summary()` cannot read as complete — and two more
+   gate what the grammar refuses to guess (a file it cannot parse still gets a node
+   and says so, and cannot poison its neighbours' edges). One of the 13 mutants is
+   not about TypeScript at all: it
+   makes `graph.build()` index TypeScript by default, which would silently redefine
+   every Python figure this page has published. The Python default still prints 44/44
+   and the graph's published 4446 nodes / 24574 edges are unchanged — the mixed build
+   adds 103 nodes and 240 edges only when `--lang py,ts` is asked for.)
    (Updated 2026-09-27, when R-7.9, R-7.10 and R-7.10b closed: **+2 checks and +1
    mutant** on `python benchmarks/lora_path_check.py` (**31 → 33**, **14 → 15**) for
    `--dry-run`, **+1 check and +1 mutant** on
@@ -2004,8 +2072,15 @@ the honest label is *a very good local loop with instrumentation*.
 
 1. **G2 target 78%** (from 63%) is a guess bounded by measurement, not by
    evidence — if it is wrong it should be corrected from the suites, not argued.
-2. **R-1.4's second language** is deliberately unselected; pick from ledger
-   demand or drop it.
+2. **R-1.4's second language** was unselected by design; on 2026-09-28 it was
+   selected — **TypeScript**, by a file census of the tree the tool indexes
+   (the 21 files `flash.lang_ts.ts_files('.')` prints, against 0 `.sql`/`.db`),
+   because the ledger the
+   requirement named as the evidence source contains 0 rows for either candidate
+   and so cannot discriminate. The call stays overrulable, and the override is
+   cheap: `flash/lang_ts.py` is the only module that knows the language, and
+   `graph.LANGS` is the list that names it. SQL remains unimplemented — not
+   deferred for lack of will, but because nothing in this repo is written in it.
 3. **No cloud fallback** in v1. If §34.2's trust gap is judged product-fatal,
    that reverses a scope decision, not an implementation detail.
 4. **R-4.2's wording named "tool calls … and JSON".** This agent has no

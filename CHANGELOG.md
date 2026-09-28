@@ -191,6 +191,60 @@ versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   token accounting all at once and measure which vendor has the bigger model. No
   multiplier, no rival latency and no dollar-per-month figure for them is published
   anywhere in this repo.
+- **R-1.4 (PARTIAL): the graph learned a second language, and the choice came out of
+  a file count because the ledger had no opinion.** The box said "choose from ledger
+  evidence, not taste", so both records were read: the ledger's 1148 classified
+  outcome rows contain **0** asks for SQL and **0** for TypeScript — the ledger
+  cannot pick between the two languages §28.1 named, and that null is booked as the
+  finding rather than quietly promoted — while the tree this tool indexes holds **21
+  TypeScript-family files** (14 `.tsx`, 7 `.ts`, the number
+  `flash.lang_ts.ts_files('.')` prints) against **0** `.sql` and **0** `.db`. An
+  earlier draft of this bullet said 23 by sweeping in the two `.css` files, one of
+  which is `site/dist`'s generated bundle; a stylesheet is not a parse target here
+  and build output is not an edit target, so the count quoted is the tool's own.
+  TypeScript is real front-end work the graph was blind to;
+  SQL is not present at all. What shipped is `flash/lang_ts.py`: a tree-sitter
+  TypeScript/TSX index that emits **`flash.graph`'s own** `Node`/`Edge`/`Unresolved`,
+  so `blast()`, `Radius.summary()` and `--json` answer about `.tsx` with no second
+  query engine and no second latency. `--lang py,ts` is opt-in and the default stays
+  `python`, so every figure published above still describes the index that built it.
+  The grammar is a fourth optional extra (`pip install .[ts]`) and its absence is
+  **one printed refusal, not a guessed parse** — a hand-rolled scanner would be a
+  regex pretending to be a parser, which is the failure `flash/patches.py` exists to
+  prevent. Vector: `python benchmarks/ts_perception_check.py --sweep` → **47 checks +
+  13 mutants**, green in this process and with one fresh process per mutant, and
+  `python -m flash.graph --selftest` still **44/44** on the Python default. On the
+  real tree the TS pass costs **44–55 ms for 21 files** inside a mixed cold build of
+  1.03–1.09 s and adds **103 nodes / 240 edges** over the Python 4446/24574, with
+  **151 unplaceable
+  uses each carrying its own sentence** (npm package, non-exported name, `export *`,
+  a named re-export one hop too far, unknown name, unparseable file, missing grammar)
+  so the blind-spot count stays a floor and never a census.
+  **The box is not checked**, because its vector is "R-1.1..1.2 equivalents pass on a
+  fixture tree in that language" and three equivalents are Python-only still: the
+  loop's PERCEIVE hint ranks symbols with `flash.lsp.symbols_involved` and
+  `graph.scope_graph()`, so a failing `.tsx` test gets no ranked hint; `live_upgrade`
+  asks jedi and there is no `tsserver` bound; `flash/patches.py` validates a
+  replacement with `ast.parse` and takes spans from Python `definitions()`, so
+  `# edit: App.tsx :: Widget` is refused as an unknown symbol while
+  `# edit: App.tsx :: L11-L15` applies. Three defects the vector caught on the way,
+  each now a mutant: `export *` was never detected (tree-sitter makes the `*` an
+  *anonymous* child, so a "no named children" test cannot fire), `import * as X`
+  bound no name (`X` is a plain identifier child, not a `name` field) so every dotted
+  call through a namespace vanished, and tree-sitter node wrappers are made fresh on
+  every access, which made `a is b` the wrong identity test and turned a
+  declaration's own name into an edge from a symbol to itself.
+  The §6 re-read that followed printed `checks 1166  oracle 20  §6 total 1186
+  mutants 98` with **34** OK lines, no BAD line, in **16 min 49 s** (witness
+  `benchmarks/results/battery_reread_r14_20260928.log`) — the first pass in five that
+  moves the line count, because a second language is a new thing to verify rather
+  than another gate inside an existing vector. Two claims written earlier the same
+  day were corrected by re-reading the literals instead of trusting the note: the
+  file census was 23 and is 21, and the vector's absence coverage was described as 13
+  checks and is 3 (`docs/config.md`), while `benchmarks/r75_sdist_battery_check.py`
+  turned out to require exactly 33 OK lines, which would have made the 34th line a
+  failure for the wrong reason — it now reads its expectation from
+  `battery_reread.BATTERY`.
 
 ### Corrected — claims this file made that the tree does not support
 - **Four documents said no competitor had ever been run on this machine.** `SPEC.md`'s
@@ -435,9 +489,11 @@ own `VERSION` constant, in the exported transcript the page renders, and in the
 mean re-measuring the generated page for a digit. The notes below are the release's,
 and its counts are the tree's printed ones as of the last §6 re-read.
 
-A local, verify-first coding agent for Apple Silicon, with 1,119 offline checks +
-20 oracle verifications + 85 mutation gates, and a `SPEC.md` that records which of
-its own gates measured NO.
+A local, verify-first coding agent for Apple Silicon, with 1,166 offline checks +
+20 oracle verifications + 98 mutation gates, and a `SPEC.md` that records which of
+its own gates measured NO. (The tree this tag points at printed 1,119 + 20 + 85; the
+counts above are the newest printed ones, because the tag is not downloadable and
+these notes follow the tree, as the paragraph above says they do.)
 
 ### Added — perception
 - **R-1.1** `flash/lsp.py`: when a failure names a symbol the repository defines,

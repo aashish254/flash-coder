@@ -51,6 +51,7 @@ import ast
 import builtins
 import hashlib
 import json
+import os
 import sys
 import time
 from dataclasses import dataclass, field, replace
@@ -755,14 +756,33 @@ class Graph:
 
 # ---------------------------------------------------------- scan and merge
 
-def python_files(root: str | Path) -> list[Path]:
+def walk_files(root: str | Path, suffixes: tuple[str, ...],
+               extra_skip: frozenset[str] = frozenset()) -> list[Path]:
+    """Every file under a root with one of these suffixes, pruned as it walks.
+
+    `rglob` cannot be pruned: it descends into everything first and the caller
+    filters afterwards, which on a repo with a front end means stat'ing every file
+    in `node_modules` — measured at 20,639 stats for 21 indexed TypeScript files,
+    and two thirds of the second-language pass with it. `os.walk` lets the
+    directory list be rewritten in place, so those trees are never entered.
+
+    The prune set is `SKIP_DIRS` and nothing more, so a call with `(".py",)`
+    returns exactly the set `rglob("*.py")` plus the old filter returned. A
+    language that also wants its build output gone says so with `extra_skip`.
+    """
     root = Path(root)
-    out = []
-    for p in sorted(root.rglob("*.py")):
-        if set(p.relative_to(root).parts[:-1]) & SKIP_DIRS:
-            continue
-        out.append(p)
-    return out
+    skip = SKIP_DIRS | set(extra_skip)
+    out: list[Path] = []
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = [d for d in dirnames if d not in skip]
+        for f in filenames:
+            if f.endswith(suffixes):
+                out.append(Path(dirpath) / f)
+    return sorted(out)
+
+
+def python_files(root: str | Path) -> list[Path]:
+    return walk_files(root, (".py",))
 
 
 def _read(p: Path) -> str | None:
@@ -779,8 +799,19 @@ def _without(rel: str, nodes: dict, edges: list, unres: list):
             [u for u in unres if u.file != rel])
 
 
-def build(root: str | Path) -> Graph:
-    """The cold path: every file, one deterministic pass, no server."""
+LANGS = ("python", "typescript")
+
+
+def build(root: str | Path, langs: tuple[str, ...] = ("python",)) -> Graph:
+    """The cold path: every file, one deterministic pass, no server.
+
+    `langs` defaults to Python alone, and that default is load-bearing: every
+    number this repo has published about a graph was built with it, and a second
+    language added silently would have made the committed node counts describe a
+    different index than the one the tool builds by default. TypeScript is folded
+    into the SAME records — one `blast()` answers across both when asked for — and
+    reports what it cost, or why it refused (R-1.4).
+    """
     root = Path(root)
     nodes: dict[str, Node] = {}
     edges: list[Edge] = []
@@ -799,8 +830,23 @@ def build(root: str | Path) -> Graph:
         edges += es
         unres += us
         hashes[rel] = hashlib.sha1(src.encode()).hexdigest()
-    return Graph(nodes, edges, unres, hashes,
-                 {"files": len(files), "cold_ms": round(_now_ms() - t0, 1)})
+    stats = {"files": len(files), "cold_ms": round(_now_ms() - t0, 1),
+             "langs": "python"}
+    if "typescript" in langs:
+        from flash import lang_ts            # optional grammar, lazy by R-7.7
+        ok, why = lang_ts.available()
+        if not ok:
+            stats["ts"] = f"refused: {why}"
+            unres.append(Unresolved("<typescript>", 1, "<grammar>", why))
+        else:
+            tn, te, tu, th, ts_stats = lang_ts.collect(root)
+            nodes.update(tn)
+            edges += te
+            unres += tu
+            hashes.update(th)
+            stats.update(ts_stats)
+            stats["langs"] = "python+typescript"
+    return Graph(nodes, edges, unres, hashes, stats)
 
 
 def merge(old: Graph, root: str | Path, prune: bool = False) -> tuple[Graph, dict]:
@@ -841,7 +887,11 @@ def merge(old: Graph, root: str | Path, prune: bool = False) -> tuple[Graph, dic
         unres += us
         hashes[rel] = digest
     if prune:
-        for rel in [r for r in hashes if r not in seen]:
+        # `.py` only: `merge` re-extracts Python, so it is the only language whose
+        # absence it can honestly read. TypeScript nodes survive a prune because
+        # they were never in `seen`, which is the shrink guard doing its job for a
+        # language this function does not scan.
+        for rel in [r for r in hashes if r not in seen and r.endswith(".py")]:
             before = len(nodes)
             nodes, edges, unres = _without(rel, nodes, edges, unres)
             rep["removed"] += before - len(nodes)
@@ -872,9 +922,10 @@ def nearest(g: Graph, needle: str, limit: int = 5) -> list[str]:
 
 
 def render(root: str | Path, needle: str, depth: int = DEFAULT_DEPTH,
-           g: Graph | None = None) -> tuple[str, Radius, float]:
+           g: Graph | None = None,
+           langs: tuple[str, ...] = ("python",)) -> tuple[str, Radius, float]:
     """The answer, its reachability record, and the milliseconds it took."""
-    g = g or build(root)
+    g = g or build(root, langs=langs)
     t0 = _now_ms()
     r = g.blast(needle, depth)
     ms = _now_ms() - t0
@@ -1698,6 +1749,32 @@ def mutate(verbose: bool = True) -> int:
 
 # --------------------------------------------------------------------- main
 
+def parse_langs(spec: str) -> tuple[str, ...]:
+    """`--lang py,ts` -> ("python", "typescript"), or a refusal naming both.
+
+    Spelled out rather than accepted loosely: a typo in a language name that
+    quietly indexes nothing would make an empty graph read as "nothing reaches
+    this symbol", which is the one answer here that must never be a lie.
+    """
+    alias = {"py": "python", "python": "python", "ts": "typescript",
+             "tsx": "typescript", "typescript": "typescript"}
+    out: list[str] = []
+    bad: list[str] = []
+    for bit in spec.split(","):
+        b = bit.strip().lower()
+        if not b:
+            continue
+        if b in alias:
+            if alias[b] not in out:
+                out.append(alias[b])
+        else:
+            bad.append(bit)
+    if bad:
+        raise ValueError(f"unknown language(s): {', '.join(bad)}. "
+                         f"Known: {', '.join(LANGS)} (py, ts)")
+    return tuple(out) or ("python",)
+
+
 def add_flags(p: argparse.ArgumentParser) -> None:
     """The flags, defined once so `flash graph` and `python -m flash.graph` cannot
     drift apart."""
@@ -1708,6 +1785,10 @@ def add_flags(p: argparse.ArgumentParser) -> None:
                         f"(default {DEFAULT_DEPTH})")
     p.add_argument("--json", action="store_true",
                    help="the answer as an object, for the loop to inject")
+    p.add_argument("--lang", default="python",
+                   help="languages to index: python, typescript, or "
+                        "python,typescript (default: python — what every "
+                        "published figure here was built with)")
     p.add_argument("--live", action="store_true",
                    help="after answering, ask the language server about this "
                         "pass's blind spots (slow: a server has to start up)")
@@ -1723,12 +1804,18 @@ def dispatch(a: argparse.Namespace) -> int:
     if not a.symbol:
         print(__doc__)
         return 0
-    # `--live` rebuilds rather than reusing a cached index: a cache keyed by path
-    # would be a stale graph pretending to be current. §28.1's watcher-merge loop
-    # is the thing that will legitimately keep one warm, and it is not shipped, so
-    # this pays the cold build and the caller sees why the flag is slow.
-    g = build(a.path) if a.live else None
-    text, rad, ms = render(a.path, a.symbol, a.depth, g=g)
+    try:
+        langs = parse_langs(getattr(a, "lang", "python") or "python")
+    except ValueError as exc:
+        print(f"flash graph: {exc}", file=sys.stderr)
+        return 2
+    # Built here rather than inside `render`, and never reused from a cache: a
+    # cache keyed by path would be a stale graph pretending to be current.
+    # §28.1's watcher-merge loop is the thing that will legitimately keep one
+    # warm, and it is not shipped, so this pays the cold build and the caller sees
+    # why `--live` is slow — and why a refusal to index TypeScript is visible.
+    g = build(a.path, langs=langs)
+    text, rad, ms = render(a.path, a.symbol, a.depth, g=g, langs=langs)
     rep = live_upgrade(a.path, g) if a.live else None
     if a.json:
         out = {
@@ -1738,13 +1825,17 @@ def dispatch(a: argparse.Namespace) -> int:
                       "edge": h.edge and h.edge.__dict__} for h in rad.hits],
             "importers": [e.__dict__ for e in rad.importers],
             "blind_spots": rad.blind_spots, "external": rad.external,
-            "ms": round(ms, 2), "depth": a.depth, "path": str(a.path)}
+            "ms": round(ms, 2), "depth": a.depth, "path": str(a.path),
+            "langs": list(langs)}
         if rep is not None:
             out["live"] = rep
         print(json.dumps(out, indent=1))
     else:
         print(text)
-        print(f"  [{ms:.1f} ms, depth {a.depth}]")
+        print(f"  [{ms:.1f} ms, depth {a.depth}, indexed {len(langs)} "
+              f"language(s): {'+'.join(langs)}]")
+        if g is not None and g.stats.get("ts"):
+            print(f"  ..  {g.stats['ts']}")
         if rep is not None:
             print(f"  ..  language server: {rep['asked']} blind spot(s) asked, "
                   f"{rep['settled']} settled — {rep['why']}"
