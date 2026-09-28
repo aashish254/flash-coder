@@ -50,9 +50,13 @@ it and are not licensed by that file.
 is handled with a marker rather than a crash: `pip install flash-coder` on Linux
 installs everything except `mlx-lm`, and every module of the package still imports.
 The count is a measurement, not an inference from the marker: with `mlx` blocked in
-a child process, all **26 of the 26** submodules of `flash` import
-(`benchmarks/backend_free_check.py`, which is a §6 line) and the single thing that
-raises is the call that needs a forward pass, with a message naming MLX. Two used
+a child process, all **27 of the 27** submodules of `flash` import
+(re-measured 2026-09-28; `benchmarks/backend_free_check.py`, which is a §6 line) and
+the single thing that
+raises is the call that needs a forward pass, with a message naming MLX. The
+denominator is the sweep reading the package, not a checked-in total, so it moved
+from 26 to 27 when `flash/lang_ts.py` was added and it will move again; the gate is
+numerator == denominator with a floor. Two used
 to fail at import — `flash.decide` and `flash.route` through it — until SPEC
 **R-7.7** moved the backend import inside `decide()`; before that fix the sweep read
 **24 of 26**, which is the number two documents cited differently from a third.

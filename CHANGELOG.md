@@ -9,6 +9,31 @@ versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- **R-7.5's clause 2 re-measured on both install shapes one tarball supports, and the
+  `dev` extra fixed in the same pass so CI cannot go red on main.**
+  `python benchmarks/r75_sdist_battery_check.py` now builds the sdist once and runs the
+  whole §6 battery inside the download **twice**: `pip install <sdist>` → **33 of 35**
+  lines, rc 1, `checks 1119  oracle 20  §6 total 1139  mutants 85`, 13 min 22 s, with
+  exactly two refusals named; `pip install '<sdist>[ts]'` → **35/35**, rc 0,
+  `checks 1210  oracle 20  §6 total 1230  mutants 111`, 13 min 14 s, plus the battery's
+  own `matches SPEC §6 as written`
+  (`benchmarks/results/r75_sdist_battery_shapes_20260928.log`). The assertions are
+  deliberately asymmetric — shape A fails if a TypeScript vector *passes* there, or if
+  the plain install agrees with §6 at all, because `flash.lang_ts.available()` is a
+  designed refusal and a grammar-less venv printing 1,210 would mean the check stopped
+  checking. `pyproject.toml`'s `dev` extra now self-references `flash-coder[ts]`
+  (proven with `pip install --dry-run -e .[dev]`, which lists
+  `tree-sitter-0.26.0` and `tree-sitter-typescript-0.23.2`): two of the 35 battery lines
+  are TS vectors, both CI battery jobs run all 35, and an extra that cannot reach them
+  turns the pipeline red on the merge commit rather than at the change.
+- **A machine-state limit that no tree can pass round, written down instead of
+  resized.** The first shape-B pass printed **34/35** and failed only
+  `benchmarks/checkpoint_resume_check.py`, because `flash/power.py` forces
+  `tournament_width = 1` below 25% charge *even on AC* while that vector's tournament
+  arm requires width ≥ 2. The failing witness is kept
+  (`…_shapes_battgate_20260928.log`), the gate was not touched, the machine was put on
+  AC above 30% and the driver re-run. `README.md`, `CONTRIBUTING.md` and
+  `docs/methodology.md` now say to charge before a full battery.
 - **R-7.6, R-7.7 and R-7.8 closed together, because the third one is what proved
   the first two.** `flash --version`, `flash doctor` and `flash selftest --all`
   exist; `flash/decide.py`'s `import mlx.core` moved inside `decide()`; and every
@@ -119,7 +144,7 @@ versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   beyond what the SPEC entry says out loud: this checkout, launched from it.
   `docs/methodology.md` rule 5 and `SPEC.md` R-7.5 carry the split this forced — the
   literal reading of "against the installed package, no source tree" cannot produce a
-  green battery, because 11 of the 33 vectors index the tree they stand in.
+  green battery, because 11 of the battery's vectors index the tree they stand in.
 - **R-7.5's first clause was measured the same way, and it had the same disease.**
   `benchmarks/r75_fresh_install_check.py` is credited with clause 1 — a sdist installed
   into a throwaway venv answering as a stranger's terminal would. Rewritten: it now
@@ -312,6 +337,32 @@ versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   by it. Witness `benchmarks/results/publish_secret_scan_20260928.log`.
 
 ### Corrected — claims this file made that the tree does not support
+- **`docs/methodology.md` and `README.md` said "the download has not been re-run
+  since" the battery grew its two TypeScript lines.** It has now been re-run, twice, on
+  both install shapes, and the sentence is replaced by the two prints it was waiting
+  for. Same page, same pass, one further correction of the same class: it sold the
+  single-shape print of `checks 1119 … 33/33` as *the* download result without saying
+  that the checkout printed `1210 … 35/35` at that moment, which left a reader unable
+  to tell a packaging gap from a regression. The shape is now named on every page that
+  quotes a download total.
+- **`26 of the 26 submodules import without a backend` was the current answer in four
+  documents, and the live sweep prints `SWEEP 27/27`.** Nothing had regressed: the
+  denominator of that fraction is however many modules `flash/` has, and
+  `flash/lang_ts.py` joined the package with R-1.4. `README.md`, `CONTRIBUTING.md`,
+  `docs/models.md` and `SPEC.md` R-7.7 now print 27 of 27 with the reason, and the
+  `backend_free_check.py` gate label no longer carries a hard-coded count in its own
+  description — it asserts numerator == denominator with a floor of 26 and prints the
+  fraction, which is the claim. (Re-ran green on the edited tree: **42/42 + 10/10
+  mutants**; `portable_paths_check.py` **15/15 + 7/7**; `documented_commands_check.py`
+  **8/8 + 5/5**, whose collector now counts **25 commands across 184 citations in 15
+  documents** — 150 was that run's number, and this pass's prose moved it.)
+- **`docs/portability.md` and `docs/privacy.md` both said "the 182 record files".** The
+  gate's live scan counts **188**, and nine files have joined since the page was
+  written: two §6 re-reads of the second language, the secrets sweep's table, the two
+  install-shape witnesses and four `flash run` traces. Every one of the nine carries
+  **zero** host-path occurrences, so `RECORD_RESIDUE`'s floor holds at exactly **411
+  over 36** — which is the shape a floor should have: the file count is the tree
+  working, the occurrence count is the leak.
 - **Four documents said no competitor had ever been run on this machine.** `SPEC.md`'s
   R-7.11 clause 2, `docs/methodology.md`, `site/README.md` and the site's own Numbers and
   Honesty panels each rested that refusal on "no competitor has been run here", and one

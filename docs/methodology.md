@@ -99,22 +99,34 @@ R-7.5's second clause — the battery green "against the installed package rathe
 than the checkout" — then had to say which of its two readings it meant before
 anyone could claim to have measured it: read literally, with every child importing
 out of `site-packages` and no source tree present, it is **unsatisfiable by
-design**, because eleven of the 33 vectors index the tree they stand in and the
+design**, because eleven of the battery's vectors index the tree they stand in and the
 rest refuse (R-7.10) rather than pass quietly. Read as the property the README
-sells, it has been run: `python benchmarks/r75_sdist_battery_check.py` builds the
-sdist, installs the tarball into a throwaway venv, prints which `flash` a child
-imports from inside the unpacked tree and from outside it, and then runs all 33
-lines there. **33/33, `checks 1119  oracle 20  §6 total 1139  mutants 85`, 13 min 2
-s.** That print is of the day it ran: the battery has since grown two vectors (a
-second language's perception check, then its patch check) and re-printed as
-`1210 + 20 = 1230, 111 mutants` over **35** lines in the checkout, and **the download has
-not been re-run since** — the sdist driver now takes its expected line count from
-`battery_reread.BATTERY` instead of a literal, so that pass will fail loudly rather
-than for the wrong reason whenever it is next run. The
+sells, it has been run — and on 2026-09-28 it was run again, on **both install
+shapes the one tarball supports**, by `python benchmarks/r75_sdist_battery_check.py`:
+the driver builds the sdist, makes a throwaway venv, prints which `flash` a child
+imports from inside the unpacked tree and from outside it, and runs the whole
+battery there twice.
+`pip install <sdist>` returns **33 of 35** lines, rc 1, `checks 1119  oracle 20
+§6 total 1139  mutants 85` in 13 min 22 s, with exactly two named grammar refusals;
+`pip install '<sdist>[ts]'` returns **35/35**, rc 0, `checks 1210  oracle 20
+§6 total 1230  mutants 111` in 13 min 14 s and the battery's own
+`matches SPEC §6 as written`. Two of the 35 lines are the second language's vectors,
+and `flash.lang_ts.available()` is a designed refusal — a `0/1` print, not a crash —
+so a plain install *cannot* reach 1,210 and the driver now fails if either TS line
+passes on shape A, or if shape A agrees with §6 at all. That is the difference between
+a number and a claim: the old single-shape run printed 1,119 and 33/33 while the
+checkout printed 1,210 and 35/35, and nothing on the page said which was the download's
+fault. The
 earlier as the fresh-clone §6 print is the checkout's own re-read with one trailing
 line added, and the driver it was attributed to is only capable of three lines. The
 counts it carried were true; the label was not, and `SPEC.md` R-7.5 says so in both
 places.
+One machine-state limit travels with the full battery and is worth knowing before
+you start a 13-minute run: `checkpoint_resume_check` needs the tournament arm at
+width ≥ 2, and `flash/power.py` forces width 1 below 25% charge **even on AC**, so a
+laptop at 22% fails that one line on every tree — the first shape-B pass of 2026-09-28
+printed 34/35 for that reason alone and is kept as
+`benchmarks/results/r75_sdist_battery_shapes_battgate_20260928.log`.
 Then the same disease turned up in the driver that measured the *other* clause.
 `python benchmarks/r75_fresh_install_check.py` had been reporting that `flash doctor`
 exits 0 "against the installed copy"; it had been building the sdist and installing it
@@ -124,7 +136,7 @@ ahead of the venv's `site-packages`. Every one of its answers came from the sour
 it had just installed from. Rewritten to ask the venv's own console script from a
 directory holding no Python, and to print which `flash` resolved before asserting
 anything about the answer, the same run reports **9/9** shapes and a truer picture: an
-editable clone exits 0 and runs 3 of 33 vectors from the clone, while a tarball install
+editable clone exits 0 and runs 3 of the battery's 35 vectors from the clone, while a tarball install
 answers `flash --version` at rc 0, `flash doctor` at rc **1** naming the absent
 verification surface and its remedy, and `flash selftest --all` at rc **2** naming the
 path it wanted. The instrument's own shadowing is now one of its gates, because the fix

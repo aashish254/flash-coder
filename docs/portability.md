@@ -78,7 +78,7 @@ RECORD_RESIDUE = 411
 
 That is what the widened scan counts on the committed tree at the time of writing
 (`traces` 241, top-level records 154, `adapters` 9, `p6` 6, `jobs` 1) across 36
-of the 182 record files. Every step between 395 and 411 is named below, because a
+of the 188 record files. Every step between 395 and 411 is named below, because a
 residue figure that moves without an explanation is the same failure as one that
 was never published:
 
@@ -186,6 +186,16 @@ was never published:
   model was resident in RAM for the whole run; the print itself does not say so, so
   `SPEC.md` §6 says it next to the number rather than letting the figure imply a property
   of the code.
+- Nine more since that row: two §6 re-reads of the second language
+  (`battery_reread_r14_20260928.log`, `battery_reread_r14b_20260928.log`), the
+  secrets-and-PII sweep's own table (`publish_secret_scan_20260928.log`), the two
+  install-shape sdist witnesses (`r75_sdist_battery_shapes_20260928.log` and the
+  charge-floor run it replaced, `…_battgate_…`), and four `flash run` trace sessions
+  written while diagnosing the patch arm. All nine carry **zero** — the sdist driver
+  refuses to save a witness containing `str(ROOT)`, and a `run` trace's paths are the
+  sandbox temp directory it executed in — so the set is now **188 record files at
+  exactly 411 over 36**. The file count is what a working tree does; the occurrence
+  count is what leaks.
 
 Eight of the 411 are this vector's pass-1 and reproduction logs and three are its
 pass-2 table — a count that includes the counter is the kind of detail worth

@@ -25,16 +25,17 @@ const SHAPES = [
     name: 'editable install of the clone, run from elsewhere',
     status: 'dated',
     detail:
-      'all 33 vectors green from a clone installed with -e. Run on 2026-09-27 against the totals of that day (1,104 + 20 = 1,124, 78 gates); not re-run since R-7.10c added 15 checks and 7 gates, nor since R-1.4 added a 34th vector (the battery prints 1,166 + 20 = 1,186 with 98 gates as of 2026-09-28).',
+      'all 33 vectors green from a clone installed with -e. Run on 2026-09-27 against the totals of that day (1,104 + 20 = 1,124, 78 gates). The battery is 35 lines and 1,210 + 20 = 1,230 with 111 gates as of 2026-09-28 — this exact shape has not been re-run since; what has been re-run is the download, on both of its install shapes (row D).',
     witness: 'benchmarks/results/r75_install_shapes_20260927.log',
   },
   {
     id: 'D',
     name: 'unpacked sdist / “Download ZIP”, no .git',
-    status: 'dated',
+    status: 'verified',
     detail:
-      '302 files, no .git directory, battery green from the download artifact itself. Same 2026-09-27 totals as shape C, and the same caveat.',
-    witness: 'benchmarks/results/r75_install_shapes_20260927.log',
+      'the whole battery ran inside the unpacked sdist on 2026-09-28, on both install shapes the one tarball supports: `pip install <sdist>` printed 33 of 35 lines and 1,119 + 20 = 1,139 with 85 gates and two named grammar refusals, and `pip install \'<sdist>[ts]\'` printed 35 of 35 and 1,210 + 20 = 1,230 with 111 gates, agreeing with SPEC §6 as written. The driver fails if a TypeScript vector passes on the plain install — that shape is supposed to refuse.',
+    witness:
+      'benchmarks/results/r75_sdist_battery_shapes_20260928.log (the charge-limited first pass is kept beside it as …_battgate_…)',
   },
 ]
 

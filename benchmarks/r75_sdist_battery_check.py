@@ -28,23 +28,37 @@ it can be measured, because the two readings differ:
   reproduces on the author's disk.
 
 This script measures the second reading and prints the first one's refusal, so the
-witness carries both shapes. Steps, each of which prints a provenance line:
+witness carries both shapes. It measures them on **one tarball**, because an install
+shape is not a property of the download: the same sdist answers differently with and
+without an optional extra, and R-1.4's TypeScript vectors cannot run without it. A
+driver that expected all 35 lines from a plain `pip install <tarball>` would call a
+documented install shape a failure; one that excused the two refusals without proving
+the second shape would hide a real break. Steps, each of which prints a line:
 
     1  build an sdist from the checkout          -> /tmp/flash-r75-<pid>/dist
     2  unpack it                                 -> /tmp/flash-r75-<pid>/src
     3  venv + `pip install <the tarball>`        -> /tmp/flash-r75-<pid>/venv
     4  prove which `flash` a child imports, from inside the unpacked tree and from
        outside it, and require the outside one to be site-packages
-    5  run the WHOLE `benchmarks/battery_reread.py` inside the unpacked tree
-    6  run `flash selftest --all` from outside any tree, and record the refusal
-    7  require the checkout's own path to appear nowhere in the witness
+    5  shape A — run the WHOLE `benchmarks/battery_reread.py` inside the unpacked
+       tree, and require the ONLY failures to be the grammar-gated lines, each of
+       which must actually have refused (a gated line that passes on a plain
+       install means the probe is not testing what it says)
+    6  `pip install "<the tarball>[ts]"`, then prove from inside the tree that the
+       grammar loads — through the download's own `flash`, not site-packages'
+    7  shape B — run the WHOLE battery again, same tree, and require every line
+       green AND the battery's own `matches SPEC §6 as written` verdict
+    8  run `flash selftest --all` from outside any tree, and record the refusal
+    9  require the checkout's own path to appear nowhere in the witness
 
-    python benchmarks/r75_sdist_battery_check.py            # ~18 min, one battery
+    python benchmarks/r75_sdist_battery_check.py            # ~28 min, two batteries
     python benchmarks/r75_sdist_battery_check.py --keep     # leave /tmp alone
 
-Exit codes: 0 the battery printed every one of its lines green (the count is read
-from `battery_reread.BATTERY`, not written here) and the provenance held; 1 a
-line failed or the provenance did not; 2 setup failed (no build tool, no /tmp).
+Exit codes: 0 both install shapes printed what this file predicts of them (the line
+count is read from `battery_reread.BATTERY`, not written here) and the provenance
+held; 1 a line failed outside its shape's expectation, or a refusal did not happen,
+or the provenance did not; 2 setup failed (no build tool, no network for the extra,
+no /tmp).
 """
 from __future__ import annotations
 
@@ -69,12 +83,26 @@ PY = sys.executable
 # `benchmarks/portable_paths_check.py` exists to fail.
 BUILDERS = [PY, *[str(p) for name in ("python3.11", "python3")
                  if (p := shutil.which(name))]]
-LINE = "OK   "
 # The line count comes from the battery's own list rather than a literal written
 # here: this gate's job is to require every published line to re-print, and a
 # hardcoded number would turn the day a 34th vector ships into a run that fails
 # for the wrong reason — or, worse, a run that is edited to match.
 WANT_LINES = len(battery_reread.BATTERY)
+# The battery lines that need R-1.4's optional extra to run at all. Named here, not
+# guessed at from a failure: `pyproject.toml`'s `ts` extra is what installs the
+# grammar, and `pip install <tarball>` installs no extras. Kept as a set the driver
+# must see refuse on shape A and pass on shape B, so this list cannot quietly grow to
+# cover a broken vector — a gated label that passes without the extra is a FAIL line
+# in the witness.
+GRAMMAR_GATED = frozenset({
+    "benchmarks/ts_perception_check.py",
+    "benchmarks/ts_patch_check.py",
+})
+LABELS = [entry[0] for entry in battery_reread.BATTERY]
+# What the battery prints when its own totals agree with SPEC §6's pre-registered
+# claim. Required on shape B and required ABSENT on shape A, because the two gated
+# vectors really do contribute 91 checks and 26 mutants to that claim.
+AGREES = "matches SPEC §6 as written"
 
 
 def builder() -> str:
@@ -118,14 +146,15 @@ def main(argv: list[str]) -> int:
     if base.exists():
         die(f"{base} already exists; refusing to share a work directory")
     base.mkdir(parents=True)
-    witness = RESULTS / f"r75_sdist_battery_{stamp}.log"
+    witness = RESULTS / f"r75_sdist_battery_shapes_{stamp}.log"
     log: list[str] = []
 
     def say(line: str = "") -> None:
         print(line)
         log.append(line)
 
-    say("r75_sdist_battery: R-7.5 clause 2 — the whole §6 battery, in the download")
+    say("r75_sdist_battery: R-7.5 clause 2 — the whole §6 battery, in the download,")
+    say("                on both install shapes one tarball supports")
     say(f"provenance  interpreter: python {sys.version.split()[0]}, "
         f"{'the project venv' if '.venv' in PY else 'not the project venv'}")
     say(f"provenance  work directory: {base}")
@@ -207,41 +236,109 @@ def main(argv: list[str]) -> int:
             die("the checkout path reached a resolved module; the download is not "
                 "self-contained")
 
-        # 5 — the whole battery, in the download, with the venv's interpreter.
-        # `-u` because this is a 15-minute run: the child's stdout is a pipe, so
+        # 5 — shape A: the whole battery, in the download, with the venv's
+        # interpreter, on the install a stranger gets from one `pip install`.
+        # `-u` because this is a 13-minute run: the child's stdout is a pipe, so
         # without it every line sits in an 8 KB buffer and a driver that promises
         # progress prints nothing until the battery is already over.
-        say("")
-        say("$ python benchmarks/battery_reread.py            # inside the tree")
-        started = time.perf_counter()
-        proc = subprocess.Popen([str(vpy), "-u", "benchmarks/battery_reread.py"],
-                                cwd=str(tree), stdout=subprocess.PIPE,
-                                stderr=subprocess.STDOUT, text=True,
-                                env=os.environ.copy())
-        out_lines: list[str] = []
-        assert proc.stdout is not None
-        for line in proc.stdout:
-            line = line.rstrip("\n")
-            out_lines.append(line)
-            if line.startswith(("OK   ", "BAD", "checks ", "--quick", "matches ")):
-                print(f"[{int(time.perf_counter() - started) // 60}m] {line}",
-                      flush=True)
-        rc = proc.wait()
-        secs = time.perf_counter() - started
-        log.extend(out_lines)
-        ok_lines = sum(1 for l in out_lines if l.startswith(LINE))
-        say("")
-        say(f"provenance  battery rc={rc} in {int(secs // 60)} min "
-            f"{int(secs % 60)} s, {ok_lines} OK lines printed")
+        def battery(what: str) -> tuple[int, list[str], list[str], int, list[str]]:
+            say("")
+            say(f"$ python benchmarks/battery_reread.py        # {what}")
+            started = time.perf_counter()
+            proc = subprocess.Popen([str(vpy), "-u", "benchmarks/battery_reread.py"],
+                                    cwd=str(tree), stdout=subprocess.PIPE,
+                                    stderr=subprocess.STDOUT, text=True,
+                                    env=os.environ.copy())
+            lines: list[str] = []
+            assert proc.stdout is not None
+            for raw in proc.stdout:
+                line = raw.rstrip("\n")
+                lines.append(line)
+                if line.startswith(("OK   ", "BAD", "checks ", "--quick", "matches ")):
+                    print(f"[{int(time.perf_counter() - started) // 60}m] {line}",
+                          flush=True)
+            rc = proc.wait()
+            secs = int(time.perf_counter() - started)
+            log.extend(lines)
 
-        # 6 — the other shape, on the record: no tree, installed package only.
+            def labelled(prefix: str) -> list[str]:
+                found = []
+                for line in lines:
+                    if not line.startswith(prefix):
+                        continue
+                    hit = [l for l in LABELS if l in line]
+                    found.append(hit[0] if hit else line.split(None, 2)[1])
+                return found
+
+            return (rc, labelled("OK   "), labelled("BAD"), secs, lines)
+
+        rc_a, ok_a, bad_a, secs_a, out_a = battery("shape A, plain install")
+        say("")
+        say(f"provenance  shape A (pip install {sdist.name}): battery rc={rc_a} in "
+            f"{secs_a // 60} min {secs_a % 60} s, {len(ok_a)}/{WANT_LINES} lines green")
+        unexpected = sorted(set(bad_a) - GRAMMAR_GATED)
+        refused = sorted(set(bad_a) & GRAMMAR_GATED)
+        silent = sorted(GRAMMAR_GATED - set(bad_a))
+        for label in refused:
+            say(f"refused     {label} — no TypeScript grammar in this venv, which is "
+                "what a plain install of the sdist gives")
+        if unexpected:
+            say(f"FAIL        {len(unexpected)} line(s) failed that no install shape "
+                f"excuses: {', '.join(unexpected)}")
+        if silent:
+            say(f"FAIL        {', '.join(silent)} printed no verdict at all")
+        passed_gated = sorted(set(ok_a) & GRAMMAR_GATED)
+        if passed_gated:
+            say(f"FAIL        {', '.join(passed_gated)} ran green WITHOUT the extra, "
+                "so its gate is not the grammar and this shape proves nothing")
+        if AGREES in "\n".join(out_a):
+            say("FAIL        shape A agreed with SPEC §6's claim while 2 of its "
+                "vectors refused — the totals would be a fiction")
+
+        # 6 — the extra a stranger installs deliberately, then proved loadable by
+        # the download's own `flash` from inside the unpacked tree.
+        rc, out = sh([str(vpy), "-m", "pip", "install", "--quiet",
+                      f"{sdist}[ts]"], timeout=900)
+        if rc != 0:
+            say(out[-1500:])
+            die("pip could not add the `ts` extra, so shape B was not measured",
+                rc=2)
+        rc, out = sh([str(vpy), "-u", "-c",
+                      "import flash, flash.lang_ts as L; "
+                      "print(L.available()[0], flash.__file__)"], cwd=tree)
+        loaded, _, where = out.strip().partition(" ")
+        if rc != 0 or loaded != "True" or not _same_tree(where, tree):
+            say(f"provenance  grammar probe inside the tree: rc {rc}, "
+                f"out {out.strip()[:200]}")
+            die("the `ts` extra installed but the download's own flash.lang_ts still "
+                "cannot load it", rc=1)
+        say(f"provenance  shape B (pip install '{sdist.name}[ts]'): the download's "
+            "own flash.lang_ts reports the grammar loaded")
+
+        # 7 — shape B: the same battery, the same tree, now with the extra present.
+        rc_b, ok_b, bad_b, secs_b, out_b = battery("shape B, with the ts extra")
+        say("")
+        say(f"provenance  shape B: battery rc={rc_b} in {secs_b // 60} min "
+            f"{secs_b % 60} s, {len(ok_b)}/{WANT_LINES} lines green")
+        if bad_b:
+            say(f"FAIL        with every dependency installed these still failed: "
+                f"{', '.join(sorted(bad_b))}")
+        if AGREES not in "\n".join(out_b):
+            say(f"FAIL        shape B did not print `{AGREES}`, so the download does "
+                "not reproduce SPEC §6's totals")
+        shapes_ok = (rc_a == 1 and not unexpected and not silent and not passed_gated
+                     and AGREES not in "\n".join(out_a)
+                     and rc_b == 0 and len(ok_b) == WANT_LINES and not bad_b
+                     and AGREES in "\n".join(out_b))
+
+        # 8 — the other shape, on the record: no tree, installed package only.
         rc2, out2 = sh([str(ve / "flash"), "selftest", "--all"], cwd=base,
                        timeout=120)
         say(f"provenance  `flash selftest --all` with no tree present: rc {rc2}")
         for line in [l for l in out2.splitlines() if l.strip()][:3]:
             say("            " + line)
 
-        # 7 — the witness must not name this disk.
+        # 9 — the witness must not name this disk.
         body = "\n".join(log) + "\n"
         leaked = body.count(str(ROOT)) + body.count(str(Path.home()))
         say(f"provenance  host paths in this witness: {leaked}")
@@ -249,9 +346,12 @@ def main(argv: list[str]) -> int:
             die("the witness carries a host path", rc=1)
         witness.write_text(body)
         print(f"\nr75_sdist_battery: wrote benchmarks/results/{witness.name}")
-        print(f"r75_sdist_battery: {'ALL ' + str(WANT_LINES) + ' LINES GREEN' if rc == 0 and ok_lines == WANT_LINES else 'see the BAD lines above'}"
-              f" (battery rc {rc}, {ok_lines} OK lines)")
-        return 0 if rc == 0 and ok_lines == WANT_LINES and rc2 == 2 else 1
+        print(f"r75_sdist_battery: shape A {len(ok_a)}/{WANT_LINES} lines green with "
+              f"{len(refused)} grammar refusals named; shape B "
+              f"{len(ok_b)}/{WANT_LINES} green"
+              + (" — both shapes match this file's prediction"
+                 if shapes_ok else " — SEE THE FAIL LINES ABOVE"))
+        return 0 if shapes_ok and rc2 == 2 else 1
     finally:
         if keep:
             print(f"r75_sdist_battery: leaving {base} in place (--keep)")

@@ -39,7 +39,7 @@ would close it.
 ```bash
 git clone https://github.com/aashish254/flash-coder && cd flash-coder
 python3.11 -m venv .venv && source .venv/bin/activate
-pip install -e .[dev]       # `flash` on PATH; plain `python -m flash.cli` also works
+pip install -e .[dev]       # `flash` on PATH + pyflakes + build + the ts grammar; plain `python -m flash.cli` also works
 flash doctor                # nine answers about this install, and its rc follows them
 flash selftest --all        # the offline battery: no models, no network
 ```
@@ -61,11 +61,15 @@ configured yet. The two installs a stranger can make from here **have** been run
   battery path it looked for. A wheel ships `flash` alone, so the verification surface
   really is not there, and the tool refuses rather than totalling checks that never ran.
 
-The full 33-line re-read has been run too, in the reading that a download makes
+The full 35-line re-read has been run too, in the reading that a download makes
 possible: `python benchmarks/r75_sdist_battery_check.py` unpacks the sdist, installs it
-into a throwaway venv and runs the whole battery **inside that tree** — 33/33 at the same
-printed totals. `docs/methodology.md` §4 carries why that is the honest form of "against
-the installed package" and what the literal form would have bought.
+into a throwaway venv and runs the whole battery **inside that tree**, on **both install
+shapes one tarball supports** — `pip install <sdist>` gives 33/35 with two named grammar
+refusals, `pip install '<sdist>[ts]'` gives 35/35 at the checkout's printed totals.
+`docs/methodology.md` §4 carries why that is the honest form of "against the installed
+package" and what the literal form would have bought. One machine-state caveat travels
+with it: below 25% charge the power governor forces tournament width 1, so
+`checkpoint_resume_check` cannot pass on any tree and the full battery needs AC.
 
 `flash power` is deliberately the step before the model download: the fast tier
 needs about 4 GB of RAM-resident weights and Apple Silicon, and a machine that
@@ -76,8 +80,10 @@ more beside it.
 On Linux or Windows everything except generation installs and runs: PERCEIVE,
 the AST graph, the harness, trace/replay and the whole offline battery are pure
 Python. The model layer is `mlx`, and `flash run` says so rather than pretending.
-Measured with `mlx` blocked on 2026-09-27, module by module in a child process:
-**26 of the 26 submodules of `flash` import**, and the one thing that fails is the
+Measured with `mlx` blocked, module by module in a child process — the sweep's
+denominator is however many modules `flash/` has, so it read 24 of 26 before the
+R-7.7 fix, 26 of 26 until the second language's module joined it, and
+**27 of the 27 submodules of `flash` import** as re-measured on 2026-09-28 — and the one thing that fails is the
 call that needs a forward pass, which raises a `RuntimeError` naming MLX. Before
 that fix the count was **24 of 26** — `flash.decide` at its top-level
 `import mlx.core`, and `flash.route` through it — and nothing noticed for as long

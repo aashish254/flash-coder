@@ -1102,9 +1102,21 @@ here rather than folded into P6's confidence work.
       It printed **33/33** and `checks 1119  oracle 20  §6 total 1139  mutants 85` in
       **13 min 2 s** (`benchmarks/results/r75_sdist_battery_20260928.log`). So the
       battery is green in **the download rather than the checkout** — no path on this
-      checkout is on that interpreter's way to a module. What is *not* satisfied is
+      checkout is on that interpreter's way to a module. **Re-measured the same day on
+      both install shapes one tarball supports**, because the second language had grown
+      the battery two lines and a plain install cannot run them: shape A
+      (`pip install <sdist>`) **33 of 35**, rc 1, `checks 1119 … mutants 85`, the two
+      refusals named and asserted to refuse; shape B (`pip install '<sdist>[ts]'`)
+      **35/35**, rc 0, `checks 1210  oracle 20  §6 total 1230  mutants 111` plus the
+      battery's own `matches SPEC §6 as written`
+      (`benchmarks/results/r75_sdist_battery_shapes_20260928.log`). The `dev` extra now
+      pulls `flash-coder[ts]` so CI's full-battery jobs cannot go red on a grammar they
+      never installed, and the charge floor found on the way — the governor forces
+      tournament width 1 below 25% even on AC, which makes
+      `checkpoint_resume_check` unpassable on any tree — is recorded in the sibling
+      `…_battgate_…` log rather than fixed by resizing the gate. What is *not* satisfied is
       the strictest reading of the words "the installed package": with no source tree
-      present, 11 of the 33 vectors index the tree they stand in and the rest refuse
+      present, 11 of the battery's vectors index the tree they stand in and the rest refuse
       (R-7.10), so that reading cannot produce a green battery at all — the same run
       records `flash selftest --all` exiting **2** naming the `site-packages` path it
       wanted. `SPEC.md` R-7.5 carries both readings and says which one closed. This

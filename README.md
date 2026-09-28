@@ -13,12 +13,16 @@ Two things about this repo are load-bearing, and both are visible in the files:
   that looked clean on this project's own output. That total is not a property of
   the author's disk: `python benchmarks/r75_sdist_battery_check.py` builds the
   sdist, installs it into a throwaway venv, checks which `flash` a child imports,
-  and runs the whole battery **inside the download** — the run on record printed
-  33/33 and `checks 1119  oracle 20  §6 total 1139  mutants 85` in 13 min 2 s, and
-  the checkout has since printed two more lines — the second language's perception
-  vector and then its patch vector — most recently `checks 1210 … mutants 111` over
-  **35** lines, so the sdist number is two passes behind and the driver reads its
-  expected line count from the battery rather than from a literal.
+  and runs the whole battery **inside the download**, on both install shapes one
+  tarball supports: `pip install <sdist>` prints **33 of 35** lines and
+  `checks 1119  oracle 20  §6 total 1139  mutants 85` with exactly two named
+  grammar refusals, and `pip install '<sdist>[ts]'` prints **35/35** and
+  `checks 1210  oracle 20  §6 total 1230  mutants 111` alongside the battery's own
+  `matches SPEC §6 as written` (2026-09-28, `benchmarks/results/
+  r75_sdist_battery_shapes_20260928.log`). The second language is why a plain
+  install cannot reach 1,210: its two vectors refuse without the `ts` extra, and
+  the driver fails if either of them *passes* there or if the plain shape ever
+  agrees with §6.
 - **The one cross-tool comparison here is a run, not a claim.** `python
   benchmarks/market_compare.py --arms oneshot,aider,flash` answers the same 8 held-out
   tasks from the same 4-bit weights and grades every arm with the same harness oracle:
@@ -41,10 +45,13 @@ Two things about this repo are load-bearing, and both are visible in the files:
 - **Everything else is pure Python 3.11+**: symbol perception, the AST knowledge
   graph, the harness and its GOT/WANT oracle, trace/replay, the outcome ledger, the
   power governor, the sandbox and the whole offline battery. With MLX blocked in a
-  child process, **26 of the 26** submodules of `flash` still import, and the one
+  child process, **27 of the 27** submodules of `flash` still import, and the one
   thing that raises is the call that needs a forward pass — with a message naming
   MLX instead of a stack trace (SPEC R-7.7, gated by
-  `benchmarks/backend_free_check.py`).
+  `benchmarks/backend_free_check.py`). The denominator of that fraction is however
+  many modules `flash/` has, so it printed 26 until the second language's module
+  joined it and re-printed **27/27** on 2026-09-28; the gate asserts numerator ==
+  denominator, never a fixed number.
 - **What is NOT claimed:** that a Linux or Windows machine has installed this. The
   install shapes that HAVE been run are a fresh clone's editable install, a wheel in
   a throwaway venv, and an unpacked sdist with no `.git` — all on Apple Silicon, all
@@ -70,9 +77,17 @@ the install shape (a wheel has no `benchmarks/` beside the package, so it says
 backend, the model cache against the four §22 tiers, the tools the vectors import,
 and what the box may load — and its exit code follows its own page.
 
-`selftest --all` is a thin wrapper on `benchmarks/battery_reread.py`: the same 33
+`selftest --all` is a thin wrapper on `benchmarks/battery_reread.py`: the same 35
 lines, the same printed totals, and the same refusal (rc 2, naming the path) when
 there is no battery to run.
+
+One of those 35 lines is the machine itself: `checkpoint_resume_check` needs the
+tournament arm to have width ≥ 2, and the power governor forces width to 1 under
+25% charge even on AC. So a laptop at 22% cannot print the §6 total — it fails
+exactly one line with a sentence naming the charge. Put the machine on AC and
+above 25% before the full battery; that is measured, not folklore
+(`benchmarks/results/r75_sdist_battery_shapes_battgate_20260928.log` is the run
+that says so).
 
 That refusal is the rule for every vector that reads the data tree beside `flash/`.
 A wheel install carries no `benchmarks/`, so the six selftests that do — `graph`,
@@ -243,6 +258,8 @@ Vision is benchmarked once the text brain is picked (PLAN §M1–M2).
 # PRINTS (never an exit code, never a phrase grep — see SPEC §6 for the two
 # capture traps that rule is there to prevent). Fails if the tree's total moves
 # off SPEC §6's number. `--quick ambient lora` re-runs only named lines.
+# Put the machine on AC first: below 25% charge the governor forces tournament
+# width 1 and `checkpoint_resume_check` cannot pass on ANY tree (measured 2026-09-28).
 .venv/bin/python benchmarks/battery_reread.py       # 15 min measured 2026-09-27
 .venv/bin/python -m flash.cli selftest --all        # the same thing, by name
 .venv/bin/python -m flash.cli doctor                # nine answers about THIS install
@@ -415,7 +432,9 @@ Vision is benchmarked once the text brain is picked (PLAN §M1–M2).
 # Every `flash …` line printed anywhere in this repo — README, CONTRIBUTING, SPEC, docs
 # and the two published workflows' `run:` blocks — is parsed against the real argparse
 # parser, without dispatching, so this file and the pipeline on the front page cannot
-# both drift from the CLI. 25 commands, 150 citations, 15 documents today. Deleting a
+# both drift from the CLI. 25 commands, 184 citations, 15 documents as of 2026-09-28 —
+# the citation count is this collector's own, and it moves whenever a doc gains a line.
+# Deleting a
 # subcommand from the parser is not enough to fail it either: the failure must NAME the
 # citing file and line.
 .venv/bin/python benchmarks/documented_commands_check.py     # 8 checks + 5 mutants

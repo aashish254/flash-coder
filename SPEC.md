@@ -1036,7 +1036,7 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   **Clause 2 needed a reading before it could be measured, and the two readings
   are not the same claim.** Read literally — every child imports `flash` out of
   `site-packages`, with no source tree present — it is **unsatisfiable by design**:
-  eleven of the 33 vectors index the tree they stand in (the graph selftest builds
+  eleven of the battery's vectors index the tree they stand in (the graph selftest builds
   its index over its own source, `benchmarks/portable_paths_check.py` scans it,
   `benchmarks/documented_commands_check.py` reads its documents), and R-7.10 and
   R-7.10c made the rest refuse rather than pass quietly with no `benchmarks/`
@@ -1053,11 +1053,34 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   sdist, the installed `flash --version` prints `flash 0.0.1`, and the checkout's
   path appears nowhere in the witness (the run asserts its own residue count: **0**
   host paths, which is also why `RECORD_RESIDUE` stays 411). Then it runs the
-  **whole** battery there. It printed all **33** lines green and
-  `checks 1119  oracle 20  §6 total 1139  mutants 85` — **13 min 2 s**, one minute
-  faster than the checkout's own re-read of the same tree state. Raw witness:
-  `benchmarks/results/r75_sdist_battery_20260928.log`. The same run then executes
-  the literal reading's answer and puts it on the record: `flash selftest --all`
+  **whole** battery there — **twice, on both install shapes the one tarball
+  supports**, because the second language made the shape matter:
+  `pip install <sdist>` printed **33 of 35** lines green, rc 1, `checks 1119
+  oracle 20  §6 total 1139  mutants 85` in **13 min 22 s**, with exactly two
+  refusal lines named (`benchmarks/ts_perception_check.py`,
+  `benchmarks/ts_patch_check.py`, each printing its own `0/1` because
+  `flash.lang_ts.available()` reports the grammar absent);
+  `pip install '<sdist>[ts]'` printed **35/35**, rc 0, `checks 1210  oracle 20
+  §6 total 1230  mutants 111` in **13 min 14 s** and the battery's own
+  `matches SPEC §6 as written`. Raw witness:
+  `benchmarks/results/r75_sdist_battery_shapes_20260928.log` (the single-shape run
+  it supersedes, `r75_sdist_battery_20260928.log`, is left in the tree).
+  **The driver's assertion is asymmetric on purpose**: shape A FAILs if either TS
+  line *passes* there, or if shape A agrees with §6 at all, because a plain install
+  reaching 1,210 would mean the grammar check had stopped checking; shape B FAILs
+  unless all 35 lines are green and the §6 line prints. One tarball, two commands,
+  two different honest totals — and the earlier single-shape print of `1119 … 33/33`
+  was true of the tree it ran in and misleading on the page, which is the same defect
+  this clause corrected once already.
+  **A machine-state limit found on the way**: the first shape-B pass printed **34/35**,
+  failing only `benchmarks/checkpoint_resume_check.py`, because the power governor
+  forces `tournament_width = 1` below 25% charge *even on AC*
+  (`flash/power.py`) while that vector needs the tournament arm at width ≥ 2. That run
+  is kept as `benchmarks/results/r75_sdist_battery_shapes_battgate_20260928.log`; the
+  gate was not resized and the assertion was not reworded, the machine was put on AC
+  above 30% and the driver re-run.
+  **Both shapes then execute** the literal reading's answer and put it on the record:
+  `flash selftest --all`
   with no tree present exits **2** naming the `site-packages/benchmarks/` path it
   wanted, which is R-7.10's refusal doing its job on the installed shape.
   **What this box corrected on the way.** A file named
@@ -1112,7 +1135,9 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   and lists the things in the package that still work.
   Measured under `benchmarks/backend_free_check.py`'s import blocker, in child
   processes so the shim is doing the work rather than this file's own `sys.modules`:
-  **26 of the 26 submodules import** (the gate prints the sweep's own `SWEEP 26/26`
+  **27 of the 27 submodules import** as re-measured 2026-09-28, up from the 26 this
+  clause was written against because `flash/lang_ts.py` joined the package
+  (the gate prints the sweep's own `SWEEP 27/27`
   fraction, requires numerator == denominator and the denominator ≥ 26, so a module
   quietly dropping out of the package cannot read as a smaller victory),
   `import flash.decide` and
@@ -2117,6 +2142,26 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
    collected 214 from twelve commands because those two matched nothing and read
    as blank rather than as failures — the same class of hole as `web`'s, reached
    from the capture side instead of the exit-code side.)
+   (Updated 2026-09-28, when R-7.5's clause 2 was re-measured on **both install
+   shapes** and the `dev` extra gained `flash-coder[ts]`: **+0 checks, +0 mutants,
+   +0 lines**, and the reason is the same as the first clause-2 entry's — the driver
+   is not a §6 vector, it builds a tarball and a venv and runs the **existing** 35
+   lines inside them. What it printed there is what this page quotes, and it is the
+   only battery print of this tree state: shape A `checks 1119  oracle 20  §6 total
+   1139  mutants 85` over **33** of 35 with two named grammar refusals, shape B
+   `checks 1210  oracle 20  §6 total 1230  mutants 111` at **35/35** with the battery's
+   own `matches SPEC §6 as written`
+   (`benchmarks/results/r75_sdist_battery_shapes_20260928.log`, 0 host paths, floor
+   **411 over 36**, record files **188**). **No new checkout-side battery re-read was
+   taken for this pass**, and the entry says so rather than implying one: the edits were
+   prose plus one check description, so the three gates that read prose were re-run
+   individually on the edited tree — `backend_free_check.py` **42/42 + 10/10**, whose
+   sweep now prints `SWEEP 27/27` because `flash/lang_ts.py` is a submodule and the
+   denominator is the package, `portable_paths_check.py` **15/15 + 7/7**, and
+   `documented_commands_check.py` **8/8 + 5/5**, whose collector counted **184**
+   citations against the 150 an earlier pass printed. The totals those three lines
+   contribute to §6 are unchanged, and the next full re-read will carry this pass with
+   them.)
 1b. **Clean build** (no warnings accepted): `python -m pyflakes flash/*.py
    benchmarks/*.py` → **0 findings**. `benchmarks/tasks/` is out of that scope
    on purpose — a `*_test.py` there is a program *fragment* (`count_tasks`, the

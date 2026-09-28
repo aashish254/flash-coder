@@ -100,7 +100,7 @@ their padding removed rather than skipped**, and identity counts of
 addresses, and **1117** host paths. That last count is not the one
 `docs/portability.md` argues about: it counts every occurrence in the working
 tree *and in every blob ever committed*, while the portability page's **411** is
-the residue in the 182 record files that gate reads, once the history blobs and
+the residue in the 188 record files that gate reads, once the history blobs and
 the decompressed archive members are left out. The two numbers measure
 different sets, and `docs/portability.md` explains why the records keep their
 paths at all. The witness is

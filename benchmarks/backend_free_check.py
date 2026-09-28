@@ -456,7 +456,8 @@ def run_gates() -> None:
     sweep = (proc.stdout + proc.stderr).strip().splitlines()[-1:] or ["<no output>"]
     m = re.search(r"SWEEP (\d+)/(\d+)", sweep[0])
     ck("EVERY submodule of `flash` imports with the backend blocked, not just the "
-       "two that used to fail — R-7.7's clause is '26 of the 26', and a sweep is "
+       "two that used to fail — R-7.7's clause is that the numerator equals the "
+       "denominator, and a sweep is "
        f"the only way a new module cannot quietly join the failures ({sweep[0]})",
        proc.returncode == 0 and m is not None and int(m.group(1)) == int(m.group(2))
        and int(m.group(2)) >= 26,
