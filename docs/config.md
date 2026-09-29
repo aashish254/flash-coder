@@ -49,7 +49,10 @@ absence (`flash session --help` is the authority):
 
 Each turn re-reads `--context` from disk, so turn N+1 patches what turn N wrote
 rather than what the process remembered, and the oracle named by `--test` is
-protected on every turn of the session, not only the first patch set. The session
+protected on every turn of the session, not only the first patch set. It is
+protected by name: a turn that addresses `t.py` is refused as *the oracle this run
+scores against* before the arm looks at the address, so the sentence never
+complains about a line number in the one file the session must not edit. The session
 prints one verdict line per turn and one `[session] turns=… solved=… written=…
 seconds=… last_rc=…` report at EOF, and exits with the last turn's code.
 

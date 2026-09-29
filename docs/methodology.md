@@ -24,7 +24,7 @@ fraction, and a last-line grep read one vector's `14/14 mutants` summary as if
 it were its check count, under-counting the published total by 17 while looking
 clean.
 
-So the totals in the README (`1,294 checks + 20 oracle verifications + 147
+So the totals in the README (`1,345 checks + 20 oracle verifications + 157
 mutation gates`) come from the line `battery_reread` prints, and the file holds
 one entry per §6 item with the exact fraction that item must print. When the
 numbers disagree, the run reports the disagreement out loud. It has: one CLAIM
@@ -51,7 +51,17 @@ repo's vectors exist because that distinction was learned the hard way:
 - `benchmarks/lora_path_check.py`'s new `--dry-run` checks call
   `flash.train.main()` with `TASK_DIR` pointed at a temp directory and **no
   `--suite-out`**, because the defect was in the command's plumbing and the
-  file it wrote was the one that lives in the tracked tree. Testing
+  file it wrote was the one that lives in the tracked tree.
+- R-7.15e's clause was about a *sentence*: a patch aimed at the test file had to
+  be refused as the oracle, not as a bad address. The refusal was already
+  happening, which is why the bug survived green vectors — `L11-L11 is past the
+  end of a 9-line file` is a true statement about a file the run must not edit,
+  and it was the only sentence the arm could produce because the address was
+  resolved before the file was recognized. So the checks assert the ordering
+  (`patch_landing_check.py` asks for the message text, and one mutant replaces
+  it with the coordinate complaint so the two cannot be confused), and the
+  second mutant returns `""` from `cli._oracle_key`, which is the one return
+  value that disarms the patch layer *and* the write-back gate at once. Testing
   `suite_from_dataset()` directly would have passed while the bug stayed.
 
 ## 3. Every gate pays for a mutation

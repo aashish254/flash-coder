@@ -1,0 +1,43 @@
+# R-7.15 clause 7 live arm, 2026-09-29: a real pseudo-terminal, so the keyboard path is what runs.
+# command: python -m flash.cli session --context /tmp/flash-e15live --test /tmp/flash-e15live/t.py --apply
+# turns, in the order they were typed (each only AFTER the previous turn's verdict reached the terminal): 'zero-pad the cents and keep a negative sign in front of the dollar sign, exactly as t.py asserts' / 'make cents_to_str raise ValueError when cents is not an int' / 'quit'
+# tree: money.py seeded as cents_to_str(c) -> f"${c / 100}"; oracle t.py 3 asserts, the third one being the negative case
+# driver: python benchmarks/session_pty_demo.py --tree /tmp/flash-e15live --out <this file>
+# child exit code: 1 after 38.4s
+# Every line below is stamped at the moment the terminal received it.
+[t+  0.00s] zero-pad the cents and keep a negative sign in front of the dollar sign, exactly as t.py asserts
+[t+  0.06s] flash session on /tmp/flash-e15live against the oracle /tmp/flash-e15live/t.py — one ask per line, and each answer arrives before you type the next. `quit` or Ctrl-D ends it.
+[t+  2.52s] you> 
+[t+  2.54s] 
+[t+  2.54s] 
+[t+  9.75s] 
+[t+  9.76s] 
+[t+  9.76s] 
+[t+ 19.56s] [turn 1] routed=small tier=failed solved=False attempts=4 (11.2s) patches=1 refused=1 whole=0 outside=0
+[t+ 19.56s]   oracle| PATCH REFUSED: t.py:format_money — t.py is the oracle this run scores against, so it is not a patch target — an assertion is never edited to fit the code. Change the module the test imports.
+[t+ 19.56s] [R-3.2] NOT APPLIED: the task was not solved, so --apply wrote nothing to /tmp/flash-e15live
+[t+ 19.77s] 
+[t+ 19.77s] <<< typed: 'make cents_to_str raise ValueError when cents is not an int'
+[t+ 19.77s] you> make cents_to_str raise ValueError when cents is not an int
+[t+ 20.40s] 
+[t+ 20.41s] 
+[t+ 20.41s] 
+[t+ 28.31s] 
+[t+ 28.31s] 
+[t+ 28.31s] 
+[t+ 37.73s] [turn 2] routed=small tier=failed solved=False attempts=4 (12.1s) patches=1 refused=0 whole=0 outside=0
+[t+ 37.73s]   oracle| FAILING_ASSERT: assert cents_to_str(150) == "$1.50" | GOT: '$1.5' | WANT: '$1.50'
+[t+ 37.73s] [R-3.2] NOT APPLIED: the task was not solved, so --apply wrote nothing to /tmp/flash-e15live
+[t+ 37.94s] 
+[t+ 37.94s] <<< typed: 'quit'
+[t+ 37.94s] you> quit
+[t+ 37.94s] [session] turns=2 solved=0 written=0 seconds=23.3 last_rc=1
+[t+ 37.94s] [trace] replay this session:  flash trace show 20260929-203852-session-3973
+=== child exited rc=1 after 38.4s ===
+=== final money.py ===
+def cents_to_str(cents: int) -> str:
+    return f"${cents / 100}"
+=== oracle re-run against the bytes now on disk ===
+rc=1 Traceback (most recent call last):
+  File "<string>", line 6, in <module>
+AssertionError

@@ -49,7 +49,7 @@ BATTERY = [
     ("flash trace --selftest", "-m flash.cli trace --selftest", 30, None, "checks"),
     ("flash web --selftest", "-m flash.cli web --selftest", 9, None, "checks"),
     ("flash.grammar --selftest", "-m flash.grammar --selftest", 47, None, "checks"),
-    ("flash.patches --selftest", "-m flash.patches --selftest", 63, None, "checks"),
+    ("flash.patches --selftest", "-m flash.patches --selftest", 71, None, "checks"),
     ("flash.debug --selftest", "-m flash.debug --selftest", 55, None, "checks"),
     ("flash.tourney --selftest", "-m flash.tourney --selftest", 16, None, "checks"),
     ("flash.confidence --selftest", "-m flash.confidence --selftest", 29, None, "checks"),
@@ -76,9 +76,9 @@ BATTERY = [
     ("benchmarks/ts_patch_check.py",
      "benchmarks/ts_patch_check.py --sweep", 52, 15, "checks"),
     ("benchmarks/patch_landing_check.py",
-     "benchmarks/patch_landing_check.py --sweep", 48, 24, "checks"),
+     "benchmarks/patch_landing_check.py --sweep", 53, 27, "checks"),
     ("benchmarks/session_check.py",
-     "benchmarks/session_check.py --sweep", 48, 16, "checks"),
+     "benchmarks/session_check.py --sweep", 49, 17, "checks"),
     ("benchmarks/hint_ab_check.py", "benchmarks/hint_ab_check.py",
      14, 8, "checks"),
     ("benchmarks/portable_paths_check.py", "benchmarks/portable_paths_check.py",
@@ -94,7 +94,7 @@ BATTERY = [
      20, None, "oracle"),
 ]
 
-CLAIM = {"checks": 1331, "oracle": 20, "mutants": 153}
+CLAIM = {"checks": 1345, "oracle": 20, "mutants": 157}
 
 
 def run(argv: str) -> str:

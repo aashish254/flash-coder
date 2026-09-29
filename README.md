@@ -7,7 +7,7 @@ again — no API key, no container, nothing leaving the machine.
 Two things about this repo are load-bearing, and both are visible in the files:
 
 - **Every claim is a printed number.** The offline verification battery is
-  **1,294 checks + 20 oracle verifications + 147 mutation gates** over 37 vectors, and
+  **1,345 checks + 20 oracle verifications + 157 mutation gates** over 37 vectors, and
   `SPEC.md` §6
   records why the totals come from the fraction each run *prints* — never an exit
   code, never a phrase grep — after both of those shortcuts produced a wrong total
@@ -167,17 +167,23 @@ Ctrl-D. `python benchmarks/session_pty_demo.py` re-runs it in about 40 s; which 
 turn 2 trips first moves between runs, because it depends on the patch the model offers,
 so the witness is the run of record.
 
-**Read the transcript as the interface, not as a demo of success: both turns lost.** One
-thing has changed since it was taken: `PATCH REFUSED: money.py:format_dollar — no symbol
+**Read the transcript as the interface, not as a demo of success: both turns lost.** Three
+things have changed since it was taken. `PATCH REFUSED: money.py:format_dollar — no symbol
 'format_dollar' in money.py` used to be a dead end, because the arm could revise a symbol
 it could see and could not create one. It can now — `# edit: money.py :: +format_dollar`
 creates the definition at a position the AST chooses, and the README's own patch block
-below shows it. Re-running the same two asks on that tree is the honest part
-(`benchmarks/results/session_pty_r715b2_20260929.log`): the turn still loses. The form was
-in the prompt all eight attempts saw, none of them used it, and the create-shaped address
-that finally appeared came on the 30B's last attempt — where the refusal that names the
-remedy has no retry left to spend it on. `SPEC.md` R-7.15c/d/e are those gaps, priced in
-milliseconds rather than reworded into a pass.
+below shows it. And a patch aimed at `t.py` no longer gets an answer about line numbers: the
+arm now says `t.py is the oracle this run scores against, so it is not a patch target`,
+before it looks at the address at all. Neither bought the turn. Re-running the same two asks
+on that tree is the honest part (`benchmarks/results/session_pty_r715e_20260929.log`, trace
+`20260929-203852-session-3973`): turn 1 lost again, `turns=2 solved=0 written=0
+seconds=23.3 last_rc=1`. Of its eight attempts, two reached for `t.py` and both got that new
+sentence — the box is closed — while **four invented a module** (`main.py`, `money.format`,
+`cents_to_str.py`, `cents_to_str`). They invented it because the chat has never been shown
+the project: that ask is 96 characters inside a 2129-character message, and none of the rest
+of it is source. `SPEC.md` **R-7.15f** is that gap, measured rather than guessed;
+**R-7.15c** and **R-7.15d** sit beside it, priced in milliseconds rather than reworded into
+a pass.
 
 Note what those two turns cost: `tier=failed` is not the small model giving up.
 The router escalated to the 30B brain on both turns and **that** failed too, so on
@@ -501,7 +507,8 @@ Vision is benchmarked once the text brain is picked (PLAN §M1–M2).
 # Every `flash …` line printed anywhere in this repo — README, CONTRIBUTING, SPEC, docs
 # and the two published workflows' `run:` blocks — is parsed against the real argparse
 # parser, without dispatching, so this file and the pipeline on the front page cannot
-# both drift from the CLI. 26 commands, 197 citations, 15 documents as of 2026-09-29 —
+# both drift from the CLI. 26 commands, 200 citations, 15 documents, 87 source paths as of
+# 2026-09-29 —
 # the citation count is this collector's own, and it moves whenever a doc gains a line.
 # Deleting a
 # subcommand from the parser is not enough to fail it either: the failure must NAME the
@@ -522,7 +529,12 @@ Vision is benchmarked once the text brain is picked (PLAN §M1–M2).
 # flag that writes them back — only the files whose bytes differ, never a deletion, and the
 # whole set is refused before the first byte if any address escapes the --context tree or
 # names a file the oracle never scored. The test file itself is protected by name: a patch
-# set that "fixed" a failure by editing an assertion is REFUSED, not written. Without
+# set that "fixed" a failure by editing an assertion is REFUSED, not written. The refusal
+# says WHICH file it is and why — `t.py is the oracle this run scores against, so it is
+# not a patch target …` — and it fires in the patch arm before any address is resolved, so
+# `# edit: t.py :: L10-L12` on a 9-line file is refused as the oracle rather than as a
+# line number past the end. Without that ordering the sentence complains about
+# coordinates in the one file the run must not change. Without
 # --apply the run prints `NOT APPLIED` and says which state your tree is in, because
 # `solved=True` alone once meant "this edit happened", and it had not.
 # One more thing `--context` requires of YOUR file: the oracle then runs the test alone,
@@ -534,7 +546,7 @@ Vision is benchmarked once the text brain is picked (PLAN §M1–M2).
 .venv/bin/python -m flash.cli run "..." --test t.py --context src/ --edit --apply
 .venv/bin/python -m flash.cli run-suite --tasks benchmarks/tasks/edit_tasks.jsonl --edit
 .venv/bin/python benchmarks/patch_landing_check.py --sweep  # the write-back, offline
-.venv/bin/python -m flash.patches --selftest     # 63 offline checks, incl. the loop arm
+.venv/bin/python -m flash.patches --selftest     # 71 offline checks, incl. the loop arm
 .venv/bin/python -m flash.patches --suite benchmarks/tasks/edit_tasks.jsonl  # the suite's premise
 
 #   the patch protocol (one header + one fenced block per symbol):
@@ -551,6 +563,9 @@ Vision is benchmarked once the text brain is picked (PLAN §M1–M2).
 #   after `Container.+name`'s siblings), the applier owns the blank lines above it, and
 #   the run report prints the lines it ADDED — `wrote money.py (+4 -0 lines)` — so a
 #   create is never the same sentence as a run that wrote nothing.
+#   And one address is never allowed: the test file that came with the request. The
+#   PROTOCOL the model is shown says the change belongs in the module the test
+#   imports, because an assertion re-typed to fit the code is not a fix.
 
 # §33.3 constrained decoding: the output contract becomes a per-step token mask, so a
 # fence without its '# file:' header, prose before the first header, a path outside the

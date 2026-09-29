@@ -1640,7 +1640,7 @@ here rather than folded into P6's confidence work.
       *Priced, not decided: the 7B's four attempts ran 1960–2904 ms and the 30B's
       1590–6862 ms, so the retry is ~2 s small / ~5 s big, paid only on turns already
       losing — and it changes the attempt accounting every §34 gate reads.*
-- [ ] [V] R-7.15e **an oracle-addressed patch refused for the wrong reason**: turn 1 spent
+- [x] [V] [L] R-7.15e **an oracle-addressed patch refused for the wrong reason**: turn 1 spent
       two of its four attempts on `t.py:L10-L12` and `t.py:L11` — range addresses past the
       end of a 9-line file — and the arm answered `L11-L11 is past the end of a 9-line
       file`, a complaint about coordinates in the file the run is scored against and must
@@ -1649,6 +1649,91 @@ here rather than folded into P6's confidence work.
       which key is the oracle (`--test` knows; `apply_patches` does not — the protected-file
       list is a `land`-side concept today), with a check that the refusal names the oracle
       rather than the line count, and a mutant that the two sentences cannot be confused.
+      - [x] **The gate.** `apply_patches(..., oracle="")` refuses the oracle's key before
+            `resolve` runs, in all four address kinds, with `ORACLE_MSG`. One function
+            computes the key — `cli._oracle_key(args, task)`, which is `_rel_to(--test,
+            --context)` when that name is a workspace key and `""` when it is not — and it
+            is what `cmd_run --edit` and every `cmd_session` turn put on the task as
+            `test_path`, what `loop._solve_edits` passes down, and what `_land_edits` reads
+            back, so the patch gate and the write-back gate answer to the same answer. The
+            PROTOCOL carries the rule too, so the prompt refuses before the applier does.
+      - [x] **The vectors, run here.** `python -m flash.patches --selftest` → **71/71**
+            (8 new: refusal-before-resolution on the measured `L10-L12` shape, a resolvable
+            range the same rule alone can stop, the sentence naming the oracle and not the
+            coordinates, all four kinds, a non-oracle patch unaffected while the oracle is
+            named, the set voided, the same patch applying with no oracle named, the
+            PROTOCOL pin). `python benchmarks/patch_landing_check.py --sweep` → **53/53
+            checks, 27/27 mutants** (three new bugs: the layer never told, the sentences
+            confused, the command naming no key — the last caught by a check that reads the
+            task `cmd_run` actually handed the arm). `python benchmarks/session_check.py
+            --sweep` → **49/49, 17/17** (every turn carries the key, including the turn
+            after a write). `python -m pyflakes flash/*.py benchmarks/*.py` → 0 findings.
+      - [x] [L] **Live, same driver and same seeded tree as R-7.15b's run.**
+            `benchmarks/results/session_pty_r715e_20260929.log`, trace
+            `20260929-203852-session-3973`: two of the eight attempts addressed `t.py`
+            (the 7B's first, `t.py:zero_pad_cents`, and the 30B's second,
+            `t.py:format_money`) and **both printed the oracle sentence** —
+            `PATCH REFUSED: t.py:… — t.py is the oracle this run scores against, … Change
+            the module the test imports.` **It still loses**: `turns=2 solved=0 written=0
+            seconds=23.3 last_rc=1`, four of the eight attempts having invented a module
+            (`main.py`, `cents_to_str.py`, `money.format`, `cents_to_str`) — which is
+            R-7.15f, and it is the reason, not this box's.
+      - [x] [B] [V] **§6 whole-tree re-read.** `python benchmarks/battery_reread.py`
+            printed `checks 1345  oracle 20  §6 total 1365  mutants 157` with **37** OK
+            lines and no BAD line, and its own `matches SPEC §6 as written: 1345 + 20 =
+            1365 green, offline (+ 157 mutants)`, in **18 min 35 s**
+            (`benchmarks/results/battery_reread_r715e_20260929.log`) against the `CLAIM`
+            `{"checks": 1345, "oracle": 20, "mutants": 157}` set from `BATTERY` before the
+            run and not edited after it. Its 8th, 29th and 30th OK rows read `71/71`,
+            `53/53 (+ 27 mutants)` and `49/49 (+ 17 mutants)`; row 28, `ts_patch_check`,
+            held `52/52 (+ 15)` unchanged. **Ordering, stated rather than blurred:** that
+            run measured the code tree, and the documentation pass below it came after; the
+            two gates that read those pages moved no count, and re-ran on the final docs at
+            their same `8/8 + 5/5` and `15/15 + 7/7`. **Charge-state admission:** the run
+            began on
+            battery at 53% and was plugged into AC partway through, which is the one line
+            the README's warning is about — `checkpoint_resume_check` printed **35/35**
+            legitimately, because at 53% the governor had not yet clamped tournament width
+            to 1. The three earlier trees stay on the §6 page as their own prints:
+            `1331/20/153`, `1298/20/149`, `1294/20/147`.
+      - [x] **Docs moved with it.** README's headline total is the print (`1,345 checks +
+            20 oracle verifications + 157 mutation gates`), its patch block now says the
+            oracle refusal fires before the address and quotes the sentence, its
+            `flash.patches --selftest` comment reads 71, and the chat section's paragraph
+            is re-written around the r715e arm (two of eight reached for `t.py`, both
+            answered about the file; four invented a module; the turn still lost).
+            `docs/architecture.md` names the ordering and the one function behind both
+            gates, `docs/config.md` says the oracle is protected *by name* on every turn,
+            `docs/methodology.md` §2 carries R-7.15e as the seam case (the refusal was
+            already happening; only its sentence was wrong), `flash/__init__.py`'s §33.1
+            ACT line gained the rule, and `CHANGELOG.md` has the entry with the three
+            vector prints, the ledger and the negative live result. The site's data is
+            re-generated from this tree's witness: `dashboard_data.py`'s `WITNESS` moved to
+            `battery_reread_r715e_20260929.log` (the page now reads `checks 1345 / oracle
+            20 / total 1365 / mutants 157`, with rows 71, 53+27 and 49+17) and
+            `export_site_data.py`'s keyboard arm to `session_pty_r715e_20260929.log`
+            (`exit 1` from the command's own `[session]` line, **0** host paths in the
+            published JSON, `npm run build` green). Gates re-run on the edited tree:
+            `portable_paths_check.py` **15/15 + 7/7**, `documented_commands_check.py`
+            **8/8 + 5/5** with the census printed as **26 commands / 200 citations / 15
+            documents** and **87 source paths**.
+- [ ] [V] R-7.15f **the chat never sees the project it is asked to patch**: measured with
+      no model, `cmd_session`'s first message for the ask above is **2129 characters — 96
+      of them the typed ask, the rest `PROTOCOL` — and contains no `# file:` block and no
+      line of `cents_to_str`'s body**, while `task["files"]` holds both files. `enrich_task`
+      returns an edit task unchanged on the argument that "an edit task ships its own real
+      source in the prompt", and only the *stored* suite tasks do
+      (`gen_edit_tasks.build()` puts `describe(workspace)` between the header and the
+      request), so every committed pass rate is measured on a prompt no CLI command can
+      produce and the release shape has never been measured. The live consequence is the
+      six-of-eight above. Vector: one shared function composes
+      `describe(files)` + `Requested change: <ask>` + the oracle text for `run --edit` and
+      `session`, checks that a session turn's first message names every workspace key, and
+      the R-3.2 clause-1 comparability claim re-read against the CLI rather than only the
+      stored tasks. *Priced, not decided: prompt tokens go from the ~478 the trace printed
+      to the size of the tree capped at `describe`'s 6000 characters, and every §34 live row
+      measured on a 96-character ask has to be re-measured or labelled as measured blind. No
+      training, no new hardware — it is a prompt fix.*
 - [ ] [V] [L] R-7.3 voice: real-microphone arm, VAD barge-in, ≥ 90% command
       recognition over 50 utterances.
 - [ ] [V] [L] M17 feel test: ≥ 7 of 10 developers keep it after a week.

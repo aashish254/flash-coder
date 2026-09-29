@@ -68,7 +68,7 @@ sys.path.insert(0, str(ROOT))
 from flash import cli, loop, patches, trace                          # noqa: E402
 from flash.patches import (LandError, workspace_from_dir)            # noqa: E402
 
-NUM_BUGS = 24
+NUM_BUGS = 27
 
 # A four-file project in the shapes the patch arm actually meets: a top-level
 # module, a sibling it must not disturb, the oracle (in the tree, so listed by
@@ -101,6 +101,11 @@ PATCH = ("# edit: money.py :: cents\n```python\n"
          'def cents(n):\n    return f"${n // 100}.{n % 100:02d}"\n```\n')
 
 CHECKS: list[tuple[str, bool, str]] = []
+
+#: The task the last `drive()` handed to the stubbed router. R-7.15e's claim is
+#: about a key the COMMAND puts on the task before the arm ever runs, so a check
+#: has to read the task as the arm saw it rather than rebuild it here.
+SEEN: dict = {}
 
 _KEEP: list[tempfile.TemporaryDirectory] = []
 
@@ -291,12 +296,12 @@ def edits_copy(**knob):
             print(f"[R-3.2] NOT APPLIED: the task was not solved, so --apply wrote "
                   f"nothing to {args.context}")
             return k["unsolved_rc"]
+        key = task.get("test_path") or cli._oracle_key(args, task)
         protected = ()
-        test_rel = cli._rel_to(args.test, args.context)
         if k["protect_tree"]:
             protected = tuple(task["files"])
-        elif k["protect"] and test_rel in task["files"]:
-            protected = (test_rel,)
+        elif k["protect"] and key:
+            protected = (key,)
         try:
             changed = land(args.context, task["files"], r.workspace, protected)
         except LandError as e:
@@ -590,6 +595,7 @@ def drive(argv: list[str], workspace: dict | None = None, solved: bool = True):
 
     def fake(small_repo, big_repo, task, root, **kw):
         box["reached"] = True
+        SEEN["task"] = dict(task)
         r = result_for(None, solved)
         if workspace is not None and task.get("files"):
             r.workspace = dict(task["files"], **workspace)
@@ -715,6 +721,32 @@ def _cli_checks() -> None:
           rc == 1 and "wrote nothing" in out
           and text(root, "money.py") == MONEY, out[:200])
 
+    # R-7.15e: the refusal only exists if the arm is TOLD. Both halves are gated
+    # here — the key the command computes, and the key it puts on the task.
+    root = new_tree()
+    a = parsed(["run", "zero-pad the cents", "--test", str(root / "t.py"),
+                "--context", str(root), "--edit"])
+    keyed = cli._oracle_key(a, {"files": workspace_from_dir(root)})
+    outside = new_tree({"t.py": ORACLE})
+    a2 = parsed(["run", "zero-pad the cents", "--test", str(outside / "t.py"),
+                 "--context", str(root), "--edit"])
+    check("the command's own key for the oracle is the workspace's key, and a test "
+          "kept outside --context names no key at all, which is what leaves the "
+          "published suite's patches free to address their own test file",
+          keyed == "t.py"
+          and cli._oracle_key(a2, {"files": workspace_from_dir(root)}) == "",
+          repr(keyed))
+    SEEN.clear()
+    root = new_tree()
+    drive(["run", "zero-pad the cents", "--test", str(root / "t.py"),
+           "--context", str(root), "--edit"],
+          workspace={"money.py": MONEY_FIXED})
+    check("the command hands the arm the oracle's workspace key on the task, so the "
+          "patch layer can refuse it without re-deriving a path it was never given",
+          SEEN.get("task", {}).get("test_path") == "t.py"
+          and SEEN["task"]["files"].get("t.py") == ORACLE,
+          f"{SEEN.get('task', {}).get('test_path')!r}")
+
     after = sorted(p.name for p in tdir.glob("*.jsonl")) if tdir.is_dir() else []
     check("every command this vector drove left its session in the trace store it "
           "was given, so a check run adds nothing to the repository's record",
@@ -807,6 +839,53 @@ def _loop_checks() -> None:
           and "without the '+'" in r4.attempts[-1].err,
           f"{str(r4.attempts[-1].err)[:160] if r4.attempts else str(r4)[:140]}")
 
+    # R-7.15e: the arm is now TOLD which key the run scores against. The oracle
+    # below has a definition in it, so an address aimed at it resolves and would
+    # apply — which is exactly the shape that lets "make the test pass" be
+    # answered by editing the test, and the reason the gate is on the file's name
+    # rather than on what the address happens to trip.
+    oracle_fn = ('import sys\nsys.path.insert(0, "<TMPDIR>")\n'
+                 'from money import cents\n'
+                 'def check_it():\n    return cents(5)\n\n'
+                 'assert check_it() == "$0.05"\n')
+    to_oracle = ("# edit: t.py :: check_it\n```python\n"
+                 "def check_it():\n    pass\n```\n")
+    root = new_tree({**FILES, "t.py": oracle_fn})
+    snap = snapshot(root)
+    kt = {"id": "oracle-arm", "prompt": "make t.py pass", "test": oracle_fn,
+          "edit": True, "multi": True, "files": workspace_from_dir(root),
+          "test_path": "t.py"}
+    r5 = outcome(lambda: _solve(kt, [to_oracle]))
+    check("the arm refuses a patch aimed at the oracle it was handed, so the "
+          "attempt is over before the assertion it emptied is ever scored, the "
+          "workspace never carries a changed oracle forward, and the tree on disk "
+          "is the one the run read",
+          not isinstance(r5, str) and not r5.solved and r5.workspace is None
+          and r5.attempts and r5.attempts[-1].err.startswith("PATCH REFUSED")
+          and snapshot(root) == snap, f"{str(r5)[:200]}")
+    check("and the line the model reads next names the oracle rather than the line "
+          "count of its file, since R-7.15e's measured retry was chasing a "
+          "coordinate in a file it was never allowed to touch",
+          not isinstance(r5, str) and r5.attempts
+          and "is the oracle this run scores against" in r5.attempts[-1].err
+          and "past the end" not in r5.attempts[-1].err
+          and "no symbol" not in r5.attempts[-1].err,
+          f"{str(r5.attempts[-1].err)[:160] if r5.attempts else str(r5)[:160]}")
+
+    root = new_tree({**FILES, "t.py": oracle_fn})
+    nt = {k: v for k, v in kt.items() if k != "test_path"}
+    nt["files"] = workspace_from_dir(root)
+    r6 = outcome(lambda: _solve(nt, [to_oracle]))
+    check("with no oracle key on the task the identical patch APPLIES and the "
+          "attempt is answered with a failing assert inside the oracle instead — "
+          "which is the proof that the refusal is the wiring, and the reason a "
+          "suite task that keeps its test outside the tree is untouched by this "
+          "clause",
+          not isinstance(r6, str) and not r6.solved and r6.attempts
+          and r6.attempts[-1].err.startswith("FAILING_ASSERT")
+          and "PATCH REFUSED" not in r6.attempts[-1].err,
+          f"{str(r6.attempts[-1].err)[:160] if r6.attempts else str(r6)[:160]}")
+
 
 def _doc_checks() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
@@ -849,6 +928,7 @@ def mutants() -> list[tuple[str, object, object, str]]:
     P, C, L = patches, cli, loop
     _solve_edits, _build = L._solve_edits, C.build_parser
     _mkcreate = P._resolve_create
+    _apply = P.apply_patches
 
     def never_relativizes(path, root):
         return path
@@ -875,6 +955,17 @@ def mutants() -> list[tuple[str, object, object, str]]:
         under the one the model just added."""
         a = _mkcreate(patch, src, defs)
         return patches.Applied(patch, 1, 0, a.col, 0)
+
+    def untold(workspace, ps, oracle=""):
+        """R-7.15e's gate, dropped: the patch layer applies to the oracle like any
+        other file, so the attempt is scored on the assertion it just rewrote and
+        the model is told about the code instead of about the file."""
+        return _apply(workspace, ps)
+
+    def keyless(args, task):
+        """The command stops naming the oracle on the task: `land`'s protection
+        disarms and the patch layer is never told, from one returned empty string."""
+        return ""
 
     return [
         ("rewrites every file in the workspace, so an untouched sibling loses its "
@@ -950,6 +1041,17 @@ def mutants() -> list[tuple[str, object, object, str]]:
          "new definition lands above the ones that were already in the file",
          (P, "_resolve_create"), create_ignores_the_anchor,
          "old definition first and the new one last"),
+        ("never tells the patch layer which file the run scores against, so an "
+         "oracle patch is applied and scored rather than refused",
+         (P, "apply_patches"), untold, "refuses a patch aimed at the oracle"),
+        ("answers an oracle patch with a complaint about line numbers, which is "
+         "the sentence R-7.15e was opened for",
+         (P, "ORACLE_MSG"), "{} is past the end of a file this short",
+         "rather than the line count of its file"),
+        ("names no oracle key on the task, which disarms the patch layer and "
+         "`land`'s protection from one return value",
+         (C, "_oracle_key"), keyless,
+         "hands the arm the oracle's workspace key"),
     ]
 
 

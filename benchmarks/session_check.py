@@ -183,7 +183,8 @@ def fake_solve(script, log: list | None = None):
         seen.append({"id": task["id"], "prompt": task["prompt"],
                     "files": dict(task["files"]), "edit": task.get("edit"),
                     "multi": task.get("multi"), "context": task.get("context"),
-                    "test": task["test"], "kw": dict(kw)})
+                    "test": task["test"], "test_path": task.get("test_path"),
+                    "kw": dict(kw)})
         if log is not None:
             log.append(f"solve{len(seen)}")
         files = task["files"]
@@ -294,7 +295,7 @@ def session_copy(**knob):
              skip_blank=True, edit_flag=False, apply_default=False,
              protect=True, write_count=True, last_rc=True, sum_seconds=True,
              verdict=True, oracle_lines=True, empty_refuses=True,
-             interleaved=True, tty_prompt=True)
+             interleaved=True, tty_prompt=True, oracle_key=True)
     k.update(knob)
 
     def cmd(args) -> int:
@@ -371,6 +372,10 @@ def session_copy(**knob):
                              else dict(cached))
             task["edit"] = armed
             task["multi"] = armed
+            # R-7.15e: the same key the shipped command puts on every turn, so a
+            # knob that drops it changes only what the arm is told.
+            task["test_path"] = (cli._oracle_key(args, task)
+                                 if k["oracle_key"] else "")
             r, tier, routed = solve_routed(args.small, args.big, task, cli.ROOT,
                                            small_attempts=args.attempts,
                                            big_attempts=args.attempts,
@@ -690,6 +695,11 @@ def _disk_checks() -> None:
           MONEY_FIXED_BODY in tree_state(root)["money.py"]
           and "assert True" not in tree_state(root)["t.py"],
           tree_state(root)["money.py"][-160:])
+    check("every turn is handed the oracle's workspace key, so the patch layer is "
+          "the one that refuses a patch aimed at the assertion — and on the turn "
+          "after a write, from the bytes the re-read found",
+          seen[0]["test_path"] == "t.py" and seen[1]["test_path"] == "t.py",
+          f"{seen[0].get('test_path')!r} {seen[1].get('test_path')!r}")
 
     root = new_tree({"money.py": MONEY_FIXED, "other.py": OTHER, "t.py": ORACLE})
     rc, out, seen, _ = drive(prompts="fix it\n", root=root, script=[NO_OP],
@@ -924,6 +934,11 @@ def mutants() -> list[tuple[str, object, str]]:
          "all, which is how a running model reads as a hung one",
          session_copy(tty_prompt=False),
          "a keyboard is told what to do before it is asked"),
+        ("the turn stops carrying the oracle's key: `land` still recomputes it, so "
+         "the tree is safe while the patch layer is never told, and an assertion "
+         "edit comes back as a complaint about its own line numbers",
+         session_copy(oracle_key=False),
+         "every turn is handed the oracle's workspace key"),
     ]
 
 

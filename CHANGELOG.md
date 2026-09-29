@@ -131,6 +131,74 @@ versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   offered on the tier's last attempt (~2 s small / ~5 s big, from the trace's own
   milliseconds), **R-7.15e** an oracle-addressed patch refused for a complaint about line
   numbers.
+- **R-7.15e is shipped for the mechanism it asked for, and the demo turn still loses.**
+  Two of the eight attempts on the last live run addressed the oracle — `t.py:zero_pad_cents`
+  and `t.py:format_money` — and the arm had answered them with a complaint about
+  coordinates: `L11-L11 is past the end of a 9-line file`, in a file this run scores
+  against and must not change. The patch layer refuses by NAME now, before `resolve` ever
+  sees the address, for all four `Patch.kind`s: `apply_patches(workspace, patches,
+  oracle="")` voids the set with `t.py is the oracle this run scores against, so it is not
+  a patch target — an assertion is never edited to fit the code. Change the module the
+  test imports.`, and a PROTOCOL bullet puts the same rule in front of the model before it
+  chooses an address. One function supplies the key to both gates that protect the oracle:
+  `cli._oracle_key(args, task)` answers `_rel_to(args.test, args.context)` only when that
+  name is a workspace key, `cmd_run --edit` and every `cmd_session` turn put it on the task
+  as `test_path`, `loop._solve_edits` passes it to `apply_patches`, and `_land_edits` reads
+  the same field — so the refusal and the write-back cannot disagree about which file is
+  protected. Vectors, run 2026-09-29 on the edited tree: `python -m flash.patches --selftest`
+  **63 → 71/71** (`patches selftest: 71/71 checks passed`; the 8 new ones are a `# 7c.
+  ORACLE` section — refusal before resolution, a resolvable range refused by this rule
+  alone, the sentence naming the oracle and the module to change, all four kinds, an
+  unrelated symbol patch still applying while the oracle is named, a mixed set voided, the
+  identical patch applying when no oracle is named, and the PROTOCOL pin);
+  `python benchmarks/patch_landing_check.py --sweep` **48 → 53 checks, 24 → 27 mutants**
+  (`R-3.2 clause 3, patch landing: 53/53 checks passed`, `patch-landing mutants: 27/27
+  caught` in both lanes) — the 5 new checks are the command's own key, the key handed to
+  the arm on the task, the refusal naming the oracle rather than the line count, and the
+  control where no key is handed and the same patch applies; `python
+  benchmarks/session_check.py --sweep` **48 → 49 checks, 16 → 17 mutants** (`R-7.15
+  interactive session: 49/49 checks passed`, `session mutants: 17/17 caught` in both
+  lanes). Witness logs: `benchmarks/results/patches_selftest_r715e_20260929.log`,
+  `patch_landing_sweep_r715e_20260929.log`, `session_sweep_r715e_20260929.log`. The three
+  mutants are the confusion this box demanded: `apply_patches` told no oracle, a refusal
+  message about the lines instead of the oracle, and `_oracle_key` returning `""`. The
+  whole-tree re-read on this tree then **printed the ledger it had been predicted into**:
+  `checks 1345  oracle 20  §6 total 1365  mutants 157` with **37** OK lines and no BAD line,
+  plus its own `matches SPEC §6 as written: 1345 + 20 = 1365 green, offline (+ 157 mutants)`,
+  in **18 min 35 s** (`benchmarks/results/battery_reread_r715e_20260929.log`); it began on
+  battery at 53% and was plugged into AC partway, which the §6 page says rather than
+  smooths over, and `checkpoint_resume_check` printed **35/35** on that run legitimately
+  because the governor had not yet clamped tournament width. Rows 8, 29 and 30 of that run
+  are the moved vectors: `71/71`, `53/53 (+ 27 mutants)`, `49/49 (+ 17 mutants)`.
+  **The live arm, re-run on the same two asks, is the honest part.** Turn 1 printed
+  `oracle| PATCH REFUSED: t.py:format_money — t.py is the oracle this run scores against, …`
+  and the session closed `turns=2 solved=0 written=0 seconds=23.3 last_rc=1`, writing
+  nothing (`benchmarks/results/session_pty_r715e_20260929.log`, trace
+  `20260929-203852-session-3973`). Both oracle-addressed attempts got the right sentence —
+  that is the box closed — and the turn still lost, because four of the eight attempts
+  invented a module instead (`main.py`, `money.format`, `cents_to_str.py`, `cents_to_str`),
+  each refused with `… is not one of the project files (money.py, t.py)`. That list the
+  model plainly did not have is **R-7.15f**: measured offline, the CLI's edit arm sends
+  **2129 characters for a 96-character ask** and none of them is a line of the project's
+  source — `enrich_task` returns edit tasks unchanged and only the task corpus generator
+  ships the file text — while `task["files"]` already holds `money.py` and `t.py`, and the
+  trace records `prompt_tokens` 503–676 per attempt. Docs moved with the mechanism:
+  README's headline total is that print, its patch block quotes the oracle sentence and
+  says it fires before the address, `docs/architecture.md` names the one function behind
+  both gates, `docs/config.md` says the oracle is protected by name on every turn, and
+  `docs/methodology.md` keeps R-7.15e as its seam case — the refusal was already
+  happening, and only its sentence was wrong. The site's numbers are re-generated from
+  this tree's witness rather than retyped: `dashboard_data.py`'s `WITNESS` moved to
+  `battery_reread_r715e_20260929.log`, so `site/src/data/benchmarks.json` carries `checks
+  1345 / oracle 20 / total 1365 / mutants 157` over 37 vectors with the three moved rows
+  at 71, 53+27 and 49+17, and its keyboard transcript panel moved to
+  `session_pty_r715e_20260929.log`, whose `exit 1` is read from the command's own
+  `[session]` line — **0** host paths in the published JSON, and `npm run build` in
+  `site/` green. Gates re-run on the edited tree: `portable_paths_check.py` **15/15 +
+  7/7**, `documented_commands_check.py` **8/8 + 5/5** with the census printed as **26
+  distinct commands in 200 citations across 15 documents** and **87 source paths**, and
+  `python -m pyflakes flash/*.py
+  benchmarks/*.py` **0 findings**.
 - **Model residency, re-measured rather than remembered, because the number quoted
   before this pass did not reproduce:** three fresh processes, 51% on battery,
   first load **2.01 / 2.10 / 2.05 s** and second load after the free

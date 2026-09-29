@@ -36,7 +36,11 @@ the two rules that make the rest of the design necessary.
   candidates and lets the oracle rank them; `flash/patches.py` handles the
   symbol-addressed edit form, and its `land()` is what writes a verified patch set to
   disk — only differing bytes, never a delete, never the file named `--test`, and
-  only when the oracle passed (`--apply`).
+  only when the oracle passed (`--apply`). `apply_patches` refuses a patch whose file
+  *is* that `--test` before it resolves the address at all, so the sentence the model
+  reads names the oracle rather than a line number past the end (`SPEC.md` R-7.15e);
+  one function, `cli._oracle_key`, supplies the key to that refusal and to the
+  write-back gate, so they cannot disagree about which file the run scores against.
 - **VERIFY** `flash/harness.py` runs the task's assertions one at a time in a
   sandboxed subprocess (`flash/sandbox.py`) and reports a failure as `GOT`/`WANT`
   rather than as a stack line. A static pass (`pyflakes` via

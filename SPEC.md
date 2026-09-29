@@ -361,7 +361,7 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   `flash/patches.py` now dispatches an address by the file it names — `.ts`/`.tsx`
   to `flash.lang_ts`, everything else to `ast`, including the empty path
   `flash.graph` has always passed, which is what leaves the published Python
-  figures the same numbers from the same code path (`63/63` and `60/60` here). A
+  figures the same numbers from the same code path (`71/71` and `60/60` here). A
   TypeScript span comes out of the same `_declarations` walk the graph's node
   comes out of, so "what this patch replaces" and "what breaks if this changes"
   cannot be two different ranges. A replacement must keep the symbol's name and —
@@ -557,7 +557,7 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   is still spliced and still counted. `outside_lines` therefore measures lines
   whose BYTES were regenerated, not lines inside the addressed span, and the run
   report says so (`[1 of 13 lines rewritten]`). Offline:
-  `python -m flash.patches --selftest` **63/63** (7 of them drive the loop's
+  `python -m flash.patches --selftest` **71/71** (7 of them drive the loop's
   patch arm against a scripted generator, so the wiring is proven without
   charging a model; 9 more pin the narrowing — byte-identity with the wide
   splice, a count-changing run before another, a real sibling drift that must
@@ -565,7 +565,12 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   `# 7b. CREATE` section pinning R-7.15b's shape — 12 on what a create writes
   (`# edit: f :: +Name` as a pure insertion, the applier owning the
   blank lines above it, the new symbol addressable afterwards, and the PROTOCOL
-  the model is shown actually naming the form) and 5 on what it must refuse; `--suite` **60/60**
+  the model is shown actually naming the form) and 5 on what it must refuse; 8
+  more are a `# 7c. ORACLE` section pinning R-7.15e — the refusal fires before
+  the address is resolved, all four kinds are refused, an unrelated symbol patch
+  still applies while the oracle is named, the identical patch applies when no
+  oracle is named, and the PROTOCOL the model is shown actually says so;
+  `--suite` **60/60**
   premise checks over `benchmarks/tasks/edit_tasks.jsonl` (each task ships its
   own project text, so both arms read identical input, fails as seeded, passes
   on the reference patch, and that patch fits inside one symbol).
@@ -594,10 +599,14 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
     `workspace_from_dir` lists every Python file in `--context`, the test file
     included, so a patch set that repaired a failure by weakening an assertion is
     REFUSED rather than written. Offline:
-    `python benchmarks/patch_landing_check.py --sweep` **48/48 checks, 24/24
-    mutants caught** (40 checks / 22 mutants when this clause was written; the
-    extra eight and two are the create shape, at the arm, on disk and through the
-    real command) — the sweep runs each mutant in its own process and the
+    `python benchmarks/patch_landing_check.py --sweep` **53/53 checks, 27/27
+    mutants caught** (40 checks / 22 mutants when this clause was written; 8
+    checks and 2 mutants more are the create shape, at the arm, on disk and
+    through the real command; 5 checks and 3 more are R-7.15e's oracle key — the
+    command's own `_oracle_key`, the key handed to the arm on the task, the
+    refusal naming the oracle rather than the line count, and the control where
+    no key is handed and the same patch applies) — the sweep runs each mutant in
+    its own process and the
     in-process lane agrees, so no count below is a leftover from the previous bug.
   Vector, measured 2026-09-26 and re-measured 2026-09-27 after the narrowing —
   small tier, greedy first attempt, `--allow-big never`, 10 tasks, two arms on
@@ -1220,14 +1229,15 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   in this session and a §6 line of its own. It reads fenced blocks, inline spans, the
   two published workflows' `run:` lines **and the comments of the two packaging
   files**, and today the collector's own spine is one of the gates: **26 distinct
-  commands in 199 citations across 15 documents**, plus **86 source paths** a reader
+  commands in 200 citations across 15 documents**, plus **87 source paths** a reader
   is told to open. (Those four figures move with the prose — the citations printed 111
   when this box first closed, 112 after the README front-page rewrite, 130 once the
   packaging files were scanned, 150 when `docs/config.md`, `docs/privacy.md` and
   `docs/methodology.md` joined the scanned set, 185 after R-3.2's clause 3 put
   `--apply` in the pages a stranger copies, 196 when `flash session` arrived, 197
-  when this release's own CHANGELOG entry was written, and 199 when clause 7 put a
-  `printf … | flash session …` pipe in `docs/config.md` — a changelog is a scanned
+  when this release's own CHANGELOG entry was written, 199 when clause 7 put a
+  `printf … | flash session …` pipe in `docs/config.md`, and 200 with 87 paths on
+  R-7.15e's pass — a changelog is a scanned
   document, which is exactly why the spine gate asserts a
   floor and prints what it found rather than pinning a literal.) Commands are
   resolved by
@@ -1593,10 +1603,12 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   **0.65 / 0.74 / 0.66 s** — the hot swap is the cheaper of the two, and what a session
   saves is the workspace, the oracle path and the user's intent already being there, not
   the weights.
-  Vector (offline): `python benchmarks/session_check.py --sweep` — **48/48 checks, 16/16
+  Vector (offline): `python benchmarks/session_check.py --sweep` — **49/49 checks, 17/17
   mutants defeated in both lanes** (this process, and one fresh process per mutant, which
   is the lane that matters because a session owns process state: `loop.EDIT`, the trace
-  store, stdin). Witness: `benchmarks/results/session_sweep_r715c_20260929.log`. The router
+  store, stdin). Witness: `benchmarks/results/session_sweep_r715e_20260929.log`; the row
+  moved from `48/48 (+ 16)` when R-7.15e added the check that **every turn is handed the
+  oracle's workspace key** and the mutant that withholds it. The router
   is stubbed and one scripted patch is supplied per turn, so what is under test is the loop
   around the write-back: the disk state after turn N, the `before` handed to turn N+1, the
   per-turn verdict, the mid-session refusal of a patch that rewrites `--test`, the report,
@@ -1663,7 +1675,7 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   the run started and not edited after it. Its 30th OK line is the session's own
   `48/48 (+ 16 mutants)`.
 - **R-7.15b (CLOSED 2026-09-29 for the mechanism it asked for; the outcome it was
-  bought for is open as R-7.15c/d/e below)** That same live turn named the most
+  bought for is open as R-7.15c/d/e/f below)** That same live turn named the most
   ordinary request a developer makes, and
   the patch arm could not answer it: **it can revise a symbol it can see, and could not
   create one.** A `# edit: file :: Symbol` address is resolved against the AST, so a
@@ -1729,9 +1741,10 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   (`— to ADD a symbol that does not exist yet, address it as '+format_dollar_amount'`), so
   it was told how to fix the patch with no attempt left to fix it with. The create-shaped
   address was the 30B's — the 7B's two refusals on that turn were `t.py` range addresses
-  past the end of a 9-line file, which is R-7.15e's victim rather than this box's. Three
-  gaps follow, and they are booked rather than reworded: **R-7.15c**, **R-7.15d** and
-  **R-7.15e** below.
+  past the end of a 9-line file, which is R-7.15e's victim rather than this box's — and
+  R-7.15e has since closed that sentence, on the same tree, with the same ask. Four
+  gaps follow, and they are booked rather than reworded: **R-7.15c**, **R-7.15d**,
+  **R-7.15e** and **R-7.15f** below.
 - **R-7.15c (OPEN)** **Create-a-FILE.** Three of the eight attempts in that re-run invented a
   module: `format_dollar_amount.py is not one of the project files (money.py, t.py)` and,
   on the next turn, `cents_to_str.py is not one of the project files`. The `+` verb exists
@@ -1753,7 +1766,9 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   ~2 s on the small
   tier and ~5 s on the big one, and it is paid only on turns that are already losing.
   *(Priced, not decided: it changes the attempt accounting every §34 gate reads.)*
-- **R-7.15e (OPEN)** **A patch aimed at the oracle is refused for the wrong reason.** Turn 1
+- **R-7.15e (CLOSED 2026-09-29 for the mechanism it asked for; the outcome it was bought
+  for is open as R-7.15f below)** **A patch aimed at the oracle is refused for the wrong
+  reason.** Turn 1
   spent two of its four attempts on `t.py:L10-L12` and `t.py:L11`, and the arm answered
   `past the end of a 9-line file` — a complaint about coordinates, in a file the run is
   scored against and must not change. The sentence that would have cost nothing is `t.py is
@@ -1761,6 +1776,68 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   to be told which key is the oracle (`--test` already knows; `apply_patches` does not, and
   the protected-file list is a `land`-side concept today), with a check that the refusal
   names the oracle rather than the line count.
+  **Done.** `apply_patches(workspace, patches, oracle="")` refuses any patch whose file key
+  is the oracle, before the address is resolved and in all four address kinds, with
+  `ORACLE_MSG`: `… is the oracle this run scores against, so it is not a patch target — an
+  assertion is never edited to fit the code. Change the module the test imports.` Resolving
+  first would have kept the accident: on this machine's own oracle the coordinate complaint
+  and the oracle refusal are different sentences, and only one of them is actionable. The
+  key comes from one function, `cli._oracle_key(args, task)`, which is `_rel_to(--test,
+  --context)` when that name is a workspace key and `""` otherwise; `cmd_run --edit` and
+  every turn of `cmd_session` put it on the task as `test_path`, `loop._solve_edits` passes
+  it down, and `_land_edits` reads the same field — so the gate that refuses the patch and
+  the gate that refuses the write-back cannot disagree about which file the run is scored
+  against, which they previously could not do anything about because only one of them knew.
+  A test kept outside `--context` names no key, which is what leaves the published suite's
+  60 premise checks and their whole-file control untouched. The PROTOCOL now carries the
+  rule as a bullet, so the first refusal is the prompt's and the patch layer's is the
+  second. Vector: `flash.patches --selftest` **71/71** (8 new, on the refusal running
+  before resolution, on all four kinds, on the set being voided, on a non-oracle patch
+  still applying while the oracle is named, and on the same patch applying when no oracle is
+  named — the last one is what makes this a gate rather than a second grammar);
+  `patch_landing_check --sweep` **53/53 checks, 27/27 mutants** (three new bugs: the layer
+  never told, the two sentences confused, and the command naming no key);
+  `session_check --sweep` **49/49, 17/17** (every turn carries the key, including the turn
+  after a write). Witnesses for those three prints, each on the edited tree:
+  `benchmarks/results/patches_selftest_r715e_20260929.log`,
+  `patch_landing_sweep_r715e_20260929.log` and `session_sweep_r715e_20260929.log`. Live, on
+  the same driver and the same seeded tree as the run above, with
+  the ask that starts `…exactly as t.py asserts`
+  (`benchmarks/results/session_pty_r715e_20260929.log`, trace
+  `20260929-203852-session-3973`): **two of the eight attempts addressed `t.py`, and both
+  were answered about the file rather than about its line numbers** — the 7B's first attempt
+  `t.py:zero_pad_cents` and the 30B's second `t.py:format_money` each printed
+  `PATCH REFUSED: t.py:… — t.py is the oracle this run scores against, … Change the module
+  the test imports.` The turn still lost: `turns=2 solved=0 written=0 seconds=23.3
+  last_rc=1`, which is R-7.15f's finding rather than this box's.
+- **R-7.15f (OPEN)** **The chat never sees the project it is asked to patch.** Measured on
+  this machine, offline, with no model: `cmd_session` builds
+  `task["prompt"] = <the typed ask>` and `edit_prompt` appends `PROTOCOL`, so the message
+  the 7B was given for the ask above is **2129 characters — 96 of them the ask, the rest
+  the protocol — and contains neither `# file: money.py` nor a single line of
+  `cents_to_str`'s body**, while `task["files"]` holds both files and is handed to the arm.
+  `flash run --edit --context <dir>` is the same shape. `enrich_task` returns an edit task
+  unchanged (`An edit task ships its own real source in the prompt`), and the suite's tasks
+  do ship it: `gen_edit_tasks.build()` stores `The project is below, with the real text of
+  every file.` + `describe(workspace)` + `Requested change: …` + the test, which is what
+  makes its patch-vs-whole-file A/B a protocol comparison. So the 60/60 premise checks, the
+  published `m7_heldout` figures and every committed pass rate are measured on a prompt no
+  CLI command can produce, and the CLI shape — the one the release is for — has never been
+  measured. The live run above is the consequence: of eight attempts, **four invented a
+  module** (`main.py`, `cents_to_str.py`, `money.format`, `cents_to_str`) and **two reached
+  for the oracle**, so six were refused for not knowing what the project is; the only reason
+  any of them ever recovered is that the refusal itself prints the file list. Vector: the
+  CLI's edit arm composes the same material the generator stores — `describe(files)` +
+  `Requested change: <ask>` + the oracle's text — through one shared function so the suite
+  and the session cannot drift, with checks that a session turn's first message names every
+  workspace key and that a `+NewSymbol` ask arrives with the target module's real text; the
+  A/B's comparability claim (R-3.2 clause 1) then has to be re-read against the CLI, not
+  only against the stored tasks. Cost: prompt tokens go from the ~478 the trace printed for
+  turn 1 to the size of the tree, capped at `describe`'s 6000 characters, and the router
+  and the ledger both read prompt length — the numbers of every live row in §34 measured on
+  a 96-character ask are re-measured or marked as measured on the blind prompt.
+  *(Priced, not decided: this is the accuracy half of the release claim, and it is a prompt
+  change rather than a model change, so it needs no training and no hardware.)*
 - **R-7.3 (OPEN)** Hands-free control (voice) at the measured spike latency:
   command-to-ack ~4.8s. Vector: real-microphone arm of the spike with VAD
   barge-in, ≥ 90% command recognition over 50 utterances.
@@ -1960,32 +2037,40 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
    `python -m flash.debug --suite` 32 ·
    `python -m flash.patches --suite benchmarks/tasks/edit_tasks.jsonl` 60 ·
    `python benchmarks/m0_bakeoff.py --dry-run` 20 reference solutions.
-   **Total: 1331 selftest / end-to-end / premise checks + 20 oracle
+   **Total: 1345 selftest / end-to-end / premise checks + 20 oracle
    verifications (m0_bakeoff's 20 reference solutions, which are the only
    numbers in that 20 — the 6 ambient, 15 lora, 5 band, 5 router-portability,
-   12 graph, 12 graph-perceive, 13 ts-perception, 15 ts-patch, 24 patch-landing,
-   16 session, 8 hint-ab, 7 path-portability, 10 backend-free and 5 documented-command
-   mutants are extra to both totals, 153 in all) = 1351 green, offline.**
+   12 graph, 12 graph-perceive, 13 ts-perception, 15 ts-patch, 27 patch-landing,
+   17 session, 8 hint-ab, 7 path-portability, 10 backend-free and 5 documented-command
+   mutants are extra to both totals, 157 in all) = 1365 green, offline.**
    Every line below this page's sum is a number a run printed, and the sum itself is
-   printed too: R-7.15b put 17 checks on `flash.patches --selftest` (46 → **63/63**,
-   `patches selftest: 63/63 checks passed`), 8 checks and 2 mutants on
-   `ts_patch_check.py --sweep` (**52/52**, `ts-patch mutants: 15/15 caught` in both
-   lanes: `fresh process each` and `one process`), and 8 checks and 2 mutants on
-   `patch_landing_check.py --sweep` (**48/48**, `patch-landing mutants: 24/24 caught`
-   in both lanes) — each of those three lines measured on the edited tree, and
+   printed too: R-7.15e put 8 checks on `flash.patches --selftest` (63 → **71/71**,
+   `patches selftest: 71/71 checks passed`), 5 checks and 3 mutants on
+   `patch_landing_check.py --sweep` (**53/53**, `patch-landing mutants: 27/27 caught`
+   in both lanes: `fresh process each` and `one process`), and 1 check and 1 mutant on
+   `session_check.py --sweep` (**49/49**, `session mutants: 17/17 caught` in both
+   lanes) — each of those three lines measured on the edited tree, and
    `benchmarks/battery_reread.py`'s `CLAIM` was set to their sum **before** the
    whole-tree run started. **That run has since printed it:**
-   `checks 1331  oracle 20  §6 total 1351  mutants 153` with **37** OK lines and no
-   BAD line, plus its own `matches SPEC §6 as written: 1331 + 20 = 1351 green, offline
-   (+ 153 mutants)`, in **18 min 42 s** on AC at 80%
-   (`benchmarks/results/battery_reread_r715b_20260929.log`), and those three vectors
-   are its 8th, 28th and 29th OK rows reading `63/63`, `52/52 (+ 15 mutants)` and
-   `48/48 (+ 24 mutants)`, with `session_check` holding line 30 at `48/48 (+ 16)`. The
-   last two whole-tree re-reads printed
+   `checks 1345  oracle 20  §6 total 1365  mutants 157` with **37** OK lines and no
+   BAD line, plus its own `matches SPEC §6 as written: 1345 + 20 = 1365 green, offline
+   (+ 157 mutants)`, in **18 min 35 s**, on the tree this box was written for
+   (`benchmarks/results/battery_reread_r715e_20260929.log`), started on battery at 53% and
+   plugged into AC partway through —
+   which is worth saying because `checkpoint_resume_check` is the line the charge gate
+   can fail, and at 53% the governor was still at width 2, so it printed **35/35**
+   legitimately rather than by luck. Those three vectors are its 8th, 29th and 30th OK
+   rows reading `71/71`, `53/53 (+ 27 mutants)` and `49/49 (+ 17 mutants)`, with
+   `ts_patch_check` holding line 28 at `52/52 (+ 15)`, unchanged. The whole-tree re-read
+   before this one printed `checks 1331  oracle 20  §6 total 1351  mutants 153` in
+   **18 min 42 s** on AC at 80%
+   (`benchmarks/results/battery_reread_r715b_20260929.log`), on the tree one box
+   earlier, with the same three lines at `63/63`, `52/52 (+ 15 mutants)` and
+   `48/48 (+ 24 mutants)` and `session_check` holding line 30 at `48/48 (+ 16)`. The
+   two re-reads before that printed
    `checks 1298  oracle 20  §6 total 1318  mutants 149`
-   (`benchmarks/results/battery_reread_r715c7_20260929.log`), on the tree one clause
-   earlier, and the one before it printed `checks 1294  oracle 20  §6 total 1314
-   mutants 147`. All three stay on the page rather than merging into one.
+   (`benchmarks/results/battery_reread_r715c7_20260929.log`) and `checks 1294  oracle
+   20  §6 total 1314 mutants 147`. All four stay on the page rather than merging into one.
    Read those two
    numbers with care: CHECKS and TOTAL are different columns, and this page has
    been quoted wrongly by its own notes before — R-1.1b's checks count (1052) was

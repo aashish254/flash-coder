@@ -62,6 +62,16 @@ RANGE_ADDR = re.compile(r"^[Ll](?P<a>\d+)(?:\s*-\s*[Ll]?(?P<b>\d+))?$")
 #: change, which is exactly why the resolution rule below has to be strict.
 CREATE_PREFIX = "+"
 
+#: R-7.15e's sentence, and the only one the patch layer says about the oracle.
+#: It has to be a different sentence from the range checker's, because the two
+#: are answering different questions: "L10-L12 is past the end of a 9-line file"
+#: is true about coordinates in the test file and tells the model nothing about
+#: the file it must change instead, so a retry after it is a retry chasing a
+#: line number rather than the module the test imports.
+ORACLE_MSG = ("{} is the oracle this run scores against, so it is not a patch "
+              "target — an assertion is never edited to fit the code. Change the "
+              "module the test imports.")
+
 #: The suffixes whose spans the second grammar owns. Everything else — including
 #: the empty path every Python caller passes — is Python, which is what keeps the
 #: published Python figures byte-identical while this module dispatches at all.
@@ -116,6 +126,10 @@ PROTOCOL = (
     "definition, or after the container's last member — so never re-type the "
     "existing code around it. A `+` address on a name that already exists is "
     "refused, because that is a revision and must say so;\n"
+    "* never address a patch at the test file that came with the request. It is "
+    "the oracle this run scores against, not one of the files to change: an "
+    "assertion edited to fit the code is not a fix, so the change belongs in the "
+    "module the test imports;\n"
     "* `# edit: <file> :: *` rewrites the whole file. Use it only when no "
     "symbol address fits — it is the thing patches exist to avoid.\n"
     "Change only what the request asks for. One patch per symbol."
@@ -613,7 +627,8 @@ def check_result(patch: Patch, before: str, after: str) -> None:
 
 # ----------------------------------------------------------------- applying
 
-def apply_patches(workspace: dict[str, str], patches: list[Patch]) -> ApplyResult:
+def apply_patches(workspace: dict[str, str], patches: list[Patch],
+                  oracle: str = "") -> ApplyResult:
     """Apply a patch set to a file set. Atomic per patch set.
 
     Atomicity is the whole point of keeping the workspace as state: a
@@ -625,6 +640,13 @@ def apply_patches(workspace: dict[str, str], patches: list[Patch]) -> ApplyResul
     Every address is resolved against the ORIGINAL file, so overlapping
     patches are detected in one coordinate system, and the splices then run
     bottom-up so an earlier replacement cannot shift a later range.
+
+    `oracle` is the workspace key the run scores its verdict with, when the
+    caller knows it. It is refused here rather than only at `land`, because
+    `land`'s answer arrives after the oracle has run: a patch addressed to the
+    test file used to be answered with whatever its address happened to trip
+    (`L10-L12 is past the end of a 9-line file`), which is true about
+    coordinates and says nothing about the one thing the model must not do.
     """
     files = dict(workspace)
     applied: list[Applied] = []
@@ -639,6 +661,9 @@ def apply_patches(workspace: dict[str, str], patches: list[Patch]) -> ApplyResul
         if fname not in workspace:
             refusals.extend((p, f"{fname} is not one of the project files "
                               f"({', '.join(sorted(workspace))})") for p in ps)
+            continue
+        if oracle and fname == oracle:
+            refusals.extend((p, ORACLE_MSG.format(fname)) for p in ps)
             continue
         src0 = workspace[fname]
         resolved: list[Applied] = []
@@ -1413,6 +1438,83 @@ def run_selftest(verbose: bool = True) -> int:
                                 Patch("cart.py", "+TAX", "TAX = 1")])
     check("create: one bad create voids the whole set, like every other refusal",
           not voided.ok and voided.files == ws)
+
+    # 7c. R-7.15e: the oracle is not a patch target, and its line numbers are
+    # not the reason the patch is refused.
+    oracle_src = ('import sys\nsys.path.insert(0, ".")\nfrom money import cents\n'
+                  'def check_it():\n    assert cents(5) == "$0.05"\n\n\ncheck_it()\n')
+    tree = {"money.py": 'def cents(n):\n    return f"${n // 100}"\n',
+            "t.py": oracle_src}
+    # The demo's own address, on the demo's own shape: a range past the end of
+    # the oracle. It resolves to nothing, and the model must still be told the
+    # file is the reason, not the number.
+    off_end = apply_patches(tree, [Patch("t.py", "L10-L12", "pass")],
+                            oracle="t.py")
+    check("oracle: the refusal comes before the address is resolved, so R-7.15e's "
+          "measured case — `L10-L12` on a short oracle — is answered about the "
+          "file and not about a line count",
+          not off_end.ok and "is the oracle this run scores against"
+          in off_end.refusals[0][1]
+          and "past the end" not in off_end.refusals[0][1],
+          off_end.refusals[0][1][:90] if off_end.refusals else "it applied")
+    sound = apply_patches(tree, [Patch("t.py", "L5-L5",
+                                       '    assert cents(5) == "$0.0"')],
+                          oracle="t.py")
+    check("oracle: a patch that needs no rule but this one is refused too — the "
+          "range is inside a definition, the body is legal, the file is long "
+          "enough, so only the oracle's name can stop it",
+          not sound.ok and tree == sound.files
+          and "is the oracle this run scores against" in sound.refusals[0][1],
+          sound.refusals[0][1][:90] if sound.refusals else "it applied")
+    check("oracle: ...and the sentence names the oracle and the module to change, "
+          "not the coordinates — an assertion is never edited to fit the code, so "
+          "a retry after a line-number complaint chases the wrong thing",
+          "oracle" in sound.refusals[0][1]
+          and "module the test imports" in sound.refusals[0][1]
+          and "L5-L5" not in sound.refusals[0][1],
+          sound.refusals[0][1][:90] if sound.refusals else "it applied")
+    four_kinds = apply_patches(tree, [
+        Patch("t.py", "L5-L5", "    assert 1"),
+        Patch("t.py", "check_it", "def check_it():\n    pass"),
+        Patch("t.py", "*", "print(1)\n"),
+        Patch("t.py", "+extra", "def extra():\n    return 1")],
+        oracle="t.py")
+    check("oracle: all four address kinds are refused, because the file is out of "
+          "scope before anything about the address is read — a gap in one kind "
+          "would be a way to edit the assertion after all",
+          not four_kinds.ok and len(four_kinds.refusals) == 4
+          and all("is the oracle this run scores against" in w
+                  for _, w in four_kinds.refusals),
+          "; ".join(f"{p.kind}:{w[:40]}" for p, w in four_kinds.refusals))
+    elsewhere = apply_patches(tree, [Patch("money.py", "cents",
+                                          'def cents(n):\n    return f"${n // 100}.0"')],
+                              oracle="t.py")
+    check("oracle: naming the oracle takes nothing away from the real target — "
+          "the same symbol patch still applies while it is set, which is the "
+          "difference between a guard and a shutdown",
+          elsewhere.ok and elsewhere.files["money.py"] != tree["money.py"]
+          and elsewhere.files["t.py"] == oracle_src,
+          f"ok={getattr(elsewhere, 'ok', None)}")
+    mixed = apply_patches(tree, [Patch("money.py", "cents",
+                                       'def cents(n):\n    return 1'),
+                                 Patch("t.py", "*", "print(1)\n")],
+                          oracle="t.py")
+    check("oracle: one oracle patch voids the set, so a fix that arrives with an "
+          "edited assertion writes neither",
+          not mixed.ok and mixed.files == tree,
+          f"{getattr(mixed, 'ok', None)} {mixed.refusals[:1]}")
+    blind = apply_patches(tree, [Patch("t.py", "L5-L5",
+                                       '    assert cents(5) == "$0.0"')])
+    check("oracle: with no oracle named the same patch applies exactly as it "
+          "always did — the rule is the caller's knowledge of what it scores "
+          "against, not a second grammar, which is why the published suite "
+          "numbers survive this clause",
+          blind.ok and blind.files["t.py"] != oracle_src,
+          f"{getattr(blind, 'ok', None)}")
+    check("oracle: the PROTOCOL tells the model not to address the test file, so "
+          "the refusal is the second line of defence and not the first",
+          "never address a patch at the test file" in PROTOCOL
+          and "the module the test imports" in PROTOCOL, PROTOCOL[-400:])
 
     # 8. degradation: a response with no patches at all costs the attempt, not the workspace
     empty = apply_patches(ws, [])

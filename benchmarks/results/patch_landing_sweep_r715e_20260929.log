@@ -1,0 +1,86 @@
+  OK   the copy of `land` this vector mutates agrees with the shipped one on every clean scenario, so a mutant fails for its own bug and not for drift
+  OK   the file that changed lands with the workspace's bytes, and is the only row the call reports
+  OK   an untouched sibling keeps its bytes *and* its mtime, so a patch on one module does not re-timestamp a project
+  OK   a file the listing stopped covering is left on disk — the patch arm has no verb for deleting a module, so a `limit` is not a deletion
+  OK   a nested key whose directory is gone is recreated, not skipped
+  OK   an address that resolves outside the project root is refused by name, never silently landed
+  OK   the whole set stays unwritten when one address in it is refused, so a half-landed patch is never mistaken for the tree the oracle scored
+  OK   a key the oracle never scored is refused rather than added to someone's project
+  OK   a protected file the patch set changed is refused by name, because a failure fixed by weakening an assertion is not a fix
+  OK   a refusal that names a protected file writes nothing at all, including the sibling it was happy with
+  OK   a protected file the patch set left byte-identical is not refused, so protection costs nothing on a clean patch
+  OK   the line counts `land` reports are lines, not diff hunks — one hunk that adds three is +3, and the CLI prints whatever this returns
+  OK   a difference in the trailing newline alone lands as a change of zero lines, not a phantom deleted line
+  OK   an identical workspace reports an empty list and rewrites nothing, so the caller can say byte-identical instead of claiming a write
+  OK   a create — R-7.15b's `+Name`, whose workspace differs from the file on disk by a PURE insertion — lands as +4 -0: four lines added, none removed, which is not the sentence a no-op gets
+  OK   ...and the definition that was already there is still the first thing in the file, byte for byte, because a create rewrites nothing it was not asked to touch
+  OK   without --apply a solved patch set prints NOT APPLIED, names the flag that would land it, and still exits on its verdict
+  OK   without --apply a failed run exits 1, and its sentence says nothing passed the oracle rather than the one a green run gets
+  OK   --apply on a run that never reached a workspace exits 1 and writes nothing, because the flag is not a licence to guess
+  OK   --apply writes the changed file and prints its path with the line counts `land` reported
+  OK   --apply on a byte-identical workspace says so instead of printing a write that did not happen
+  OK   when `land` refuses, --apply exits 1 and prints REFUSED with the reason, so a failed write-back is not the same verdict as a successful one
+  OK   an oracle that lives inside --context is protected: a patch set that repaired the failure by editing the assertion is refused, the sibling edit and all
+  OK   protection is scoped to the oracle rather than the tree: a test kept outside --context leaves a real patch free to land
+  OK   _rel_to gives the oracle the same key form the workspace uses, however the path was spelled — an absolute path, a ./ step and a package subdirectory all resolve back to one name
+  OK   the spelling a person actually types — `--test t.py --context .` from inside the project — produces the workspace's key, so the oracle is protected in the demo as much as in the tree
+  OK   _rel_to leaves a path outside the tree alone, so it can never name a protected key by accident and disarm the guard it was answering
+  OK   --apply is a flag on `run` and defaults to off, so writing to someone's project is never what a first command does
+  OK   --apply parses together with --edit and --context, the three flags that make a write-back meaningful
+  OK   --apply is not accepted by `run-suite` or `resume`, where there is no single tree to land and a flag that silently does nothing is worse than one that does not exist
+  OK   --apply without --edit is refused before anything is routed: with no patch arm there is no verified workspace, and the flag would be a promise the command cannot keep
+  OK   flash run --edit --context <tree> --apply lands the oracle-passing patch set on the tree it read, and prints the path with its line counts
+  OK   the command that landed a patch left its sibling, its package module and its oracle exactly as it found them
+  OK   through the real command a landed create prints the lines it ADDED and none removed, and the file on disk defines what the address asked for — the half of the pair that a session's `refused=1` line is read against
+  OK   the same command without --apply leaves the tree byte-identical, exits on its verdict, and says NOT APPLIED over the verdict line
+  OK   through the real command, a patch set that edited the oracle inside --context comes back REFUSED with a nonzero code and a tree nobody has to audit
+  OK   --apply after a run that did not solve exits nonzero and writes nothing, so the flag never turns a failure into a partial edit
+  OK   the command's own key for the oracle is the workspace's key, and a test kept outside --context names no key at all, which is what leaves the published suite's patches free to address their own test file
+  OK   the command hands the arm the oracle's workspace key on the task, so the patch layer can refuse it without re-deriving a path it was never given
+  OK   every command this vector drove left its session in the trace store it was given, so a check run adds nothing to the repository's record
+  OK   the patch arm hands the accepted workspace back on SolveResult, so the CLI can tell an edit that passed the oracle from an edit that is on disk
+  OK   the patch arm writes nothing itself: a verified workspace stays a proposal until the command is given --apply
+  OK   an arm that never passed the oracle hands back no workspace, so --apply has nothing to land and says so rather than writing the last proposal
+  OK   create: the arm ACCEPTS `+k_to_c`, passes an oracle only the new definition can satisfy, and hands the grown file back as the workspace
+  OK   create: ...and once --apply is given, that workspace is on disk with the old definition first and the new one last at +4 -0 — the position the AST chose, not one the model typed
+  OK   create: the arm itself wrote nothing, even for a verb that only adds, so the tree a create passed on in memory is still the tree it was read from until --apply says otherwise
+  OK   create: a create the arm REFUSES — the name is already there, so the address duplicates a definition — hands back no workspace and leaves the tree byte-identical, which is the state a session's `refused=1` line is read against
+  OK   create: ...and the refusal the model gets back on its next attempt carries the remedy, because `+cents` is one character away from the form that would have worked
+  OK   the arm refuses a patch aimed at the oracle it was handed, so the attempt is over before the assertion it emptied is ever scored, the workspace never carries a changed oracle forward, and the tree on disk is the one the run read
+  OK   and the line the model reads next names the oracle rather than the line count of its file, since R-7.15e's measured retry was chasing a coordinate in a file it was never allowed to touch
+  OK   with no oracle key on the task the identical patch APPLIES and the attempt is answered with a failing assert inside the oracle instead — which is the proof that the refusal is the wiring, and the reason a suite task that keeps its test outside the tree is untouched by this clause
+  OK   --apply is in the README next to the --edit it belongs to, so nobody learns the only safe way to write by reading source
+  OK   SPEC R-3.2 carries the clause this vector gates, including that writing is opt-in and the state of the tree is always printed
+
+R-3.2 clause 3, patch landing: 53/53 checks passed
+  fresh>ok   MUTATION: rewrites every file in the workspace, so an untouched sibling loses its mtime and a whole tree looks like a change -> 14 check(s) fail
+  fresh>ok   MUTATION: lets an address escape the project root, where `# edit: ../../etc/hosts` is one string away from a real one -> 3 check(s) fail
+  fresh>ok   MUTATION: adds a file the oracle never scored, so a name that merely appeared in the response enters the project unverified -> 1 check(s) fail
+  fresh>ok   MUTATION: ignores the protected list, so the patch set that weakened the assertion is a fix after all -> 6 check(s) fail
+  fresh>ok   MUTATION: refuses any protected key it sees, changed or not, so a patch on one module can never land while its oracle sits in the tree -> 8 check(s) fail
+  fresh>ok   MUTATION: writes as it validates, so one refused address leaves the rest of the set on disk and the tree is no longer what passed -> 6 check(s) fail
+  fresh>ok   MUTATION: skips the directory creation, so a nested key in a package that moved raises instead of landing -> 2 check(s) fail
+  fresh>ok   MUTATION: counts diff hunks and prints them as lines, which is how a one-hunk rewrite of twenty lines arrives as +1 -1 -> 5 check(s) fail
+  fresh>ok   MUTATION: splits on newlines, so a file's trailing empty element is reported as a line that was deleted -> 2 check(s) fail
+  fresh>ok   MUTATION: reports the rows without writing them, so the command claims a change the disk does not have -> 11 check(s) fail
+  fresh>ok   MUTATION: deletes whatever the listing stopped covering, turning a `limit` in a workspace into missing source -> 2 check(s) fail
+  fresh>ok   MUTATION: writes the pre-patch bytes back over the tree, so the file that changed is the one that did not -> 11 check(s) fail
+  fresh>ok   MUTATION: computes no protected key at all, so through the command an edited oracle lands beside the fix -> 2 check(s) fail
+  fresh>ok   MUTATION: protects the whole tree instead of the oracle, which refuses every real patch and turns --apply into a no-op -> 6 check(s) fail
+  fresh>ok   MUTATION: exits 0 on a refusal, so a write-back that wrote nothing reads as a success to whatever scripted the command -> 3 check(s) fail
+  fresh>ok   MUTATION: calls an in-memory patch set APPLIED, which is the sentence that was the bug this box exists for -> 2 check(s) fail
+  fresh>ok   MUTATION: exits 0 for an unsolved run because it printed a verdict line anyway, so a suite could adopt a failure -> 1 check(s) fail
+  fresh>ok   MUTATION: stays silent when the workspace matches the tree, leaving the reader no statement about which state the disk is in -> 1 check(s) fail
+  fresh>ok   MUTATION: never relativizes, so the oracle's key never matches the workspace's and the guard disarms itself -> 5 check(s) fail
+  fresh>ok   MUTATION: accepts --apply without --edit and routes the task, so the flag promises a write-back no arm can produce -> 1 check(s) fail
+  fresh>ok   MUTATION: hands back no workspace from the arm that solved, so --apply has nothing to land and says the task was not solved -> 3 check(s) fail
+  fresh>ok   MUTATION: puts --apply on `run-suite` and `resume`, where there is no single tree to land and the flag would do nothing at all -> 1 check(s) fail
+  fresh>ok   MUTATION: writes the verified create onto the disk but prints `+0 -0` for it, so the sentence for a landed insertion is the one a no-op gets -> 4 check(s) fail
+  fresh>ok   MUTATION: takes a create's position from the patch instead of from the AST, so the new definition lands above the ones that were already in the file -> 2 check(s) fail
+  fresh>ok   MUTATION: never tells the patch layer which file the run scores against, so an oracle patch is applied and scored rather than refused -> 2 check(s) fail
+  fresh>ok   MUTATION: answers an oracle patch with a complaint about line numbers, which is the sentence R-7.15e was opened for -> 1 check(s) fail
+  fresh>ok   MUTATION: names no oracle key on the task, which disarms the patch layer and `land`'s protection from one return value -> 4 check(s) fail
+patch-landing mutants, fresh process each: 27/27 caught
+patch-landing mutants: 27/27 caught
+patch-landing mutants, one process:        27/27 caught
+OK  each mutant is caught by its named check in a fresh process too, so no count here is a leftover from the previous bug

@@ -90,7 +90,11 @@ Plan: ../PLAN.md (v3.8). This package grows milestone by milestone:
                                      class header cannot re-emit an untouched
                                      method; '# edit: file :: +Name' CREATES a
                                      symbol as a pure insertion, at a position
-                                     the extractor owns; `land()` is the only thing that
+                                     the extractor owns; the test file named by
+                                     `--test` is refused as the oracle before its
+                                     address is resolved, so the refusal says
+                                     which file it is rather than complaining
+                                     about line numbers; `land()` is the only thing that
                                      writes, and `flash run --apply` /
                                      `flash session` hand it the verified
                                      workspace)

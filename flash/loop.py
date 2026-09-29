@@ -386,7 +386,8 @@ def _solve_edits(model, tokenizer, task: dict, max_attempts: int,
         vt0 = time.perf_counter()
         before = dict(workspace)
         patches = parse_patches(out)
-        result = apply_patches(before, patches)
+        result = apply_patches(before, patches,
+                               oracle=task.get("test_path") or "")
         kind = "patch"
         if not patches:
             ok, err = False, ("PATCH MISSING: no "

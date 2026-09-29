@@ -180,6 +180,20 @@ def _rel_to(path: str, root: str) -> str:
         return path
 
 
+def _oracle_key(args, task: dict) -> str:
+    """The workspace key this run scores against, when the oracle is in the tree.
+
+    Two layers need the same answer: `land` refuses to write it back, and since
+    R-7.15e the patch arm refuses to touch it at all. Both ask this one question
+    of the same `--test`/`--context` pair, so they cannot disagree about which
+    file is protected — the old arrangement, where `land` computed the key itself
+    and the patch arm was never told, is what let a patch addressed at the oracle
+    come back as a complaint about line numbers in it.
+    """
+    rel = _rel_to(args.test, args.context)
+    return rel if rel in (task.get("files") or {}) else ""
+
+
 def _apply_guard(args) -> "int | None":
     """`--apply` means something only with `--edit`, because the patch arm is the
     one that produces a verified workspace to write back. Returns the exit code
@@ -218,10 +232,11 @@ def _land_edits(args, task: dict, r) -> int:
     # `workspace_from_dir` lists every .py it finds — so a patch set that
     # "fixed" the failure by editing the assertion is in scope unless the file
     # it scored is named protected. Relative to --context, which is the key form.
-    protected = ()
-    test_rel = _rel_to(args.test, args.context)
-    if test_rel in task["files"]:
-        protected = (test_rel,)
+    # R-7.15e: the same key the loop was given, read off the task so the two
+    # gates cannot disagree about which file the run is scored against — and
+    # recomputed here when a caller built the task without asking.
+    key = task.get("test_path") or _oracle_key(args, task)
+    protected = (key,) if key else ()
     try:
         changed = land(args.context, task["files"], r.workspace, protected)
     except LandError as e:
@@ -258,6 +273,7 @@ def cmd_run(args) -> int:
         task["files"] = workspace_from_dir(args.context)
         task["edit"] = True
         task["multi"] = True
+        task["test_path"] = _oracle_key(args, task)
     trace.CAPTURE = args.trace_full
     loop.ADAPTER = args.adapter or ""
     loop.CONSTRAIN = args.constrain
@@ -403,6 +419,9 @@ def cmd_session(args) -> int:
         task["files"] = workspace_from_dir(args.context)
         task["edit"] = True
         task["multi"] = True
+        # Recomputed from the workspace this turn just read off the disk, so the
+        # loop refuses the oracle with the same key `land` protects it with.
+        task["test_path"] = _oracle_key(args, task)
         r, tier, routed = solve_routed(args.small, args.big, task, ROOT,
                                        small_attempts=args.attempts,
                                        big_attempts=args.attempts,

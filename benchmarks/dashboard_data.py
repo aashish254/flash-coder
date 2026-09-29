@@ -40,11 +40,11 @@ ROOT = Path(__file__).resolve().parent.parent
 RESULTS = ROOT / "benchmarks" / "results"
 
 # The §6 witness the counts are parsed from. A dated print, not a live run: the
-# counts it carries are the counts the README publishes. Moved to the R-7.15
-# session pass's print the day that pass ran — 37 lines, `checks 1294 … mutants
-# 147` — because the page publishing yesterday's total while the tree prints a
+# counts it carries are the counts the README publishes. Moved to the R-7.15e
+# pass's print the day that pass ran — 37 lines, `checks 1345 … mutants 157` —
+# because the page publishing yesterday's total while the tree prints a
 # larger one is the same breach as publishing a number no run printed.
-WITNESS = RESULTS / "battery_reread_r715_20260929.log"
+WITNESS = RESULTS / "battery_reread_r715e_20260929.log"
 
 # The cross-tool print, same rule: a competitor's number enters the page only if a
 # run wrote it into this file. One dated witness, parsed rather than quoted.
