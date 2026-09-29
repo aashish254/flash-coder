@@ -125,10 +125,13 @@ need weights first.
 # 4. a suite, with the loop's own cost report
 .venv/bin/python -m flash.cli run-suite --tasks benchmarks/tasks/m2_tasks.jsonl --with-context
 
-# 5. code with it: many turns against your repo and your asserts. One prompt per
-# line on stdin; an empty line is not a turn and `quit` / Ctrl-D ends it. Each turn
-# re-reads your files from disk, so turn 2 edits what turn 1 wrote. Nothing lands
-# without --apply, and the oracle you passed with --test is never a file it may edit.
+# 5. code with it: this is the chat. Run it and it waits for you at `you> `.
+# Type one request, press Enter, read the answer, type the next — turn 2 edits
+# what turn 1 wrote, because every turn re-reads your files from disk. `quit`,
+# `exit`, `q` or Ctrl-D ends it. Nothing lands without --apply, and the oracle
+# you passed with --test is never a file it may edit.
+.venv/bin/python -m flash.cli session --context . --test t.py --apply
+# or drive it from a script, which is the same code path one line at a time:
 printf 'zero-pad the cents\nadd a bulk discount\n' |
   .venv/bin/python -m flash.cli session --context . --test t.py --apply
 ```
@@ -137,20 +140,41 @@ A turn prints its own verdict, the oracle's own words under `oracle|` when a tur
 fails, and then one of the same three landing sentences `run` prints
 (`[R-3.2] wrote … (+a -b lines)` / `NOT APPLIED` / `REFUSED: …`). The session closes
 with one line a script can parse, and exits with the **last** turn's code. Verbatim
-from a measured three-turn session on a scratch repo, where turn 2 asked for a
-function that did not exist yet
-([`benchmarks/results/session_live_20260929.log`](benchmarks/results/session_live_20260929.log)):
+from a real terminal — a pseudo-tty driven by `python benchmarks/session_pty_demo.py`,
+so the `you> ` lines below are the keyboard path and not a here-doc — on a one-function
+money module whose asserts require a zero-padded cent field and a minus sign in front of
+the dollar. Both turns lost, and this is what an honest loss looks like
+([`benchmarks/results/session_pty_20260929.log`](benchmarks/results/session_pty_20260929.log)):
 
 ```text
-[turn 1] routed=small tier=small solved=True attempts=2 (6.2s) patches=1 refused=0 whole=0 outside=0
-[R-3.2] wrote temp.py (+1 -1 lines)
-[turn 2] routed=small tier=failed solved=False attempts=4 (11.5s) patches=1 refused=1 whole=0 outside=0
-  oracle| PATCH REFUSED: temp.py:k_to_c — no symbol 'k_to_c' in temp.py (it defines: boiling_point, c_to_f, f_to_c, freezing_point)
-[R-3.2] NOT APPLIED: the task was not solved, so --apply wrote nothing to /tmp/flash-session-live
-[turn 3] routed=small tier=small solved=True attempts=2 (7.9s) patches=1 refused=0 whole=0 outside=0
-[R-3.2] wrote temp.py (+2 -1 lines)
-[session] turns=3 solved=2 written=2 seconds=25.6 last_rc=0
+flash session on /tmp/flash-chat-demo against the oracle /tmp/flash-chat-demo/t.py — one ask per line, and each answer arrives before you type the next. `quit` or Ctrl-D ends it.
+you> zero-pad the cents and keep a negative sign in front of the dollar sign, exactly as t.py asserts
+[turn 1] routed=small tier=failed solved=False attempts=4 (11.2s) patches=1 refused=1 whole=0 outside=0
+  oracle| PATCH REFUSED: money.py:format_dollar — no symbol 'format_dollar' in money.py (it defines: cents_to_str)
+[R-3.2] NOT APPLIED: the task was not solved, so --apply wrote nothing to /tmp/flash-chat-demo
+you> make cents_to_str raise ValueError when cents is not an int
+[turn 2] routed=small tier=failed solved=False attempts=4 (11.9s) patches=1 refused=0 whole=0 outside=0
+  oracle| FAILING_ASSERT: assert cents_to_str(150) == "$1.50" | GOT: '$1.5' | WANT: '$1.50'
+[R-3.2] NOT APPLIED: the task was not solved, so --apply wrote nothing to /tmp/flash-chat-demo
+you> quit
+[session] turns=2 solved=0 written=0 seconds=23.1 last_rc=1
 ```
+
+Read the timestamps in the witness for the property this section is about: the banner
+arrives at t+0.06 s, the first `you> ` at t+2.15 s, turn 1's verdict at **t+19.22 s**,
+and the second request is typed at **t+19.43 s** — after the first answer, not after
+Ctrl-D. `python benchmarks/session_pty_demo.py` re-runs it in about 40 s; which assert
+turn 2 trips first moves between runs, because it depends on the patch the model offers,
+so the witness is the run of record.
+
+Note what those two turns cost: `tier=failed` is not the small model giving up.
+The router escalated to the 30B brain on both turns and **that** failed too, so on
+this task the loss is not a tier problem. Turn 1's refusal is the shape SPEC
+R-7.15b books: the model answered by addressing a symbol named `format_dollar`,
+which is the function it wanted to *write*, and the patch arm can only address a
+symbol the file already defines. It reproduced on the re-run, same symbol, same
+refusal. Nothing was written because nothing verified — `written=0` and the last
+line's `last_rc=1` are the session refusing to look green.
 
 The whole conversation replays with `flash trace show <id>`, which the session prints
 on its own line before it exits.

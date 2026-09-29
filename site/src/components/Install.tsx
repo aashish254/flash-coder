@@ -74,15 +74,20 @@ export function Install() {
             each one.
           </p>
           <p className="max-w-[62ch] text-[13px] leading-relaxed text-fog-2">
-            <span className="num text-fog-1">session</span> is the one you sit at.
-            One instruction per line, against your own repo and your own asserts;
-            each turn re-reads the tree from disk, so turn 2 edits what turn 1 wrote,
-            and nothing lands until you say{' '}
+            <span className="num text-fog-1">session</span> is the one you sit at. It
+            prints <span className="num text-fog-0">you&gt;</span> and waits; you type
+            one instruction, it works, and it answers <em>before</em> it asks for the
+            next one — the reads interleave with the solves rather than draining stdin
+            up front. Against your own repo and your own asserts, each turn re-reads the
+            tree from disk, so turn 2 edits what turn 1 wrote, and nothing lands until
+            you say{' '}
             <span className="num text-fog-0">--apply</span>. The{' '}
             <a href="#proof" className="num text-fog-1 underline decoration-line underline-offset-2">
               session tab of the proof panel
             </a>{' '}
-            is a verbatim three-turn run of it, the refused turn included.
+            is a verbatim run of it, the refused turn included, and the keyboard tab is
+            the same command driven through a real pseudo-terminal with every byte
+            timestamped — including the two turns it lost.
           </p>
         </Reveal>
 

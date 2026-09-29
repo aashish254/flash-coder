@@ -49,6 +49,9 @@ SOURCE = ROOT / "benchmarks" / "results" / "dashboard_data.json"
 OUT_DIR = ROOT / "site" / "src" / "data"
 # The R-7.15 live arm: three turns at a real 7B, two diffs landed, one refusal.
 SESSION_LIVE = dashboard_data.RESULTS / "session_live_20260929.log"
+# R-7.15 clause 7's arm: the same command behind a real pseudo-terminal, so the
+# keyboard path is what the page shows, with every byte stamped.
+SESSION_PTY = dashboard_data.RESULTS / "session_pty_20260929.log"
 
 # The hero shows a slice, and says it is one.
 GRAPH_NODES = 150
@@ -173,10 +176,11 @@ def write(path: Path, payload: dict) -> None:
 # ------------------------------------------------------------- transcripts
 #
 # The page shows real terminal output, so the output has to come from a run and
-# not from someone's memory of one. Two captures are live children; two are
+# not from someone's memory of one. Two captures are live children; three are
 # committed witnesses — the §6 battery, which this repo already publishes
-# numbers from, and the session's live arm. Every one carries the command that
-# produced it.
+# numbers from, and the session's two live arms: the piped three-turn run and the
+# pseudo-terminal one that proves a keyboard gets its answer before its next ask.
+# Every one carries the command that produced it.
 
 def redact(text: str) -> tuple[str, list[str]]:
     """Blank this machine's paths. A landing page has no business naming a
@@ -208,12 +212,15 @@ def capture(argv: list[str], keep: int, take: str = "head") -> dict:
     }
 
 
-def session_capture() -> dict:
-    """The R-7.15 live arm, pasted from its committed witness. Three turns on a
-    real 7B: two landed a diff on disk, the third was refused out loud because
-    the patch arm addresses a symbol the AST already has. That refusal is the
-    most informative line on the panel, so it stays in."""
-    raw = SESSION_LIVE.read_text(errors="ignore").splitlines()
+def session_capture(witness: Path = SESSION_LIVE) -> dict:
+    """A committed `flash session` witness, pasted literally.
+
+    Both arms of R-7.15 are the same shape: `# ` header lines carrying the command,
+    then the transcript. Two landed a diff on disk, one was refused out loud because
+    the patch arm addresses a symbol the AST already has. That refusal is the most
+    informative line on the panel, so it stays in.
+    """
+    raw = witness.read_text(errors="ignore").splitlines()
     header = [ln for ln in raw if ln.startswith("# ")]
     body = [ln for ln in raw if ln.strip() and not ln.startswith("# ")]
     # The weight downloader writes its own progress bars to the same stream.
@@ -228,7 +235,7 @@ def session_capture() -> dict:
     cmd = next((ln for ln in header if ln.startswith("# command:")), "")
     rc = next((ln for ln in kept if "[session]" in ln and "last_rc=" in ln), "")
     if not cmd or not rc:
-        raise SystemExit(f"export_site_data: {SESSION_LIVE.name} lost either its "
+        raise SystemExit(f"export_site_data: {witness.name} lost either its "
                          f"# command header or the command's own [session] line — "
                          f"refusing to print an exit code nobody reported")
     return {
@@ -238,7 +245,7 @@ def session_capture() -> dict:
         "exit": int(rc.split("last_rc=")[1].split()[0]),
         "lines": text.split("\n"),
         "redacted": notes,
-        "source": SESSION_LIVE.name,
+        "source": witness.name,
     }
 
 
@@ -254,13 +261,20 @@ def build_transcripts(witness_lines: list[str]) -> list[dict]:
         "redacted": [],
         "source": dashboard_data.WITNESS.name,
     }
-    return [doctor, graph, bat, session_capture()]
+    return [doctor, graph, bat, session_capture(),
+            session_capture(SESSION_PTY)]
 
 
 def main(argv: list[str]) -> int:
     if not SOURCE.is_file():
         print(f"export_site_data: {SOURCE.relative_to(ROOT)} is missing — run\n"
               f"  python benchmarks/dashboard_data.py\nfirst.", file=sys.stderr)
+        return 1
+    if not SESSION_PTY.is_file():
+        print(f"export_site_data: {SESSION_PTY.relative_to(ROOT)} is missing — run\n"
+              f"  python benchmarks/session_pty_demo.py\nfirst. The keyboard tab is "
+              f"that witness and nothing else; a tab of remembered output is the one "
+              f"thing this page exists to not do.", file=sys.stderr)
         return 1
     source = json.loads(SOURCE.read_text())
     write(OUT_DIR / "benchmarks.json", build_benchmarks(source))

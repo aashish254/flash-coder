@@ -26,17 +26,58 @@ versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `run` prints; the session closes with one parseable line
   (`[session] turns=3 solved=2 written=2 seconds=25.6 last_rc=0`) and exits with the
   **last** turn's code. Offline: `python benchmarks/session_check.py --sweep` →
-  **44/44 checks, 14/14 mutants caught** in both lanes, the 30th line of §6 and the
-  147-gate roll-up's fourteenth mutant vector — and the vector drives the real
+  **48/48 checks, 16/16 mutants caught** in both lanes, the 30th line of §6 and the
+  mutant roll-up's fourteenth vector — and the vector drives the real
   `cmd_session` with `_read_turns`/`solve` stubbed only at the two seams that need it,
-  so `agree()` holds its 14 mutant copies indistinguishable from the shipped command
-  over 5 scenarios. Live, on a tree that is not this repo and real weights
+  so `agree()` holds its 16 mutant copies indistinguishable from the shipped command
+  over 7 scenarios. Live, on a tree that is not this repo and real weights
   (`Qwen2.5-Coder-7B-Instruct-4bit`): three turns printed
   `solved=True … [R-3.2] wrote temp.py (+1 -1 lines)`, then
   `PATCH REFUSED: temp.py:k_to_c — no symbol 'k_to_c' in temp.py (it defines: boiling_point, c_to_f, f_to_c, freezing_point)`
   with `--apply` writing nothing, then `solved=True … (+2 -1 lines)` —
   `benchmarks/results/session_live_20260929.log`, replayable under trace
   `20260929-131202-session-e176`.
+- **R-7.15 clause 7: the shipped session was not a chat, and the author's third report
+  is what proved it.** "where is the claude like chat option window … the whole point of
+  the project is that we can code in chat like claude code" was not a missing feature
+  request — `flash session` existed, and it still behaved like a batch file with a
+  prompt painted on it, because `_read_turns` collected stdin into a `list[str]` and
+  `cmd_session` looped over that list: **every** line had to be typed, and EOF reached,
+  before the first turn ran. On a keyboard that is a cursor and silence until Ctrl-D.
+  Turns are a generator now, yielding one request per line as it arrives, and a terminal
+  gets `you> ` printed before each read plus a one-line banner before the first (a pipe
+  gets no marker, because a session's stdout is also a report). Four new checks, two new
+  mutants: the read/solve log must interleave (`read1, solve1, read2, solve2`), and
+  `--turns 1` must stop **reading** stdin rather than only stop counting — that second
+  one is what separates a cap from a session that keeps asking a terminal nobody is
+  answering. Proved through a **pseudo-terminal**, not a pipe, by a driver committed with
+  it (`python benchmarks/session_pty_demo.py`, ~40 s, real weights, seeds its own scratch
+  tree): `pty.openpty()` + `select`, writing line N+1 only once line N's verdict had
+  arrived, every chunk timestamped — banner t+0.06 s, first `you> ` t+2.15 s, turn 1's
+  verdict **t+19.22 s**, turn 2 typed **t+19.43 s** —
+  `benchmarks/results/session_pty_20260929.log`, trace `20260929-144507-session-54e4`.
+  **Read that witness for what it also says: both turns lost, twice** — the arm was
+  re-run to check it was not a one-off, and turn 1 lost identically each time.
+  `tier=failed` twice with `denied=false, tier="big"` in the
+  trace means the 30B was offered each turn and failed it too, and turn 1 lost to
+  `PATCH REFUSED: money.py:format_dollar — no symbol 'format_dollar' in money.py (it
+  defines: cents_to_str)` — R-7.15b, now with a measured victim on the demo task rather
+  than on a fixture. The session closed `turns=2 solved=0 written=0 seconds=23.1 last_rc=1`
+  and wrote nothing. So this pass bought the chat shape and did **not** buy the "accurate"
+  half of the promise; the ledger moved to `48/16` on the session line, which makes the §6
+  claim **checks 1298, oracle 20, §6 total 1318, mutants 149**, held as a `CLAIM` in
+  `benchmarks/battery_reread.py` — and the whole-tree re-read on this tree then **printed
+  exactly that**, 37 OK lines and no BAD line in **17 min 54 s** on AC at 80%
+  (`benchmarks/results/battery_reread_r715c7_20260929.log`), so 1294/1314/147 is kept on the
+  page as the measurement of the tree one clause earlier rather than being overwritten. Docs moved with it:
+  README's fifth step is the keyboard shape, `docs/config.md` gained the marker rule and
+  its pipe exception, `docs/architecture.md` says the reads interleave with the solves,
+  `CONTRIBUTING.md` tells a contributor the session answers before it asks again, and
+  `flash/__init__.py`'s §33.1 line names clause 7. The command census moved to **26
+  distinct commands in 199 citations across 15 documents** (86 source paths), with
+  `documented_commands_check.py` **8/8 + 5/5** and `portable_paths_check.py` **15/15 +
+  7/7** on the edited tree, and `python -m pyflakes flash/*.py benchmarks/*.py` at
+  **0 findings**.
 - **R-7.15b is what that middle turn taught, and it is booked open.** The patch arm
   addresses a symbol through the AST, so it can revise a function it can see and
   cannot create one: "add a function `k_to_c(kelvin)`" is a refusal that costs the

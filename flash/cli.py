@@ -300,24 +300,43 @@ def cmd_run(args) -> int:
     return 0 if r.solved else 1
 
 
-def _read_turns(stream, limit: int = 0) -> list[str]:
-    """One prompt per line until EOF, `quit`, or `limit` turns.
+#: What a keyboard session prints before it waits for the next request. A pipe
+#: gets none of it, because a session's stdout is also a report and a `you>`
+#: inside a driver's captured text is noise.
+PROMPT = "you> "
+
+
+def _read_turns(stream, limit: int = 0, prompt: str = ""):
+    """Yield one request per line AS EACH LINE ARRIVES, until EOF, `quit`, `limit`.
+
+    A generator rather than a list, and that choice is the whole of what makes
+    this a chat: a loop that collected every line before running turn 1 would sit
+    waiting for Ctrl-D on a keyboard, so the first answer could not be read
+    before the second request was typed. The author's third report — "where is
+    the claude like chat option window" — was that behaviour, not a missing
+    feature.
 
     A pipe and a keyboard take the same path on purpose: the offline vector
     drives a session with a here-doc and no terminal exists in CI, so "reads
     turns from stdin" has to be true of one function rather than of a tty.
     """
-    out: list[str] = []
-    for line in stream:
-        t = line.strip()
+    lines = iter(stream)
+    n = 0
+    while True:
+        if prompt:
+            print(prompt, end="", flush=True)
+        raw = next(lines, None)
+        if raw is None:
+            return
+        t = raw.strip()
         if t.lower() in ("quit", "exit", "q"):
-            break
+            return
         if not t:
-            continue
-        out.append(t)
-        if limit and len(out) >= limit:
-            break
-    return out
+            continue                      # a blank line is not a turn: ask again
+        yield t
+        n += 1
+        if limit and n >= limit:
+            return
 
 
 def cmd_session(args) -> int:
@@ -364,19 +383,19 @@ def cmd_session(args) -> int:
                                     "hints": loop.HINTS,
                                     "confidence": args.confidence,
                                     "turns": args.turns})
-    turns = _read_turns(sys.stdin, args.turns)
-    if not turns:
-        print("session: no turns on stdin — nothing was asked, so nothing "
-              "was verified")
-        trace.close_session(solved=False, turns=0)
-        return 2
-
+    tty = bool(getattr(sys.stdin, "isatty", lambda: False)())
+    # Printed before the first read, because on a keyboard the alternative is a
+    # cursor sitting there with no idea what the program wants.
     print(f"flash session on {args.context} against the oracle {args.test} — "
-          f"{len(turns)} turn(s). Ctrl-D ends it.")
-    solved_n = written_n = 0
+          "one ask per line, and each answer arrives before you type the next. "
+          "`quit` or Ctrl-D ends it.")
+    solved_n = written_n = ran = 0
     seconds = 0.0
     rc = 2
-    for i, prompt in enumerate(turns, 1):
+    for prompt in _read_turns(sys.stdin, args.turns,
+                              PROMPT if tty else ""):
+        ran += 1
+        i = ran
         task = {"id": f"turn{i}", "prompt": prompt, "test": test,
                 "context": args.context}
         # The workspace comes off the DISK every turn, so turn N edits the bytes
@@ -411,10 +430,17 @@ def cmd_session(args) -> int:
         if r.solved:
             solved_n += 1
         seconds += r.seconds
-    print(f"[session] turns={len(turns)} solved={solved_n} written={written_n} "
+    if not ran:
+        # Nothing was ever asked, so nothing was ever generated: a session that
+        # exits 0 here would be a green run with no verify step behind it.
+        print("session: no turns on stdin — nothing was asked, so nothing "
+              "was verified")
+        trace.close_session(solved=False, turns=0)
+        return 2
+    print(f"[session] turns={ran} solved={solved_n} written={written_n} "
           f"seconds={round(seconds, 1)} last_rc={rc}")
     print(f"[trace] replay this session:  flash trace show {sid}")
-    trace.close_session(solved=(rc == 0), turns=len(turns), solved_turns=solved_n,
+    trace.close_session(solved=(rc == 0), turns=ran, solved_turns=solved_n,
                         written_turns=written_n, seconds=round(seconds, 1))
     return rc
 

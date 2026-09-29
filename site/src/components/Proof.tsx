@@ -8,6 +8,7 @@ const TABS = [
   { id: 'doctor', title: 'What can this machine do?' },
   { id: 'battery', title: 'All of §6, re-read from the tree' },
   { id: 'session', title: 'Three turns at one oracle' },
+  { id: 'keyboard', title: 'Typed on a real terminal' },
   { id: 'graph', title: 'The clause’s own budget, printed' },
 ]
 
@@ -24,6 +25,9 @@ function tone(line: string) {
   if (line.startsWith('checks ') || line.includes('checks passed') || line.startsWith('[session]'))
     return 'text-fog-0'
   if (line.startsWith('  ..')) return 'text-refuse'
+  // The pty driver's own annotation: this line was typed by the harness, not
+  // printed by the session, and the difference is the claim of that tab.
+  if (line.includes('<<< typed')) return 'text-fog-2'
   return 'text-fog-1'
 }
 
@@ -80,14 +84,15 @@ function Screen({ capture }: { capture: Capture }) {
 
 export function Proof() {
   const [tab, setTab] = useState(0)
-  const ordered = [captures[0], captures[2], captures[3], captures[1]].filter(Boolean)
+  const ordered = [captures[0], captures[2], captures[3], captures[4],
+    captures[1]].filter(Boolean)
 
   return (
     <Section id="proof">
       <SectionHead
         index="01"
         id="proof-head"
-        title="Four commands, run on this machine, output pasted literally"
+        title="Five runs on this machine, output pasted literally"
         lede={
           <>
             The project asks you to believe a handful of numbers. Here is the raw
@@ -96,9 +101,12 @@ export function Proof() {
             <span className="num text-refuse"> no</span> on a machine missing half
             of what it needs, which is the behaviour the last six release boxes
             exist to protect, and the <span className="num text-fog-0">session</span>{' '}
-            transcript that keeps its own refusal in the middle of it: one of three
-            turns asked for a function that did not exist yet, and the patch arm
-            said so instead of inventing one.
+            transcripts that keep their own refusals in the middle of them: one turn
+            asked for a function that did not exist yet and the patch arm said so
+            instead of inventing one, and the keyboard tab — every byte stamped as the
+            terminal received it — is two turns that both lost to{' '}
+            <span className="num text-refuse">tier=failed</span> even after the router
+            escalated to the 30B. Nothing here was selected for being green.
           </>
         }
       />

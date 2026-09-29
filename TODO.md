@@ -1475,6 +1475,30 @@ here rather than folded into P6's confidence work.
       - [x] Turns come from stdin, one prompt per line; blank lines are not turns,
             `quit` / `exit` / `q` end the session, and `--turns N` bounds a pipe the
             same way it bounds a keyboard.
+      - [x] **Turn N runs as soon as line N arrives** (SPEC R-7.15 clause 7). The first
+            shipped session collected stdin into a list and then looped, so it drained to
+            EOF before generating: on a keyboard, a cursor and no answer until Ctrl-D — the
+            report the author made this turn was "where is the Claude-like chat". Turns are
+            a generator now, and a terminal gets `you> ` printed before each read plus a
+            one-line banner before the first; a pipe gets no marker, because a session's
+            stdout is also a report. Vector: the read/solve log must interleave
+            (`read1, solve1, read2, solve2`), `--turns 1` must stop **reading** stdin
+            rather than only stop counting, a tty must be told before it is asked, and a
+            pipe must print no marker — four new checks, and two new mutants (stdin drained
+            up front; no marker on a terminal) to keep them from being decoration.
+            Live arm through a **pseudo-terminal**, from a committed driver that seeds its
+            own scratch tree (`python benchmarks/session_pty_demo.py`, ~40 s, real weights,
+            NOT a §6 line): `pty.openpty` + `select`, line N+1 typed only after line N's
+            verdict arrived, every chunk stamped — banner t+0.06 s, first `you> `
+            t+2.15 s, turn 1 verdict **t+19.22 s**, turn 2 typed **t+19.43 s**,
+            `[session] turns=2 solved=0 written=0 seconds=23.1 last_rc=1`
+            (`benchmarks/results/session_pty_20260929.log`, trace
+            `20260929-144507-session-54e4`). **Both turns lost on the
+            author's own demo task, twice** — the arm was re-run to check it was not a
+            one-off and turn 1's `format_dollar` refusal reproduced with the same counts.
+            The trace shows `denied=false, tier="big"` on
+            each — so the 30B ran and failed too, and this run buys the chat shape, not
+            the accuracy half of the promise.
       - [x] Every turn prints its own verdict (`routed=`, `tier=`, `solved=`,
             `attempts=`, the patch arm's `patches=/refused=/whole=/outside=`) and the
             oracle's words under `oracle|` when it failed, and the landing sentence is
@@ -1487,13 +1511,22 @@ here rather than folded into P6's confidence work.
       - [x] An unreadable, blank or missing oracle, and a stdin with no turn, refuse
             with rc 2 before any generation. There is no `--edit` flag: the patch arm
             is the only answer shape a session can land, and the parser rejects it.
-      - [x] Vector: `python benchmarks/session_check.py --sweep` → **44/44 checks and
-            14/14 mutants defeated in both lanes** (one fresh process per mutant, and
-            this process), added to §6 as the 37th line — **checks 1294, oracle 20,
-            §6 total 1314, mutants 147**. The full re-read on the 37-line tree printed
-            exactly those totals with **37** OK lines and no BAD line, in **16 min 44 s**
-            on AC (63% → 80%), against the `CLAIM` derived from `BATTERY` before it
-            started (`benchmarks/results/battery_reread_r715_20260929.log`).
+      - [x] Vector: `python benchmarks/session_check.py --sweep` → **48/48 checks and
+            16/16 mutants defeated in both lanes** (one fresh process per mutant, and
+            this process), witness `benchmarks/results/session_sweep_r715c_20260929.log`.
+            The line arrived in §6 as the 37th at 44/14, and the full re-read on that tree
+            printed **checks 1294, oracle 20, §6 total 1314, mutants 147** with **37** OK
+            lines and no BAD line, in **16 min 44 s** on AC (63% → 80%), against the
+            `CLAIM` derived from `BATTERY` before it started
+            (`benchmarks/results/battery_reread_r715_20260929.log`).
+      - [x] §6 re-read on the clause-7 tree: the session line moved 44/14 → 48/16, and the
+            `CLAIM` written into `benchmarks/battery_reread.py` before the run was
+            **checks 1298, oracle 20, mutants 149** (§6 total **1318**). The run printed
+            exactly that — `checks 1298  oracle 20  §6 total 1318  mutants 149`, **37** OK
+            lines, **0** BAD, and the driver's own `matches SPEC §6 as written: 1298 + 20 =
+            1318 green, offline (+ 149 mutants)` — in **17 min 54 s** on AC at 80%
+            (`benchmarks/results/battery_reread_r715c7_20260929.log`). The session line is
+            the run's 30th OK line at `48/48 (+ 16 mutants)`.
       - [x] [L] Live arm, three turns on a scratch tree with a seeded Fahrenheit bug,
             real 7B: turn 1 `solved=True attempts=2 (6.2s)` →
             `[R-3.2] wrote temp.py (+1 -1 lines)`; turn 2 asked for a NEW function and
@@ -1518,6 +1551,13 @@ here rather than folded into P6's confidence work.
       top-level symbol at a position the extractor verifies), with a mutant that a
       refused create and a landed create cannot be confused, and the live arm re-run on
       the same request.
+      *It has a second victim now, and this one is the author's own demo task: asked to
+      fix dollar formatting the model addressed `money.py::format_dollar`, a symbol it
+      meant to create, so `patches=1 refused=1` and the turn lost
+      (`benchmarks/results/session_pty_20260929.log`). The trace shows the escalation was
+      **not** denied on either turn, so the 30B ran and failed too — this is not a
+      small-tier artifact, and it is the gap between "it chats" and "it is fast AND
+      accurate".*
 - [ ] [V] [L] R-7.3 voice: real-microphone arm, VAD barge-in, ≥ 90% command
       recognition over 50 utterances.
 - [ ] [V] [L] M17 feel test: ≥ 7 of 10 developers keep it after a week.

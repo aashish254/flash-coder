@@ -48,8 +48,10 @@ Every command in that block is gated: `benchmarks/documented_commands_check.py`
 parses each `flash …` line printed anywhere in this repo against the real
 `argparse` parser, so this block cannot rot into instructions that do not run.
 To use the tool the way its users do — several changes in a row, against your own
-repo and your own asserts — run `flash session --context . --test t.py`, which reads
-one prompt per line and prints a verdict per turn; its vector is
+repo and your own asserts — run `flash session --context . --test t.py`. It prints
+`you> ` and waits, and it answers the request you typed **before** it asks for the
+next one: turn N runs as soon as its line arrives, so this is a chat and not a batch
+file you have to Ctrl-D to finish. Its vector is
 `benchmarks/session_check.py` (SPEC R-7.15), and it is one of the §6 battery's lines,
 so the session is tested in every full re-read rather than remembered as working.
 `git clone` above is still where this repo is *going*, not where it is: no remote is

@@ -1,0 +1,72 @@
+  OK   `session` is a command on the shipped parser and routes to `cmd_session`, so the gate below tests what a stranger actually runs
+  OK   session asks for the two things a turn cannot do without — the oracle and the tree it patches — and never for a prompt, which comes in on stdin one turn at a time
+  OK   no positional prompt: a `session` line with one is the parser accepting an argument it will ignore
+  OK   --apply defaults off, exactly as on `run`: a session that writes to a project because it was opened is not a session
+  OK   --turns is an int, and 0 means until EOF
+  OK   session carries no `--edit` flag, because the patch arm is the only answer shape a session can land — an argument that silently does nothing is worse than one that does not exist
+  OK   the cost switches keep the governor's three choices, so a turn sheds the brain the same way a `run` does and cannot invent a fourth
+  OK   an oracle that cannot be read stops the session before turn 1: every turn is defined by its verify step, so a missing one is a chat that prints confident answers
+  OK   a session that refuses leaves the tree exactly as it found it
+  OK   a blank oracle is refused in its own words, not read as a test that always passes — the vacuous-green shape this repo gates everywhere else
+  OK   the refusal covers a file that exists but cannot be read, not only one that is absent
+  OK   blank lines are not turns — a paste with an empty line between two requests would otherwise send a prompt nobody typed to the model and charge for it
+  OK   a turn's prompt reaches the router verbatim and stripped
+  OK   every turn is an edit turn against the session's own context and its one oracle, whatever the caller's flags were
+  OK   `quit` ends the session rather than becoming a turn
+  OK   `exit` ends it too, so a person does not have to remember which of the three they know
+  OK   `q` ends it too, so a person does not have to remember which of the three they know
+  OK   --turns caps a session reading from stdin, which is what lets a driver and a keyboard mean the same thing
+  OK   the cap counts turns, not lines, and the dropped prompts never reach the router
+  OK   a session with nothing to do exits 2 and says it verified nothing — an empty session that looks green is a run with no result
+  OK   EOF ends the session and the report counts what ran
+  OK   turn 1 is ANSWERED before turn 2 is read — the reads interleave with the solves (read1, solve1, read2, solve2) instead of draining stdin up front, which is the whole difference between a chat and a batch file with a prompt painted on it
+  OK   a capped session stops ASKING, not just stops counting: with `--turns 1` stdin is read once and never again, so a keyboard is not left waiting for a fourth line after the session is over
+  OK   a keyboard is told what to do before it is asked: the session prints `you> ` on a terminal, which is the line a person needs to see to believe it is waiting rather than hung
+  OK   a pipe gets no marker at all, because a session's stdout is also a report and a driver's captured text must stay parseable
+  OK   turn 2 edits what turn 1 WROTE, not what the process remembered: the workspace is re-read from disk every turn, so the fix and the new constant are both on disk at the end
+  OK   the turn-2 patch was offered a `before` that already carried the turn-1 fix — the previous check shows the result; this one shows the input the clause is about
+  OK   a file the session never addressed is untouched, byte for byte
+  OK   the oracle survived a session that patched its own directory
+  OK   the reversal the re-read prevents is a silent one: writing back a whole file from remembered bytes would drop turn 1 and still print solved=True
+  OK   without --apply nothing is on disk, and the next turn sees the same unwritten bytes — a NOT APPLIED turn must not leak into the session's own idea of the tree
+  OK   the oracle stays protected for the whole session, not just the first patch set: a later turn that rewrites the assert is refused
+  OK   a refused turn writes nothing, so the tree keeps the earlier turn's fix and none of the weakening
+  OK   a turn whose verified workspace is byte-identical to the tree says so, and is not counted as a write
+  OK   every turn ends in a verdict line naming itself, its tier and its solved state — the one property a session cannot delegate to prose
+  OK   a turn's verdict carries the patch arm's own audit counts, so `refused=` and `outside=` are visible per turn rather than only inside a trace file
+  OK   a failing turn prints the oracle's words under `oracle|`, which is the difference between a session that says no and one a person can answer
+  OK   a passing turn prints no oracle error block, so the prefix cannot become decoration on a green answer
+  OK   the landing sentence is the one `run` prints, shared rather than reworded for a second surface
+  OK   the EOF report prints turns, solved, written, seconds and last_rc on one line a driver can parse
+  OK   the exit code belongs to the LAST turn: a session that fixed one thing and ended on a failure is not green
+  OK   and the other order is green, from the same line — which proves the code is the last turn's, not the worst turn's
+  OK   the replay line names a session id `flash trace show` takes
+  OK   one session is one trace file, not one per turn, so `flash trace show` reconstructs the whole conversation (I-6)
+  OK   a session's first turn does not reach the model when the oracle cannot be read — and here it can, so exactly one turn ran
+  OK   `run` is untouched by the session's arrival: one prompt, the same three landing sentences, and none of the per-turn scaffolding
+  OK   the session's own help is reachable, because a command nobody can read the flags of is a command nobody installs
+  OK   the agreement between the shipped command and the mutant copy holds on every clean scenario — otherwise a check below fails for drift, not for the bug it names
+
+R-7.15 interactive session: 48/48 checks passed
+  fresh>ok  MUTATION: turn 2 re-reads nothing: the workspace is taken once at session start, which is exactly how a wh
+  fresh>ok  MUTATION: no oracle guard: a missing or blank verify file is read anyway, and the session generates agains
+  fresh>ok  MUTATION: an empty session exits 0: the run looks green because nothing failed, though nothing was asked
+  fresh>ok  MUTATION: --turns is decoration: the cap is not applied, so a driver cannot bound a session it pipes into
+  fresh>ok  MUTATION: `quit` becomes a turn: the session asks the model to 'quit', which is the shape a person hitting
+  fresh>ok  MUTATION: blank lines are turns: a pasted request with an empty line sends an empty prompt and charges for
+  fresh>ok  MUTATION: the per-turn verdict line disappears, leaving prose and a final report — every turn's answer bec
+  fresh>ok  MUTATION: a failing turn stops printing the oracle's own words, so 'no' arrives without a reason a person 
+  fresh>ok  MUTATION: the write-back becomes the default: a session writes to the project the moment it is opened
+  fresh>ok  MUTATION: the oracle is protected on no turn at all — a session whose third turn can rewrite its own exam
+  fresh>ok  MUTATION: `written=` counts turns that were solved instead of turns that moved a file, which is a report c
+  fresh>ok  MUTATION: seconds reports the last turn rather than the session, so a five-turn cost looks like a one-turn
+  fresh>ok  MUTATION: the exit code comes from the FIRST turn: a session that ended in failure exits 0 because it had 
+  fresh>ok  MUTATION: the session honours a --edit flag it no longer has, so a turn without the patch arm is scored bu
+  fresh>ok  MUTATION: stdin is drained before turn 1 runs: every turn still answers, every count still matches, and a 
+  fresh>ok  MUTATION: no marker on a terminal: the session is waiting and prints nothing at all, which is how a runnin
+
+session mutants, fresh process each: 16/16 caught
+
+session mutants: 16/16 caught
+session mutants, one process:        16/16 caught
+OK  each mutant is caught by its named check in a fresh process too, so no count here is a leftover from the previous bug

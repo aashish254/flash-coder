@@ -94,7 +94,9 @@ Plan: ../PLAN.md (v3.8). This package grows milestone by milestone:
                                      workspace)
   §33.1 UX: flash.cli cmd_session   (R-7.15: `flash session` reads one prompt
                                      per line from stdin against one repo and
-                                     one oracle, re-reads the workspace from
+                                     one oracle, runs each turn as its line
+                                     arrives (a tty gets `you> `, a pipe gets
+                                     none), re-reads the workspace from
                                      disk every turn, and prints a verdict per
                                      turn plus one report at EOF)
   §33.4: flash.tourney              (tournament mode: k independent candidates,

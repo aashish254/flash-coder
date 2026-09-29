@@ -36,7 +36,8 @@ the same names; `flash <cmd> --help` prints each one.
 
 ### `flash session` — the two flags that are only its own
 
-`flash session --context DIR --test FILE` reads one prompt per line from stdin and
+`flash session --context DIR --test FILE` reads one prompt per line from stdin,
+**answers it, and only then reads the next**, and
 takes every cost flag above unchanged, plus two of its own and one deliberate
 absence (`flash session --help` is the authority):
 
@@ -51,6 +52,12 @@ rather than what the process remembered, and the oracle named by `--test` is
 protected on every turn of the session, not only the first patch set. The session
 prints one verdict line per turn and one `[session] turns=… solved=… written=…
 seconds=… last_rc=…` report at EOF, and exits with the last turn's code.
+
+On a keyboard it prints `you> ` before every read and a one-line banner before the
+first, which is the difference between a session that looks like a chat and one that
+looks like a hang: a running 7B takes seconds, and a cursor with no marker next to it
+gives no way to tell those apart. A pipe gets no marker at all — `printf 'ask\n' |
+flash session …` is a driver, and a driver's captured text has to stay parseable.
 
 ## What the machine decides for you
 

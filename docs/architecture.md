@@ -51,10 +51,14 @@ the two rules that make the rest of the design necessary.
 
 Two surfaces run that loop, and they are the same loop. `flash run` answers one task
 per process, which is the right shape for a benchmark. `flash session` keeps one
-`(repo, oracle)` pair and reads prompts from stdin, re-reading the workspace from
+`(repo, oracle)` pair and reads prompts from stdin, **one turn per line as each line
+arrives** — the reads interleave with the solves, so a keyboard gets its answer before
+it types the next request rather than at Ctrl-D — re-reading the workspace from
 disk at the start of every turn so turn N+1 edits what turn N landed; it is always
 the patch arm, it protects the oracle for the whole session, and it exits with the
-last turn's code (`SPEC.md` R-7.15). Neither one holds the weights between turns:
+last turn's code (`SPEC.md` R-7.15). On a terminal it prints `you> ` before each read;
+on a pipe it prints no marker, because a session's stdout is also a report. Neither
+one holds the weights between turns:
 `solve_routed` frees the small tier before the brain loads, five times over, and
 that is a memory invariant rather than an oversight.
 

@@ -1094,7 +1094,8 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   the 35-line tree's prints, dated 2026-09-28**: R-3.2's clause 3 added a 36th
   battery line and +40/+22 to the checkout side on 2026-09-29, and R-7.15's session
   vector added a 37th the same day (the checkout re-read printed `checks 1294  oracle
-  20  §6 total 1314  mutants 147`), so the download's own
+  20  §6 total 1314  mutants 147` on that tree; clause 7 then moved the session line to
+  48/16, which is what §6 now prints), so the download's own
   two shapes are being re-run against the 37-line tree rather than carried forward by
   arithmetic — the prediction is 35 of 37 for a plain install and 37/37 for the `[ts]`
   one at whatever §6 total the driver prints, and that stays a prediction until the
@@ -1209,13 +1210,14 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   in this session and a §6 line of its own. It reads fenced blocks, inline spans, the
   two published workflows' `run:` lines **and the comments of the two packaging
   files**, and today the collector's own spine is one of the gates: **26 distinct
-  commands in 197 citations across 15 documents**, plus **86 source paths** a reader
+  commands in 199 citations across 15 documents**, plus **86 source paths** a reader
   is told to open. (Those four figures move with the prose — the citations printed 111
   when this box first closed, 112 after the README front-page rewrite, 130 once the
   packaging files were scanned, 150 when `docs/config.md`, `docs/privacy.md` and
   `docs/methodology.md` joined the scanned set, 185 after R-3.2's clause 3 put
-  `--apply` in the pages a stranger copies, 196 when `flash session` arrived, and 197
-  when this release's own CHANGELOG entry was written — a changelog is a scanned
+  `--apply` in the pages a stranger copies, 196 when `flash session` arrived, 197
+  when this release's own CHANGELOG entry was written, and 199 when clause 7 put a
+  `printf … | flash session …` pipe in `docs/config.md` — a changelog is a scanned
   document, which is exactly why the spine gate asserts a
   floor and prints what it found rather than pinning a literal.) Commands are
   resolved by
@@ -1557,7 +1559,15 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   than by believing the write-back;
   **(6)** refuse with rc 2, before generating, when the oracle cannot be read, is blank,
   or when stdin holds no turn: a session with no verify step is a chat, and a chat that
-  prints confident answers is what this project is not.
+  prints confident answers is what this project is not;
+  **(7)** **run turn N as soon as line N arrives.** The first shipped session collected
+  stdin into a `list[str]` and then looped over it, so it drained to EOF before generating
+  anything: on a keyboard that is a blinking cursor and no answer until Ctrl-D, which is a
+  batch file with a prompt painted on it. Turns are therefore a generator that yields one
+  request per line, and on a terminal the session prints `you> ` immediately before each
+  read and a one-line banner before the first one — a person who cannot see that the
+  program is waiting reads it as a hung one. On a pipe no marker is printed at all, because
+  a session's stdout is also a report and captured text must stay parseable.
   There is deliberately **no `--edit` flag** on `flash session`: the patch arm is the only
   answer shape a session can land, so a flag that could turn it off would only let a turn
   be scored and then silently not applied. The parser rejects `--edit`, and a check names
@@ -1573,16 +1583,21 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   **0.65 / 0.74 / 0.66 s** — the hot swap is the cheaper of the two, and what a session
   saves is the workspace, the oracle path and the user's intent already being there, not
   the weights.
-  Vector (offline): `python benchmarks/session_check.py --sweep` — **44/44 checks, 14/14
+  Vector (offline): `python benchmarks/session_check.py --sweep` — **48/48 checks, 16/16
   mutants defeated in both lanes** (this process, and one fresh process per mutant, which
   is the lane that matters because a session owns process state: `loop.EDIT`, the trace
-  store, stdin). The router is stubbed and one scripted patch is supplied per turn, so
-  what is under test is the loop around the write-back: the disk state after turn N, the
-  `before` handed to turn N+1, the per-turn verdict, the mid-session refusal of a patch
-  that rewrites `--test`, the report, the exit code, and that `run` did not change when
-  the session arrived. The mutants are copies with one clause switched, and `agree()`
-  first proves the clean copy is indistinguishable from the shipped command on five
-  scenarios — otherwise a check would fail for drift, not for the bug it names.
+  store, stdin). Witness: `benchmarks/results/session_sweep_r715c_20260929.log`. The router
+  is stubbed and one scripted patch is supplied per turn, so what is under test is the loop
+  around the write-back: the disk state after turn N, the `before` handed to turn N+1, the
+  per-turn verdict, the mid-session refusal of a patch that rewrites `--test`, the report,
+  the exit code, and that `run` did not change when the session arrived. Four of the checks
+  belong to clause 7 alone: the read/solve log must interleave (`read1, solve1, read2,
+  solve2`) rather than drain; `--turns 1` must stop **reading** stdin, not merely stop
+  counting; a terminal gets its marker before its first request; a pipe gets none. The
+  mutants are copies with one clause switched, and `agree()` first proves the clean copy is
+  indistinguishable from the shipped command on seven scenarios (two of them claiming a
+  tty, because a prompt that only exists on a terminal is otherwise invisible to the
+  harness) — otherwise a check would fail for drift, not for the bug it names.
   Live arm (a real 7B, three turns, `--apply` on a scratch tree whose `f_to_c` multiplied
   by `9/5` instead of `5/9`): `solved=True attempts=2 (6.2s) patches=1` then
   `[R-3.2] wrote temp.py (+1 -1 lines)`; turn 2 asked for a **new** function and printed
@@ -1595,6 +1610,28 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   before turn 1) and no turn printed a landing line naming it. Raw transcript:
   `benchmarks/results/session_live_20260929.log`, with the trace file beside the other
   committed traces.
+  **Clause 7's own arm is a pseudo-terminal, not a pipe** — `pty.openpty()` + `select`,
+  writing line N+1 only after line N's verdict reached the terminal, every chunk
+  timestamped, the scratch tree seeded by the driver so the arm is re-runnable
+  (`python benchmarks/session_pty_demo.py`, witness
+  `benchmarks/results/session_pty_20260929.log`). The banner arrives at
+  t+0.06 s and the first `you> ` at t+2.15 s — before any model work — turn 1's verdict
+  prints at **t+19.22 s**, and the second request is typed at **t+19.43 s**, **after**
+  the first answer, which is the whole claim. That run is also the honest one: it is on
+  the author's own demo task and **both turns lost**. Turn 1 printed `patches=1 refused=1` with
+  `PATCH REFUSED: money.py:format_dollar — no symbol 'format_dollar' in money.py (it
+  defines: cents_to_str)` (R-7.15b, below, now with a measured victim); turn 2 printed
+  `FAILING_ASSERT: assert cents_to_str(150) == "$1.50" | GOT: '$1.5' | WANT: '$1.50'`.
+  `tier=failed` on both turns is not the small model giving up: `loop.solve_routed` prints
+  that string only on the path where the big tier ran and also failed, and the trace
+  confirms it — two `escalation` events, `denied=false`, `tier="big"`, `reason="small
+  failed after 2 attempt(s)"` (replay: `flash trace show 20260929-144507-session-54e4`).
+  The session closed `turns=2 solved=0 written=0 seconds=23.1 last_rc=1` and left the file
+  untouched, because `[R-3.2] NOT APPLIED` is what an unsolved turn means. The arm was
+  run twice in this pass and turn 1's refusal reproduced — same symbol, same count, the
+  two runs differing only in which assert turn 2 trips first. So this requirement bought
+  the chat shape, and the accuracy half of the promise is still open on this task — which
+  is why R-7.15b is not reworded into a pass.
   **The ledger moved with it, from the print.** `python benchmarks/battery_reread.py` on
   this tree printed `checks 1294  oracle 20  §6 total 1314  mutants 147` with **37** OK
   lines and no BAD line, and its own `matches SPEC §6 as written: 1294 + 20 = 1314 green,
@@ -1606,6 +1643,15 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   to the 147. The charge condition is named because it is the one variable that has moved
   a §6 total before: this run was on AC, so the tournament arm was not clamped to width 1
   and `checkpoint_resume_check` passed rather than being resized.
+  **That 1294 was the tree before clause 7, and 1298 has now been printed.** Adding the
+  interactivity checks moved the session line from 44 checks / 14 mutants to **48 / 16**,
+  which is `+4 checks, +2 mutants` on the same 37 lines, and the re-read on this tree
+  printed `checks 1298  oracle 20  §6 total 1318  mutants 149` with **37** OK lines and no
+  BAD line, plus its own `matches SPEC §6 as written: 1298 + 20 = 1318 green, offline
+  (+ 149 mutants)`, in **17 min 54 s** on AC at 80% (`battery_reread_r715c7_20260929.log`)
+  against a `CLAIM` of `checks 1298  oracle 20  mutants 149` summed from `BATTERY` before
+  the run started and not edited after it. Its 30th OK line is the session's own
+  `48/48 (+ 16 mutants)`.
 - **R-7.15b (OPEN)** That same live turn is the limitation this session ships with, and it
   is the most ordinary request a developer makes: **the patch arm can revise a symbol it
   can see, and cannot create one.** A `# edit: file :: Symbol` address is resolved against
@@ -1617,6 +1663,14 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   arm measured on the turn this entry names.
   *(Not closed by rewording turn 2 as expected behaviour: the offline vector proves the
   refusal is correct, and the live transcript proves it is also useless for the request.)*
+  **It now has a second, worse victim, on the author's own demo task** (the pty run above):
+  asked to fix dollar formatting, the model wrote a patch addressed to `money.py::
+  format_dollar` — a symbol it had decided to create — and the AST refused it
+  (`patches=1 refused=1`, `solved=False`, `attempts=4`). What makes that expensive is not
+  the refusal, it is what follows: `loop.solve_routed` then escalated to the 30B — the
+  trace logs `denied=false, tier="big"` on **both** turns — and the big tier failed too,
+  so the create-shape gap is not a small-model artifact. One ask, one refusal, two tiers,
+  zero lines written, rc 1.
 - **R-7.3 (OPEN)** Hands-free control (voice) at the measured spike latency:
   command-to-ack ~4.8s. Vector: real-microphone arm of the spike with VAD
   barge-in, ≥ 90% command recognition over 50 utterances.
@@ -1808,7 +1862,7 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
    `python benchmarks/ts_perception_check.py --sweep` 47 (+ 13 mutants) ·
    `python benchmarks/ts_patch_check.py --sweep` 44 (+ 13 mutants) ·
    `python benchmarks/patch_landing_check.py --sweep` 40 (+ 22 mutants) ·
-   `python benchmarks/session_check.py --sweep` 44 (+ 14 mutants) ·
+   `python benchmarks/session_check.py --sweep` 48 (+ 16 mutants) ·
    `python benchmarks/hint_ab_check.py` 14 (+ 8 mutants) ·
    `python benchmarks/portable_paths_check.py` 15 (+ 7 mutants) ·
    `python benchmarks/backend_free_check.py` 42 (+ 10 mutants) ·
@@ -1816,12 +1870,22 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
    `python -m flash.debug --suite` 32 ·
    `python -m flash.patches --suite benchmarks/tasks/edit_tasks.jsonl` 60 ·
    `python benchmarks/m0_bakeoff.py --dry-run` 20 reference solutions.
-   **Total: 1294 selftest / end-to-end / premise checks + 20 oracle
+   **Total: 1298 selftest / end-to-end / premise checks + 20 oracle
    verifications (m0_bakeoff's 20 reference solutions, which are the only
    numbers in that 20 — the 6 ambient, 15 lora, 5 band, 5 router-portability,
    12 graph, 12 graph-perceive, 13 ts-perception, 13 ts-patch, 22 patch-landing,
-   14 session, 8 hint-ab, 7 path-portability, 10 backend-free and 5 documented-command
-   mutants are extra to both totals, 147 in all) = 1314 green, offline.** Read those two
+   16 session, 8 hint-ab, 7 path-portability, 10 backend-free and 5 documented-command
+   mutants are extra to both totals, 149 in all) = 1318 green, offline.**
+   Every line below this page's sum is a number a run printed, **including the whole-tree
+   re-read of this exact 1298**: R-7.15's clause 7 added 4 checks and 2 mutants to the
+   session line, and `benchmarks/session_check.py --sweep` printed `48/48` and `16/16`
+   caught in both lanes (`benchmarks/results/session_sweep_r715c_20260929.log`), which the
+   re-read of this tree then carried into its own 30th OK line before summing to
+   `checks 1298  oracle 20  §6 total 1318  mutants 149`
+   (`benchmarks/results/battery_reread_r715c7_20260929.log`). The previous whole-tree
+   re-read printed `checks 1294  oracle 20  §6 total 1314  mutants 147` on the tree one
+   clause earlier. Both numbers stay on the page rather than merging into one.
+   Read those two
    numbers with care: CHECKS and TOTAL are different columns, and this page has
    been quoted wrongly by its own notes before — R-1.1b's checks count (1052) was
    exactly the total the page had claimed one commit earlier, and the number the

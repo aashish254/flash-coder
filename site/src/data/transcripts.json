@@ -12,7 +12,7 @@
     "  [yes] MLX backend: mlx 0.32.2, mlx_lm 0.31.3",
     " machine",
     "  [yes] python 3.11.15 \u00b7 darwin/arm64 \u00b7 27.0",
-    "  [yes] what this box may load: profile maximum-performance, up to 17.3 GB right now (~27.5 GB free of 32, tournament width 4)",
+    "  [yes] what this box may load: profile maximum-performance, up to 17.3 GB right now (~26.9 GB free of 32, tournament width 4)",
     " cache",
     "  [   ] model cache ~/.cache/huggingface/hub: 41 repo(s), 4 of 4 \u00a722 candidates present",
     " tools",
@@ -31,10 +31,10 @@
    "command": "python -m flash.graph --selftest",
    "exit": 0,
    "lines": [
-    "  OK   the merge is what makes a repeat query cheap: a second pass over the wide repo costs 7.8 ms and re-extracts nothing",
+    "  OK   the merge is what makes a repeat query cheap: a second pass over the wide repo costs 7.7 ms and re-extracts nothing",
     "  OK   and on the wide repo the floor is still reported rather than assumed: a 400-file pass with no blind spots says so, and a reader can see that it is a property of THIS instrument, not of the algorithm",
-    "  ..  first query on a cold index: fixtures 0.1 ms, wide 28.9 ms (5377 nodes, 10058 edges, after a 571 ms build); language server settled 1/1",
-    "graph selftest: 44/44 checks passed  [fixtures query 0.1 ms of 200 ms budget, wide query 28.9 ms]"
+    "  ..  first query on a cold index: fixtures 0.1 ms, wide 28.6 ms (5377 nodes, 10058 edges, after a 569 ms build); language server settled 1/1",
+    "graph selftest: 44/44 checks passed  [fixtures query 0.1 ms of 200 ms budget, wide query 28.6 ms]"
    ],
    "redacted": []
   },
@@ -75,6 +75,50 @@
     "8 weight-download progress lines were dropped; the witness beside this file holds them verbatim"
    ],
    "source": "session_live_20260929.log"
+  },
+  {
+   "command": "python -m flash.cli session --context /tmp/flash-chat-demo --test /tmp/flash-chat-demo/t.py --apply",
+   "exit": 1,
+   "lines": [
+    "[t+  0.00s] zero-pad the cents and keep a negative sign in front of the dollar sign, exactly as t.py asserts",
+    "[t+  0.06s] flash session on /tmp/flash-chat-demo against the oracle /tmp/flash-chat-demo/t.py \u2014 one ask per line, and each answer arrives before you type the next. `quit` or Ctrl-D ends it.",
+    "[t+  2.15s] you> ",
+    "[t+  2.17s] ",
+    "[t+  2.17s] ",
+    "[t+  9.66s] ",
+    "[t+  9.66s] ",
+    "[t+  9.66s] ",
+    "[t+ 19.22s] [turn 1] routed=small tier=failed solved=False attempts=4 (11.2s) patches=1 refused=1 whole=0 outside=0",
+    "[t+ 19.22s]   oracle| PATCH REFUSED: money.py:format_dollar \u2014 no symbol 'format_dollar' in money.py (it defines: cents_to_str)",
+    "[t+ 19.22s] [R-3.2] NOT APPLIED: the task was not solved, so --apply wrote nothing to /tmp/flash-chat-demo",
+    "[t+ 19.43s] ",
+    "[t+ 19.43s] <<< typed: 'make cents_to_str raise ValueError when cents is not an int'",
+    "[t+ 19.43s] you> make cents_to_str raise ValueError when cents is not an int",
+    "[t+ 20.34s] ",
+    "[t+ 20.34s] ",
+    "[t+ 20.34s] ",
+    "[t+ 27.91s] ",
+    "[t+ 27.92s] ",
+    "[t+ 27.92s] ",
+    "[t+ 36.83s] [turn 2] routed=small tier=failed solved=False attempts=4 (11.9s) patches=1 refused=0 whole=0 outside=0",
+    "[t+ 36.83s]   oracle| FAILING_ASSERT: assert cents_to_str(150) == \"$1.50\" | GOT: '$1.5' | WANT: '$1.50'",
+    "[t+ 37.04s] ",
+    "[t+ 37.04s] <<< typed: 'quit'",
+    "[t+ 37.04s] [R-3.2] NOT APPLIED: the task was not solved, so --apply wrote nothing to /tmp/flash-chat-demo",
+    "[t+ 37.04s] you> quit",
+    "[t+ 37.04s] [session] turns=2 solved=0 written=0 seconds=23.1 last_rc=1",
+    "[t+ 37.04s] [trace] replay this session:  flash trace show 20260929-144507-session-54e4",
+    "=== child exited rc=1 after 37.3s ===",
+    "=== final money.py ===",
+    "def cents_to_str(cents: int) -> str:",
+    "    return f\"${cents / 100}\"",
+    "=== oracle re-run against the bytes now on disk ===",
+    "rc=1 Traceback (most recent call last):",
+    "  File \"<string>\", line 6, in <module>",
+    "AssertionError"
+   ],
+   "redacted": [],
+   "source": "session_pty_20260929.log"
   }
  ],
  "witness_redacted": []

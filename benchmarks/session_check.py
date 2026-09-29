@@ -167,12 +167,14 @@ FAIL_MONEY = turn(edit=_rename, solved=False,
 WEAKEN_ORACLE = turn(edit=_weaken)
 
 
-def fake_solve(script):
+def fake_solve(script, log: list | None = None):
     """A `solve_routed` stand-in that records every task it was handed.
 
     Stubbing the router keeps the whole command on the table — the parser, the
     stdin read, `workspace_from_dir`, the trace session, the verdict line,
     `_land_edits` — and no model loads, which is what makes this offline.
+    `log=` puts a `solveN` marker beside the stream's `readN` markers, which is
+    the only way to see the ORDER the two happen in.
     """
     seen: list[dict] = []
 
@@ -182,6 +184,8 @@ def fake_solve(script):
                     "files": dict(task["files"]), "edit": task.get("edit"),
                     "multi": task.get("multi"), "context": task.get("context"),
                     "test": task["test"], "kw": dict(kw)})
+        if log is not None:
+            log.append(f"solve{len(seen)}")
         files = task["files"]
         ws = step["edit"](files) if step["edit"] else dict(files)
         r = loop.SolveResult(
@@ -204,18 +208,49 @@ def stdin_text(text: str):
     return io.TextIOWrapper(io.BytesIO(text.encode()), encoding="utf-8")
 
 
+class TtyStream:
+    """A stdin that can claim to be a terminal, and says when it was read.
+
+    Two things only this class can measure. `isatty` is what selects the `you> `
+    marker, and a pipe cannot be asked to lie about being a keyboard. The read log
+    is the one instrument that tells a chat from a batch file: the property
+    R-7.15's second clause is about is not how many turns ran but that turn 1 ran
+    BEFORE turn 2 was read, which a count cannot see and this can.
+    """
+
+    def __init__(self, text: str, log: list | None = None, tty: bool = True):
+        self._lines = text.splitlines(keepends=True)
+        self._log = log if log is not None else []
+        self._tty = tty
+        self._reads = 0
+
+    def __iter__(self):
+        return self
+
+    def __next__(self) -> str:
+        self._reads += 1
+        self._log.append(f"read{self._reads}")
+        if not self._lines:
+            raise StopIteration
+        return self._lines.pop(0)
+
+    def isatty(self) -> bool:
+        return self._tty
+
+
 def drive(fn=None, prompts="", argv=None, script=None, root=None,
-          oracle="t.py", command="session"):
+          oracle="t.py", command="session", tty=False, log=None):
     """Run a session command in this process with turns and router supplied."""
     fn = fn or cli.cmd_session
     script = script or [FIX_MONEY]
     root = root or new_tree()
-    fake = fake_solve(script)
+    fake = fake_solve(script, log)
     real = (loop.solve_routed, sys.stdin, sys.argv, trace.DIR)
     trace.DIR = Path(tempfile.mkdtemp(prefix="flash-session-trace-"))
     flags = ["--test", str(root / oracle), "--context", str(root)]
     sys.argv = ["flash", command, *flags, *(argv or [])]
-    sys.stdin = stdin_text(prompts)
+    sys.stdin = (TtyStream(prompts, log, tty)
+                 if tty or log is not None else stdin_text(prompts))
     loop.solve_routed = fake
     buf = io.StringIO()
     args = cli.build_parser().parse_args(sys.argv[1:])
@@ -258,7 +293,8 @@ def session_copy(**knob):
     k = dict(re_read=True, oracle_guard=True, turns_cap=True, quit_ends=True,
              skip_blank=True, edit_flag=False, apply_default=False,
              protect=True, write_count=True, last_rc=True, sum_seconds=True,
-             verdict=True, oracle_lines=True, empty_refuses=True)
+             verdict=True, oracle_lines=True, empty_refuses=True,
+             interleaved=True, tty_prompt=True)
     k.update(knob)
 
     def cmd(args) -> int:
@@ -292,32 +328,43 @@ def session_copy(**knob):
                                          "test": args.test, "edit": True,
                                          "apply": args.apply,
                                          "turns": args.turns})
-        turns: list[str] = []
-        for raw in sys.stdin:
-            t = raw.strip()
-            if k["quit_ends"] and t.lower() in ("quit", "exit", "q"):
-                break
-            if not t:
-                if k["skip_blank"]:
-                    continue
-                turns.append(t)
-                continue
-            turns.append(t)
-            if k["turns_cap"] and args.turns and len(turns) >= args.turns:
-                break
-        if not turns:
-            print("session: no turns on stdin — nothing was asked, so nothing "
-                  "was verified")
-            trace.close_session(solved=False, turns=0)
-            return 2 if k["empty_refuses"] else 0
-        print(f"flash session on {args.context} against the oracle "
-              f"{args.test} — {len(turns)} turn(s). Ctrl-D ends it.")
+        tty = bool(getattr(sys.stdin, "isatty", lambda: False)())
+        marker = cli.PROMPT if (tty and k["tty_prompt"]) else ""
 
+        def asks():
+            lines = iter(sys.stdin)
+            n = 0
+            while True:
+                if marker:
+                    print(marker, end="", flush=True)
+                raw = next(lines, None)
+                if raw is None:
+                    return
+                t = raw.strip()
+                if k["quit_ends"] and t.lower() in ("quit", "exit", "q"):
+                    return
+                if not t and k["skip_blank"]:
+                    continue
+                yield t
+                n += 1
+                if k["turns_cap"] and args.turns and n >= args.turns:
+                    return
+
+        # The banner goes up before the first read, as in the command: on a
+        # keyboard the alternative is a cursor and no sentence to read.
+        print(f"flash session on {args.context} against the oracle "
+              f"{args.test} — one ask per line, and each answer arrives before "
+              "you type the next. `quit` or Ctrl-D ends it.")
+        # `interleaved=False` is the defect the author hit: drain stdin, then
+        # run. Same turns, same counts, same sentences — and not a chat.
+        stream = asks() if k["interleaved"] else iter(list(asks()))
         cached = workspace_from_dir(args.context)
-        solved_n = written_n = 0
+        solved_n = written_n = ran = 0
         seconds = 0.0
         rcs: list[int] = []
-        for i, prompt in enumerate(turns, 1):
+        for prompt in stream:
+            ran += 1
+            i = ran
             task = {"id": f"turn{i}", "prompt": prompt, "test": test,
                     "context": args.context}
             task["files"] = (workspace_from_dir(args.context) if k["re_read"]
@@ -365,22 +412,27 @@ def session_copy(**knob):
                 solved_n += 1
             seconds = (seconds + r.seconds) if k["sum_seconds"] else r.seconds
             rcs.append(rc)
+        if not ran:
+            print("session: no turns on stdin — nothing was asked, so nothing "
+                  "was verified")
+            trace.close_session(solved=False, turns=0)
+            return 2 if k["empty_refuses"] else 0
         rc = rcs[0] if not k["last_rc"] else rcs[-1]
-        print(f"[session] turns={len(turns)} solved={solved_n} "
+        print(f"[session] turns={ran} solved={solved_n} "
               f"written={written_n} seconds={round(seconds, 1)} last_rc={rc}")
         print(f"[trace] replay this session:  flash trace show {sid}")
-        trace.close_session(solved=(rc == 0), turns=len(turns),
+        trace.close_session(solved=(rc == 0), turns=ran,
                             solved_turns=solved_n, written_turns=written_n,
                             seconds=round(seconds, 1))
         return rc
     return cmd
 
 
-def _quiet(fn, prompts, script, root, argv):
+def _quiet(fn, prompts, script, root, argv, tty=False):
     """Run `fn` over one scenario and return everything a reader could compare:
     the exit code, the printed lines with the volatile ones removed, and the
     bytes the tree ended with."""
-    rc, out, _seen, _root = drive(fn, prompts, argv, script, root)
+    rc, out, _seen, _root = drive(fn, prompts, argv, script, root, tty=tty)
     # Two scenarios run on two different temp trees, so the session's own header —
     # which prints the absolute directory it was pointed at — differs by
     # construction. Collapsing the prefix keeps the comparison about the sentences:
@@ -402,15 +454,22 @@ def agree() -> str:
         ("fix it\nfail it\n", [FIX_MONEY, FAIL_MONEY], True, []),
         ("a\nb\nc\nd\n", [FIX_MONEY, ADD_CONST, NO_OP], True, ["--turns", "2"]),
         ("quit\n", [FIX_MONEY], True, []),
+        # A claimed terminal, so the marker each side prints is under comparison
+        # too: a copy that drops it would agree on every pipe and lie on a
+        # keyboard, which is the one place a prompt is for.
+        ("fix\nadd\n", [FIX_MONEY, ADD_CONST], True, [], True),
+        ("one\n\nquit\n", [FIX_MONEY], False, [], True),
     ]
-    for prompts, script, apply, extra in scenarios:
+    for scenario in scenarios:
+        prompts, script, apply, extra = scenario[:4]
+        tty = scenario[4] if len(scenario) > 4 else False
         seen = []
         for fn in (cli.cmd_session, session_copy()):
             seen.append(_quiet(fn, prompts, script, new_tree(),
-                               (["--apply"] if apply else []) + extra))
+                               (["--apply"] if apply else []) + extra, tty))
         if seen[0] != seen[1]:
-            return (f"{prompts!r} apply={apply} {extra}: shipped={seen[0]} "
-                    f"copy={seen[1]}")
+            return (f"{prompts!r} apply={apply} tty={tty} {extra}: "
+                    f"shipped={seen[0]} copy={seen[1]}")
     if isinstance(outcome(agree_copy_is_honest), str):
         return f"the copy raised: {outcome(agree_copy_is_honest)}"
     return ""
@@ -426,7 +485,8 @@ def agree_copy_is_honest() -> bool:
                  quit_ends=False, skip_blank=False, edit_flag=True,
                  apply_default=True, protect=False, write_count=False,
                  last_rc=False, sum_seconds=False, verdict=False,
-                 oracle_lines=False, empty_refuses=False)
+                 oracle_lines=False, empty_refuses=False, interleaved=False,
+                 tty_prompt=False)
     for name in knobs:
         copy = session_copy(**{name: knobs[name]})
         rc, lines, state = _quiet(copy, "fix\nadd\n", [FIX_MONEY, ADD_CONST],
@@ -550,6 +610,36 @@ def _turn_checks() -> None:
     rc, out, seen, _ = drive(prompts="one\ntwo\n", script=[FIX_MONEY, ADD_CONST])
     check("EOF ends the session and the report counts what ran",
           len(seen) == 2 and field(out, "turns") == "2", f"{len(seen)} turns")
+
+    # The clause the author's third report was actually about. A count of turns
+    # cannot tell a chat from a batch file: only the ORDER of the reads and the
+    # solves can, so this records when stdin was asked and when the router ran.
+    log: list[str] = []
+    rc, out, seen, _ = drive(prompts="one\ntwo\n",
+                             script=[FIX_MONEY, ADD_CONST], log=log)
+    check("turn 1 is ANSWERED before turn 2 is read — the reads interleave with "
+          "the solves (read1, solve1, read2, solve2) instead of draining stdin "
+          "up front, which is the whole difference between a chat and a batch "
+          "file with a prompt painted on it",
+          log[:4] == ["read1", "solve1", "read2", "solve2"], log)
+    log2: list[str] = []
+    rc, out, seen, _ = drive(prompts="one\ntwo\nthree\n",
+                             script=[FIX_MONEY] * 3, log=log2,
+                             argv=["--turns", "1"])
+    check("a capped session stops ASKING, not just stops counting: with "
+          "`--turns 1` stdin is read once and never again, so a keyboard is not "
+          "left waiting for a fourth line after the session is over",
+          log2 == ["read1", "solve1"] and field(out, "turns") == "1", log2)
+
+    rc, out, seen, _ = drive(prompts="one\n", script=[FIX_MONEY], tty=True)
+    check("a keyboard is told what to do before it is asked: the session prints "
+          "`you> ` on a terminal, which is the line a person needs to see to "
+          "believe it is waiting rather than hung",
+          "you> " in out, out[:200])
+    rc, out, seen, _ = drive(prompts="one\n", script=[FIX_MONEY])
+    check("a pipe gets no marker at all, because a session's stdout is also a "
+          "report and a driver's captured text must stay parseable",
+          "you>" not in out, out[:200])
 
 
 def _disk_checks() -> None:
@@ -824,6 +914,16 @@ def mutants() -> list[tuple[str, object, str]]:
          "the patch arm is scored but can never land",
          session_copy(edit_flag=True),
          "every turn is an edit turn against the session's own context"),
+        ("stdin is drained before turn 1 runs: every turn still answers, every "
+         "count still matches, and a person at a keyboard watches a cursor "
+         "instead of an answer — the exact shape of the report that said there "
+         "was no chat here",
+         session_copy(interleaved=False),
+         "turn 1 is ANSWERED before turn 2 is read"),
+        ("no marker on a terminal: the session is waiting and prints nothing at "
+         "all, which is how a running model reads as a hung one",
+         session_copy(tty_prompt=False),
+         "a keyboard is told what to do before it is asked"),
     ]
 
 

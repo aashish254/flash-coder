@@ -78,7 +78,7 @@ BATTERY = [
     ("benchmarks/patch_landing_check.py",
      "benchmarks/patch_landing_check.py --sweep", 40, 22, "checks"),
     ("benchmarks/session_check.py",
-     "benchmarks/session_check.py --sweep", 44, 14, "checks"),
+     "benchmarks/session_check.py --sweep", 48, 16, "checks"),
     ("benchmarks/hint_ab_check.py", "benchmarks/hint_ab_check.py",
      14, 8, "checks"),
     ("benchmarks/portable_paths_check.py", "benchmarks/portable_paths_check.py",
@@ -94,7 +94,7 @@ BATTERY = [
      20, None, "oracle"),
 ]
 
-CLAIM = {"checks": 1294, "oracle": 20, "mutants": 147}
+CLAIM = {"checks": 1298, "oracle": 20, "mutants": 149}
 
 
 def run(argv: str) -> str:
@@ -120,12 +120,12 @@ def mutant_count(text: str) -> int:
     three `13/13`-style summaries (this process, the fresh-process lane, and the
     sweep's own verdict), which agree because the run refuses to print a
     fresh-process total unless the child listed all thirteen.
-    `session_check.py --sweep` is that shape a fifth time: fourteen
+    `session_check.py --sweep` is that shape a fifth time: sixteen
     `fresh>ok  MUTATION:` verdicts — prefixed, so the `^OK MUTATION` counter never
-    sees them — and then three `14/14 caught` summaries (this process, the fresh
+    sees them — and then three `16/16 caught` summaries (this process, the fresh
     process each, and the sweep's own verdict), which agree because the sweep
     returns 1 unless the child lanes and the in-process lane both caught all
-    fourteen.
+    sixteen.
     """
     best = 0
     for line in text.replace("\r", "\n").split("\n"):
