@@ -52,6 +52,16 @@ EDIT_MARKER = re.compile(r"^\s*\**\s*#\s*edit:\s*(?P<file>[\w./-]+)\s*::\s*"
                         r"(?P<addr>\S+?)\s*\**\s*$", re.MULTILINE)
 RANGE_ADDR = re.compile(r"^[Ll](?P<a>\d+)(?:\s*-\s*[Ll]?(?P<b>\d+))?$")
 
+#: The one character that turns an address into a request to ADD a definition.
+#: R-7.15b's whole point: a symbol address is resolved against the AST, so the
+#: ordinary instruction "add a function called `k_to_c`" names something the AST
+#: does not have, and the correct refusal costs the turn. The prefix gives the
+#: model a way to say "create" that the applier can verify, and it is a prefix
+#: rather than a new header because `parse_patches` already reads any `\S+` as
+#: an address — the tolerance is what let the form arrive without a parser
+#: change, which is exactly why the resolution rule below has to be strict.
+CREATE_PREFIX = "+"
+
 #: The suffixes whose spans the second grammar owns. Everything else — including
 #: the empty path every Python caller passes — is Python, which is what keeps the
 #: published Python figures byte-identical while this module dispatches at all.
@@ -99,6 +109,13 @@ PROTOCOL = (
     "* to change a single statement inside a symbol, address the exact lines: "
     "`# edit: <file> :: L<start>-L<end>`; write that text exactly as it should "
     "appear, indentation included;\n"
+    "* to ADD a function, method or class the file does not have yet, put a "
+    "`+` in front of the name: `# edit: <file> :: +<NewName>`, or "
+    "`+<Container>.<NewName>` for a method. Write the complete new definition "
+    "and nothing else; the applier chooses where it goes — after the file's last "
+    "definition, or after the container's last member — so never re-type the "
+    "existing code around it. A `+` address on a name that already exists is "
+    "refused, because that is a revision and must say so;\n"
     "* `# edit: <file> :: *` rewrites the whole file. Use it only when no "
     "symbol address fits — it is the thing patches exist to avoid.\n"
     "Change only what the request asks for. One patch per symbol."
@@ -125,17 +142,30 @@ class Patch:
     def kind(self) -> str:
         if self.address == "*":
             return "whole"
+        if self.address.startswith(CREATE_PREFIX):
+            return "create"
         if RANGE_ADDR.match(self.address):
             return "range"
         return "symbol"
 
     @property
+    def target(self) -> str:
+        """The name part of the address, with a create's `+` removed.
+
+        Everything downstream of `parse_patches` — `find_defs`, `check_result`,
+        the ambiguity sentence — wants the plain name, and only `kind` should
+        have to know about the create prefix.
+        """
+        return (self.address[len(CREATE_PREFIX):] if self.kind == "create"
+                else self.address)
+
+    @property
     def name(self) -> str:
-        return self.address.rpartition(".")[2]
+        return self.target.rpartition(".")[2]
 
     @property
     def container(self) -> str:
-        return self.address.rpartition(".")[0]
+        return self.target.rpartition(".")[0]
 
 
 @dataclass
@@ -371,6 +401,8 @@ def resolve(patch: Patch, src: str) -> Applied:
         return Applied(patch, 1, n, 0, n)
 
     defs = definitions(src, patch.file)
+    if patch.kind == "create":
+        return _resolve_create(patch, src, defs)
     if patch.kind == "range":
         m = RANGE_ADDR.match(patch.address)
         a = int(m.group("a"))
@@ -389,13 +421,70 @@ def resolve(patch: Patch, src: str) -> Applied:
     if not hits:
         named = ", ".join(sorted({d.name for d in defs}))[:200]
         raise Refused(f"no symbol {patch.address!r} in {patch.file} "
-                      f"(it defines: {named or 'nothing'})")
+                      f"(it defines: {named or 'nothing'}) — to ADD a symbol that "
+                      f"does not exist yet, address it as "
+                      f"'{CREATE_PREFIX}{patch.address}'")
     if len(hits) > 1:
         where = ", ".join(str(d) for d in hits)
         raise Refused(f"{patch.address!r} is ambiguous in {patch.file}: {where} — "
                       f"address it as Container.name or by line range")
     d = hits[0]
     return Applied(patch, d.start, d.end, d.col, d.end - d.start + 1)
+
+
+def _resolve_create(patch: Patch, src: str, defs: list[Def]) -> Applied:
+    """Where a NEW definition goes, chosen by the AST and not by the patch.
+
+    The address carries no position, because a position is the thing a model
+    gets wrong and the extractor never gets wrong. So the applier owns it: a
+    top-level create lands after the last top-level definition it can see, and a
+    `Container.+name` create lands after that container's last member — or, for
+    an empty class, inside it right after its header line, which is the one
+    place a body can go and still belong to the class.
+
+    The returned span is the pure-insertion form `splice` already reads
+    (`start == end + 1`), so a create rewrites no existing line: it owns zero
+    lines of the file, and `outside_lines` therefore charges it nothing. That is
+    the honest accounting rather than a favour — the audit exists to catch a
+    patch that re-types lines it did not need to, and an insertion does not.
+    """
+    n, _ = _bounds(src)
+    name, container = patch.name, patch.container
+    if not name or name == "*":
+        raise Refused(f"'{patch.address}' names nothing to create — a create "
+                      f"address is '{CREATE_PREFIX}Symbol' or "
+                      f"'{CREATE_PREFIX}Container.symbol'")
+    if find_defs(defs, patch.target):
+        d = find_defs(defs, patch.target)[0]
+        raise Refused(f"{name!r} already exists in {patch.file} at "
+                      f"L{d.start}-L{d.end} — a create refuses to duplicate a "
+                      f"definition, so address it without the "
+                      f"'{CREATE_PREFIX}' to replace it")
+
+    if not container:
+        tops = [d for d in defs if not d.container]
+        anchor = max((d.end for d in tops), default=0)
+        return Applied(patch, anchor + 1, anchor, 0, 0)
+
+    owners = [d for d in defs if d.name == container and not d.container]
+    if not owners:
+        named = ", ".join(sorted({d.name for d in defs if not d.container}))[:200]
+        raise Refused(f"no class or container {container!r} in {patch.file} to add "
+                      f"{name!r} to (its top-level definitions are: "
+                      f"{named or 'nothing'})")
+    if len(owners) > 1:
+        raise Refused(f"{container!r} is defined more than once in {patch.file}: "
+                      f"{', '.join(str(d) for d in owners)} — the create would "
+                      f"have to pick one")
+    owner = owners[0]
+    members = [d for d in defs if d.container == container]
+    if members:
+        anchor = max(d.end for d in members)
+        col = min(d.col for d in members)
+    else:
+        anchor = owner.end if owner.end > owner.start + 1 else owner.start
+        col = owner.col + 4
+    return Applied(patch, anchor + 1, anchor, col, 0)
 
 
 def splice(src: str, start: int, end: int, replacement: str) -> str:
@@ -491,6 +580,15 @@ def check_result(patch: Patch, before: str, after: str) -> None:
             ast.parse(after)
         except SyntaxError as e:
             raise Refused(f"replacement does not parse: line {e.lineno}: {e.msg}")
+    if patch.kind == "create":
+        # The inverse of the rule below: a create is only a create if the name
+        # is there afterwards. A body that defines `format_dolar` under an
+        # address saying `+format_dollar` would otherwise land a silently
+        # different symbol than the one the oracle is about to be asked about.
+        if not find_defs(definitions(after, patch.file), patch.target):
+            raise Refused(f"the result does not define {patch.name!r}, which is "
+                          f"what '{patch.address}' asked it to create")
+        return
     if patch.kind != "symbol":
         return
     # a symbol patch must still define that symbol — a "fix" that renames or
@@ -562,11 +660,29 @@ def apply_patches(workspace: dict[str, str], patches: list[Patch]) -> ApplyResul
             continue
         new = src0
         for a in sorted(resolved, key=lambda x: -x.start):
-            body = (normalise(a.patch.body, a.col) if a.patch.kind == "symbol"
-                    else a.patch.body)
+            body = (normalise(a.patch.body, a.col)
+                    if a.patch.kind in ("symbol", "create") else a.patch.body)
             if a.patch.kind == "whole":
                 new = splice(new, a.start, a.end, body)
                 a.spans = ((a.start, a.end),)
+                continue
+            if a.patch.kind == "create":
+                # `resolve` handed back the pure-insertion span, so this splice
+                # writes the new definition and re-copies every existing line
+                # verbatim. Nothing is narrowed because nothing is replaced.
+                text = body
+                prior = new.split("\n")[a.end - 1] if a.end >= 1 else ""
+                if prior.strip():
+                    # Without this the new definition lands flush against the
+                    # line above it, which parses and reads like a machine wrote
+                    # it: a create is the one shape where the applier owns the
+                    # whitespace, so it owns the blank lines too — two at top
+                    # level under PEP 8, one where the file's own declarations
+                    # are one line apart, which is how a `.tsx` is written.
+                    gap = 2 if not a.col and is_python(a.patch.file) else 1
+                    text = "\n" * gap + text
+                new = splice(new, a.start, a.end, text)
+                a.spans = ()
                 continue
             runs = narrow(new, a.start, a.end, body)
             for s, e, text in sorted(runs, key=lambda x: -x[0]):
@@ -1181,6 +1297,122 @@ def run_selftest(verbose: bool = True) -> int:
     check("range: a verbatim statement replacement keeps the file's indentation",
           inner.ok and "r / 100.0" in inner.files["cart.py"],
           "; ".join(f"{p.address} {w}" for p, w in inner.refusals)[:80])
+
+    # 7b. CREATE: R-7.15b's shape. The address grammar could say "replace this
+    # symbol" and "insert these lines inside this symbol", and between them there
+    # was no way to ask for a definition the file does not have yet — so the
+    # ordinary instruction "add a function" was a refusal that cost the turn.
+    created = apply_patches(ws, [Patch("cart.py", "+shout",
+                                       'def shout():\n    return "hi"')])
+    car = created.files.get("cart.py", "")
+    check("create: `# edit: f :: +Name` appends the definition after the file's "
+          "last top-level one, and the result still parses",
+          created.ok and car.rstrip().endswith('return "hi"')
+          and len(find_defs(definitions(car), "shout")) == 1,
+          "; ".join(f"{p.address} {w}" for p, w in created.refusals)[:90])
+    _car = len(cart.rstrip("\n").split("\n"))
+    check("create: ...as a PURE insertion — every line of the before file is "
+          "still there at the same number, so nothing had to be re-typed to add "
+          "the new one",
+          created.ok and car.split("\n")[:_car] == cart.split("\n")[:_car]
+          and created.applied[0].spans == ()
+          and created.applied[0].regenerated == 0,
+          f"{len(car.split(chr(10)))} lines after a {_car}-line file")
+    _charged = changed_lines(cart, car)
+    check("create: ...and `changed_lines` still charges the insertion point, "
+          "because that is what its line means: exactly ONE line, at the very end "
+          "of the before file, so nothing that already existed was re-typed. The "
+          "audit that reads ZERO for a create is `outside_lines`, which works off "
+          "`spans` and not off this",
+          created.ok and len(_charged) == 1 and _charged[0] >= len(cart.split("\n")),
+          f"changed_lines={_charged} over a "
+          f"{len(cart.split(chr(10)))}-element split")
+    check("create: the audit charges a create nothing, because there is no line "
+          "of the target symbol it could have touched",
+          created.ok and outside_lines(ws, created, {"file": "cart.py",
+                                                     "symbol": "Cart.TAX"}) == 0)
+    check("create: the applier supplies the blank lines above a top-level "
+          "definition, so a landed create reads like hand-written code",
+          car.endswith('    pass\n\n\ndef shout():\n    return "hi"') or
+          "\n\n\ndef shout():" in car, repr(car[-46:]))
+    check("create: the new symbol is addressable afterwards, which is what lets a "
+          "later turn REVISE what this turn added",
+          created.ok and len(find_defs(definitions(car), "shout")) == 1)
+    mixed = apply_patches(ws, [Patch("cart.py", "Cart.TAX", "TAX = 10"),
+                               Patch("cart.py", "+shout",
+                                     'def shout():\n    return "hi"')])
+    check("create: a create and a revision in ONE set both land — the money "
+          "demo's real shape is a helper added and its caller changed",
+          mixed.ok and len(mixed.applied) == 2 and "TAX = 10" in mixed.files["cart.py"]
+          and 'return "hi"' in mixed.files["cart.py"], mixed.summary())
+    meth = apply_patches(ws, [Patch("cart.py", "+Cart.discount",
+                                    'def discount(self, pct):\n'
+                                    '    return cents(self.total * pct)')])
+    md = meth.files.get("cart.py", "")
+    hits = find_defs(definitions(md), "Cart.discount")
+    check("create: `Container.+name` lands INSIDE the container at its members' "
+          "nesting, and after its last member — the only place a body can go and "
+          "still be a method",
+          meth.ok and len(hits) == 1 and hits[0].col == 4
+          and md.index("def discount") > md.index("def with_tax"),
+          str(hits[0]) if hits else meth.refusals[0][1][:80])
+    empty_cls = apply_patches({"box.py": "class Box:\n    pass\n"},
+                              [Patch("box.py", "+Box.side",
+                                     'def side(self, n):\n    self.n = n')])
+    check("create: an empty class gets its method before the `pass`, so the class "
+          "body keeps owning it",
+          empty_cls.ok and "def side" in empty_cls.files["box.py"]
+          and empty_cls.files["box.py"].index("def side") <
+          empty_cls.files["box.py"].index("    pass"),
+          empty_cls.files["box.py"].replace("\n", "\\n")[:80])
+    dup = apply_patches(ws, [Patch("cart.py", "+with_tax",
+                                   "def with_tax(self):\n    return 1")])
+    check("refuse: a create on a name that EXISTS is refused, and the sentence "
+          "names the revise form — a landed create and a refused one cannot be "
+          "confused, which is the pair this clause is gated on",
+          not dup.ok and "already exists" in dup.refusals[0][1]
+          and "without the '+'" in dup.refusals[0][1],
+          dup.refusals[0][1][:80] if dup.refusals else "")
+    wrong = apply_patches(ws, [Patch("cart.py", "+shout",
+                                     'def shout_back():\n    return "hi"')])
+    check("refuse: a create whose body defines a DIFFERENT name is refused: the "
+          "address is the contract the oracle is about to test",
+          not wrong.ok and "does not define 'shout'" in wrong.refusals[0][1],
+          wrong.refusals[0][1][:80] if wrong.refusals else "")
+    nook = apply_patches(ws, [Patch("cart.py", "+Wheel.spin",
+                                    'def spin(self):\n    return 1')])
+    check("refuse: a create whose container is not in the file names the "
+          "containers that are",
+          not nook.ok and "no class or container 'Wheel'" in nook.refusals[0][1]
+          and "Cart" in nook.refusals[0][1],
+          nook.refusals[0][1][:80] if nook.refusals else "")
+    bare = apply_patches(ws, [Patch("cart.py", "+", "x = 1")])
+    check("refuse: a bare `+` names nothing to create, and the refusal spells the "
+          "form rather than leaving the model to guess it",
+          not bare.ok and "+Symbol" in bare.refusals[0][1],
+          bare.refusals[0][1][:80] if bare.refusals else "")
+    miss = apply_patches(ws, [Patch("cart.py", "shout", 'def shout():\n    return 1')])
+    check("refuse: the OTHER direction carries the remedy too — revising a symbol "
+          "that is not there is told how to ADD it, which is the sentence that "
+          "turns this clause's measured refusal into a next-attempt win",
+          not miss.ok and "no symbol" in miss.refusals[0][1]
+          and "'+shout'" in miss.refusals[0][1],
+          miss.refusals[0][1][:100] if miss.refusals else "")
+    check("create: the address parses with NO parser change — `+Name` was always "
+          "a `\\S+`, so the tolerance that let it through is pinned here rather "
+          "than discovered later",
+          parse_patches("# edit: cart.py :: +shout\n"
+                        '```python\ndef shout():\n    return "hi"\n```\n'
+                        )[0].kind == "create")
+    check("create: the PROTOCOL the model is shown actually names the form — a "
+          "capability the prompt does not mention is a capability the model "
+          "cannot ask for",
+          ":: +" in PROTOCOL and "+<Container>" in PROTOCOL)
+
+    voided = apply_patches(ws, [Patch("cart.py", "+net", 'def net(x):\n    return x'),
+                                Patch("cart.py", "+TAX", "TAX = 1")])
+    check("create: one bad create voids the whole set, like every other refusal",
+          not voided.ok and voided.files == ws)
 
     # 8. degradation: a response with no patches at all costs the attempt, not the workspace
     empty = apply_patches(ws, [])

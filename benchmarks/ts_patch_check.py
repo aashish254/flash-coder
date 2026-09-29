@@ -13,7 +13,11 @@ while `# edit: ... :: L16-L18` applied. A range address always worked, which is
 exactly why the gap was survivable and also why it was worth closing: the symbol
 form is the one the protocol tells the model to prefer.
 
-Five questions, all of them about the seam rather than about a model:
+R-7.15b's verb — `+Name`, which CREATES a symbol instead of revising one —
+arrives in this file too, because a second grammar has to own its own insertion
+points: nothing about a `.tsx` create is inherited from the Python branch.
+
+Six questions, all of them about the seam rather than about a model:
 
 * **Does the address reach the right grammar?** A `.ts`/`.tsx` name dispatches to
   `flash.lang_ts`; every other name, including the empty path `flash.graph`
@@ -26,6 +30,12 @@ Five questions, all of them about the seam rather than about a model:
   TypeScript shape of Python's decorator rule — the `export` keyword the span
   begins with. Dropping it leaves the edited file looking fine while every
   importer breaks.
+* **Can the verb ADD as well as replace?** R-7.15b's create address has to work in
+  the second grammar too, which means the *tree-sitter* walk owns where a new
+  declaration goes: a top-level create after the file's last one, a
+  `+Class.member` inside the class at its members' indentation, one blank line
+  above rather than PEP 8's two, and a body that defines a different name
+  refused.
 * **Does the protocol speak the language?** A body fenced `tsx` is read as a
   patch, a listing labels each file with its own language, and a workspace
   gathered from a directory contains the `.tsx` files it names.
@@ -60,7 +70,7 @@ from flash import graph, lang_ts, patches                        # noqa: E402
 from flash.patches import (Def, Patch, apply_patches, describe,  # noqa: E402
                            definitions, outside_lines, parse_patches, splice)
 
-NUM_BUGS = 13
+NUM_BUGS = 15
 
 #: The fence pattern as this module shipped it before R-1.4's second language:
 #: one mutant puts it back, because a model that mirrors the listing's `tsx` tag
@@ -491,6 +501,74 @@ def run_checks() -> int:
           and "defines: nothing" not in _refusal(noaddress),
           _refusal(noaddress)[:140])
 
+    # --- R-7.15b's verb in the second grammar: `+Name` CREATES a symbol
+    cres = outcome(lambda: apply_patches(
+        ws, [Patch("src/ui.tsx", "+Tag", "export interface Tag { id: string }")]))
+    tcreated = cres.files["src/ui.tsx"] if isinstance(cres, patches.ApplyResult) \
+        and cres.ok else ""
+    check("create: `+Tag` appends a new top-level declaration in the second "
+          "grammar, after the last one the tree has, and the new symbol is then "
+          "addressable by name",
+          isinstance(cres, patches.ApplyResult) and cres.ok
+          and tcreated.rstrip().endswith("export interface Tag { id: string }")
+          and str(get(outcome(lambda: definitions(tcreated, "src/ui.tsx")), "Tag"))
+          == "Tag L34-L34",
+          f"{_refusal(cres)} -> {str(get(outcome(lambda: definitions(tcreated, 'src/ui.tsx')), 'Tag'))}")
+    check("create: ...and one blank line above it, because a `.tsx` keeps its "
+          "top-level declarations one line apart — the file's own convention, not "
+          "PEP 8's two",
+          "\n\nfunction neverExported() { return 0 }\n\nexport interface Tag"
+          in tcreated, repr(tcreated[-96:]))
+    check("create: every line that was already there is still there at the same "
+          "number, so adding a declaration re-typed nothing",
+          tcreated.split("\n")[:32] == UI_TSX.split("\n")[:32]
+          and cres.applied[0].spans == () and cres.applied[0].regenerated == 0,
+          f"{len(tcreated.split(chr(10)))} lines from a "
+          f"{len(UI_TSX.split(chr(10)))}-element split")
+    cres2 = outcome(lambda: apply_patches(
+        ws, [Patch("src/ui.tsx", "+Grid.spin", "spin(k: number) { return k }")]))
+    tmember = cres2.files["src/ui.tsx"] if isinstance(cres2, patches.ApplyResult) \
+        and cres2.ok else ""
+    check("create: `+Grid.spin` lands inside the class, at its members' "
+          "indentation, so the method belongs to the container the address named",
+          isinstance(cres2, patches.ApplyResult) and cres2.ok
+          and str(get(outcome(lambda: definitions(tmember, "src/ui.tsx")),
+                     "Grid.spin")) == "Grid.spin L15-L15"
+          and "  spin(k: number) { return k }\n}" in tmember,
+          f"{_refusal(cres2)} -> {str(get(outcome(lambda: definitions(tmember, 'src/ui.tsx')), 'Grid.spin'))}")
+    missnamed = outcome(lambda: apply_patches(
+        ws, [Patch("src/ui.tsx", "+Tag", "export interface Tug { id: string }")]))
+    check("create: a body that defines a DIFFERENT name is refused, so the symbol "
+          "the oracle is about to be asked about is the one that lands",
+          isinstance(missnamed, patches.ApplyResult) and not missnamed.ok
+          and "does not define 'Tag'" in _refusal(missnamed)
+          and missnamed.files == ws, _refusal(missnamed)[:140])
+    dupe = outcome(lambda: apply_patches(
+        ws, [Patch("src/ui.tsx", "+Hero", "export function Hero() { return null }")]))
+    check("create: a create on a name the file already has is refused, and the "
+          "sentence names the revise form rather than duplicating the definition",
+          isinstance(dupe, patches.ApplyResult) and not dupe.ok
+          and "already exists in src/ui.tsx at L16-L18" in _refusal(dupe)
+          and "without the '+'" in _refusal(dupe) and dupe.files == ws,
+          _refusal(dupe)[:160])
+    taudit = {"file": "src/ui.tsx", "symbol": "Hero"}
+    check("create: the outside-the-symbol audit charges a create nothing in the "
+          "second grammar too, because there is no line of it it could have "
+          "touched",
+          isinstance(cres, patches.ApplyResult) and cres.ok
+          and outside_lines(ws, cres, taudit) == 0,
+          f"{outside_lines(ws, cres, taudit) if isinstance(cres, patches.ApplyResult) and cres.ok else _refusal(cres)}")
+    create_att = outcome(lambda: edit_arm(
+        {"src/ui.tsx": UI_TSX, "src/card.tsx": CARD_TSX},
+        "# edit: src/ui.tsx :: +Tag\n```tsx\nexport interface Tag { id: string }\n"
+        "```\n"))
+    check("the loop's edit arm ACCEPTS a create on a component file, so the "
+          "`ast` pass and the language gate both stand aside for a verb that "
+          "adds rather than replaces",
+          create_att is not None and create_att.ok
+          and "STATIC" not in create_att.err,
+          "" if create_att is None else create_att.err[:140])
+
     # --- the protocol surface
     resp = (f"# edit: src/ui.tsx :: Hero\n```tsx\n{body}\n```\n\n"
             "Here is the log line I also pasted:\n```text\n"
@@ -596,6 +674,8 @@ def mutants() -> list[tuple[str, object, object, str]]:
     _defs = L.definitions
     _names = P._names
     _listdir = P.workspace_from_dir
+    _mk = P._resolve_create
+    _result = P.check_result
 
     def never_ts(path):
         return False                       # every file is Python again
@@ -636,6 +716,19 @@ def mutants() -> list[tuple[str, object, object, str]]:
     def everything_is_python(path):
         return True
 
+    def create_is_never_a_member(patch, src, defs):
+        """`+Grid.spin` is read as `+spin`: the container in the address is
+        dropped, so a method is added as a loose top-level function."""
+        flat = Patch(patch.file, patches.CREATE_PREFIX + patch.name, patch.body)
+        return _mk(flat, src, defs)
+
+    def create_defines_anything(patch, before, after):
+        """A create skips the result check, so `+Tag` with a body that defines
+        `Tug` applies and the oracle is asked about a symbol that isn't there."""
+        if patch.kind == "create":
+            return
+        return _result(patch, before, after)
+
     return [
         ("routes every file to `ast`, so a TypeScript address is refused as an "
          "unknown symbol — the defect this box was filed for",
@@ -675,6 +768,13 @@ def mutants() -> list[tuple[str, object, object, str]]:
         ("sends a `.tsx` through the `ast` static pass, so a clean TypeScript "
          "edit comes back a false syntax error",
          (P, "is_python"), everything_is_python, "ACCEPTS a clean TypeScript patch"),
+        ("drops the container from a create address, so `+Grid.spin` adds a loose "
+         "top-level function instead of a method on the class the address named",
+         (P, "_resolve_create"), create_is_never_a_member, "lands inside the class"),
+        ("checks a create against nothing, so a body that names a different symbol "
+         "lands and the oracle is asked about a definition that is not there",
+         (P, "check_result"), create_defines_anything,
+         "defines a DIFFERENT name is refused"),
     ]
 
 
@@ -711,12 +811,14 @@ def run_mutants(one: int | None = None, verbose: bool = False) -> int:
 def sweep() -> int:
     """One fresh process per mutant, then the whole list in this one.
 
-    `--mutants` runs all thirteen in the interpreter that wrote them, where one
-    bug's patched module is the next bug's starting state — `_is_ts` is read by
-    six of the thirteen and `lang_ts.definitions` by two. A green count seen only
+    `--mutants` runs all fifteen in the interpreter that wrote them, where one
+    bug's patched module is the next bug's starting state — `_is_ts` and
+    `lang_ts.definitions` are each read by several of the fifteen, and two of
+    them put a copy over `patches` functions the others call through.
+    A green count seen only
     in a shared process could be the previous mutant's leftover, so this spawns
     one process per bug, re-runs the list here, and fails unless both lanes catch
-    all thirteen.
+    all fifteen.
     """
     caught = 0
     for i in range(NUM_BUGS):

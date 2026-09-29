@@ -81,7 +81,7 @@ the install shape (a wheel has no `benchmarks/` beside the package, so it says
 backend, the model cache against the four §22 tiers, the tools the vectors import,
 and what the box may load — and its exit code follows its own page.
 
-`selftest --all` is a thin wrapper on `benchmarks/battery_reread.py`: the same 35
+`selftest --all` is a thin wrapper on `benchmarks/battery_reread.py`: the same 37
 lines, the same printed totals, and the same refusal (rc 2, naming the path) when
 there is no battery to run.
 
@@ -166,6 +166,18 @@ and the second request is typed at **t+19.43 s** — after the first answer, not
 Ctrl-D. `python benchmarks/session_pty_demo.py` re-runs it in about 40 s; which assert
 turn 2 trips first moves between runs, because it depends on the patch the model offers,
 so the witness is the run of record.
+
+**Read the transcript as the interface, not as a demo of success: both turns lost.** One
+thing has changed since it was taken: `PATCH REFUSED: money.py:format_dollar — no symbol
+'format_dollar' in money.py` used to be a dead end, because the arm could revise a symbol
+it could see and could not create one. It can now — `# edit: money.py :: +format_dollar`
+creates the definition at a position the AST chooses, and the README's own patch block
+below shows it. Re-running the same two asks on that tree is the honest part
+(`benchmarks/results/session_pty_r715b2_20260929.log`): the turn still loses. The form was
+in the prompt all eight attempts saw, none of them used it, and the create-shaped address
+that finally appeared came on the 30B's last attempt — where the refusal that names the
+remedy has no retry left to spend it on. `SPEC.md` R-7.15c/d/e are those gaps, priced in
+milliseconds rather than reworded into a pass.
 
 Note what those two turns cost: `tier=failed` is not the small model giving up.
 The router escalated to the 30B brain on both turns and **that** failed too, so on
@@ -396,8 +408,8 @@ Vision is benchmarked once the text brain is picked (PLAN §M1–M2).
 #   addresses on 2026-09-28: `flash/patches.py` dispatches by file suffix, so the
 #   symbol form resolves to the span the `L11-L15` range form always gave.
 .venv/bin/python benchmarks/ts_perception_check.py --sweep   # 47 checks + 13 mutants
-.venv/bin/python benchmarks/ts_patch_check.py --sweep        # 44 checks + 13 mutants
-#   `--sweep` is the quoted form: it runs the checks, then all thirteen bugs twice —
+.venv/bin/python benchmarks/ts_patch_check.py --sweep        # 52 checks + 15 mutants
+#   `--sweep` is the quoted form: it runs the checks, then all fifteen bugs twice —
 #   once in this process and once in a fresh process per bug, because two of them
 #   patch the same module functions the next one reads.
 
@@ -522,7 +534,7 @@ Vision is benchmarked once the text brain is picked (PLAN §M1–M2).
 .venv/bin/python -m flash.cli run "..." --test t.py --context src/ --edit --apply
 .venv/bin/python -m flash.cli run-suite --tasks benchmarks/tasks/edit_tasks.jsonl --edit
 .venv/bin/python benchmarks/patch_landing_check.py --sweep  # the write-back, offline
-.venv/bin/python -m flash.patches --selftest     # 46 offline checks, incl. the loop arm
+.venv/bin/python -m flash.patches --selftest     # 63 offline checks, incl. the loop arm
 .venv/bin/python -m flash.patches --suite benchmarks/tasks/edit_tasks.jsonl  # the suite's premise
 
 #   the patch protocol (one header + one fenced block per symbol):
@@ -534,6 +546,11 @@ Vision is benchmarked once the text brain is picked (PLAN §M1–M2).
 #     ```
 #   `Container.name` for a method, `L12-L18` for one statement, `*` for a whole file
 #   (which the run report counts, because needing it is the thing patches avoid).
+#   A name that does not exist yet gets a `+`: `# edit: money.py :: +k_to_c` CREATES
+#   the definition instead of revising one. The AST owns where it lands (file end, or
+#   after `Container.+name`'s siblings), the applier owns the blank lines above it, and
+#   the run report prints the lines it ADDED — `wrote money.py (+4 -0 lines)` — so a
+#   create is never the same sentence as a run that wrote nothing.
 
 # §33.3 constrained decoding: the output contract becomes a per-step token mask, so a
 # fence without its '# file:' header, prose before the first header, a path outside the

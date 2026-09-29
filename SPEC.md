@@ -361,7 +361,7 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   `flash/patches.py` now dispatches an address by the file it names — `.ts`/`.tsx`
   to `flash.lang_ts`, everything else to `ast`, including the empty path
   `flash.graph` has always passed, which is what leaves the published Python
-  figures the same numbers from the same code path (`46/46` and `60/60` here). A
+  figures the same numbers from the same code path (`63/63` and `60/60` here). A
   TypeScript span comes out of the same `_declarations` walk the graph's node
   comes out of, so "what this patch replaces" and "what breaks if this changes"
   cannot be two different ranges. A replacement must keep the symbol's name and —
@@ -376,8 +376,10 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   TypeScript refuses at the line the grammar marked (`line 32: error 'return <div>'`)
   instead of with Python's `invalid syntax`. `workspace_from_dir("site/src")`
   gathers **20** files, all 20 TypeScript, so a symbol address names a file the
-  project has. Vector: `benchmarks/ts_patch_check.py --sweep` — **44/44 checks +
-  13/13 mutants**, one of which is `loop.py`'s own edit arm driven with
+  project has. Vector: `benchmarks/ts_patch_check.py --sweep` — **52/52 checks +
+  15/15 mutants** (44 checks / 13 mutants when this row was written; the extra
+  eight and two are R-7.15b's create verb arriving in the second grammar),
+  one of which is `loop.py`'s own edit arm driven with
   `_generate` and `diagnose_files` stubbed, because its `ast` static pass would
   otherwise hand a clean TypeScript edit a confident false syntax error and spend
   the retry the refusal exists to save.
@@ -555,11 +557,15 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   is still spliced and still counted. `outside_lines` therefore measures lines
   whose BYTES were regenerated, not lines inside the addressed span, and the run
   report says so (`[1 of 13 lines rewritten]`). Offline:
-  `python -m flash.patches --selftest` **46/46** (7 of them drive the loop's
+  `python -m flash.patches --selftest` **63/63** (7 of them drive the loop's
   patch arm against a scripted generator, so the wiring is proven without
   charging a model; 9 more pin the narrowing — byte-identity with the wide
   splice, a count-changing run before another, a real sibling drift that must
-  still score, a verbatim re-type that must write nothing); `--suite` **60/60**
+  still score, a verbatim re-type that must write nothing; 17 more are a new
+  `# 7b. CREATE` section pinning R-7.15b's shape — 12 on what a create writes
+  (`# edit: f :: +Name` as a pure insertion, the applier owning the
+  blank lines above it, the new symbol addressable afterwards, and the PROTOCOL
+  the model is shown actually naming the form) and 5 on what it must refuse; `--suite` **60/60**
   premise checks over `benchmarks/tasks/edit_tasks.jsonl` (each task ships its
   own project text, so both arms read identical input, fails as seeded, passes
   on the reference patch, and that patch fits inside one symbol).
@@ -582,12 +588,16 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
     someone's source is not a reason to change it; what is no longer optional is
     the sentence naming which state the tree is in — without `--apply` the command
     prints `NOT APPLIED` and exits on its verdict, with it each landed file prints
-    `wrote <file> (+A -B lines)`. The oracle is protected by name, because
+    `wrote <file> (+A -B lines)`; R-7.15b's create prints `+A -0`, because a
+    create reported as `+0 -0` is the same sentence as a run that wrote
+    nothing). The oracle is protected by name, because
     `workspace_from_dir` lists every Python file in `--context`, the test file
     included, so a patch set that repaired a failure by weakening an assertion is
     REFUSED rather than written. Offline:
-    `python benchmarks/patch_landing_check.py --sweep` **40/40 checks, 22/22
-    mutants caught** — the sweep runs each mutant in its own process and the
+    `python benchmarks/patch_landing_check.py --sweep` **48/48 checks, 24/24
+    mutants caught** (40 checks / 22 mutants when this clause was written; the
+    extra eight and two are the create shape, at the arm, on disk and through the
+    real command) — the sweep runs each mutant in its own process and the
     in-process lane agrees, so no count below is a leftover from the previous bug.
   Vector, measured 2026-09-26 and re-measured 2026-09-27 after the narrowing —
   small tier, greedy first attempt, `--allow-big never`, 10 tasks, two arms on
@@ -1652,15 +1662,13 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   against a `CLAIM` of `checks 1298  oracle 20  mutants 149` summed from `BATTERY` before
   the run started and not edited after it. Its 30th OK line is the session's own
   `48/48 (+ 16 mutants)`.
-- **R-7.15b (OPEN)** That same live turn is the limitation this session ships with, and it
-  is the most ordinary request a developer makes: **the patch arm can revise a symbol it
-  can see, and cannot create one.** A `# edit: file :: Symbol` address is resolved against
-  the AST, so a request to add a function names a symbol that does not exist yet, the
-  patch is refused, and the correct refusal costs the turn. Vector: an add shape the AST
-  can own — a new top-level symbol inserted at a position the extractor verifies (file end,
-  or after a named sibling) — gated the same way R-3.2's clause 3 gates replacement, with a
-  mutant that shows a refused create and a landed create cannot be confused, plus the live
-  arm measured on the turn this entry names.
+- **R-7.15b (CLOSED 2026-09-29 for the mechanism it asked for; the outcome it was
+  bought for is open as R-7.15c/d/e below)** That same live turn named the most
+  ordinary request a developer makes, and
+  the patch arm could not answer it: **it can revise a symbol it can see, and could not
+  create one.** A `# edit: file :: Symbol` address is resolved against the AST, so a
+  request to add a function names a symbol that does not exist yet, the patch is refused,
+  and the correct refusal costs the turn.
   *(Not closed by rewording turn 2 as expected behaviour: the offline vector proves the
   refusal is correct, and the live transcript proves it is also useless for the request.)*
   **It now has a second, worse victim, on the author's own demo task** (the pty run above):
@@ -1671,6 +1679,88 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   trace logs `denied=false, tier="big"` on **both** turns — and the big tier failed too,
   so the create-shape gap is not a small-model artifact. One ask, one refusal, two tiers,
   zero lines written, rc 1.
+  **Shipped: a create address the AST owns, in both grammars.** `CREATE_PREFIX = "+"`
+  makes `Patch.kind` read `create` (`whole` → `create` → `range` → `symbol`), `target`
+  strips the `+`, and `resolve` hands the whole question to `_resolve_create`, which
+  refuses a `+` that names nothing and refuses a `+` on a name the file already has — with
+  the sentence telling the model to drop the `+` to revise it. The position is the
+  extractor's, never the model's: a top-level create lands after the last top-level
+  definition, a `+Container.member` after that container's last member at the members' own
+  indentation, and into an empty class right after its header. The span it returns is the
+  pure-insertion form `splice` already read (`start == end + 1`), so `spans = ()`,
+  `regenerated == 0` and `outside_lines == 0`: a create owns no line of what was there.
+  `changed_lines` still charges it one line — the insertion point, at the end of the before
+  file — and that is the pair the checks keep apart, because the audit that must read zero
+  is the `spans`-based one. `check_result` refuses a create whose body defines a *different*
+  name, so the symbol the oracle is about to be asked about is the symbol that landed;
+  `PROTOCOL` names the form (a capability the prompt does not mention is a capability the
+  model cannot ask for, and a check pins that the shipped text contains it); and the
+  applier owns the whitespace — two blank lines above a top-level Python definition, one
+  inside a container and in a `.tsx`, because that is each file's own convention.
+  `parse_patches` needed **no** change: `EDIT_MARKER`'s address group was already `\S+?`,
+  which is pinned rather than assumed.
+  **Gated the way R-3.2's clause 3 gates replacement.** `python -m flash.patches
+  --selftest` **46 → 63** (`patches selftest: 63/63 checks passed`), with a `# 7b. CREATE`
+  section of 17 checks including create-then-revise in one set and one bad create voiding
+  the whole set. `python benchmarks/ts_patch_check.py --sweep` **44 → 52 checks, 13 → 15
+  mutants** (`R-1.4 TypeScript patch arm: 52/52 checks passed`, `ts-patch mutants, fresh
+  process each: 15/15 caught`, `one process: 15/15 caught`); the two new bugs are a create
+  that ignores the container and one that skips the result check, each caught by exactly
+  one named check. `python benchmarks/patch_landing_check.py --sweep` **40 → 48 checks, 22
+  → 24 mutants** (`R-3.2 clause 3, patch landing: 48/48 checks passed`, `patch-landing
+  mutants: 24/24 caught` in both lanes), and those four are the pair this box was written
+  for: a landed create (`+k_to_c` through the real arm, an oracle only the new definition
+  can satisfy, `+4 -0` on disk, every sibling's bytes and mtime intact) and a refused one
+  (`+cents` on a name that exists: no workspace, tree byte-identical, and the attempt's own
+  `err` carrying the remedy) cannot be confused by anything printed after either. The §6
+  whole-tree re-read on this tree then printed exactly the `CLAIM` derived from `BATTERY`
+  before it ran — `checks 1331  oracle 20  §6 total 1351  mutants 153`, **37** OK lines, no
+  BAD line, **18 min 42 s** on AC at 80%
+  (`benchmarks/results/battery_reread_r715b_20260929.log`).
+  **The live arm was re-run on the same request, on this tree, and it still loses.** Same
+  driver, same seeded tree, same two asks: `benchmarks/results/session_pty_r715b2_20260929
+  .log`, replayable as `flash trace show 20260929-155858-session-f09b`. Turn 1 printed
+  `routed=small tier=failed solved=False attempts=4 (15.6s) patches=1 refused=1`; turn 2
+  `attempts=4 (12.6s) patches=1 refused=0` with `FAILING_ASSERT: assert cents_to_str(150)
+  == "$1.50" | GOT: '$1.5'`; the session closed `turns=2 solved=0 written=0 seconds=28.2
+  last_rc=1` and the recheck confirmed the file on disk still red. So the verb is no longer
+  what blocks this task, and the trace names what is: four attempts on turn 1, and **the
+  create form was offered to the model on the last one of them**
+  (`— to ADD a symbol that does not exist yet, address it as '+format_dollar_amount'`), so
+  it was told how to fix the patch with no attempt left to fix it with. The create-shaped
+  address was the 30B's — the 7B's two refusals on that turn were `t.py` range addresses
+  past the end of a 9-line file, which is R-7.15e's victim rather than this box's. Three
+  gaps follow, and they are booked rather than reworded: **R-7.15c**, **R-7.15d** and
+  **R-7.15e** below.
+- **R-7.15c (OPEN)** **Create-a-FILE.** Three of the eight attempts in that re-run invented a
+  module: `format_dollar_amount.py is not one of the project files (money.py, t.py)` and,
+  on the next turn, `cents_to_str.py is not one of the project files`. The `+` verb exists
+  for symbols only; `# edit: <newfile> :: *` is refused at the patch layer because the
+  workspace has no such key, and `land` separately refuses any key the oracle never scored
+  (`not a file this workspace was read from`), which is the guard that must stay. Vector: a
+  file-creating address whose new module is scored by the oracle before it may reach disk —
+  `land`'s new-file guard has to be relaxed *only* for a key this run's patch arm created
+  and the oracle passed, with a mutant that an unverified new file still cannot be written.
+  *(Priced, not decided: it moves `patch_landing_check`'s protected-key and new-file
+  clauses, which are the two that keep a model from editing its own exam.)*
+- **R-7.15d (OPEN)** **A remedy offered on the tier's last attempt is not a remedy.** The
+  budget is two attempts per tier, so the first refusal that names the fix — which is the
+  entire point of putting the fix in the refusal — arrives when there is nothing left to
+  spend it on. Vector: one remedy-triggered retry at the tier that refused, measured on this
+  same demo task with the printed before/after. Cost, from the re-run's own timestamps: the
+  7B's four attempts ran 1960–2904 ms and the 30B's 1590–6862 ms (the one that carried
+  the create remedy took 4641 ms and had nothing left to spend it on), so the retry is
+  ~2 s on the small
+  tier and ~5 s on the big one, and it is paid only on turns that are already losing.
+  *(Priced, not decided: it changes the attempt accounting every §34 gate reads.)*
+- **R-7.15e (OPEN)** **A patch aimed at the oracle is refused for the wrong reason.** Turn 1
+  spent two of its four attempts on `t.py:L10-L12` and `t.py:L11`, and the arm answered
+  `past the end of a 9-line file` — a complaint about coordinates, in a file the run is
+  scored against and must not change. The sentence that would have cost nothing is `t.py is
+  the oracle this run scores against; patches to it are refused`. Vector: the patch arm has
+  to be told which key is the oracle (`--test` already knows; `apply_patches` does not, and
+  the protected-file list is a `land`-side concept today), with a check that the refusal
+  names the oracle rather than the line count.
 - **R-7.3 (OPEN)** Hands-free control (voice) at the measured spike latency:
   command-to-ack ~4.8s. Vector: real-microphone arm of the spike with VAD
   barge-in, ≥ 90% command recognition over 50 utterances.
@@ -1841,7 +1931,7 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
    `flash power --selftest` 22 · `flash jobs --selftest` 20 ·
    `flash trace --selftest` 30 · `flash web --selftest` 9 ·
    `python -m flash.grammar --selftest` 47 · `python -m flash.patches --selftest`
-   46 · `python -m flash.debug --selftest` 55 ·
+   63 · `python -m flash.debug --selftest` 55 ·
    `python -m flash.tourney --selftest` 16 ·
    `python -m flash.confidence --selftest` 29 ·
    `python -m flash.sandbox --selftest` 34 ·
@@ -1860,8 +1950,8 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
    `python benchmarks/router_portable_check.py` 20 (+ 5 mutants) ·
    `python benchmarks/graph_perceive_check.py --sweep` 33 (+ 12 mutants) ·
    `python benchmarks/ts_perception_check.py --sweep` 47 (+ 13 mutants) ·
-   `python benchmarks/ts_patch_check.py --sweep` 44 (+ 13 mutants) ·
-   `python benchmarks/patch_landing_check.py --sweep` 40 (+ 22 mutants) ·
+   `python benchmarks/ts_patch_check.py --sweep` 52 (+ 15 mutants) ·
+   `python benchmarks/patch_landing_check.py --sweep` 48 (+ 24 mutants) ·
    `python benchmarks/session_check.py --sweep` 48 (+ 16 mutants) ·
    `python benchmarks/hint_ab_check.py` 14 (+ 8 mutants) ·
    `python benchmarks/portable_paths_check.py` 15 (+ 7 mutants) ·
@@ -1870,21 +1960,32 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
    `python -m flash.debug --suite` 32 ·
    `python -m flash.patches --suite benchmarks/tasks/edit_tasks.jsonl` 60 ·
    `python benchmarks/m0_bakeoff.py --dry-run` 20 reference solutions.
-   **Total: 1298 selftest / end-to-end / premise checks + 20 oracle
+   **Total: 1331 selftest / end-to-end / premise checks + 20 oracle
    verifications (m0_bakeoff's 20 reference solutions, which are the only
    numbers in that 20 — the 6 ambient, 15 lora, 5 band, 5 router-portability,
-   12 graph, 12 graph-perceive, 13 ts-perception, 13 ts-patch, 22 patch-landing,
+   12 graph, 12 graph-perceive, 13 ts-perception, 15 ts-patch, 24 patch-landing,
    16 session, 8 hint-ab, 7 path-portability, 10 backend-free and 5 documented-command
-   mutants are extra to both totals, 149 in all) = 1318 green, offline.**
-   Every line below this page's sum is a number a run printed, **including the whole-tree
-   re-read of this exact 1298**: R-7.15's clause 7 added 4 checks and 2 mutants to the
-   session line, and `benchmarks/session_check.py --sweep` printed `48/48` and `16/16`
-   caught in both lanes (`benchmarks/results/session_sweep_r715c_20260929.log`), which the
-   re-read of this tree then carried into its own 30th OK line before summing to
+   mutants are extra to both totals, 153 in all) = 1351 green, offline.**
+   Every line below this page's sum is a number a run printed, and the sum itself is
+   printed too: R-7.15b put 17 checks on `flash.patches --selftest` (46 → **63/63**,
+   `patches selftest: 63/63 checks passed`), 8 checks and 2 mutants on
+   `ts_patch_check.py --sweep` (**52/52**, `ts-patch mutants: 15/15 caught` in both
+   lanes: `fresh process each` and `one process`), and 8 checks and 2 mutants on
+   `patch_landing_check.py --sweep` (**48/48**, `patch-landing mutants: 24/24 caught`
+   in both lanes) — each of those three lines measured on the edited tree, and
+   `benchmarks/battery_reread.py`'s `CLAIM` was set to their sum **before** the
+   whole-tree run started. **That run has since printed it:**
+   `checks 1331  oracle 20  §6 total 1351  mutants 153` with **37** OK lines and no
+   BAD line, plus its own `matches SPEC §6 as written: 1331 + 20 = 1351 green, offline
+   (+ 153 mutants)`, in **18 min 42 s** on AC at 80%
+   (`benchmarks/results/battery_reread_r715b_20260929.log`), and those three vectors
+   are its 8th, 28th and 29th OK rows reading `63/63`, `52/52 (+ 15 mutants)` and
+   `48/48 (+ 24 mutants)`, with `session_check` holding line 30 at `48/48 (+ 16)`. The
+   last two whole-tree re-reads printed
    `checks 1298  oracle 20  §6 total 1318  mutants 149`
-   (`benchmarks/results/battery_reread_r715c7_20260929.log`). The previous whole-tree
-   re-read printed `checks 1294  oracle 20  §6 total 1314  mutants 147` on the tree one
-   clause earlier. Both numbers stay on the page rather than merging into one.
+   (`benchmarks/results/battery_reread_r715c7_20260929.log`), on the tree one clause
+   earlier, and the one before it printed `checks 1294  oracle 20  §6 total 1314
+   mutants 147`. All three stay on the page rather than merging into one.
    Read those two
    numbers with care: CHECKS and TOTAL are different columns, and this page has
    been quoted wrongly by its own notes before — R-1.1b's checks count (1052) was

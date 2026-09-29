@@ -88,7 +88,9 @@ Plan: ../PLAN.md (v3.8). This package grows milestone by milestone:
                                      an address wider than the change is
                                      narrowed to the runs that differ, so a
                                      class header cannot re-emit an untouched
-                                     method; `land()` is the only thing that
+                                     method; '# edit: file :: +Name' CREATES a
+                                     symbol as a pure insertion, at a position
+                                     the extractor owns; `land()` is the only thing that
                                      writes, and `flash run --apply` /
                                      `flash session` hand it the verified
                                      workspace)

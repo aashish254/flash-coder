@@ -1544,7 +1544,7 @@ here rather than folded into P6's confidence work.
       — exists, and the useful finding is turn 2: the refusal was correct and the
       request was still not served, which is R-7.15b below rather than a reworded
       pass.*
-- [ ] [B] [V] R-7.15b the patch arm can revise a symbol it can see and **cannot create
+- [x] [B] [V] R-7.15b the patch arm can revise a symbol it can see and **cannot create
       one**: `# edit: file :: Symbol` resolves against the AST, so "add a function"
       names a symbol that does not exist, is refused, and costs the turn — measured
       live on 2026-09-29 as session turn 2. Vector: an add shape the AST owns (new
@@ -1558,6 +1558,97 @@ here rather than folded into P6's confidence work.
       **not** denied on either turn, so the 30B ran and failed too — this is not a
       small-tier artifact, and it is the gap between "it chats" and "it is fast AND
       accurate".*
+      - [x] The verb: `# edit: money.py :: +k_to_c` — `CREATE_PREFIX`, `Patch.kind`
+            `whole → create → range → symbol`, `resolve` → `_resolve_create`, and the
+            span is a **pure insertion** (`start == end + 1`), so `spans == ()`,
+            `regenerated == 0` and `outside_lines == 0` while `changed_lines` still
+            charges the one insertion point, because that is what its line means.
+            `check_result` requires the created name to be in the after file, and an
+            address whose name already exists refuses with the remedy in its sentence
+            (`to ADD a symbol that does not exist yet, address it as '+Name'`).
+            `parse_patches` needed NO change — `EDIT_MARKER`'s `(?P<addr>\S+?)` always
+            accepted `+Name` — pinned by a check, as is the other half: the PROTOCOL
+            text the model is shown actually names the form.
+            The applier owns the blank lines above a create (two at Python top level,
+            one inside a container and one in a `.tsx`) — found only by measuring a
+            `.tsx` create, where two blank lines are not the file's convention.
+      - [x] [V] Vector, three seams, all RUN on 2026-09-29:
+            `python -m flash.patches --selftest` → **63/63** (was 46; the 17 new checks
+            are a `# 7b. CREATE` section — 12 on what a create writes, 5 on what it must
+            refuse), `python benchmarks/ts_patch_check.py --sweep`
+            → **52/52 checks** + **15/15 mutants** in this process and one fresh
+            process per bug (the verb in the second grammar: `+Tag` at top level,
+            `+Grid.spin` inside a class, the wrong-name and dupe refusals, and the
+            create accepted by `loop._solve_edits`), and
+            `python benchmarks/patch_landing_check.py --sweep` → **48/48 checks** +
+            **24/24 mutants** in both lanes (at the arm, on disk, and through the real
+            command printing `wrote money.py (+4 -0 lines)` — a create reported as
+            `+0 -0` is the same sentence as a run that wrote nothing).
+            `python -m pyflakes flash/*.py benchmarks/*.py` → 0 findings.
+            The required confusion mutant exists twice: `create_defines_anything` (a
+            create of a DIFFERENT name passes) and `land` printing added lines as
+            `+0 -0`; each is caught by exactly one check, in both lanes.
+      - [x] [V] §6 whole-tree re-read on this tree (`python benchmarks/battery_reread.py`)
+            → `checks 1331  oracle 20  §6 total 1351  mutants 153`, **37** OK lines, **0**
+            BAD, plus its own `matches SPEC §6 as written: 1331 + 20 = 1351 green, offline
+            (+ 153 mutants)`, in **18 min 42 s** on AC at 80%
+            (`benchmarks/results/battery_reread_r715b_20260929.log`) — against a `CLAIM` of
+            `checks 1331, oracle 20, mutants 153` summed from `BATTERY` before the run and
+            not edited after it. The three moved vectors are its 8th, 28th and 29th OK rows
+            (`63/63`, `52/52 (+ 15 mutants)`, `48/48 (+ 24 mutants)`), read from the log
+            rather than from the completion message.
+      - [x] [L] Live arm re-run on the same request, on this tree, same
+            driver/tree/asks: **it still loses.**
+            `benchmarks/results/session_pty_r715b2_20260929.log`:
+            turn 1 `attempts=4 (15.6s) patches=1 refused=1`, turn 2
+            `attempts=4 (12.6s) patches=1 refused=0` → `FAILING_ASSERT` on
+            `cents_to_str(150)` (`GOT: '$1.5'`), `[session] turns=2 solved=0 written=0
+            seconds=28.2 last_rc=1`. Read the eight attempts out of
+            `benchmarks/results/traces/20260929-155858-session-f09b.jsonl` rather than
+            the last line: turn 1's 7B refused twice on `t.py:L10-L12` / `t.py:L11`
+            (`past the end of a 9-line file`), the 30B then invented
+            `format_dollar_amount.py`, and only its FINAL attempt addressed
+            `money.py::format_dollar_amount` — which is the first time the create remedy
+            printed, with no attempt left to use it. Turn 2 never needed the verb at all:
+            both tiers applied a patch and lost on the assertion. So the mechanism is
+            shipped and the ask is still not served; that is three named boxes below
+            (R-7.15c, R-7.15d, R-7.15e), priced from the trace's own milliseconds,
+            not a reworded pass.
+      *Closed 2026-09-29 for what this box asked for: an add shape the AST owns, gated
+      like R-3.2 clause 3, with the refused/landed confusion mutanted, and the live arm
+      measured on the turn it names. The measurement came back negative for the USER-VISIBLE
+      outcome, and the reason moved — see R-7.15c/d/e.*
+- [ ] [V] R-7.15c **create a FILE**: the `+` verb exists for symbols, and three of the
+      eight attempts in that re-run wanted a whole module — `format_dollar_amount.py is
+      not one of the project files (money.py, t.py)`, then
+      `cents_to_str.py is not one of the project files`, then a symbol name in the file
+      slot (`cents_to_str:cents_to_str`). `# edit: <newfile> :: *` is refused at the patch
+      layer (no such workspace key) and `land` separately refuses any key the oracle never
+      scored — the guard that must stay. Vector: a file-creating address whose new module
+      is scored by the oracle before it may reach disk, with the `land` new-file guard
+      relaxed *only* for a key this run's arm created and the oracle passed, plus a mutant
+      that an unverified new file still cannot be written.
+      *Priced, not decided: it moves `patch_landing_check`'s protected-key and new-file
+      clauses, the two that keep a model from editing its own exam.*
+- [ ] [V] R-7.15d **the remedy lands too late**: two attempts per tier, and turn 1's
+      create remedy printed on the 30B's SECOND (final) attempt — 4641 ms of generation
+      buying a sentence with no attempt left to spend it on. The 7B on that turn never saw
+      it, because it never produced a create-shaped address. Vector: one remedy-triggered
+      retry at the tier that refused, or the form placed where the model must choose the
+      address (the `PROTOCOL` block already names it and the models did not use it),
+      measured on this same demo task with the printed before/after.
+      *Priced, not decided: the 7B's four attempts ran 1960–2904 ms and the 30B's
+      1590–6862 ms, so the retry is ~2 s small / ~5 s big, paid only on turns already
+      losing — and it changes the attempt accounting every §34 gate reads.*
+- [ ] [V] R-7.15e **an oracle-addressed patch refused for the wrong reason**: turn 1 spent
+      two of its four attempts on `t.py:L10-L12` and `t.py:L11` — range addresses past the
+      end of a 9-line file — and the arm answered `L11-L11 is past the end of a 9-line
+      file`, a complaint about coordinates in the file the run is scored against and must
+      not change. The sentence that would have cost nothing is `t.py is the oracle this run
+      scores against; patches to it are refused`. Vector: the patch arm has to be told
+      which key is the oracle (`--test` knows; `apply_patches` does not — the protected-file
+      list is a `land`-side concept today), with a check that the refusal names the oracle
+      rather than the line count, and a mutant that the two sentences cannot be confused.
 - [ ] [V] [L] R-7.3 voice: real-microphone arm, VAD barge-in, ≥ 90% command
       recognition over 50 utterances.
 - [ ] [V] [L] M17 feel test: ≥ 7 of 10 developers keep it after a week.

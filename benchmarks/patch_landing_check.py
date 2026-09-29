@@ -11,7 +11,7 @@ throwaway tree on 2026-09-28 — three attempts, a green oracle, and
 identical.
 
 So the write-back is opt-in (`--apply`), and what is *not* optional is the
-sentence naming which of the two states the tree is in. Six questions, all of
+sentence naming which of the two states the tree is in. Seven questions, all of
 them about the seam rather than about a model:
 
 * **Does only the changed part move?** Files whose bytes match are not rewritten
@@ -35,6 +35,11 @@ them about the seam rather than about a model:
 * **Did the command actually do it?** The real parser and the real `cmd_run` are
   driven here with the router replaced by a stub, over a temp tree, and the tree
   is read back afterwards. No model loads.
+* **Does a create look different from a run that wrote nothing?** R-7.15b's verb
+  differs from every other patch here by leaving a file whose only change is an
+  *insertion*, so the printed line counts are the one thing telling `+4 -0` from
+  `+0 -0`, and the disk has to keep the pre-existing definition first with the new
+  one last where the AST put it.
 
 The loop half is here too: `_solve_edits` hands the accepted workspace back on
 `SolveResult.workspace` and still writes nothing itself, because "verified" and
@@ -63,13 +68,26 @@ sys.path.insert(0, str(ROOT))
 from flash import cli, loop, patches, trace                          # noqa: E402
 from flash.patches import (LandError, workspace_from_dir)            # noqa: E402
 
-NUM_BUGS = 22
+NUM_BUGS = 24
 
 # A four-file project in the shapes the patch arm actually meets: a top-level
 # module, a sibling it must not disturb, the oracle (in the tree, so listed by
 # `workspace_from_dir`), and a module in a package directory.
 MONEY = 'def cents(n):\n    return f"${n // 100}.{n % 100}"\n'
 MONEY_FIXED = 'def cents(n):\n    return f"${n // 100}.{n % 100:02d}"\n'
+
+#: R-7.15b's verb: `+k_to_c` CREATES a definition instead of revising one, so the
+#: workspace it hands back differs from the file on disk by a PURE insertion —
+#: nothing deleted, nothing re-typed. `+4 -0` is what that measures, and it is
+#: what the CLI has to print, because a create reported as `+0 -0` is the same
+#: sentence as a run that wrote nothing.
+MONEY_CREATED = MONEY + '\n\ndef k_to_c(k):\n    return k - 273.15\n'
+CREATE_TEST = ('import sys; sys.path.insert(0, "<TMPDIR>")\n'
+               "from money import k_to_c\nassert k_to_c(0) == -273.15\n")
+CREATE_PATCH = ("# edit: money.py :: +k_to_c\n```python\n"
+                "def k_to_c(k):\n    return k - 273.15\n```\n")
+CREATE_CLASH = ("# edit: money.py :: +cents\n```python\n"
+                "def cents(n):\n    return 1\n```\n")
 TAX = "def rate(v):\n    return v * 0.08\n"
 DEEP = "LIMIT = 3\n"
 ORACLE = ('import sys\nsys.path.insert(0, "<TMPDIR>")\n'
@@ -191,7 +209,7 @@ def land_copy(**knob):
     """
     k = dict(skip=True, escape=True, newfile=True, protect=True, atomic=True,
              mkdir=True, write=True, ops=False, phantom=False, delete=False,
-             stale=False, protect_unchanged=False)
+             stale=False, protect_unchanged=False, insert_zero=False)
     k.update(knob)
 
     def _counts(rel, text, before):
@@ -201,6 +219,8 @@ def land_copy(**knob):
             old, new = before[rel].splitlines(), text.splitlines()
         sm = difflib.SequenceMatcher(None, old, new, autojunk=False)
         ops = [o for o in sm.get_opcodes() if o[0] != "equal"]
+        if k["insert_zero"] and ops and all(t == "insert" for t, *_ in ops):
+            return (0, 0)                    # a pure insertion prints as a no-op
         if k["ops"]:
             return (sum(1 for t, *_ in ops if t in ("insert", "replace")),
                     sum(1 for t, *_ in ops if t in ("delete", "replace")))
@@ -436,6 +456,21 @@ def _land_checks() -> None:
           "the caller can say byte-identical instead of claiming a write",
           rows == [] and snapshot(root) == snap, f"{rows}")
 
+    root = new_tree()
+    before = workspace_from_dir(root)
+    rows = try_land(root, before, ws(root, **{"money.py": MONEY_CREATED}))
+    check("a create — R-7.15b's `+Name`, whose workspace differs from the file on "
+          "disk by a PURE insertion — lands as +4 -0: four lines added, none "
+          "removed, which is not the sentence a no-op gets",
+          rows == [("money.py", 4, 0)] and text(root, "money.py") == MONEY_CREATED,
+          f"{rows} -> {text(root, 'money.py')!r}")
+    check("...and the definition that was already there is still the first thing "
+          "in the file, byte for byte, because a create rewrites nothing it was "
+          "not asked to touch",
+          text(root, "money.py").startswith(MONEY)
+          and text(root, "tax.py") == TAX and text(root, "t.py") == ORACLE,
+          text(root, "money.py")[:60])
+
 
 def _edits_checks() -> None:
     root = new_tree()
@@ -642,6 +677,16 @@ def _cli_checks() -> None:
           "the tree moved outside the symbol")
 
     root = new_tree()
+    rc, out, _ = drive(["run", "zero-pad the cents", "--test", str(root / "t.py"),
+                        "--context", str(root), "--edit", "--apply"],
+                       workspace={"money.py": MONEY_CREATED})
+    check("through the real command a landed create prints the lines it ADDED and "
+          "none removed, and the file on disk defines what the address asked for — "
+          "the half of the pair that a session's `refused=1` line is read against",
+          rc == 0 and "wrote money.py (+4 -0 lines)" in out
+          and text(root, "money.py") == MONEY_CREATED, f"rc={rc} {out[:200]}")
+
+    root = new_tree()
     snap = snapshot(root)
     rc, out, _ = drive(["run", "zero-pad the cents", "--test", str(root / "t.py"),
                         "--context", str(root), "--edit"],
@@ -719,6 +764,49 @@ def _loop_checks() -> None:
           not isinstance(r2, str) and not r2.solved and r2.workspace is None,
           str(r2)[:200])
 
+    # R-7.15b's verb, driven through the arm that has to accept it: the oracle
+    # below can only pass a file that did not exist before the patch.
+    root = new_tree()
+    snap = snapshot(root)
+    ct = {"id": "create-arm", "prompt": "add k_to_c to money.py",
+          "test": CREATE_TEST, "edit": True, "multi": True,
+          "files": workspace_from_dir(root)}
+    r3 = outcome(lambda: _solve(ct, [CREATE_PATCH]))
+    arm_snap = snapshot(root)
+    rows3 = [] if isinstance(r3, str) else try_land(root, ct["files"], r3.workspace)
+    check("create: the arm ACCEPTS `+k_to_c`, passes an oracle only the new "
+          "definition can satisfy, and hands the grown file back as the workspace",
+          not isinstance(r3, str) and r3.solved and isinstance(r3.workspace, dict)
+          and r3.workspace["money.py"] == MONEY_CREATED, str(r3)[:200])
+    check("create: ...and once --apply is given, that workspace is on disk with "
+          "the old definition first and the new one last at +4 -0 — the position "
+          "the AST chose, not one the model typed",
+          not isinstance(r3, str) and text(root, "money.py") == MONEY_CREATED
+          and rows3 == [("money.py", 4, 0)], f"{rows3} {text(root, 'money.py')!r}")
+    check("create: the arm itself wrote nothing, even for a verb that only adds, "
+          "so the tree a create passed on in memory is still the tree it was read "
+          "from until --apply says otherwise",
+          arm_snap == snap and text(root, "t.py") == ORACLE
+          and text(root, "tax.py") == TAX, "the create moved a file it never named")
+
+    root = new_tree()
+    snap = snapshot(root)
+    ct2 = dict(ct, files=workspace_from_dir(root))
+    r4 = outcome(lambda: _solve(ct2, [CREATE_CLASH]))
+    check("create: a create the arm REFUSES — the name is already there, so the "
+          "address duplicates a definition — hands back no workspace and leaves "
+          "the tree byte-identical, which is the state a session's `refused=1` "
+          "line is read against",
+          not isinstance(r4, str) and not r4.solved and r4.workspace is None
+          and snapshot(root) == snap, f"{str(r4)[:140]}")
+    check("create: ...and the refusal the model gets back on its next attempt "
+          "carries the remedy, because `+cents` is one character away from the "
+          "form that would have worked",
+          not isinstance(r4, str) and r4.attempts
+          and "already exists" in r4.attempts[-1].err
+          and "without the '+'" in r4.attempts[-1].err,
+          f"{str(r4.attempts[-1].err)[:160] if r4.attempts else str(r4)[:140]}")
+
 
 def _doc_checks() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
@@ -760,6 +848,7 @@ def mutants() -> list[tuple[str, object, object, str]]:
     """Each entry: a bug, where it goes back, and the check that must catch it."""
     P, C, L = patches, cli, loop
     _solve_edits, _build = L._solve_edits, C.build_parser
+    _mkcreate = P._resolve_create
 
     def never_relativizes(path, root):
         return path
@@ -779,6 +868,13 @@ def mutants() -> list[tuple[str, object, object, str]]:
             subs[name].add_argument("--apply", action="store_true",
                                    help="mutant: a flag that does nothing here")
         return p
+
+    def create_ignores_the_anchor(patch, src, defs):
+        """R-7.15b's position rule, dropped: every create is told to insert above
+        the file's first line, so the definition that was already there ends up
+        under the one the model just added."""
+        a = _mkcreate(patch, src, defs)
+        return patches.Applied(patch, 1, 0, a.col, 0)
 
     return [
         ("rewrites every file in the workspace, so an untouched sibling loses its "
@@ -847,6 +943,13 @@ def mutants() -> list[tuple[str, object, object, str]]:
         ("puts --apply on `run-suite` and `resume`, where there is no single tree "
          "to land and the flag would do nothing at all",
          (C, "build_parser"), widens_apply, "not accepted by `run-suite`"),
+        ("writes the verified create onto the disk but prints `+0 -0` for it, so "
+         "the sentence for a landed insertion is the one a no-op gets",
+         (P, "land"), land_copy(insert_zero=True), "prints the lines it ADDED"),
+        ("takes a create's position from the patch instead of from the AST, so the "
+         "new definition lands above the ones that were already in the file",
+         (P, "_resolve_create"), create_ignores_the_anchor,
+         "old definition first and the new one last"),
     ]
 
 

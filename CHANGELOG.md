@@ -78,12 +78,59 @@ versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `documented_commands_check.py` **8/8 + 5/5** and `portable_paths_check.py` **15/15 +
   7/7** on the edited tree, and `python -m pyflakes flash/*.py benchmarks/*.py` at
   **0 findings**.
-- **R-7.15b is what that middle turn taught, and it is booked open.** The patch arm
-  addresses a symbol through the AST, so it can revise a function it can see and
-  cannot create one: "add a function `k_to_c(kelvin)`" is a refusal that costs the
-  turn, not a feature gap in the model. Closing it means an insert form with its own
-  vector, not a prompt that hopes the model writes `# edit:` with a name that does not
-  exist yet.
+- **R-7.15b is what that middle turn taught, and it is shipped: the patch arm can now
+  create a symbol.** `# edit: file :: Symbol` resolved against the AST, so "add a function
+  `k_to_c(kelvin)`" named a symbol that did not exist, was refused, and cost the turn — a
+  correct refusal that served nobody. The address has an add form now: `CREATE_PREFIX = "+"`
+  makes `Patch.kind` read `create` (`whole` → `create` → `range` → `symbol`), `resolve`
+  hands it to `_resolve_create`, and the position is the extractor's rather than the
+  model's — a top-level create lands after the last top-level definition, a
+  `+Container.member` after that container's last member at the members' own indentation,
+  and into an empty class right after its header. The span is the pure-insertion form
+  `splice` already read (`start == end + 1`), so `spans = ()`, `regenerated == 0` and
+  `outside_lines == 0` — a create owns no line of what was there — while `changed_lines`
+  still charges it the one insertion point, which is the pair the checks keep apart because
+  the audit that must read zero is the `spans`-based one. `check_result` refuses a create
+  whose body defines a *different* name, an address on a name the file already has refuses
+  with the sentence telling the model to drop the `+`, the applier owns the blank lines
+  above what it inserts (two at Python top level, one inside a container and one in a
+  `.tsx` — the second grammar's convention is what measuring a `.tsx` create found), and
+  `parse_patches` needed **no** change: `EDIT_MARKER`'s address group was already `\S+?`,
+  pinned rather than assumed, as is the other half — the `PROTOCOL` text the model is shown
+  actually names the form.
+  Gated the way R-3.2 clause 3 gates replacement, at three seams, all run 2026-09-29:
+  `python -m flash.patches --selftest` **46 → 63/63** (a new `# 7b. CREATE` section of 17 —
+  12 on what a create writes, 5 on what it must refuse, including create-then-revise in one
+  set and one bad create voiding the whole set); `python benchmarks/ts_patch_check.py
+  --sweep` **44 → 52 checks, 13 → 15 mutants** (the verb in the second grammar: `+Tag` at
+  top level, `+Grid.spin` inside a class, and `loop._solve_edits` accepting a create);
+  `python benchmarks/patch_landing_check.py --sweep` **40 → 48 checks, 22 → 24 mutants** in
+  both lanes — at the arm, on disk and through the real command, which prints
+  `wrote money.py (+4 -0 lines)`, because a create reported as `+0 -0` is the same sentence
+  as a run that wrote nothing. The confusion this box demanded is mutanted twice over: a
+  create whose body defines another name passing, and a landed create printing `+0 -0`,
+  each caught by exactly one named check. The §6 whole-tree re-read on this tree then
+  **printed the ledger it had been predicted into**: `checks 1331  oracle 20  §6 total
+  1351  mutants 153`, **37** OK lines and no BAD line, with its own
+  `matches SPEC §6 as written: 1331 + 20 = 1351 green, offline (+ 153 mutants)`, in **18
+  min 42 s** on AC at 80% (`benchmarks/results/battery_reread_r715b_20260929.log`) against a
+  `CLAIM` summed from `BATTERY` before the run and not edited after it; `1318 / 149` and
+  `1314 / 147` stay on the page as the two earlier trees' prints. `pyflakes` **0 findings**.
+  **The live arm was re-run on the very task that motivated it, and it still loses.** Same
+  driver, same seeded tree, same two asks
+  (`benchmarks/results/session_pty_r715b2_20260929.log`, trace
+  `20260929-155858-session-f09b`): turn 1 `attempts=4 (15.6s) patches=1 refused=1`, turn 2
+  `attempts=4 (12.6s) patches=1 refused=0` → `FAILING_ASSERT: assert cents_to_str(150) ==
+  "$1.50" | GOT: '$1.5'`, `turns=2 solved=0 written=0 seconds=28.2 last_rc=1`. The eight
+  attempts say why: the 7B's two on turn 1 were range addresses past the end of a 9-line
+  file, the 30B's first invented a module (`format_dollar_amount.py is not one of the
+  project files`), and only its **final** attempt wrote a create-shaped address — which is
+  the first time the remedy printed, with no attempt left to use it. So the verb is no
+  longer what blocks this task, and the gap is not one box but three, booked with their
+  prices rather than reworded into a pass: **R-7.15c** create-a-FILE, **R-7.15d** a remedy
+  offered on the tier's last attempt (~2 s small / ~5 s big, from the trace's own
+  milliseconds), **R-7.15e** an oracle-addressed patch refused for a complaint about line
+  numbers.
 - **Model residency, re-measured rather than remembered, because the number quoted
   before this pass did not reproduce:** three fresh processes, 51% on battery,
   first load **2.01 / 2.10 / 2.05 s** and second load after the free
