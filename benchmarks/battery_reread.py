@@ -75,6 +75,8 @@ BATTERY = [
      "benchmarks/ts_perception_check.py --sweep", 47, 13, "checks"),
     ("benchmarks/ts_patch_check.py",
      "benchmarks/ts_patch_check.py --sweep", 44, 13, "checks"),
+    ("benchmarks/patch_landing_check.py",
+     "benchmarks/patch_landing_check.py --sweep", 40, 22, "checks"),
     ("benchmarks/hint_ab_check.py", "benchmarks/hint_ab_check.py",
      14, 8, "checks"),
     ("benchmarks/portable_paths_check.py", "benchmarks/portable_paths_check.py",
@@ -90,7 +92,7 @@ BATTERY = [
      20, None, "oracle"),
 ]
 
-CLAIM = {"checks": 1210, "oracle": 20, "mutants": 111}
+CLAIM = {"checks": 1250, "oracle": 20, "mutants": 133}
 
 
 def run(argv: str) -> str:

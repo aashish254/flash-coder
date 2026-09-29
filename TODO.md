@@ -394,6 +394,35 @@ Rules for this file:
       `battery_reread` re-read the same day on AC at 0.33 load/core printing
       `checks 953  oracle 20  §6 total 973  mutants 30` with all 27 lines OK,
       pyflakes 0.
+- [x] [B] Clause 3 — the write-back, found live on 2026-09-28 and shipped the
+      same day. Clauses 1 and 2 say what a patch set *is*; neither says what it
+      does to the tree. `--edit` scored every attempt in memory, printed
+      `solved=True`, and left the project on disk byte-identical. `flash.patches.land`
+      now writes the verified workspace back under `run --edit --context <dir>
+      --apply`: only files whose bytes differ, never a deletion, an address that
+      resolves outside `--context` or names a file the oracle never scored is
+      refused, the whole set is validated before the first byte so a refusal
+      cannot leave a half-patched tree, and the printed counts are lines rather
+      than diff hunks (`wrote money.py (+18 -4 lines)`). Writing stays opt-in;
+      the sentence naming which state the tree is in does not — without `--apply`
+      the run prints `NOT APPLIED` and exits on its verdict. The oracle is
+      protected by name, because `workspace_from_dir` lists every Python file in
+      `--context`, the test file included, so a patch set that repaired a failure
+      by weakening an assertion is REFUSED rather than written.
+- [x] [V] [offline] Vector: `python benchmarks/patch_landing_check.py --sweep` →
+      **40/40 checks, 22/22 mutants caught** in the fresh-process sweep and the
+      in-process lane agreeing. The mutants are copies of `land` and of the
+      loop's patch arm with one clause switched each (skip a file, escape the
+      root, create a new file, drop the protection, break atomicity, no mkdir,
+      wrong write, count hunks as lines, phantom file, delete, stale key, and on
+      the arm side protect-the-whole-tree, refuse/verdict/no-op exit codes, an
+      honest-not message) plus the real seams `cli._rel_to`, `cli._apply_guard`,
+      `loop._solve_edits` and `cli.build_parser`. An `agree()` check proves the
+      copies track the shipped functions, so a green mutant count cannot come
+      from testing a stub. Witness:
+      `benchmarks/results/patch_landing_sweep_20260929.log`. Folded into the §6
+      ledger as a new `benchmarks/battery_reread.py` line — the ledger now has 36
+      lines, and this one is the 29th.
 - [x] [B] P4-follow-up — the GOT/WANT probe double-evaluated a stateful assert.
       `diagnose()` evaluated the whole condition and then evaluated each side
       AGAIN to print its values, so an assert whose condition mutates

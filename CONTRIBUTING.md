@@ -61,11 +61,12 @@ configured yet. The two installs a stranger can make from here **have** been run
   battery path it looked for. A wheel ships `flash` alone, so the verification surface
   really is not there, and the tool refuses rather than totalling checks that never ran.
 
-The full 35-line re-read has been run too, in the reading that a download makes
-possible: `python benchmarks/r75_sdist_battery_check.py` unpacks the sdist, installs it
+The full re-read has been run in the download's reading too, most recently on the
+35-line tree: `python benchmarks/r75_sdist_battery_check.py` unpacks the sdist,
+installs it
 into a throwaway venv and runs the whole battery **inside that tree**, on **both install
-shapes one tarball supports** — `pip install <sdist>` gives 33/35 with two named grammar
-refusals, `pip install '<sdist>[ts]'` gives 35/35 at the checkout's printed totals.
+shapes one tarball supports** — `pip install <sdist>` leaves the two TypeScript vectors
+refusing by name, `pip install '<sdist>[ts]'` reaches the checkout's printed totals.
 `docs/methodology.md` §4 carries why that is the honest form of "against the installed
 package" and what the literal form would have bought. One machine-state caveat travels
 with it: below 25% charge the power governor forces tournament width 1, so

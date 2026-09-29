@@ -171,6 +171,70 @@ def cmd_escalate_test(args) -> int:
         print(f"  [{'ESC->BIG' if tier == 'big' else tier.upper():>9}] {t['id']:<22} "
               f"solved={r.solved} attempts={r.n_attempts} ({r.seconds}s)", flush=True)
     return 0
+def _rel_to(path: str, root: str) -> str:
+    """`path` expressed from `root`, the way `workspace_from_dir` keys a file."""
+    from pathlib import Path
+    try:
+        return str(Path(path).resolve().relative_to(Path(root).resolve()))
+    except (ValueError, OSError):
+        return path
+
+
+def _apply_guard(args) -> "int | None":
+    """`--apply` means something only with `--edit`, because the patch arm is the
+    one that produces a verified workspace to write back. Returns the exit code
+    the command should use, or None to carry on."""
+    if args.apply and not args.edit:
+        print("--apply needs --edit: without a patch arm there is no verified "
+              "workspace to write back")
+        return 2
+    return None
+
+
+def _land_edits(args, task: dict, r) -> int:
+    """Say, after the verdict, what the patch arm actually did to the tree.
+
+    Until R-3.2's clause 3 this command scored a patch set in memory, printed
+    `solved=True` and left the project on disk exactly as it found it — which a
+    person reading the last line of a terminal takes as an edit that happened.
+    Writing is still opt-in: a small model's guess at someone's source is not a
+    reason to change it. What is no longer optional is the sentence naming which
+    of the two states the tree is in.
+
+    Returns the exit code: a run that solved but could not land is not a success.
+    """
+    from flash.patches import LandError, land
+    if not args.apply:
+        what = ("the oracle passed this patch set" if r.solved
+                else "nothing passed the oracle")
+        print(f"[R-3.2] NOT APPLIED: {what} in memory; {args.context} on disk "
+              "is unchanged. Re-run with --apply to land the patch set.")
+        return 0 if r.solved else 1
+    if r.workspace is None:
+        print(f"[R-3.2] NOT APPLIED: the task was not solved, so --apply wrote "
+              f"nothing to {args.context}")
+        return 1
+    # The oracle lives in the same directory the patch arm reads, and
+    # `workspace_from_dir` lists every .py it finds — so a patch set that
+    # "fixed" the failure by editing the assertion is in scope unless the file
+    # it scored is named protected. Relative to --context, which is the key form.
+    protected = ()
+    test_rel = _rel_to(args.test, args.context)
+    if test_rel in task["files"]:
+        protected = (test_rel,)
+    try:
+        changed = land(args.context, task["files"], r.workspace, protected)
+    except LandError as e:
+        print(f"[R-3.2] REFUSED: --apply wrote nothing — {e}")
+        return 1
+    for rel, added, removed in changed:
+        print(f"[R-3.2] wrote {rel} (+{added} -{removed} lines)")
+    if not changed:
+        print(f"[R-3.2] --apply wrote nothing: the verified workspace is "
+              f"byte-identical to what is already in {args.context}")
+    return 0
+
+
 def cmd_run(args) -> int:
     """The full agent on one task: PERCEIVE(repo) -> ROUTE -> small -> ESC."""
     from flash import trace
@@ -179,6 +243,9 @@ def cmd_run(args) -> int:
 
     task = {"id": "adhoc", "prompt": args.prompt,
             "test": open(args.test).read()}
+    rc = _apply_guard(args)
+    if rc is not None:
+        return rc
     if args.context:
         task["context"] = args.context
     if args.edit:
@@ -202,6 +269,8 @@ def cmd_run(args) -> int:
                                                        "big": args.big,
                                                        "allow_big": args.allow_big,
                                                        "adapter": args.adapter,
+                                                       "edit": args.edit,
+                                                       "apply": args.apply,
                                                        "tournament": args.tournament,
                                                        "hints": loop.HINTS,
                                                        "confidence": args.confidence})
@@ -226,6 +295,8 @@ def cmd_run(args) -> int:
     if r.confidence is not None:
         print("[R-2.3] " + r.confidence.describe())
     print(f"[trace] replay this run:  flash trace show {sid}")
+    if args.edit:
+        return _land_edits(args, task, r)
     return 0 if r.solved else 1
 
 
@@ -969,6 +1040,10 @@ def build_parser() -> argparse.ArgumentParser:
                    help="R-3.2: answer a change request with symbol-addressed "
                         "patches (# edit: file :: Symbol) that replace exactly the "
                         "lines the AST owns, instead of re-typing whole files")
+    p.add_argument("--apply", action="store_true",
+                   help="R-3.2 clause 3: with --edit, write the oracle-passing "
+                        "patch set back into the --context tree. Without it "
+                        "nothing is written and the run prints NOT APPLIED")
     p.add_argument("--tournament", type=int, default=1, metavar="K",
                    help="R-3.3: replace the small tier's feedback chain with K "
                         "independent candidates (candidate 0 greedy, the rest "

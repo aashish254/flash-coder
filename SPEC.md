@@ -537,7 +537,7 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
 - **R-3.1 (SHIPPED)** Multi-file answers MUST round-trip through the
   `# file:` contract with per-file persistence and targeted repair.
   Vector: `run-suite --tasks benchmarks/tasks/mw_tasks.jsonl` at 6/6.
-- **R-3.2 (PARTIAL — clause 1 MET, clause 2 NOT MET)** Edits SHOULD be
+- **R-3.2 (PARTIAL — clause 1 MET, clause 2 NOT MET, clause 3 MET)** Edits SHOULD be
   symbol-precise patches, not text guessing (PLAN §33.1 ACT bullet).
   Shipped: `flash/patches.py` (`--edit`) — `# edit: <file> :: <Symbol>` or
   `L<a>-<b>` or `*`, plus one fenced block. The AST owns the replaced span
@@ -563,6 +563,32 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   premise checks over `benchmarks/tasks/edit_tasks.jsonl` (each task ships its
   own project text, so both arms read identical input, fails as seeded, passes
   on the reference patch, and that patch fits inside one symbol).
+  * **clause 3 — the write-back, filed 2026-09-28 after the defect was found
+    live, MET.** The two clauses above are about what a patch set *is*; neither
+    one says what it does to the tree. `--edit` scored every attempt in memory,
+    printed `solved=True`, and left the project on disk byte-identical — a
+    sentence nobody printed. This ran on a scratch tree outside the repository the
+    same day (three attempts, a green oracle, a trace session in
+    `benchmarks/results/traces/`, and the one module still holding its original
+    four lines), which is the shape of the bug: a person reading
+    the last line of a terminal takes the verdict for an edit that happened.
+    `flash.patches.land` now writes the verified workspace back. It touches only
+    files whose bytes differ, never deletes a module the listing stopped
+    covering, refuses an address that resolves outside `--context` or names a file
+    the oracle never scored, validates the whole set before the first byte so a
+    refusal cannot leave a half-patched tree, and returns per-file line counts
+    that are lines rather than diff hunks. Writing stays opt-in
+    (`run --edit --context <dir> --apply`) because a small model's guess at
+    someone's source is not a reason to change it; what is no longer optional is
+    the sentence naming which state the tree is in — without `--apply` the command
+    prints `NOT APPLIED` and exits on its verdict, with it each landed file prints
+    `wrote <file> (+A -B lines)`. The oracle is protected by name, because
+    `workspace_from_dir` lists every Python file in `--context`, the test file
+    included, so a patch set that repaired a failure by weakening an assertion is
+    REFUSED rather than written. Offline:
+    `python benchmarks/patch_landing_check.py --sweep` **40/40 checks, 22/22
+    mutants caught** — the sweep runs each mutant in its own process and the
+    in-process lane agrees, so no count below is a leftover from the previous bug.
   Vector, measured 2026-09-26 and re-measured 2026-09-27 after the narrowing —
   small tier, greedy first attempt, `--allow-big never`, 10 tasks, two arms on
   the same input:
@@ -1064,11 +1090,19 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   §6 total 1230  mutants 111` in **13 min 14 s** and the battery's own
   `matches SPEC §6 as written`. Raw witness:
   `benchmarks/results/r75_sdist_battery_shapes_20260928.log` (the single-shape run
-  it supersedes, `r75_sdist_battery_20260928.log`, is left in the tree).
+  it supersedes, `r75_sdist_battery_20260928.log`, is left in the tree). **These are
+  the 35-line tree's prints, dated 2026-09-28**: R-3.2's clause 3 added a 36th
+  battery line and +40/+22 to the checkout side on 2026-09-29, so the download's own
+  two shapes are being re-run against the 36-line tree rather than carried forward by
+  arithmetic — the prediction is 34 of 36 for a plain install and 36/36 for the `[ts]`
+  one at whatever §6 total the driver prints, and that stays a prediction until the
+  run prints it.
   **The driver's assertion is asymmetric on purpose**: shape A FAILs if either TS
   line *passes* there, or if shape A agrees with §6 at all, because a plain install
-  reaching 1,210 would mean the grammar check had stopped checking; shape B FAILs
-  unless all 35 lines are green and the §6 line prints. One tarball, two commands,
+  reaching the page's headline total would mean the grammar check had stopped
+  checking; shape B FAILs unless every line the battery declares is green and the §6
+  line prints (the count is read from `battery_reread`, not typed in, which is why
+  adding a line cannot leave the driver asking for the old number). One tarball, two commands,
   two different honest totals — and the earlier single-shape print of `1119 … 33/33`
   was true of the tree it ran in and misleading on the page, which is the same defect
   this clause corrected once already.
@@ -1682,6 +1716,7 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
    `python benchmarks/graph_perceive_check.py --sweep` 33 (+ 12 mutants) ·
    `python benchmarks/ts_perception_check.py --sweep` 47 (+ 13 mutants) ·
    `python benchmarks/ts_patch_check.py --sweep` 44 (+ 13 mutants) ·
+   `python benchmarks/patch_landing_check.py --sweep` 40 (+ 22 mutants) ·
    `python benchmarks/hint_ab_check.py` 14 (+ 8 mutants) ·
    `python benchmarks/portable_paths_check.py` 15 (+ 7 mutants) ·
    `python benchmarks/backend_free_check.py` 42 (+ 10 mutants) ·
@@ -1689,12 +1724,12 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
    `python -m flash.debug --suite` 32 ·
    `python -m flash.patches --suite benchmarks/tasks/edit_tasks.jsonl` 60 ·
    `python benchmarks/m0_bakeoff.py --dry-run` 20 reference solutions.
-   **Total: 1210 selftest / end-to-end / premise checks + 20 oracle
+   **Total: 1250 selftest / end-to-end / premise checks + 20 oracle
    verifications (m0_bakeoff's 20 reference solutions, which are the only
    numbers in that 20 — the 6 ambient, 15 lora, 5 band, 5 router-portability,
-   12 graph, 12 graph-perceive, 13 ts-perception, 13 ts-patch, 8 hint-ab,
-   7 path-portability, 10 backend-free and 5 documented-command mutants are
-   extra to both totals, 111 in all) = 1230 green, offline.** Read those two
+   12 graph, 12 graph-perceive, 13 ts-perception, 13 ts-patch, 22 patch-landing,
+   8 hint-ab, 7 path-portability, 10 backend-free and 5 documented-command mutants
+   are extra to both totals, 133 in all) = 1270 green, offline.** Read those two
    numbers with care: CHECKS and TOTAL are different columns, and this page has
    been quoted wrongly by its own notes before — R-1.1b's checks count (1052) was
    exactly the total the page had claimed one commit earlier, and the number the
@@ -1943,6 +1978,25 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
    patch that parses is accepted on the strength of a parse, because
    `diagnose_files` still has no `node`/`vitest` runner behind it, and the whole-file
    control arm is still Python.)
+   (Updated 2026-09-29, when R-3.2's clause 3 arrived — the write-back: **+40 checks
+   and +22 mutants** on a brand-new vector, `python benchmarks/patch_landing_check.py
+   --sweep` — **1210 → 1250** checks, mutants **111 → 133**, §6 total **1230 → 1270**,
+   lines **35 → 36**, because making the tool *write to your tree* is a new thing to
+   verify rather than another gate inside a vector that already had a line. The
+   re-read printed `checks 1250  oracle 20  §6 total 1270 mutants 133` with **36** OK
+   lines and no BAD line, in **16 min 27 s** on battery at 74% (witness
+   `benchmarks/results/battery_reread_r32c3_20260929.log`, 0 host paths), against a
+   `CLAIM` of `checks 1250 oracle 20 total 1270 mutants 133` written by arithmetic
+   before the run started and matched. The 22 are 12 on a copy of `land` with one
+   clause switched each, 6 on a copy of the command's write-back path
+   (`cli._land_edits`), and 4 on the real seams — `cli._rel_to`, `cli._apply_guard`,
+   `loop._solve_edits` and `cli.build_parser`;
+   an `agree()` check compares the copies against the shipped functions over the same
+   scenarios first, so a green mutant count cannot be a green count on a stub. The
+   vector also caught its own instrument twice: the counts `land` returns were diff
+   *operations*, so a 4-line module rewrite printed `+2 -1 lines`, and the oracle
+   protection mutant was written into the wrong copy, where it was never read and so
+   escaped. Neither is visible from the shipped code's exit status.)
    (Updated 2026-09-27, when R-7.9, R-7.10 and R-7.10b closed: **+2 checks and +1
    mutant** on `python benchmarks/lora_path_check.py` (**31 → 33**, **14 → 15**) for
    `--dry-run`, **+1 check and +1 mutant** on

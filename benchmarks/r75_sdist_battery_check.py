@@ -31,7 +31,7 @@ This script measures the second reading and prints the first one's refusal, so t
 witness carries both shapes. It measures them on **one tarball**, because an install
 shape is not a property of the download: the same sdist answers differently with and
 without an optional extra, and R-1.4's TypeScript vectors cannot run without it. A
-driver that expected all 35 lines from a plain `pip install <tarball>` would call a
+driver that expected every line from a plain `pip install <tarball>` would call a
 documented install shape a failure; one that excused the two refusals without proving
 the second shape would hide a real break. Steps, each of which prints a line:
 

@@ -7,20 +7,24 @@ again — no API key, no container, nothing leaving the machine.
 Two things about this repo are load-bearing, and both are visible in the files:
 
 - **Every claim is a printed number.** The offline verification battery is
-  **1,210 checks + 20 oracle verifications + 111 mutation gates**, and `SPEC.md` §6
+  **1,250 checks + 20 oracle verifications + 133 mutation gates** over 36 vectors, and
+  `SPEC.md` §6
   records why the totals come from the fraction each run *prints* — never an exit
   code, never a phrase grep — after both of those shortcuts produced a wrong total
   that looked clean on this project's own output. That total is not a property of
   the author's disk: `python benchmarks/r75_sdist_battery_check.py` builds the
   sdist, installs it into a throwaway venv, checks which `flash` a child imports,
   and runs the whole battery **inside the download**, on both install shapes one
-  tarball supports: `pip install <sdist>` prints **33 of 35** lines and
-  `checks 1119  oracle 20  §6 total 1139  mutants 85` with exactly two named
-  grammar refusals, and `pip install '<sdist>[ts]'` prints **35/35** and
+  tarball supports. What that printed on 2026-09-28, on the 35-line tree
+  (`benchmarks/results/r75_sdist_battery_shapes_20260928.log`): `pip install <sdist>`
+  **33 of 35** lines and `checks 1119  oracle 20  §6 total 1139  mutants 85` with
+  exactly two named grammar refusals, and `pip install '<sdist>[ts]'` **35/35** and
   `checks 1210  oracle 20  §6 total 1230  mutants 111` alongside the battery's own
-  `matches SPEC §6 as written` (2026-09-28, `benchmarks/results/
-  r75_sdist_battery_shapes_20260928.log`). The second language is why a plain
-  install cannot reach 1,210: its two vectors refuse without the `ts` extra, and
+  `matches SPEC §6 as written`. The 36th line — the patch write-back — joined the
+  checkout side on 2026-09-29, so those two download prints are dated rather than
+  carried forward, and the driver is being re-run against the current tree. The second
+  language is why a plain
+  install cannot reach the page's headline total: its two vectors refuse without the `ts` extra, and
   the driver fails if either of them *passes* there or if the plain shape ever
   agrees with §6.
 - **The one cross-tool comparison here is a run, not a claim.** `python
@@ -81,7 +85,7 @@ and what the box may load — and its exit code follows its own page.
 lines, the same printed totals, and the same refusal (rc 2, naming the path) when
 there is no battery to run.
 
-One of those 35 lines is the machine itself: `checkpoint_resume_check` needs the
+One of those 36 lines is the machine itself: `checkpoint_resume_check` needs the
 tournament arm to have width ≥ 2, and the power governor forces width to 1 under
 25% charge even on AC. So a laptop at 22% cannot print the §6 total — it fails
 exactly one line with a sentence naming the charge. Put the machine on AC and
@@ -253,7 +257,7 @@ Vision is benchmarked once the text brain is picked (PLAN §M1–M2).
 .venv/bin/python -m flash.harness --selftest        # 20 offline checks on the oracle
 .venv/bin/python benchmarks/m0_bakeoff.py --dry-run # 20/20 reference solutions pass
 
-# All 35 offline vectors in this file (34 check-summing + m0_bakeoff's oracle) in
+# All 36 offline vectors in this file (35 check-summing + m0_bakeoff's oracle) in
 # one command, summed from the fraction each run
 # PRINTS (never an exit code, never a phrase grep — see SPEC §6 for the two
 # capture traps that rule is there to prevent). Fails if the tree's total moves
@@ -432,7 +436,7 @@ Vision is benchmarked once the text brain is picked (PLAN §M1–M2).
 # Every `flash …` line printed anywhere in this repo — README, CONTRIBUTING, SPEC, docs
 # and the two published workflows' `run:` blocks — is parsed against the real argparse
 # parser, without dispatching, so this file and the pipeline on the front page cannot
-# both drift from the CLI. 25 commands, 184 citations, 15 documents as of 2026-09-28 —
+# both drift from the CLI. 25 commands, 185 citations, 15 documents as of 2026-09-29 —
 # the citation count is this collector's own, and it moves whenever a doc gains a line.
 # Deleting a
 # subcommand from the parser is not enough to fail it either: the failure must NAME the
@@ -448,8 +452,23 @@ Vision is benchmarked once the text brain is picked (PLAN §M1–M2).
 # overlapping addresses are REFUSED (the retry is
 # told why and the project keeps its previous content). Off by default; --edit turns it on
 # for a task that ships a project.
+#
+# `--edit` scores a patch set and prints it; it does NOT touch your files. `--apply` is the
+# flag that writes them back — only the files whose bytes differ, never a deletion, and the
+# whole set is refused before the first byte if any address escapes the --context tree or
+# names a file the oracle never scored. The test file itself is protected by name: a patch
+# set that "fixed" a failure by editing an assertion is REFUSED, not written. Without
+# --apply the run prints `NOT APPLIED` and says which state your tree is in, because
+# `solved=True` alone once meant "this edit happened", and it had not.
+# One more thing `--context` requires of YOUR file: the oracle then runs the test alone,
+# in a temp copy of the tree, so a bare `assert cents_to_str(5) == "$0.05"` raises
+# `NameError` and can never go green no matter what the patch does. Start the test with
+# the bootstrap the task corpus uses — `import sys; sys.path.insert(0, "<TMPDIR>")`, then
+# `from money import cents_to_str` — and `<TMPDIR>` becomes that copy's directory.
 .venv/bin/python -m flash.cli run "..." --test t.py --context src/ --edit
+.venv/bin/python -m flash.cli run "..." --test t.py --context src/ --edit --apply
 .venv/bin/python -m flash.cli run-suite --tasks benchmarks/tasks/edit_tasks.jsonl --edit
+.venv/bin/python benchmarks/patch_landing_check.py --sweep  # the write-back, offline
 .venv/bin/python -m flash.patches --selftest     # 46 offline checks, incl. the loop arm
 .venv/bin/python -m flash.patches --suite benchmarks/tasks/edit_tasks.jsonl  # the suite's premise
 

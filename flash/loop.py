@@ -99,6 +99,10 @@ class SolveResult:
     # evidence table §34.2 gates on, kept so the CLI can print the reasons and
     # the resume path can re-derive an offer without re-running the probes.
     confidence: "object | None" = None
+    # R-3.2's clause 3: the patch arm's verified workspace, kept so the caller
+    # can tell the difference between "an edit that passes the oracle" and "an
+    # edit that is on the user's disk". None for every other arm.
+    workspace: "dict[str, str] | None" = None
 
     @property
     def n_attempts(self) -> int:
@@ -429,6 +433,7 @@ def _solve_edits(model, tokenizer, task: dict, max_attempts: int,
                                     whole=result.whole_rewrites, outside=outside))
         if ok:
             res.solved = True
+            res.workspace = dict(workspace)
             break
         messages += [{"role": "assistant", "content": out},
                      {"role": "user", "content": err + "\n\n" + RETRY_EDITS}]

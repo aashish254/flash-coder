@@ -16,7 +16,7 @@ lora path: 33/33 checks passed
 mutations: 15/15 gates defeated by exactly their checks
 ```
 
-`python benchmarks/battery_reread.py` runs all 35 of them and adds the columns,
+`python benchmarks/battery_reread.py` runs all 36 of them and adds the columns,
 and it reads the *printed* number rather than the return code. That is not
 pedantry — the two capture traps that made this a rule are recorded in `SPEC.md`
 §6: a `grep "checks passed"` silently dropped two vectors that print a bare
@@ -24,7 +24,7 @@ fraction, and a last-line grep read one vector's `14/14 mutants` summary as if
 it were its check count, under-counting the published total by 17 while looking
 clean.
 
-So the totals in the README (`1,210 checks + 20 oracle verifications + 111
+So the totals in the README (`1,250 checks + 20 oracle verifications + 133
 mutation gates`) come from the line `battery_reread` prints, and the file holds
 one entry per §6 item with the exact fraction that item must print. When the
 numbers disagree, the run reports the disagreement out loud. It has: one CLAIM
@@ -110,9 +110,12 @@ battery there twice.
 §6 total 1139  mutants 85` in 13 min 22 s, with exactly two named grammar refusals;
 `pip install '<sdist>[ts]'` returns **35/35**, rc 0, `checks 1210  oracle 20
 §6 total 1230  mutants 111` in 13 min 14 s and the battery's own
-`matches SPEC §6 as written`. Two of the 35 lines are the second language's vectors,
+`matches SPEC §6 as written`. Those are the **35-line tree's** prints: R-3.2's clause 3
+added a 36th battery line on 2026-09-29, so the driver is being re-run against the
+current tree rather than having its old totals carried forward by arithmetic. Two of
+the battery's lines are the second language's vectors,
 and `flash.lang_ts.available()` is a designed refusal — a `0/1` print, not a crash —
-so a plain install *cannot* reach 1,210 and the driver now fails if either TS line
+so a plain install *cannot* reach the checkout's total, and the driver now fails if either TS line
 passes on shape A, or if shape A agrees with §6 at all. That is the difference between
 a number and a claim: the old single-shape run printed 1,119 and 33/33 while the
 checkout printed 1,210 and 35/35, and nothing on the page said which was the download's
@@ -136,7 +139,7 @@ ahead of the venv's `site-packages`. Every one of its answers came from the sour
 it had just installed from. Rewritten to ask the venv's own console script from a
 directory holding no Python, and to print which `flash` resolved before asserting
 anything about the answer, the same run reports **9/9** shapes and a truer picture: an
-editable clone exits 0 and runs 3 of the battery's 35 vectors from the clone, while a tarball install
+editable clone exits 0 and runs 3 of the battery's 36 vectors from the clone, while a tarball install
 answers `flash --version` at rc 0, `flash doctor` at rc **1** naming the absent
 verification surface and its remedy, and `flash selftest --all` at rc **2** naming the
 path it wanted. The instrument's own shadowing is now one of its gates, because the fix

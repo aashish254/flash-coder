@@ -25,7 +25,7 @@ const SHAPES = [
     name: 'editable install of the clone, run from elsewhere',
     status: 'dated',
     detail:
-      'all 33 vectors green from a clone installed with -e. Run on 2026-09-27 against the totals of that day (1,104 + 20 = 1,124, 78 gates). The battery is 35 lines and 1,210 + 20 = 1,230 with 111 gates as of 2026-09-28 — this exact shape has not been re-run since; what has been re-run is the download, on both of its install shapes (row D).',
+      'all 33 vectors green from a clone installed with -e. Run on 2026-09-27 against the totals of that day (1,104 + 20 = 1,124, 78 gates). The battery is 36 lines and 1,250 + 20 = 1,270 with 133 gates as of the 2026-09-29 re-read — this exact shape has not been re-run since; what has been re-run is the checkout battery, and what is being re-run is the download, on both of its install shapes (row D).',
     witness: 'benchmarks/results/r75_install_shapes_20260927.log',
   },
   {
@@ -33,7 +33,7 @@ const SHAPES = [
     name: 'unpacked sdist / “Download ZIP”, no .git',
     status: 'verified',
     detail:
-      'the whole battery ran inside the unpacked sdist on 2026-09-28, on both install shapes the one tarball supports: `pip install <sdist>` printed 33 of 35 lines and 1,119 + 20 = 1,139 with 85 gates and two named grammar refusals, and `pip install \'<sdist>[ts]\'` printed 35 of 35 and 1,210 + 20 = 1,230 with 111 gates, agreeing with SPEC §6 as written. The driver fails if a TypeScript vector passes on the plain install — that shape is supposed to refuse.',
+      'the whole battery ran inside the unpacked sdist on 2026-09-28, on both install shapes the one tarball supports: `pip install <sdist>` printed 33 of 35 lines and 1,119 + 20 = 1,139 with 85 gates and two named grammar refusals, and `pip install \'<sdist>[ts]\'` printed 35 of 35 and 1,210 + 20 = 1,230 with 111 gates, agreeing with SPEC §6 as written. Those are that tree\'s prints — the battery is 36 lines as of 2026-09-29, and this driver is what re-measures both shapes rather than adding one to the old totals. The driver fails if a TypeScript vector passes on the plain install — that shape is supposed to refuse.',
     witness:
       'benchmarks/results/r75_sdist_battery_shapes_20260928.log (the charge-limited first pass is kept beside it as …_battgate_…)',
   },

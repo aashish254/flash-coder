@@ -12,7 +12,7 @@
     "  [yes] MLX backend: mlx 0.32.2, mlx_lm 0.31.3",
     " machine",
     "  [yes] python 3.11.15 \u00b7 darwin/arm64 \u00b7 27.0",
-    "  [yes] what this box may load: profile balanced, up to 17.3 GB right now (~26.6 GB free of 32, tournament width 2)",
+    "  [yes] what this box may load: profile balanced, up to 17.3 GB right now (~26.9 GB free of 32, tournament width 2)",
     " cache",
     "  [   ] model cache ~/.cache/huggingface/hub: 41 repo(s), 4 of 4 \u00a722 candidates present",
     " tools",
@@ -31,10 +31,10 @@
    "command": "python -m flash.graph --selftest",
    "exit": 0,
    "lines": [
-    "  OK   the merge is what makes a repeat query cheap: a second pass over the wide repo costs 7.9 ms and re-extracts nothing",
+    "  OK   the merge is what makes a repeat query cheap: a second pass over the wide repo costs 7.5 ms and re-extracts nothing",
     "  OK   and on the wide repo the floor is still reported rather than assumed: a 400-file pass with no blind spots says so, and a reader can see that it is a property of THIS instrument, not of the algorithm",
-    "  ..  first query on a cold index: fixtures 0.1 ms, wide 29.0 ms (5377 nodes, 10058 edges, after a 573 ms build); language server settled 1/1",
-    "graph selftest: 44/44 checks passed  [fixtures query 0.1 ms of 200 ms budget, wide query 29.0 ms]"
+    "  ..  first query on a cold index: fixtures 0.1 ms, wide 27.2 ms (5377 nodes, 10058 edges, after a 539 ms build); language server settled 1/1",
+    "graph selftest: 44/44 checks passed  [fixtures query 0.1 ms of 200 ms budget, wide query 27.2 ms]"
    ],
    "redacted": []
   },
@@ -48,13 +48,13 @@
     "OK   flash jobs --selftest                        20/20",
     "OK   flash trace --selftest                       30/30",
     "OK   flash web --selftest                         9/9",
-    "  \u2026 35 lines, one per \u00a76 vector",
+    "  \u2026 36 lines, one per \u00a76 vector",
     "OK   benchmarks/m0_bakeoff.py --dry-run           20/20",
-    "checks 1210  oracle 20  \u00a76 total 1230  mutants 111",
-    "matches SPEC \u00a76 as written: 1210 + 20 = 1230 green, offline (+ 111 mutants)"
+    "checks 1250  oracle 20  \u00a76 total 1270  mutants 133",
+    "matches SPEC \u00a76 as written: 1250 + 20 = 1270 green, offline (+ 133 mutants)"
    ],
    "redacted": [],
-   "source": "battery_reread_r14b_20260928.log"
+   "source": "battery_reread_r32c3_20260929.log"
   }
  ],
  "witness_redacted": []

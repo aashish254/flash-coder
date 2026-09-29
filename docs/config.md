@@ -102,13 +102,14 @@ pip install .[web]      # transformers + torch: bge embeddings for `flash web` r
 pip install .[ts]       # tree-sitter + its TypeScript grammar: `flash graph --lang ts`
 ```
 
-`dev` pulls `ts` in deliberately. Two of the §6 battery's 35 lines are the
+`dev` pulls `ts` in deliberately. Two of the §6 battery's 36 lines are the
 TypeScript vectors, and one documented install command has to be enough to print
 every published line — otherwise a contributor's `.[dev]` install would watch two
 lines refuse and CI would call the main branch red for a dependency its own install
 line never asked for. A **plain** `pip install .` is still the downloader's shape and
-still gets the refusal sentence rather than a string-matching fake: measured, that
-install prints 33 of the 35 lines.
+still gets the refusal sentence rather than a string-matching fake: measured on the
+download, that install prints every battery line but the two TypeScript vectors, each
+refusing with the sentence above (last counted on the 35-line tree, as 33 of 35).
 
 The `ts` extra is the one a person with a front end in their repo will want, and
 its absence is measured rather than described: without it the Python pass still

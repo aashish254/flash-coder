@@ -109,6 +109,12 @@ class Refused(Exception):
     """A patch that cannot be applied. Carries the operator-facing reason."""
 
 
+class LandError(Exception):
+    """A verified workspace that cannot be written back. Names the key at fault
+    and writes nothing at all, because half a patch set on disk is worse than
+    none: the tree would no longer be the one the oracle scored."""
+
+
 @dataclass
 class Patch:
     file: str
@@ -696,6 +702,70 @@ def workspace_from_dir(root: str | Path, limit: int = 20) -> dict[str, str]:
         except (OSError, ValueError):
             continue
     return out
+
+
+def land(root: str | Path, before: dict[str, str], after: dict[str, str],
+         protected: tuple[str, ...] = ()) -> list[tuple[str, int, int]]:
+    """Write a workspace back to the tree it was read from.
+
+    Only files whose bytes differ are touched, and a file that is in `before`
+    and not in `after` is left alone: the patch arm addresses symbols inside
+    modules, it has no verb for deleting one, so a listing that stopped
+    covering a file (the `limit` in `workspace_from_dir`, or a file that became
+    unreadable) must not turn into a deletion in someone's project.
+
+    A key that does not resolve back inside `root` raises rather than writing:
+    an address is model text, and `# edit: ../../etc/hosts :: …` is the same
+    string as a real one as far as `apply_patches` is concerned.
+
+    `protected` names keys that must arrive here byte-identical — the oracle is
+    one, because `workspace_from_dir` lists every Python file in the tree, the
+    test file included, and a patch set that repaired a failure by editing the
+    assertion is not a fix. It raises with the whole call unwritten, like the
+    escape guard.
+
+    Returns `[(rel, lines_added, lines_removed)]` for what changed, so the
+    caller can print exactly what it did to the tree.
+    """
+    root = Path(root).resolve()
+    todo: list[tuple[str, Path, int, int]] = []
+    for rel, text in after.items():
+        if before.get(rel) == text:
+            continue
+        if rel in protected:
+            raise LandError(f"{rel}: the patch set changed a protected file, so "
+                            "nothing was written")
+        key = Path(rel)
+        dest = (root / key).resolve()
+        if key.is_absolute() or not dest.is_relative_to(root):
+            raise LandError(f"{rel}: addresses a path outside the project "
+                            f"root ({root}), so nothing was written")
+        if rel not in before:
+            raise LandError(f"{rel}: not a file this workspace was read from, "
+                            "so nothing was written")
+        ops = _opcodes(before[rel], text)
+        added = sum(j2 - j1 for tag, _, _, j1, j2 in ops
+                    if tag in ("insert", "replace"))
+        removed = sum(i2 - i1 for tag, i1, i2, _, _ in ops
+                      if tag in ("delete", "replace"))
+        todo.append((rel, dest, added, removed))
+    # Validated in full before the first byte: a LandError halfway through would
+    # leave the tree a mixture of the patched and the scored state.
+    out: list[tuple[str, int, int]] = []
+    for rel, dest, added, removed in todo:
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_text(after[rel], encoding="utf-8")
+        out.append((rel, added, removed))
+    return out
+
+
+def _opcodes(old: str, new: str) -> list[tuple[str, int, int, int, int]]:
+    # splitlines, not split("\n"): a file ending in a newline would otherwise
+    # carry a trailing empty "line", and the numbers `land` returns are the ones
+    # the CLI prints as lines.
+    sm = difflib.SequenceMatcher(None, old.splitlines(), new.splitlines(),
+                                 autojunk=False)
+    return [op for op in sm.get_opcodes() if op[0] != "equal"]
 
 
 def edit_prompt(task: dict) -> str:

@@ -9,6 +9,32 @@ versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- **R-3.2 clause 3: a verified patch now reaches the disk, and the run always says
+  which state the tree is in.** `--edit` scored every attempt in memory and printed
+  `solved=True` while leaving the project byte-identical — found live on
+  2026-09-28 on a scratch tree (three attempts, a green oracle, a trace session, and
+  the one module still holding its original four lines). `flash.patches.land` writes
+  the verified workspace back under `run --edit --context <dir> --apply`: only files
+  whose bytes differ, never a deletion, an address escaping `--context` or naming a
+  file the oracle never scored is refused, the whole set is validated before the
+  first byte so a refusal cannot leave a half-patched tree, and the counts it returns
+  are lines rather than diff hunks. Writing stays opt-in; the sentence does not —
+  without `--apply` the run prints `NOT APPLIED`, with it each landed file prints
+  `wrote <file> (+A -B lines)`. The oracle is protected by name, since
+  `workspace_from_dir` lists every Python file in `--context` including the test, so
+  a patch set that fixed a failure by weakening an assertion is REFUSED rather than
+  written. Offline: `python benchmarks/patch_landing_check.py --sweep` → **40/40
+  checks, 22/22 mutants caught** in both lanes
+  (`benchmarks/results/patch_landing_sweep_20260929.log`), added to the §6 ledger as a
+  new battery line — the ledger now has **36 lines**, and the vector is the 29th. The
+  full re-read on that tree printed `checks 1250  oracle 20  §6 total 1270
+  mutants 133` at **36/36** with no BAD line, in **16 min 27 s** on battery at 74%
+  (`benchmarks/results/battery_reread_r32c3_20260929.log`), against a `CLAIM` set by
+  arithmetic before the run. Then the flag was used for real, on a tree that is not
+  this repo: `flash run "…zero-pad the cents…" --test t.py --context . --edit
+  --allow-big always --apply` printed `solved=True attempts=4 (14.8s)` and
+  `[R-3.2] wrote money.py (+5 -4 lines)`, and re-running the same oracle against the
+  bytes now on that disk answers green.
 - **R-7.5's clause 2 re-measured on both install shapes one tarball supports, and the
   `dev` extra fixed in the same pass so CI cannot go red on main.**
   `python benchmarks/r75_sdist_battery_check.py` now builds the sdist once and runs the
@@ -23,8 +49,10 @@ versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   designed refusal and a grammar-less venv printing 1,210 would mean the check stopped
   checking. `pyproject.toml`'s `dev` extra now self-references `flash-coder[ts]`
   (proven with `pip install --dry-run -e .[dev]`, which lists
-  `tree-sitter-0.26.0` and `tree-sitter-typescript-0.23.2`): two of the 35 battery lines
-  are TS vectors, both CI battery jobs run all 35, and an extra that cannot reach them
+  `tree-sitter-0.26.0` and `tree-sitter-typescript-0.23.2`): two of the battery's lines
+  are TS vectors, both CI battery jobs run the whole ledger (the driver reads its line
+  count from `battery_reread`, so a new vector cannot leave CI asking for the old
+  number), and an extra that cannot reach them
   turns the pipeline red on the merge commit rather than at the change.
 - **A machine-state limit that no tree can pass round, written down instead of
   resized.** The first shape-B pass printed **34/35** and failed only

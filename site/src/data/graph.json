@@ -307,9 +307,9 @@
    "degree": 17,
    "label": "_affordable",
    "pos": [
-    -8.76,
-    -18.39,
-    22.79
+    -8.73,
+    -18.45,
+    22.53
    ]
   },
   {
@@ -320,9 +320,9 @@
    "degree": 5,
    "label": "_counts_as_guard",
    "pos": [
-    -13.46,
-    -14.11,
-    21.44
+    -13.51,
+    -14.08,
+    21.05
    ]
   },
   {
@@ -333,9 +333,9 @@
    "degree": 10,
    "label": "_probe_calls",
    "pos": [
-    -4.92,
-    -14.57,
-    20.1
+    -4.93,
+    -14.58,
+    19.57
    ]
   },
   {
@@ -346,9 +346,9 @@
    "degree": 9,
    "label": "_shape",
    "pos": [
-    -12.46,
-    -20.52,
-    18.76
+    -12.39,
+    -20.39,
+    18.09
    ]
   },
   {
@@ -359,22 +359,9 @@
    "degree": 29,
    "label": "ck",
    "pos": [
-    -10.73,
-    -10.74,
-    17.42
-   ]
-  },
-  {
-   "id": "flash/confidence.py::edge_probe",
-   "file": "flash/confidence.py",
-   "symbol": "edge_probe",
-   "kind": "function",
-   "degree": 5,
-   "label": "edge_probe",
-   "pos": [
-    -5.68,
-    -18.91,
-    16.07
+    -10.66,
+    -11.1,
+    16.61
    ]
   },
   {
@@ -385,9 +372,9 @@
    "degree": 11,
    "label": "evaluate",
    "pos": [
-    -13.86,
-    -16.42,
-    14.73
+    -6.27,
+    -18.48,
+    15.13
    ]
   },
   {
@@ -398,9 +385,9 @@
    "degree": 72,
    "label": "run_selftest",
    "pos": [
-    -7.98,
-    -14.01,
-    13.39
+    -12.35,
+    -16.25,
+    13.65
    ]
   },
   {
@@ -1334,9 +1321,9 @@
    "degree": 28,
    "label": "Patch",
    "pos": [
-    -23.51,
-    3.8,
-    -1.07
+    -23.52,
+    3.82,
+    -0.91
    ]
   },
   {
@@ -1347,9 +1334,9 @@
    "degree": 11,
    "label": "Refused",
    "pos": [
-    -27.91,
-    7.76,
-    -2.02
+    -27.88,
+    7.75,
+    -1.81
    ]
   },
   {
@@ -1360,9 +1347,9 @@
    "degree": 34,
    "label": "apply_patches",
    "pos": [
-    -19.69,
-    7.38,
-    -2.98
+    -19.71,
+    7.37,
+    -2.71
    ]
   },
   {
@@ -1373,9 +1360,9 @@
    "degree": 52,
    "label": "check",
    "pos": [
-    -27.22,
-    1.32,
-    -3.93
+    -27.21,
+    1.33,
+    -3.62
    ]
   },
   {
@@ -1386,9 +1373,9 @@
    "degree": 10,
    "label": "check_result",
    "pos": [
-    -25.51,
-    11.79,
-    -4.88
+    -25.52,
+    11.81,
+    -4.52
    ]
   },
   {
@@ -1399,9 +1386,9 @@
    "degree": 10,
    "label": "definitions",
    "pos": [
-    -19.44,
-    2.4,
-    -5.83
+    -19.39,
+    2.35,
+    -5.43
    ]
   },
   {
@@ -1412,9 +1399,22 @@
    "degree": 10,
    "label": "find_defs",
    "pos": [
-    -30.52,
-    5.35,
-    -6.78
+    -30.64,
+    5.33,
+    -6.33
+   ]
+  },
+  {
+   "id": "flash/patches.py::land",
+   "file": "flash/patches.py",
+   "symbol": "land",
+   "kind": "function",
+   "degree": 6,
+   "label": "land",
+   "pos": [
+    -20.2,
+    10.76,
+    -7.23
    ]
   },
   {
@@ -1425,9 +1425,9 @@
    "degree": 16,
    "label": "outside_lines",
    "pos": [
-    -20.33,
-    10.61,
-    -7.73
+    -24.24,
+    -0.17,
+    -8.14
    ]
   },
   {
@@ -1435,12 +1435,12 @@
    "file": "flash/patches.py",
    "symbol": "resolve",
    "kind": "function",
-   "degree": 15,
+   "degree": 17,
    "label": "resolve",
    "pos": [
-    -24.25,
-    0.13,
-    -8.69
+    -28.45,
+    10.29,
+    -9.04
    ]
   },
   {
@@ -1451,9 +1451,9 @@
    "degree": 13,
    "label": "run_premise",
    "pos": [
-    -28.16,
-    9.98,
-    -9.64
+    -18.9,
+    5.65,
+    -9.95
    ]
   },
   {
@@ -1464,9 +1464,9 @@
    "degree": 118,
    "label": "run_selftest",
    "pos": [
-    -19.5,
-    5.69,
-    -10.59
+    -28.15,
+    2.99,
+    -10.85
    ]
   },
   {
@@ -1477,9 +1477,9 @@
    "degree": 15,
    "label": "run_wiring",
    "pos": [
-    -27.46,
-    3.54,
-    -11.54
+    -23.77,
+    9.88,
+    -11.76
    ]
   },
   {
@@ -1490,9 +1490,9 @@
    "degree": 10,
    "label": "walk",
    "pos": [
-    -24.0,
-    8.36,
-    -12.49
+    -23.07,
+    4.06,
+    -12.66
    ]
   },
   {
@@ -2108,16 +2108,6 @@
    "kind": "calls"
   },
   {
-   "s": "flash/confidence.py::edge_probe",
-   "d": "flash/confidence.py::_probe_calls",
-   "kind": "calls"
-  },
-  {
-   "s": "flash/confidence.py::evaluate",
-   "d": "flash/confidence.py::edge_probe",
-   "kind": "calls"
-  },
-  {
    "s": "flash/confidence.py::run_selftest",
    "d": "flash/confidence.py::ck",
    "kind": "calls"
@@ -2140,11 +2130,6 @@
   {
    "s": "flash/confidence.py::run_selftest",
    "d": "flash/confidence.py::_counts_as_guard",
-   "kind": "calls"
-  },
-  {
-   "s": "flash/confidence.py::run_selftest",
-   "d": "flash/confidence.py::edge_probe",
    "kind": "calls"
   },
   {
@@ -2783,6 +2768,11 @@
    "kind": "calls"
   },
   {
+   "s": "flash/patches.py::land",
+   "d": "flash/patches.py::resolve",
+   "kind": "calls"
+  },
+  {
    "s": "flash/patches.py::run_premise",
    "d": "flash/patches.py::check",
    "kind": "calls"
@@ -3010,9 +3000,9 @@
  },
  "sampled": {
   "shown_nodes": 150,
-  "shown_edges": 210,
-  "repo_nodes": 4616,
-  "repo_edges": 25615,
+  "shown_edges": 208,
+  "repo_nodes": 4744,
+  "repo_edges": 26596,
   "note": "the 150 most-connected functions, classes and methods under flash/, joined by their call and import edges; `reads` edges and the rest of the index are not drawn"
  },
  "extracted_by": "python -c 'from flash.graph import build; build(...)'"
