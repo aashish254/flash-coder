@@ -25,7 +25,7 @@ const SHAPES = [
     name: 'editable install of the clone, run from elsewhere',
     status: 'dated',
     detail:
-      'all 33 vectors green from a clone installed with -e. Run on 2026-09-27 against the totals of that day (1,104 + 20 = 1,124, 78 gates). The battery is 36 lines and 1,250 + 20 = 1,270 with 133 gates as of the 2026-09-29 re-read — this exact shape has not been re-run since; what has been re-run is the checkout battery, and what is being re-run is the download, on both of its install shapes (row D).',
+      'all 33 vectors green from a clone installed with -e. Run on 2026-09-27 against the totals of that day (1,104 + 20 = 1,124, 78 gates). The battery is 37 lines and 1,294 + 20 = 1,314 with 147 gates as of the 2026-09-29 re-read — this exact shape has not been re-run since; what has been re-run is the checkout battery, and what is being re-run is the download, on both of its install shapes (row D).',
     witness: 'benchmarks/results/r75_install_shapes_20260927.log',
   },
   {
@@ -33,7 +33,7 @@ const SHAPES = [
     name: 'unpacked sdist / “Download ZIP”, no .git',
     status: 'verified',
     detail:
-      'the whole battery ran inside the unpacked sdist on 2026-09-28, on both install shapes the one tarball supports: `pip install <sdist>` printed 33 of 35 lines and 1,119 + 20 = 1,139 with 85 gates and two named grammar refusals, and `pip install \'<sdist>[ts]\'` printed 35 of 35 and 1,210 + 20 = 1,230 with 111 gates, agreeing with SPEC §6 as written. Those are that tree\'s prints — the battery is 36 lines as of 2026-09-29, and this driver is what re-measures both shapes rather than adding one to the old totals. The driver fails if a TypeScript vector passes on the plain install — that shape is supposed to refuse.',
+      'the whole battery ran inside the unpacked sdist on 2026-09-28, on both install shapes the one tarball supports: `pip install <sdist>` printed 33 of 35 lines and 1,119 + 20 = 1,139 with 85 gates and two named grammar refusals, and `pip install \'<sdist>[ts]\'` printed 35 of 35 and 1,210 + 20 = 1,230 with 111 gates, agreeing with SPEC §6 as written. Those are that tree\'s prints — the battery is 37 lines as of the 2026-09-29 re-read (1,294 + 20 = 1,314, 147 gates), and this driver is what re-measures both shapes rather than adding two to the old totals: its expected line count comes from `battery_reread.BATTERY`, so on this tree it asks for 35 of 37 on the plain install and 37 of 37 with the grammar. The driver fails if a TypeScript vector passes on the plain install — that shape is supposed to refuse.',
     witness:
       'benchmarks/results/r75_sdist_battery_shapes_20260928.log (the charge-limited first pass is kept beside it as …_battgate_…)',
   },
@@ -47,7 +47,7 @@ export function Install() {
         title="Install, and which four shapes have actually been run"
         lede={
           <>
-            Four commands, then the honest part: this project has been installed
+            Five commands, then the honest part: this project has been installed
             and verified in four different shapes on Apple Silicon, and each row
             below names the log that says so. A row labelled{' '}
             <Chip tone="refuse">dated</Chip> was verified once, at a total that has
@@ -59,18 +59,30 @@ export function Install() {
       <div className="grid gap-6 lg:grid-cols-[1.15fr_1fr]">
         <Reveal className="flex flex-col gap-4">
           <div className="num text-[11px] uppercase tracking-[0.16em] text-fog-2">
-            5.1 · the four commands
+            5.1 · the five commands
           </div>
           <CopyLine cmd={COMMANDS.install} label="install" />
           <CopyLine cmd={COMMANDS.doctor} label="ask" />
           <CopyLine cmd="python -m flash.cli selftest --all" label="verify" />
-          <CopyLine cmd="python -m flash.cli run <task-id>" label="use" />
+          <CopyLine cmd={COMMANDS.session} label="code" />
+          <CopyLine cmd="python -m flash.cli run <task-id>" label="one task" />
           <p className="max-w-[62ch] text-[13px] leading-relaxed text-fog-2">
             <span className="num text-fog-1">doctor</span> goes first because it
             answers the question a README usually dodges: which half of this project
             is present on your machine. Its exit code follows its own page — five
             <Chip tone="refuse"> no</Chip> on a wheel install, and the reason beside
             each one.
+          </p>
+          <p className="max-w-[62ch] text-[13px] leading-relaxed text-fog-2">
+            <span className="num text-fog-1">session</span> is the one you sit at.
+            One instruction per line, against your own repo and your own asserts;
+            each turn re-reads the tree from disk, so turn 2 edits what turn 1 wrote,
+            and nothing lands until you say{' '}
+            <span className="num text-fog-0">--apply</span>. The{' '}
+            <a href="#proof" className="num text-fog-1 underline decoration-line underline-offset-2">
+              session tab of the proof panel
+            </a>{' '}
+            is a verbatim three-turn run of it, the refused turn included.
           </p>
         </Reveal>
 

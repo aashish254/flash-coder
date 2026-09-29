@@ -6,8 +6,9 @@ import { Reveal, Section, SectionHead } from './ui'
 
 const TABS = [
   { id: 'doctor', title: 'What can this machine do?' },
-  { id: 'graph', title: 'The clause’s own budget, printed' },
   { id: 'battery', title: 'All of §6, re-read from the tree' },
+  { id: 'session', title: 'Three turns at one oracle' },
+  { id: 'graph', title: 'The clause’s own budget, printed' },
 ]
 
 /** Hue only on state: green is a run that said yes, amber is an install that
@@ -17,7 +18,11 @@ function tone(line: string) {
   if (/^\s*\[\s\]/.test(line)) return 'text-refuse'
   if (/^\s*\[no\]/.test(line)) return 'text-fail'
   if (line.startsWith('OK')) return 'text-pass'
-  if (line.startsWith('checks ') || line.includes('checks passed')) return 'text-fog-0'
+  if (line.startsWith('[R-3.2] wrote') || line.includes('solved=True')) return 'text-pass'
+  if (line.includes('REFUSED') || line.includes('NOT APPLIED') || line.includes('solved=False'))
+    return 'text-refuse'
+  if (line.startsWith('checks ') || line.includes('checks passed') || line.startsWith('[session]'))
+    return 'text-fog-0'
   if (line.startsWith('  ..')) return 'text-refuse'
   return 'text-fog-1'
 }
@@ -75,14 +80,14 @@ function Screen({ capture }: { capture: Capture }) {
 
 export function Proof() {
   const [tab, setTab] = useState(0)
-  const ordered = [captures[0], captures[2], captures[1]].filter(Boolean)
+  const ordered = [captures[0], captures[2], captures[3], captures[1]].filter(Boolean)
 
   return (
     <Section id="proof">
       <SectionHead
         index="01"
         id="proof-head"
-        title="Three commands, run on this machine, output pasted literally"
+        title="Four commands, run on this machine, output pasted literally"
         lede={
           <>
             The project asks you to believe a handful of numbers. Here is the raw
@@ -90,7 +95,10 @@ export function Proof() {
             <span className="num text-fog-0">flash doctor</span> page that answers
             <span className="num text-refuse"> no</span> on a machine missing half
             of what it needs, which is the behaviour the last six release boxes
-            exist to protect.
+            exist to protect, and the <span className="num text-fog-0">session</span>{' '}
+            transcript that keeps its own refusal in the middle of it: one of three
+            turns asked for a function that did not exist yet, and the patch arm
+            said so instead of inventing one.
           </>
         }
       />

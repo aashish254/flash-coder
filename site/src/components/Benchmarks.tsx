@@ -94,6 +94,17 @@ export function Benchmarks() {
 
   const g = benchmarks.graph
 
+  /** Panel 3.2's prose quoted 33 vectors while the battery carried 36, so the
+   *  two figures it states as counts are read off the same arrays the chart
+   *  draws: how many vectors the battery printed, and how many of them are
+   *  needed to reach half of the checks. */
+  const N_VECTORS = benchmarks.vectors.length
+  const totalChecks = cumulative[cumulative.length - 1]?.cum ?? 0
+  const halfAt = cumulative.findIndex((c) => c.cum >= totalChecks / 2) + 1
+  const axisTicks = [1, 6, 12, 18, 24, 30, N_VECTORS].filter(
+    (t, i, a) => t <= N_VECTORS && a.indexOf(t) === i,
+  )
+
   return (
     <Section id="benchmarks" className="border-t border-line">
       <SectionHead
@@ -160,7 +171,7 @@ export function Benchmarks() {
         <Panel
           n="3.2"
           title="Where the battery’s mass actually is"
-          body="Cumulative checks across the 33 §6 vectors, largest first. Nine of them carry half the total; the tail is where the small, sharp gates live — the documented-command checker is eight checks, and it has caught two shipped defects."
+          body={`Cumulative checks across the ${N_VECTORS} §6 vectors, largest first. ${halfAt} of them carry half the total; the tail is where the small, sharp gates live — the documented-command checker is eight checks, and it has caught two shipped defects.`}
           source="python benchmarks/battery_reread.py  ·  read from the committed print"
           height={300}
           wide
@@ -179,7 +190,7 @@ export function Benchmarks() {
                 tick={AXIS}
                 tickLine={false}
                 axisLine={{ stroke: LINE }}
-                ticks={[1, 6, 12, 18, 24, 33]}
+                ticks={axisTicks}
               />
               <YAxis tick={AXIS} tickLine={false} axisLine={false} width={44} />
               <Tooltip

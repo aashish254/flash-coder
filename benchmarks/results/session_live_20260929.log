@@ -1,0 +1,19 @@
+# R-7.15 live arm, 2026-09-29, three turns, real weights (mlx-community/Qwen2.5-Coder-7B-Instruct-4bit), no stub
+# command: python -m flash.cli session --context /tmp/flash-session-live --test /tmp/flash-session-live/t.py --apply --turns 3
+# turns, in order, on stdin: fix the backwards f_to_c / add a function k_to_c(kelvin) / put a docstring on f_to_c
+# tree: temp.py seeded with f_to_c = (f - 32) * 9/5; oracle t.py 5 asserts, md5 1251ecdafc056b3d8d6e7d058b2b292a before turn 1 and after the session
+# exit code of the command: 0 (last turn solved)
+flash session on /tmp/flash-session-live against the oracle /tmp/flash-session-live/t.py — 3 turn(s). Ctrl-D ends it.
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 3489.44it/s]
+[turn 1] routed=small tier=small solved=True attempts=2 (6.2s) patches=1 refused=0 whole=0 outside=0
+[R-3.2] wrote temp.py (+1 -1 lines)
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5438.52it/s]
+Fetching 14 files:   0%|          | 0/14 [00:00<?, ?it/s]Fetching 14 files: 100%|██████████| 14/14 [00:00<00:00, 7103.83it/s]
+[turn 2] routed=small tier=failed solved=False attempts=4 (11.5s) patches=1 refused=1 whole=0 outside=0
+  oracle| PATCH REFUSED: temp.py:k_to_c — no symbol 'k_to_c' in temp.py (it defines: boiling_point, c_to_f, f_to_c, freezing_point)
+[R-3.2] NOT APPLIED: the task was not solved, so --apply wrote nothing to /tmp/flash-session-live
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]Fetching 9 files: 100%|██████████| 9/9 [00:00<00:00, 5684.19it/s]
+[turn 3] routed=small tier=small solved=True attempts=2 (7.9s) patches=1 refused=0 whole=0 outside=0
+[R-3.2] wrote temp.py (+2 -1 lines)
+[session] turns=3 solved=2 written=2 seconds=25.6 last_rc=0
+[trace] replay this session:  flash trace show 20260929-131202-session-e176

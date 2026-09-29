@@ -16,7 +16,7 @@ lora path: 33/33 checks passed
 mutations: 15/15 gates defeated by exactly their checks
 ```
 
-`python benchmarks/battery_reread.py` runs all 36 of them and adds the columns,
+`python benchmarks/battery_reread.py` runs all 37 of them and adds the columns,
 and it reads the *printed* number rather than the return code. That is not
 pedantry — the two capture traps that made this a rule are recorded in `SPEC.md`
 §6: a `grep "checks passed"` silently dropped two vectors that print a bare
@@ -24,7 +24,7 @@ fraction, and a last-line grep read one vector's `14/14 mutants` summary as if
 it were its check count, under-counting the published total by 17 while looking
 clean.
 
-So the totals in the README (`1,250 checks + 20 oracle verifications + 133
+So the totals in the README (`1,294 checks + 20 oracle verifications + 147
 mutation gates`) come from the line `battery_reread` prints, and the file holds
 one entry per §6 item with the exact fraction that item must print. When the
 numbers disagree, the run reports the disagreement out loud. It has: one CLAIM

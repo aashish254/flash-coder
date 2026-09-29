@@ -85,7 +85,7 @@ export function Hero() {
                 href="#install"
                 className="group inline-flex items-center gap-2 border border-pass/50 px-3.5 py-2 text-[13px] text-pass transition-colors hover:bg-pass hover:text-ink-0"
               >
-                Install in four commands
+                Install in five commands
                 <ArrowRight size={14} className="transition-transform group-hover:translate-x-0.5" />
               </a>
               <a

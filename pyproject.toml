@@ -56,7 +56,7 @@ ts = ["tree-sitter>=0.25", "tree-sitter-typescript>=0.23"]
 # What CI and a contributor run: the offline battery needs no model, and
 # pyflakes is a gate rather than a suggestion (`python -m pyflakes flash/*.py
 # benchmarks/*.py` must print nothing). It carries the `ts` extra on purpose: two of
-# the battery's 36 lines are R-1.4's TypeScript vectors, and a documented install
+# the battery's 37 lines are R-1.4's TypeScript vectors, and a documented install
 # command that left a contributor unable to print 2 published lines — or CI red on
 # main — would make the battery's own total depend on which page you read. Measured
 # on the download itself (`python benchmarks/r75_sdist_battery_check.py`, both shapes):

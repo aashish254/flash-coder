@@ -103,8 +103,10 @@ export const graphScene = rawGraph as unknown as {
 export const captures = (rawTranscripts as unknown as { captures: Capture[] })
   .captures
 
-/** The full offline re-read, timed once by hand and written into the docs. */
-export const BATTERY_WALL = { minutes: 15, seconds: 9, date: '2026-09-27' }
+/** The full offline re-read. Timed by the witness file's own birth and mtime —
+ *  the battery prints its totals but not its clock — and written into the docs
+ *  beside it, so the two never disagree about which run this is. */
+export const BATTERY_WALL = { minutes: 16, seconds: 44, date: '2026-09-29' }
 
 export const int = (n: number) => n.toLocaleString('en-US')
 export const sec = (n: number) => `${n.toFixed(n < 10 ? 2 : 1)}s`

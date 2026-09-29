@@ -47,6 +47,11 @@ flash selftest --all        # the offline battery: no models, no network
 Every command in that block is gated: `benchmarks/documented_commands_check.py`
 parses each `flash …` line printed anywhere in this repo against the real
 `argparse` parser, so this block cannot rot into instructions that do not run.
+To use the tool the way its users do — several changes in a row, against your own
+repo and your own asserts — run `flash session --context . --test t.py`, which reads
+one prompt per line and prints a verdict per turn; its vector is
+`benchmarks/session_check.py` (SPEC R-7.15), and it is one of the §6 battery's lines,
+so the session is tested in every full re-read rather than remembered as working.
 `git clone` above is still where this repo is *going*, not where it is: no remote is
 configured yet. The two installs a stranger can make from here **have** been run
 (SPEC **R-7.5**, closed 2026-09-28, `python benchmarks/r75_fresh_install_check.py`,
@@ -62,7 +67,10 @@ configured yet. The two installs a stranger can make from here **have** been run
   really is not there, and the tool refuses rather than totalling checks that never ran.
 
 The full re-read has been run in the download's reading too, most recently on the
-35-line tree: `python benchmarks/r75_sdist_battery_check.py` unpacks the sdist,
+35-line tree (the ledger is at **37 lines** now — R-3.2's clause 3 and R-7.15's
+session each added one — so the totals quoted below are dated prints, and the open
+TODO box re-measures both shapes on this tree rather than leaving this page quoting
+the older one): `python benchmarks/r75_sdist_battery_check.py` unpacks the sdist,
 installs it
 into a throwaway venv and runs the whole battery **inside that tree**, on **both install
 shapes one tarball supports** — `pip install <sdist>` leaves the two TypeScript vectors

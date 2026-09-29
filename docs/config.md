@@ -34,6 +34,24 @@ they appear in its loop:
 The suite-side commands (`flash run-suite`, `flash learn`, `flash jobs`) take
 the same names; `flash <cmd> --help` prints each one.
 
+### `flash session` — the two flags that are only its own
+
+`flash session --context DIR --test FILE` reads one prompt per line from stdin and
+takes every cost flag above unchanged, plus two of its own and one deliberate
+absence (`flash session --help` is the authority):
+
+| flag | what it decides |
+| --- | --- |
+| `--turns N` | stop after N turns even if stdin keeps coming. `0`, the default, reads to EOF — `quit`, `exit`, `q` or Ctrl-D end it. This is what lets a pipe and a keyboard drive the same session. |
+| `--apply` | write each verified patch into `--context`. Off by default, exactly as on `flash run`: opening a session must never be what edits a project. |
+| *(no `--edit`)* | a session is always the patch arm, because a whole-file answer is the one thing a multi-turn surface cannot land safely. The parser rejects `--edit` rather than ignoring it. |
+
+Each turn re-reads `--context` from disk, so turn N+1 patches what turn N wrote
+rather than what the process remembered, and the oracle named by `--test` is
+protected on every turn of the session, not only the first patch set. The session
+prints one verdict line per turn and one `[session] turns=… solved=… written=…
+seconds=… last_rc=…` report at EOF, and exits with the last turn's code.
+
 ## What the machine decides for you
 
 `flash power` prints the governor's verdict, and it is the only part of the
@@ -102,7 +120,7 @@ pip install .[web]      # transformers + torch: bge embeddings for `flash web` r
 pip install .[ts]       # tree-sitter + its TypeScript grammar: `flash graph --lang ts`
 ```
 
-`dev` pulls `ts` in deliberately. Two of the §6 battery's 36 lines are the
+`dev` pulls `ts` in deliberately. Two of the §6 battery's 37 lines are the
 TypeScript vectors, and one documented install command has to be enough to print
 every published line — otherwise a contributor's `.[dev]` install would watch two
 lines refuse and CI would call the main branch red for a dependency its own install

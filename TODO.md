@@ -1152,6 +1152,15 @@ here rather than folded into P6's confidence work.
       box also corrected its own earlier evidence: the file committed before it as
       `battery_reread_r75_20260928.log` is the checkout's R-7.10c re-read with one
       extra line, not a fresh-clone print.
+- [ ] [V] [offline] R-7.5's download numbers re-measured on the **37-line** ledger.
+      `python benchmarks/r75_sdist_battery_check.py` builds the sdist from this tree and
+      runs the whole battery inside the download on both shapes again. Until it prints,
+      every install-shape total in `CONTRIBUTING.md`, `docs/config.md` and this file is a
+      dated print from the 33-line and 35-line trees, and `MANIFEST.in`'s own header is a
+      claim about a package whose published numbers the installer could not re-run. Cost:
+      ~28 min sequential, and it needs the machine above 25% charge or on AC, because the
+      governor forces tournament width 1 below that and `checkpoint_resume_check` cannot
+      pass on any tree.
 - [x] [B] [V] [offline] R-7.6 one-command verify: `flash --version`,
       `flash doctor` (python, platform, backend presence, model cache, config,
       whether the offline vectors can run here) and `flash selftest --all`, plus
@@ -1458,6 +1467,57 @@ here rather than folded into P6's confidence work.
       is a re-runnable proof rather than a cleanup. Not a §6 battery line: its history
       arm needs `.git`, so an unpacked sdist cannot print it — cited, not counted, like
       `benchmarks/market_compare.py`. It is a pattern sweep, not a proof of absence.*
+- [x] [V] [offline] R-7.15 `flash session --context <dir> --test <file> [--turns N]
+      [--apply]`: one command, many turns, and every turn ends in a printed oracle
+      verdict.
+      - [x] The turn loop re-reads the workspace from **disk** at the start of each
+            turn, so turn N+1 edits what turn N wrote rather than what it remembered.
+      - [x] Turns come from stdin, one prompt per line; blank lines are not turns,
+            `quit` / `exit` / `q` end the session, and `--turns N` bounds a pipe the
+            same way it bounds a keyboard.
+      - [x] Every turn prints its own verdict (`routed=`, `tier=`, `solved=`,
+            `attempts=`, the patch arm's `patches=/refused=/whole=/outside=`) and the
+            oracle's words under `oracle|` when it failed, and the landing sentence is
+            `cli._land_edits` shared with `run` — never a second wording.
+      - [x] The oracle is read once and protected on every turn, so a patch that
+            rewrites `--test` mid-session is refused.
+      - [x] EOF prints `turns / solved / written / seconds / last_rc` and exits with
+            the LAST turn's code; `written=` is counted by re-reading the tree, so a
+            refused turn is zero.
+      - [x] An unreadable, blank or missing oracle, and a stdin with no turn, refuse
+            with rc 2 before any generation. There is no `--edit` flag: the patch arm
+            is the only answer shape a session can land, and the parser rejects it.
+      - [x] Vector: `python benchmarks/session_check.py --sweep` → **44/44 checks and
+            14/14 mutants defeated in both lanes** (one fresh process per mutant, and
+            this process), added to §6 as the 37th line — **checks 1294, oracle 20,
+            §6 total 1314, mutants 147**. The full re-read on the 37-line tree printed
+            exactly those totals with **37** OK lines and no BAD line, in **16 min 44 s**
+            on AC (63% → 80%), against the `CLAIM` derived from `BATTERY` before it
+            started (`benchmarks/results/battery_reread_r715_20260929.log`).
+      - [x] [L] Live arm, three turns on a scratch tree with a seeded Fahrenheit bug,
+            real 7B: turn 1 `solved=True attempts=2 (6.2s)` →
+            `[R-3.2] wrote temp.py (+1 -1 lines)`; turn 2 asked for a NEW function and
+            printed `PATCH REFUSED: temp.py:k_to_c — no symbol 'k_to_c' in temp.py
+            (it defines: boiling_point, c_to_f, f_to_c, freezing_point)` with
+            `attempts=4 (11.5s)` → `NOT APPLIED`; turn 3 landed a docstring
+            `(+2 -1 lines)`; `[session] turns=3 solved=2 written=2 seconds=25.6
+            last_rc=0` (witness `benchmarks/results/session_live_20260929.log`).
+            Model residency measured instead of assumed: first `load_model`
+            **2.01 / 2.10 / 2.05 s**, a second after `del` + `mx.clear_cache()`
+            **0.65 / 0.74 / 0.66 s**
+            (`benchmarks/results/session_model_residency_20260929.log`), which is why
+            the session holds no weight cache and stays inside I-3.
+      *Closed 2026-09-29. The surface the author asked for — "how will i code on this"
+      — exists, and the useful finding is turn 2: the refusal was correct and the
+      request was still not served, which is R-7.15b below rather than a reworded
+      pass.*
+- [ ] [B] [V] R-7.15b the patch arm can revise a symbol it can see and **cannot create
+      one**: `# edit: file :: Symbol` resolves against the AST, so "add a function"
+      names a symbol that does not exist, is refused, and costs the turn — measured
+      live on 2026-09-29 as session turn 2. Vector: an add shape the AST owns (new
+      top-level symbol at a position the extractor verifies), with a mutant that a
+      refused create and a landed create cannot be confused, and the live arm re-run on
+      the same request.
 - [ ] [V] [L] R-7.3 voice: real-microphone arm, VAD barge-in, ≥ 90% command
       recognition over 50 utterances.
 - [ ] [V] [L] M17 feel test: ≥ 7 of 10 developers keep it after a week.

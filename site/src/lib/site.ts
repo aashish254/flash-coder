@@ -8,5 +8,6 @@ export const COMMANDS = {
   install: 'python3.11 -m venv .venv && .venv/bin/pip install -e .[dev]',
   doctor: '.venv/bin/python -m flash.cli doctor',
   battery: '.venv/bin/python benchmarks/battery_reread.py',
+  session: '.venv/bin/python -m flash.cli session --context . --test t.py',
   measure: 'python benchmarks/dashboard_data.py && python benchmarks/export_site_data.py',
 }

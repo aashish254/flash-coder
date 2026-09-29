@@ -47,6 +47,8 @@ from flash import graph as _graph
 ROOT = dashboard_data.ROOT
 SOURCE = ROOT / "benchmarks" / "results" / "dashboard_data.json"
 OUT_DIR = ROOT / "site" / "src" / "data"
+# The R-7.15 live arm: three turns at a real 7B, two diffs landed, one refusal.
+SESSION_LIVE = dashboard_data.RESULTS / "session_live_20260929.log"
 
 # The hero shows a slice, and says it is one.
 GRAPH_NODES = 150
@@ -171,9 +173,10 @@ def write(path: Path, payload: dict) -> None:
 # ------------------------------------------------------------- transcripts
 #
 # The page shows real terminal output, so the output has to come from a run and
-# not from someone's memory of one. Two captures are live children; one is the
-# committed §6 witness, which is a print this repo already publishes numbers
-# from. Every one carries the command that produced it.
+# not from someone's memory of one. Two captures are live children; two are
+# committed witnesses — the §6 battery, which this repo already publishes
+# numbers from, and the session's live arm. Every one carries the command that
+# produced it.
 
 def redact(text: str) -> tuple[str, list[str]]:
     """Blank this machine's paths. A landing page has no business naming a
@@ -205,6 +208,40 @@ def capture(argv: list[str], keep: int, take: str = "head") -> dict:
     }
 
 
+def session_capture() -> dict:
+    """The R-7.15 live arm, pasted from its committed witness. Three turns on a
+    real 7B: two landed a diff on disk, the third was refused out loud because
+    the patch arm addresses a symbol the AST already has. That refusal is the
+    most informative line on the panel, so it stays in."""
+    raw = SESSION_LIVE.read_text(errors="ignore").splitlines()
+    header = [ln for ln in raw if ln.startswith("# ")]
+    body = [ln for ln in raw if ln.strip() and not ln.startswith("# ")]
+    # The weight downloader writes its own progress bars to the same stream.
+    # They are stdout, but three near-identical bar lines would bury the
+    # transcript, so they are dropped here and named as dropped.
+    bars = [ln for ln in body if ln.startswith("Fetching ")]
+    kept = [ln for ln in body if not ln.startswith("Fetching ")]
+    text, notes = redact("\n".join(kept))
+    if bars:
+        notes.append(f"{len(bars)} weight-download progress lines were dropped; "
+                     f"the witness beside this file holds them verbatim")
+    cmd = next((ln for ln in header if ln.startswith("# command:")), "")
+    rc = next((ln for ln in kept if "[session]" in ln and "last_rc=" in ln), "")
+    if not cmd or not rc:
+        raise SystemExit(f"export_site_data: {SESSION_LIVE.name} lost either its "
+                         f"# command header or the command's own [session] line — "
+                         f"refusing to print an exit code nobody reported")
+    return {
+        "command": cmd.split(": ", 1)[1],
+        # The exit code comes from the command's own EOF report, not the
+        # witness header, so the number on the page is one that was printed.
+        "exit": int(rc.split("last_rc=")[1].split()[0]),
+        "lines": text.split("\n"),
+        "redacted": notes,
+        "source": SESSION_LIVE.name,
+    }
+
+
 def build_transcripts(witness_lines: list[str]) -> list[dict]:
     doctor = capture(["-m", "flash.cli", "doctor"], 24)
     graph = capture(["-m", "flash.graph", "--selftest"], 4, take="tail")
@@ -217,7 +254,7 @@ def build_transcripts(witness_lines: list[str]) -> list[dict]:
         "redacted": [],
         "source": dashboard_data.WITNESS.name,
     }
-    return [doctor, graph, bat]
+    return [doctor, graph, bat, session_capture()]
 
 
 def main(argv: list[str]) -> int:

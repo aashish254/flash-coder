@@ -9,6 +9,68 @@ versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- **R-7.15: the loop got the surface the author was actually asking for — `flash
+  session`, many turns against your repo and your own asserts, with the tree
+  re-read from disk between turns.** The reports that made it a requirement were "if
+  the project is done can i run it so i can test" and "what is this how will i code on
+  this?": one task per invocation is a batch tool, and the thing being pointed at was
+  a chat-shaped editor. Turns arrive one per line on stdin (a blank line is not a
+  turn; `quit` / `exit` / `q` / Ctrl-D ends the session, `--turns N` caps it), the
+  oracle is read once and is never a file the session may edit, and **each turn
+  re-reads `--context` from disk**, which is what makes turn 2 edit what turn 1 landed
+  rather than what the process remembered. The session is always the patch arm:
+  `loop.EDIT` is set on entry and there is deliberately no `--edit` flag — the parser
+  rejects it, because a whole-file rewrite on turn 7 of a session silently discards
+  whatever turns 1–6 wrote. Each turn prints its own verdict line, the oracle's own
+  words under `oracle|` when it fails, and one of the same three landing sentences
+  `run` prints; the session closes with one parseable line
+  (`[session] turns=3 solved=2 written=2 seconds=25.6 last_rc=0`) and exits with the
+  **last** turn's code. Offline: `python benchmarks/session_check.py --sweep` →
+  **44/44 checks, 14/14 mutants caught** in both lanes, the 30th line of §6 and the
+  147-gate roll-up's fourteenth mutant vector — and the vector drives the real
+  `cmd_session` with `_read_turns`/`solve` stubbed only at the two seams that need it,
+  so `agree()` holds its 14 mutant copies indistinguishable from the shipped command
+  over 5 scenarios. Live, on a tree that is not this repo and real weights
+  (`Qwen2.5-Coder-7B-Instruct-4bit`): three turns printed
+  `solved=True … [R-3.2] wrote temp.py (+1 -1 lines)`, then
+  `PATCH REFUSED: temp.py:k_to_c — no symbol 'k_to_c' in temp.py (it defines: boiling_point, c_to_f, f_to_c, freezing_point)`
+  with `--apply` writing nothing, then `solved=True … (+2 -1 lines)` —
+  `benchmarks/results/session_live_20260929.log`, replayable under trace
+  `20260929-131202-session-e176`.
+- **R-7.15b is what that middle turn taught, and it is booked open.** The patch arm
+  addresses a symbol through the AST, so it can revise a function it can see and
+  cannot create one: "add a function `k_to_c(kelvin)`" is a refusal that costs the
+  turn, not a feature gap in the model. Closing it means an insert form with its own
+  vector, not a prompt that hopes the model writes `# edit:` with a name that does not
+  exist yet.
+- **Model residency, re-measured rather than remembered, because the number quoted
+  before this pass did not reproduce:** three fresh processes, 51% on battery,
+  first load **2.01 / 2.10 / 2.05 s** and second load after the free
+  **0.65 / 0.74 / 0.66 s** (`benchmarks/results/session_model_residency_20260929.log`).
+  `load_model` is uncached by design and the free happens at **five**
+  `del model, tok` + `mx.clear_cache()` sites inside `solve_routed`, which is the
+  number the SPEC paragraph now states after the first draft said four.
+- **The §6 ledger moved to 37 lines and the whole surface moved with it, from the
+  print rather than from arithmetic.** `python benchmarks/battery_reread.py` on this
+  tree printed `checks 1294  oracle 20  §6 total 1314  mutants 147` with **37** OK
+  lines and no BAD line, and its own agreement line `matches SPEC §6 as written:
+  1294 + 20 = 1314 green, offline (+ 147 mutants)`, in **16 min 44 s** on AC with the
+  charge climbing from 63% to 80%
+  (`benchmarks/results/battery_reread_r715_20260929.log`) — against a `CLAIM` of
+  `checks 1294  oracle 20  mutants 147` derived from `BATTERY` before the run started.
+  The session line is the **30th** of 37, the ledger follows §6's own table order, and
+  the new vector is the **14th** of the 147 gates. Docs moved together: README gained
+  the fifth first-run step and a verbatim copy of the three-turn transcript, `docs/config.md`
+  the two flags that are only the session's, `docs/architecture.md` the sentence that
+  `run` and `session` are the same loop, `CONTRIBUTING.md` the note that the vector is a
+  §6 line, and `flash/__init__.py`/`pyproject.toml`/`MANIFEST.in` the counts. The
+  command census the docs gate prints moved to **26 distinct commands in 197 citations
+  across 15 documents** (86 source paths), with `documented_commands_check.py` **8/8 +
+  5/5** and `portable_paths_check.py` **15/15 + 7/7** on the edited tree; the landing
+  page's proof panel is now four tabs, its session tab reading the live witness
+  through `benchmarks/export_site_data.py`, and panel 3.2's vector count is computed
+  from the print instead of spelled in prose. `python -m pyflakes flash/*.py
+  benchmarks/*.py` **0 findings**.
 - **R-3.2 clause 3: a verified patch now reaches the disk, and the run always says
   which state the tree is in.** `--edit` scored every attempt in memory and printed
   `solved=True` while leaving the project byte-identical — found live on

@@ -86,7 +86,7 @@ export function Honesty() {
           <CircleCheck size={16} className="mt-0.5 shrink-0 text-pass" />
           <p className="max-w-[80ch] text-[14px] leading-relaxed text-fog-1">
             What <span className="text-fog-0">is</span> claimed is narrower and
-            checkable in about fifteen minutes: the offline verification surface
+            checkable in about seventeen minutes: the offline verification surface
             exists, runs on a plain user account with no key, prints its own
             fractions, refuses honestly on an install that lacks its data, and is
             mutation-gated often enough that a broken check is caught rather than

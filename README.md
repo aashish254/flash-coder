@@ -7,7 +7,7 @@ again — no API key, no container, nothing leaving the machine.
 Two things about this repo are load-bearing, and both are visible in the files:
 
 - **Every claim is a printed number.** The offline verification battery is
-  **1,250 checks + 20 oracle verifications + 133 mutation gates** over 36 vectors, and
+  **1,294 checks + 20 oracle verifications + 147 mutation gates** over 37 vectors, and
   `SPEC.md` §6
   records why the totals come from the fraction each run *prints* — never an exit
   code, never a phrase grep — after both of those shortcuts produced a wrong total
@@ -85,7 +85,7 @@ and what the box may load — and its exit code follows its own page.
 lines, the same printed totals, and the same refusal (rc 2, naming the path) when
 there is no battery to run.
 
-One of those 36 lines is the machine itself: `checkpoint_resume_check` needs the
+One of those 37 lines is the machine itself: `checkpoint_resume_check` needs the
 tournament arm to have width ≥ 2, and the power governor forces width to 1 under
 25% charge even on AC. So a laptop at 22% cannot print the §6 total — it fails
 exactly one line with a sentence naming the charge. Put the machine on AC and
@@ -124,9 +124,38 @@ need weights first.
 
 # 4. a suite, with the loop's own cost report
 .venv/bin/python -m flash.cli run-suite --tasks benchmarks/tasks/m2_tasks.jsonl --with-context
+
+# 5. code with it: many turns against your repo and your asserts. One prompt per
+# line on stdin; an empty line is not a turn and `quit` / Ctrl-D ends it. Each turn
+# re-reads your files from disk, so turn 2 edits what turn 1 wrote. Nothing lands
+# without --apply, and the oracle you passed with --test is never a file it may edit.
+printf 'zero-pad the cents\nadd a bulk discount\n' |
+  .venv/bin/python -m flash.cli session --context . --test t.py --apply
 ```
 
-`.venv/bin/python -m flash.cli --help` lists all 30 subcommands, and `bench/`,
+A turn prints its own verdict, the oracle's own words under `oracle|` when a turn
+fails, and then one of the same three landing sentences `run` prints
+(`[R-3.2] wrote … (+a -b lines)` / `NOT APPLIED` / `REFUSED: …`). The session closes
+with one line a script can parse, and exits with the **last** turn's code. Verbatim
+from a measured three-turn session on a scratch repo, where turn 2 asked for a
+function that did not exist yet
+([`benchmarks/results/session_live_20260929.log`](benchmarks/results/session_live_20260929.log)):
+
+```text
+[turn 1] routed=small tier=small solved=True attempts=2 (6.2s) patches=1 refused=0 whole=0 outside=0
+[R-3.2] wrote temp.py (+1 -1 lines)
+[turn 2] routed=small tier=failed solved=False attempts=4 (11.5s) patches=1 refused=1 whole=0 outside=0
+  oracle| PATCH REFUSED: temp.py:k_to_c — no symbol 'k_to_c' in temp.py (it defines: boiling_point, c_to_f, f_to_c, freezing_point)
+[R-3.2] NOT APPLIED: the task was not solved, so --apply wrote nothing to /tmp/flash-session-live
+[turn 3] routed=small tier=small solved=True attempts=2 (7.9s) patches=1 refused=0 whole=0 outside=0
+[R-3.2] wrote temp.py (+2 -1 lines)
+[session] turns=3 solved=2 written=2 seconds=25.6 last_rc=0
+```
+
+The whole conversation replays with `flash trace show <id>`, which the session prints
+on its own line before it exits.
+
+`.venv/bin/python -m flash.cli --help` lists all 31 subcommands, and `bench/`,
 `trace`, `resume`, `ledger` and `learn` are how a long run is inspected rather than
 re-run.
 
@@ -257,7 +286,7 @@ Vision is benchmarked once the text brain is picked (PLAN §M1–M2).
 .venv/bin/python -m flash.harness --selftest        # 20 offline checks on the oracle
 .venv/bin/python benchmarks/m0_bakeoff.py --dry-run # 20/20 reference solutions pass
 
-# All 36 offline vectors in this file (35 check-summing + m0_bakeoff's oracle) in
+# All 37 offline vectors in this file (36 check-summing + m0_bakeoff's oracle) in
 # one command, summed from the fraction each run
 # PRINTS (never an exit code, never a phrase grep — see SPEC §6 for the two
 # capture traps that rule is there to prevent). Fails if the tree's total moves
@@ -436,7 +465,7 @@ Vision is benchmarked once the text brain is picked (PLAN §M1–M2).
 # Every `flash …` line printed anywhere in this repo — README, CONTRIBUTING, SPEC, docs
 # and the two published workflows' `run:` blocks — is parsed against the real argparse
 # parser, without dispatching, so this file and the pipeline on the front page cannot
-# both drift from the CLI. 25 commands, 185 citations, 15 documents as of 2026-09-29 —
+# both drift from the CLI. 26 commands, 197 citations, 15 documents as of 2026-09-29 —
 # the citation count is this collector's own, and it moves whenever a doc gains a line.
 # Deleting a
 # subcommand from the parser is not enough to fail it either: the failure must NAME the

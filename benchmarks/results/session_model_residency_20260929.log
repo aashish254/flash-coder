@@ -1,0 +1,6 @@
+# R-7.15 model-residency probe, 2026-09-29, one process per row, mlx-community/Qwen2.5-Coder-7B-Instruct-4bit
+# load1 = first load_model() in the process; load2 = a second load after del model, tok + mx.clear_cache()
+# driver: /tmp/load_probe_20260929.py (three sequential runs, this box, 51% battery, no other model loaded)
+import 0.04  load1 2.01  load2 0.65
+import 0.04  load1 2.10  load2 0.74
+import 0.04  load1 2.05  load2 0.66

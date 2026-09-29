@@ -88,7 +88,15 @@ Plan: ../PLAN.md (v3.8). This package grows milestone by milestone:
                                      an address wider than the change is
                                      narrowed to the runs that differ, so a
                                      class header cannot re-emit an untouched
-                                     method)
+                                     method; `land()` is the only thing that
+                                     writes, and `flash run --apply` /
+                                     `flash session` hand it the verified
+                                     workspace)
+  §33.1 UX: flash.cli cmd_session   (R-7.15: `flash session` reads one prompt
+                                     per line from stdin against one repo and
+                                     one oracle, re-reads the workspace from
+                                     disk every turn, and prints a verdict per
+                                     turn plus one report at EOF)
   §33.4: flash.tourney              (tournament mode: k independent candidates,
                                      oracle-scored, width-clamped by the
                                      governor, `--tournament`)

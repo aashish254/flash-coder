@@ -300,6 +300,125 @@ def cmd_run(args) -> int:
     return 0 if r.solved else 1
 
 
+def _read_turns(stream, limit: int = 0) -> list[str]:
+    """One prompt per line until EOF, `quit`, or `limit` turns.
+
+    A pipe and a keyboard take the same path on purpose: the offline vector
+    drives a session with a here-doc and no terminal exists in CI, so "reads
+    turns from stdin" has to be true of one function rather than of a tty.
+    """
+    out: list[str] = []
+    for line in stream:
+        t = line.strip()
+        if t.lower() in ("quit", "exit", "q"):
+            break
+        if not t:
+            continue
+        out.append(t)
+        if limit and len(out) >= limit:
+            break
+    return out
+
+
+def cmd_session(args) -> int:
+    """Many turns against one repo and one oracle (R-7.15).
+
+    `run` answers exactly one task per process, so coding with it meant
+    re-typing `--test … --context … --edit --apply` for every change. A session
+    keeps that pair and puts a printed verdict at the end of each turn — and the
+    turn arm is always the patch arm, because a session whose answers can only
+    be pasted by hand is the defect R-3.2's clause 3 just closed.
+    """
+    import sys
+    from flash import trace
+    import flash.loop as loop
+    from flash.loop import solve_routed
+    from flash.patches import workspace_from_dir
+
+    # An oracle that cannot be read is not a session with no verify: it is a
+    # chat that prints confident answers, so it refuses before generating.
+    try:
+        test = open(args.test).read()
+    except OSError as e:
+        print(f"session: the oracle {args.test} cannot be read ({e}) — every "
+              "turn needs a verify step")
+        return 2
+    if not test.strip():
+        print(f"session: the oracle {args.test} is empty — nothing would be "
+              "verified, so no turn could ever be green")
+        return 2
+
+    loop.ADAPTER = args.adapter or ""
+    loop.CONSTRAIN = args.constrain
+    loop.DEBUG = args.debug
+    loop.EDIT = True
+    loop.HINTS = _hint_names(args.no_source_hint, args.no_graph_hint)
+    trace.CAPTURE = args.trace_full
+    sid = trace.open_session("session", cmd="session",
+                            params={"context": args.context, "test": args.test,
+                                    "small": args.small, "big": args.big,
+                                    "allow_big": args.allow_big,
+                                    "adapter": args.adapter, "edit": True,
+                                    "apply": args.apply,
+                                    "tournament": args.tournament,
+                                    "hints": loop.HINTS,
+                                    "confidence": args.confidence,
+                                    "turns": args.turns})
+    turns = _read_turns(sys.stdin, args.turns)
+    if not turns:
+        print("session: no turns on stdin — nothing was asked, so nothing "
+              "was verified")
+        trace.close_session(solved=False, turns=0)
+        return 2
+
+    print(f"flash session on {args.context} against the oracle {args.test} — "
+          f"{len(turns)} turn(s). Ctrl-D ends it.")
+    solved_n = written_n = 0
+    seconds = 0.0
+    rc = 2
+    for i, prompt in enumerate(turns, 1):
+        task = {"id": f"turn{i}", "prompt": prompt, "test": test,
+                "context": args.context}
+        # The workspace comes off the DISK every turn, so turn N edits the bytes
+        # turn N-1 wrote rather than the bytes this process remembered.
+        task["files"] = workspace_from_dir(args.context)
+        task["edit"] = True
+        task["multi"] = True
+        r, tier, routed = solve_routed(args.small, args.big, task, ROOT,
+                                       small_attempts=args.attempts,
+                                       big_attempts=args.attempts,
+                                       max_tokens=args.max_tokens,
+                                       allow_big=args.allow_big,
+                                       tournament=args.tournament,
+                                       confidence=args.confidence)
+        trace.event("task_end", task_id=task["id"], prompt=prompt[:200],
+                    solved=r.solved, tier=tier, attempts=r.n_attempts,
+                    seconds=r.seconds, routed=routed,
+                    **loop.tournament_fields(r), **_conf_fields(r),
+                    **_patch_fields(r))
+        print(f"[turn {i}] routed={routed} tier={tier} solved={r.solved} "
+              f"attempts={r.n_attempts} ({r.seconds}s){_patch_note(r)}")
+        if not r.solved and r.attempts and r.attempts[-1].err:
+            for line in r.attempts[-1].err.splitlines()[:8]:
+                print(f"  oracle| {line}")
+        rc = _land_edits(args, task, r)
+        # Counted from the tree, not from what the write-back reported: a turn
+        # that was refused has to show up as zero files changed, and the disk is
+        # the only witness that says so.
+        after = workspace_from_dir(args.context)
+        if any(task["files"].get(k) != v for k, v in after.items()):
+            written_n += 1
+        if r.solved:
+            solved_n += 1
+        seconds += r.seconds
+    print(f"[session] turns={len(turns)} solved={solved_n} written={written_n} "
+          f"seconds={round(seconds, 1)} last_rc={rc}")
+    print(f"[trace] replay this session:  flash trace show {sid}")
+    trace.close_session(solved=(rc == 0), turns=len(turns), solved_turns=solved_n,
+                        written_turns=written_n, seconds=round(seconds, 1))
+    return rc
+
+
 SUITE_PARAMS = ("small", "big", "tasks", "with_context", "attempts", "max_tasks",
                 "max_tokens", "max_chars", "threshold", "allow_big", "constrain",
                 "debug", "edit", "tournament", "confidence", "adapter",
@@ -1066,6 +1185,50 @@ def build_parser() -> argparse.ArgumentParser:
                    help="§33.6: also store the exact prompts and outputs, so the "
                         "run can be re-fed to a model")
     p.set_defaults(fn=cmd_run)
+
+    p = sub.add_parser("session", help="many turns against one repo and one "
+                                       "oracle; every turn ends in a verdict")
+    p.add_argument("--test", required=True,
+                   help="the oracle: a file with asserts that verify each turn "
+                        "(read once — a turn cannot rewrite it, see R-3.2 c3)")
+    p.add_argument("--context", required=True,
+                   help="the project each turn patches, and the directory the "
+                        "workspace is re-read from at the start of every turn")
+    p.add_argument("--turns", type=int, default=0, metavar="N",
+                   help="stop after N turns (0 = until EOF or `quit`)")
+    p.add_argument("--apply", action="store_true",
+                   help="R-3.2 clause 3: write each turn's oracle-passing patch "
+                        "set to --context; without it every turn prints NOT "
+                        "APPLIED and changes nothing")
+    p.add_argument("--small", default=DEFAULT_MODEL)
+    p.add_argument("--big", default="mlx-community/Qwen3-30B-A3B-Instruct-2507-4bit")
+    p.add_argument("--attempts", type=int, default=2, help="per tier, per turn")
+    p.add_argument("--max-tokens", type=int, default=1024)
+    p.add_argument("--allow-big", choices=("auto", "always", "never"),
+                   default="auto",
+                   help="escalation vs the §34.1 power governor, same as `run` "
+                        "(a shed turn says so rather than pretending)")
+    p.add_argument("--tournament", type=int, default=1, metavar="K",
+                   help="R-3.3: k oracle-scored candidates per turn, clamped to "
+                        "the governor's width (1 = off)")
+    p.add_argument("--confidence", action=argparse.BooleanOptionalAction,
+                   default=False,
+                   help="R-2.3: print the evidence table after each turn's "
+                        "verdict")
+    p.add_argument("--adapter", default=None, metavar="DIR",
+                   help="R-6.4: LoRA directory over the SMALL tier, as in `run`")
+    p.add_argument("--constrain", action="store_true",
+                   help="R-4.2: mask each turn's decode to the output contract")
+    p.add_argument("--debug", action="store_true",
+                   help="R-4.3: trace a failed turn and feed the digest to its "
+                        "retry")
+    p.add_argument("--no-source-hint", action="store_true",
+                   help="R-1.1b: withhold the LSP source block from retry feedback")
+    p.add_argument("--no-graph-hint", action="store_true",
+                   help="R-1.1b: withhold the graph's dependents block")
+    p.add_argument("--trace-full", action="store_true",
+                   help="§33.6: store the exact prompts and outputs of every turn")
+    p.set_defaults(fn=cmd_session)
 
     p = sub.add_parser("run-suite", help="full policy over a suite (cost report)")
     p.add_argument("--small", default=DEFAULT_MODEL)

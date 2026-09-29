@@ -34,7 +34,9 @@ the two rules that make the rest of the design necessary.
 - **ACT** `flash/loop.py::solve` generates with the fast tier. `flash/grammar.py`
   can constrain decoding to the output contract; `flash/tourney.py` samples k
   candidates and lets the oracle rank them; `flash/patches.py` handles the
-  symbol-addressed edit form.
+  symbol-addressed edit form, and its `land()` is what writes a verified patch set to
+  disk — only differing bytes, never a delete, never the file named `--test`, and
+  only when the oracle passed (`--apply`).
 - **VERIFY** `flash/harness.py` runs the task's assertions one at a time in a
   sandboxed subprocess (`flash/sandbox.py`) and reports a failure as `GOT`/`WANT`
   rather than as a stack line. A static pass (`pyflakes` via
@@ -46,6 +48,15 @@ the two rules that make the rest of the design necessary.
   keeps the in-flight generation so a `kill -9` resumes inside a task rather than
   restarting it; `flash/ledger.py` appends the outcome, which is the training data
   for every future claim about getting better.
+
+Two surfaces run that loop, and they are the same loop. `flash run` answers one task
+per process, which is the right shape for a benchmark. `flash session` keeps one
+`(repo, oracle)` pair and reads prompts from stdin, re-reading the workspace from
+disk at the start of every turn so turn N+1 edits what turn N landed; it is always
+the patch arm, it protects the oracle for the whole session, and it exits with the
+last turn's code (`SPEC.md` R-7.15). Neither one holds the weights between turns:
+`solve_routed` frees the small tier before the brain loads, five times over, and
+that is a memory invariant rather than an oversight.
 
 ## The rule that shaped most of this: record ≠ conversation
 
