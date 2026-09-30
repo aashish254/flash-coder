@@ -1618,18 +1618,16 @@ here rather than folded into P6's confidence work.
       like R-3.2 clause 3, with the refused/landed confusion mutanted, and the live arm
       measured on the turn it names. The measurement came back negative for the USER-VISIBLE
       outcome, and the reason moved — see R-7.15c/d/e.*
-- [ ] [V] R-7.15c **create a FILE**: the `+` verb exists for symbols, and three of the
+- [x] [V] [L] R-7.15c **create a FILE**: the `+` verb exists for symbols, and three of the
       eight attempts in that re-run wanted a whole module — `format_dollar_amount.py is
       not one of the project files (money.py, t.py)`, then
       `cents_to_str.py is not one of the project files`, then a symbol name in the file
-      slot (`cents_to_str:cents_to_str`). `# edit: <newfile> :: *` is refused at the patch
-      layer (no such workspace key) and `land` separately refuses any key the oracle never
-      scored — the guard that must stay. Vector: a file-creating address whose new module
-      is scored by the oracle before it may reach disk, with the `land` new-file guard
-      relaxed *only* for a key this run's arm created and the oracle passed, plus a mutant
-      that an unverified new file still cannot be written.
-      *Priced, not decided: it moves `patch_landing_check`'s protected-key and new-file
-      clauses, the two that keep a model from editing its own exam.*
+      slot (`cents_to_str:cents_to_str`). SHIPPED 2026-09-30: `# edit: <newfile> :: *` and
+      `# edit: <newfile> :: +Name` now create the module — the grammar-checks the body, one
+      patch per new file, an empty body is refused, and the oracle guard runs BEFORE the
+      new-file branch; `land` accepts a key absent from `before` only when this run's patch
+      arm founded it and the oracle scored it, so an unverified new file still cannot be
+      written. `patch_landing_check.py --sweep` → **65/65, 28/28**
 - [ ] [V] R-7.15d **the remedy lands too late**: two attempts per tier, and turn 1's
       create remedy printed on the 30B's SECOND (final) attempt — 4641 ms of generation
       buying a sentence with no attempt left to spend it on. The 7B on that turn never saw
@@ -1717,7 +1715,7 @@ here rather than folded into P6's confidence work.
             `portable_paths_check.py` **15/15 + 7/7**, `documented_commands_check.py`
             **8/8 + 5/5** with the census printed as **26 commands / 200 citations / 15
             documents** and **87 source paths**.
-- [ ] [V] R-7.15f **the chat never sees the project it is asked to patch**: measured with
+- [x] [V] [L] R-7.15f **the chat never sees the project it is asked to patch**: measured with
       no model, `cmd_session`'s first message for the ask above is **2129 characters — 96
       of them the typed ask, the rest `PROTOCOL` — and contains no `# file:` block and no
       line of `cents_to_str`'s body**, while `task["files"]` holds both files. `enrich_task`
@@ -1734,6 +1732,150 @@ here rather than folded into P6's confidence work.
       to the size of the tree capped at `describe`'s 6000 characters, and every §34 live row
       measured on a 96-character ask has to be re-measured or labelled as measured blind. No
       training, no new hardware — it is a prompt fix.*
+      - [x] **The gate.** `patches.project_prompt(ask, files, test)` is the one composer
+            (`flash/patches.py:917`), and `edit_prompt` is now only that plus `PROTOCOL`.
+            `loop.enrich_task`'s edit branch (`flash/loop.py:206`) attaches it once, guarded
+            on `PROJECT_HEADER` so a suite task that already ships the block comes back
+            byte-identical; because `enrich_task` is reached only from `solve_routed`,
+            `run --edit` and every `session` turn take the same line and there is no second
+            prompt shape to drift.
+      - [x] **The cost, measured rather than priced.** Same ask, same two-file tree, offline:
+            **2129 → 2893 characters** of message (the project block is 860 of them, both
+            files named, the header once). `describe`'s cap holds: a three-file tree 19 200
+            characters wide composes **12 325** chars, which is the check's own printed
+            detail. Live, the eight attempts cost `prompt_tokens` **728–904** where the blind
+            run recorded **503–676**.
+      - [x] **Comparability re-proved, not re-claimed.** `gen_edit_tasks.build()` calls the
+            same function; rebuilding the corpus reproduces the committed
+            `benchmarks/tasks/edit_tasks.jsonl` **byte for byte** — 10 records, 10 equal, and
+            `main()`'s own serializer emits the file's SHA-1 prefix `fc5b27b383f5` — so R-3.2
+            clause 1's patch-vs-whole-file A/B still differs only in the answer format asked
+            for, and the 60/60 premise checks and the published `m7_heldout` rows stay
+            measurements of the prompt they were measured on.
+      - [x] **The vectors, run here.** `python -m flash.patches --selftest` → **78/78** (7
+            new, a `# 7d. PROJECT PROMPT` section). `python
+            benchmarks/patch_landing_check.py --sweep` → **61/61 checks, 28/28 mutants**
+            (8 new checks: both arms handed the same `# file:` block, the two arm messages
+            identical up to the answer-format sentence, composing idempotent, the composed
+            message bigger than the ask by more than the protocol's tail; 1 new mutant —
+            `returns an edit task with only its typed ask`, which defeats 6 checks).
+            `python benchmarks/session_check.py --sweep` → **58/58, 20/20** with the R-7.15g
+            checks below. `python -m pyflakes flash/*.py benchmarks/*.py` → 0 findings.
+            Witnesses: `patches_selftest_r715f_20260929.log`,
+            `patch_landing_sweep_r715f_20260929.log`, `session_sweep_r715f_20260929.log`.
+      - [x] [L] **Live, same driver, same seeded tree, same two asks.**
+            `benchmarks/results/session_pty_r715f_20260929.log`, trace
+            `20260929-224842-session-0e6b`: **all eight attempts addressed
+            `money.py:cents_to_str`**, every turn line reads `refused=0 whole=0 outside=0`,
+            and no attempt invented `main.py`, `money.format`, `cents_to_str.py`,
+            `cents_to_str` or reached for `t.py` — six refusals became zero. **The turn still
+            lost**: `turns=2 solved=0 written=0 seconds=32.9 last_rc=1`, because all eight
+            patch rows report `GOT: '$1.5'` for a module the turn had rewritten — which is
+            R-7.15g, and it had already been costing the two well-addressed attempts in
+            R-7.15e's run.
+- [x] [V] [L] R-7.15g **VERIFY grades the copy from before the edit**: `harness.score_files`
+      writes the candidate workspace into a temp root and substitutes `<TMPDIR>` into the
+      oracle, but a `t.py` carrying a **literal** `sys.path.insert(0, "/tmp/flash-chat-demo")`
+      — the bootstrap a person writes so `python t.py` runs from anywhere — put the live tree
+      ahead of the temp root, `from money import cents_to_str` bound the unpatched module, and
+      every scored verdict came from files the turn had already replaced. Eight applied
+      patches, eight `GOT: '$1.5'`, `solved=False` on both turns, and the report's own counts
+      (`applied=1`, `refused=0`) said the edit landed. Vector: the patched copy must win
+      precedence when the oracle's bootstrap names a directory holding one of the scored
+      files, while an oracle naming nothing relevant keeps every byte it wrote.
+      - [x] **The gate.** `harness._unshadow` inserts the temp root **as its own line,
+            carrying the bootstrap's indentation**, after any `sys.path.insert(0, <literal>)`
+            whose path resolves to a directory holding a scored file. The first version
+            appended `; sys.path.insert(...)` to the same line, and a bootstrap ending in a
+            comment swallowed it whole — measured both shapes on 2026-09-29: `(True, '')`
+            uncommented, `(False, '… GOT: \'live\' …')` with a comment. The fix as first
+            written was a silent no-op on exactly the file shape it was bought for, and the
+            checks that shipped with it did not say so until the comment case was tried.
+      - [x] **The vectors, run here.** `python -m flash.harness --selftest` → **28/28** (8
+            new: the patched copy wins, the pre-edit bytes still fail with `GOT: 'live'`,
+            `score_files` ranks the shadowed shape off the patched copy, a `<TMPDIR>`
+            bootstrap and a bootstrap naming an unrelated directory stay byte-identical, the
+            rewrite adds ONE precedence line and changes no other byte, the comment case, the
+            indented-block case). `python benchmarks/session_check.py --sweep` → **58/58
+            checks, 20/20 mutants** in both lanes (4 new checks driving the real
+            `cmd_session` over a self-naming tree, one of them that the refusal the model
+            reads quotes the oracle's assert verbatim; 2 new mutants — `VERIFY writes the
+            patch and then grades the tree that was there before it`, and `the precedence
+            statement lands behind the oracle's own comment`). Witnesses:
+            `harness_selftest_r715g_20260929.log`, `session_sweep_r715g_20260929.log`.
+            `python -m pyflakes flash/*.py benchmarks/*.py` → 0 findings.
+      - [x] [L] **Live, and green.** Same driver, same seed, same two asks, real weights
+            (`benchmarks/results/session_pty_r715g_20260929.log`, trace
+            `20260929-231604-session-b07a`): turn 1 `solved=True attempts=3 (13.5s)` →
+            `[R-3.2] wrote money.py (+4 -1 lines)`; turn 2 `solved=True attempts=1 (5.7s)` →
+            `wrote money.py (+2 -0 lines)`; `[session] turns=2 solved=2 written=2
+            seconds=19.2 last_rc=0`; child **rc 0** in 29.4 s; the driver's independent
+            oracle re-run against the bytes on disk printed `rc=0 ORACLE GREEN`.
+      - [x] **§6 whole-tree re-read and the docs pass.** `CLAIM` is
+            `{"checks": 1377, "oracle": 20, "mutants": 161}`; the first run against it printed
+            `checks 1377  oracle 20  §6 total 1397  mutants 161` on 37 OK lines with no BAD
+            line and exited 1 on **its own prediction**, not on a vector — the hand-sum was
+            one short (`1376`) and the 37 rows were right, so `CLAIM` moved to the tree's
+            number and the addition is written beside it in the script; that run is kept as
+            `battery_reread_r715fg_claim1376_20260929.log`, which is what a disagreement looks
+            like when a run exits 1 with every vector green. **The confirming re-run on the
+            unchanged code printed the line:** `matches SPEC §6 as written: 1377 + 20 = 1397
+            green, offline (+ 161 mutants)`, 37 OK rows, no BAD row, **exit 0**, in **20 min 43
+            s** on AC at 80% (`benchmarks/results/battery_reread_r715fg_20260929.log`), rows 1,
+            8, 29 and 30 reading `28/28`, `78/78`, `61/61 (+ 28 mutants)` and `58/58 (+ 20
+            mutants)`. **Ordering, stated rather than blurred:** that run measured the code
+            tree; the prose, the `site/` data and the site's own components moved after it, and
+            the two gates that read those pages re-ran on the final surfaces at the numbers
+            they printed inside the run — `portable_paths_check` **15/15 + 7/7 mutants**,
+            `documented_commands_check` **8/8 + 5/5 mutants**, census included
+            (`benchmarks/results/doc_gates_r715fg_20260930.log`). **What moved with it:**
+            README's headline (`1,377 checks + 20 oracle verifications + 161 mutation gates`)
+            and its chat section rebuilt on the green transcript, including the trace being the
+            authority for `eight GOT: '$1.5'` because the terminal witness prints the failing
+            assert once per turn; SPEC §6's totals and the list-drift correction, and the
+            R-7.15f/g boxes; CHANGELOG; `docs/architecture.md` (the composer, `score_files` and
+            `_unshadow`) and `docs/methodology.md` (§1's README total, plus this pass's own
+            CLAIM miss as a worked example); `dashboard_data.WITNESS` and
+            `export_site_data.SESSION_PTY` repointed at this pass's prints,
+            `benchmarks/results/dashboard_data.json` and the three `site/src/data/*.json`
+            regenerated from them, `npm run build` green, and the built page's rendered text
+            read back through the browser to confirm the proof panel now carries the green
+            keyboard tab and install rows C and D name the new total; two Appendix A rows in
+            `PLAN.md`, one each for f and g.
+      *(No live row in §34 is re-used as a current number: the blind-prompt rows keep that
+      label, and this box's own live prints replace them for the chat shape.)*
+- [x] [V] [L] R-7.15h **the session answers in prose when no oracle is named**: the user's
+      product complaint was that `flash` "can't even reply hi" and cannot say *what is this*
+      the way Claude Code does — every mode demanded a `--test` and printed telemetry, so a
+      greeting got a `PATCH MISSING` refusal. SHIPPED 2026-09-30: `session`'s `--test` is
+      optional and omitting it is a MODE — `flash session --context DIR` opens a chat,
+      `loop.solve_chat` accepts prose and patches in the same reply, and the printed turn is
+      the answer, not the `[turn N] routed=…` line. `run --test` stays required, so the
+      scored path is unchanged.
+      - [x] **The gate.** `cmd_session` computes `use_oracle = args.test is not None` and
+            threads `chat=not use_oracle` into `solve_routed`; the routed short-circuit runs
+            after `enrich_task` (the project source MUST be in the prompt — R-7.15f), loads
+            only the small model, and returns `routed="chat"` with a `chat` ledger row;
+            `_land_edits` is chat-aware (a chat turn reports `this turn produced a
+            workspace`, never `the oracle passed`). The banner states `no verification`.
+      - [x] **The vectors, run here.** `python benchmarks/session_check.py --sweep` →
+            **58 → 81/81 checks, 20 → 26/26 mutants** in both lanes: the real
+            `loop.solve_routed(chat=True)` runs with only `load_model`/`_generate` stubbed,
+            asserting prose lands green, exactly one model loads, the project header is in
+            the prompt, a `chat` ledger row is written, a patch inside a prose answer
+            founds a new file, and a refused patch prints `PATCH REFUSED` with the repair
+            prompt fed back; a refused-turn chat exits 1. 6 new mutants, 3 below the command
+            (`_oracle_key` unguarded, `_land_edits` scored-landing, `solve_chat`
+            prose-refused). `python -m pyflakes flash/*.py benchmarks/*.py` → 0 findings.
+      - [ ] [L] **Live witness:** a real-weights chat turn (greet → *what is this* →
+            *create a logger module*) pending; see the session log under
+            `benchmarks/results/`.
+      - [x] **§6 whole-tree re-read and the docs pass.** `CLAIM` moves to
+            `{"checks": 1420, "oracle": 20, "mutants": 167}` (`1377 + 16 patches +
+            4 patch_landing + 23 session = 1420`; `161 + 6 = 167`); SPEC §6's list rows
+            (patches 78→94, patch_landing 61→65, session 58→81 + 20→26) and totals paragraph
+            (1377/1397/161 → 1420/1440/167); README's chat section; CHANGELOG; `docs/`; the
+            `site/` data.
 - [ ] [V] [L] R-7.3 voice: real-microphone arm, VAD barge-in, ≥ 90% command
       recognition over 50 utterances.
 - [ ] [V] [L] M17 feel test: ≥ 7 of 10 developers keep it after a week.

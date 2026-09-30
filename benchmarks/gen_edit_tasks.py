@@ -313,8 +313,8 @@ def build() -> list[dict]:
     identical material and differ only in the answer format they are asked
     for. That is what makes their A/B a protocol comparison.
     """
-    from flash.patches import (Patch, apply_patches, changed_lines, describe,
-                               outside_lines)
+    from flash.patches import (Patch, apply_patches, changed_lines,
+                               outside_lines, project_prompt)
 
     tasks, notes = [], []
     for spec in TASKS:
@@ -329,11 +329,11 @@ def build() -> list[dict]:
                                 res.files[target["file"]])
         notes.append(f"{spec['id']}: {len(changed)} line(s) changed inside "
                      f"{target['symbol']}")
-        prompt = (f"The project is below, with the real text of every file.\n\n"
-                  f"{describe(workspace)}\n\n"
-                  f"Requested change: {spec['prompt']}\n\n"
-                  f"The test that must pass afterwards:\n"
-                  f"```python\n{spec['test'].rstrip()}\n```")
+        # One shared composer with the CLI's edit arm (R-7.15f): the stored
+        # prompt and the prompt a typed `flash session` ask becomes are the same
+        # text built by the same function, so R-3.2 clause 1's "same material,
+        # different answer format" holds on the release shape and not only here.
+        prompt = project_prompt(spec["prompt"], workspace, spec["test"])
         tasks.append({
             "id": spec["id"],
             "edit": True,

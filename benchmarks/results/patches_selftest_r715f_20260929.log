@@ -1,0 +1,86 @@
+  OK   resolve: a decorated property's span starts at its decorator  Cart.total L11-L13
+  OK   resolve: a class attribute is addressable  [Def(name='TAX', container='Cart', start=6, end=6, col=4, exported=False)]
+  OK   resolve: a bare name that lives twice is ambiguous, never guessed  Cart.total L11-L13, total L20-L21
+  OK   parse: a header above the fence and inside it both read  2 patches
+  OK   parse: prose and unaddressed blocks are dropped, not guessed
+  OK   apply: two symbols in one file both land
+  OK   apply: the lines outside the addressed ranges are copied, not rewritten
+  OK   apply: a column-0 replacement is restored to the class's nesting  col=4
+  OK   apply: a method-body change keeps the method's own name
+  OK   refuse: a symbol that does not exist  no symbol 'Cart.no_such' in cart.py (it defines: Cart, TAX, __init__, 
+  OK   refuse: an ambiguous address names its candidates  'total' is ambiguous in cart.py: Cart.total L11-L13, total L20-L21 — a
+  OK   refuse: a range past the end of the file  L300-L305 is past the end of a 22-line file
+  OK   refuse: a range that is not inside one symbol  L9-L20 is not inside any symbol — a range patch must sit within one de
+  OK   refuse: a range that runs backwards
+  OK   accept: two non-overlapping symbols in one file are not a clash
+  OK   refuse: a patch nested inside another patch's range is a clash  overlaps the patch already addressed to Cart (L5-L17)
+  OK   refuse: a voided set changes nothing (a retry never repairs the tool)
+  OK   refuse: a file that is not in the project  missing.py is not one of the project files (cart.py, utils.py)
+  OK   refuse: a replacement that does not parse  replacement does not parse: line 6: invalid syntax
+  OK   refuse: a replacement that loses the symbol it addressed  replacement no longer defines Cart.with_tax (as Cart.with_tax L15-L17)
+  OK   refuse: the same rule at module level
+  OK   audit: a whole-file rewrite that also moves an unrelated line scores it as out-of-symbol editing  1 lines
+  OK   audit: a whole-file rewrite is reported, not silently praised  1
+  OK   audit: a rewrite with no collateral lines scores zero but is still counted as imprecise
+  OK   audit: a symbol patch scores zero outside lines
+  OK   audit: changed_lines finds the one line that differs  [6]
+  OK   audit: the request named the class and the change lives in one member — a class-wide address now scores ZERO outside lines, because the applier copied every sibling it did not have to write  0 line(s), spans ((6, 6),)
+  OK   ...and the narrowed splice writes the SAME file as the wide one: narrowing changes the tool's provenance, never the edit  cart.py:Cart L5-L17 [1 of 13 lines rewritten]
+  OK   audit: the summary reports what was rewritten, not what was addressed  cart.py:Cart L5-L17 [1 of 13 lines rewritten]
+  OK   audit: runs splice BOTTOM-UP, because a run that changes the line count moves every later run's coordinates under itself — three runs here, one of them two lines collapsed into one  spans ((6, 6), (8, 9), (13, 13))
+  OK   audit: a sibling the model DID change is still spliced and still scores — an audit that can only report zero is worse than no audit  1 line(s), spans ((6, 6), (13, 13))
+  OK   audit: a verbatim re-type of the addressed class splices NOTHING and scores nothing — `spans` empty is not the same fact as `spans` absent  spans ()
+  OK   audit: a line ADDED at the end of a precisely addressed member scores nothing — the insertion point is inside the block the patch owns, so narrowing does not make the audit stricter than it was  spans ((9, 9),)
+  OK   audit: the same insertion under the OVER-WIDE class address is charged the blank line it precedes — one line conservative, which is the direction an audit has to err in  spans ((10, 10),)
+  OK   ...and a NEW sibling method under that address scores too (it is indistinguishable from the case above at line granularity, and both score)  spans ((10, 10),)
+  OK   range: a verbatim statement replacement keeps the file's indentation
+  OK   create: `# edit: f :: +Name` appends the definition after the file's last top-level one, and the result still parses
+  OK   create: ...as a PURE insertion — every line of the before file is still there at the same number, so nothing had to be re-typed to add the new one  26 lines after a 21-line file
+  OK   create: ...and `changed_lines` still charges the insertion point, because that is what its line means: exactly ONE line, at the very end of the before file, so nothing that already existed was re-typed. The audit that reads ZERO for a create is `outside_lines`, which works off `spans` and not off this  changed_lines=[23] over a 22-element split
+  OK   create: the audit charges a create nothing, because there is no line of the target symbol it could have touched
+  OK   create: the applier supplies the blank lines above a top-level definition, so a landed create reads like hand-written code  '  return x + 1\n\n\ndef shout():\n    return "hi"\n'
+  OK   create: the new symbol is addressable afterwards, which is what lets a later turn REVISE what this turn added
+  OK   create: a create and a revision in ONE set both land — the money demo's real shape is a helper added and its caller changed  cart.py:Cart.TAX L6-L6, cart.py:+shout L22-L21
+  OK   create: `Container.+name` lands INSIDE the container at its members' nesting, and after its last member — the only place a body can go and still be a method  Cart.discount L19-L20
+  OK   create: an empty class gets its method before the `pass`, so the class body keeps owning it  class Box:\n\n    def side(self, n):\n        self.n = n\n    pass\n
+  OK   refuse: a create on a name that EXISTS is refused, and the sentence names the revise form — a landed create and a refused one cannot be confused, which is the pair this clause is gated on  'with_tax' already exists in cart.py at L15-L17 — a create refuses to duplicate 
+  OK   refuse: a create whose body defines a DIFFERENT name is refused: the address is the contract the oracle is about to test  the result does not define 'shout', which is what '+shout' asked it to create
+  OK   refuse: a create whose container is not in the file names the containers that are  no class or container 'Wheel' in cart.py to add 'spin' to (its top-level definit
+  OK   refuse: a bare `+` names nothing to create, and the refusal spells the form rather than leaving the model to guess it  '+' names nothing to create — a create address is '+Symbol' or '+Container.symbo
+  OK   refuse: the OTHER direction carries the remedy too — revising a symbol that is not there is told how to ADD it, which is the sentence that turns this clause's measured refusal into a next-attempt win  no symbol 'shout' in cart.py (it defines: Cart, TAX, __init__, r, total, with_tax) — to ADD a symbol
+  OK   create: the address parses with NO parser change — `+Name` was always a `\S+`, so the tolerance that let it through is pinned here rather than discovered later
+  OK   create: the PROTOCOL the model is shown actually names the form — a capability the prompt does not mention is a capability the model cannot ask for
+  OK   create: one bad create voids the whole set, like every other refusal
+  OK   oracle: the refusal comes before the address is resolved, so R-7.15e's measured case — `L10-L12` on a short oracle — is answered about the file and not about a line count  t.py is the oracle this run scores against, so it is not a patch target — an assertion is 
+  OK   oracle: a patch that needs no rule but this one is refused too — the range is inside a definition, the body is legal, the file is long enough, so only the oracle's name can stop it  t.py is the oracle this run scores against, so it is not a patch target — an assertion is 
+  OK   oracle: ...and the sentence names the oracle and the module to change, not the coordinates — an assertion is never edited to fit the code, so a retry after a line-number complaint chases the wrong thing  t.py is the oracle this run scores against, so it is not a patch target — an assertion is 
+  OK   oracle: all four address kinds are refused, because the file is out of scope before anything about the address is read — a gap in one kind would be a way to edit the assertion after all  range:t.py is the oracle this run scores again; symbol:t.py is the oracle this run scores again; whole:t.py is the oracle this run scores again; create:t.py is the oracle this run scores again
+  OK   oracle: naming the oracle takes nothing away from the real target — the same symbol patch still applies while it is set, which is the difference between a guard and a shutdown  ok=True
+  OK   oracle: one oracle patch voids the set, so a fix that arrives with an edited assertion writes neither  False [(Patch(file='t.py', address='*', body='print(1)\n'), 't.py is the oracle this run scores against, so it is not a patch target — an assertion is never edited to fit the code. Change the module the test imports.')]
+  OK   oracle: with no oracle named the same patch applies exactly as it always did — the rule is the caller's knowledge of what it scores against, not a second grammar, which is why the published suite numbers survive this clause  True
+  OK   oracle: the PROTOCOL tells the model not to address the test file, so the refusal is the second line of defence and not the first  le that came with the request. It is the oracle this run scores against, not one of the files to change: an assertion edited to fit the code is not a fix, so the change belongs in the module the test imports;
+* `# edit: <file> :: *` rewrites the whole file. Use it only when no symbol address fits — it is the thing patches exist to avoid.
+Change only what the request asks for. One patch per symbol.
+  OK   project prompt: every key of the tree is named as an address the model can write — a patch set can only be refused for a file it was shown  The project is below, with the real text of every file.
+
+# file: money.py
+```python
+def cents_to_str(cents: int) -> str:
+  OK   project prompt: the real body ships rather than an outline, because a symbol patch has to re-type that symbol's statements and a listing of names gives it nothing to re-type
+  OK   project prompt: the ask is quoted verbatim under a heading that says what it is, so the project block and the request are not one blob
+  OK   project prompt: the oracle arrives fenced and labelled, which is what lets the model read the assertion it must satisfy instead of patching it — R-7.15e's refusal is the backstop, this is the front line
+  OK   project prompt: with no test named, no test heading is invented — a session always has an oracle but `run --edit` without `--test` must not claim one it was never given
+  OK   project prompt: the header is one exact sentence at the front, and it is the same object `enrich_task` reads as the marker — a prompt that drifted from it would be composed twice
+  OK   project prompt: an over-cap tree costs a truncated block instead of an unbounded prompt — every file is still named, so the addresses stay legal while the token budget holds  12325 chars composed from 19200 of source
+  OK   apply: an empty patch set is a no-op, not an error
+  OK   workspace: a project directory loads under its relative path  __init__.py, cart.py, models.py, pricing.py, utils.py
+  OK   workspace: a minishop method is addressable in the loaded tree  L25-L28 col=4
+  OK   loop: a refused patch costs an attempt, not the project  2 attempts
+  OK   loop: the refusal reason reaches the retry  PATCH REFUSED: rules.py:titleCasse — no symbol 'titleCasse' in rules.p
+  OK   loop: the answer is the patched project, file by file  551 chars
+  OK   loop: the attempt that failed is recorded as a refusal, not a test failure
+  OK   loop: the accepted attempt touched nothing outside its symbol
+  OK   loop: a patch on one module leaves its sibling byte-identical  1 attempts
+  OK   loop: the one-symbol change reproduces the reference project
+
+patches selftest: 78/78 checks passed

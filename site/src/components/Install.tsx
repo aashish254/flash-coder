@@ -25,7 +25,7 @@ const SHAPES = [
     name: 'editable install of the clone, run from elsewhere',
     status: 'dated',
     detail:
-      'all 33 vectors green from a clone installed with -e. Run on 2026-09-27 against the totals of that day (1,104 + 20 = 1,124, 78 gates). The battery is 37 lines and 1,345 + 20 = 1,365 with 157 gates as of the 2026-09-29 R-7.15e re-read — this exact shape has not been re-run since; what has been re-run is the checkout battery, and what is being re-run is the download, on both of its install shapes (row D).',
+      'all 33 vectors green from a clone installed with -e. Run on 2026-09-27 against the totals of that day (1,104 + 20 = 1,124, 78 gates). The battery is 37 lines and 1,420 + 20 = 1,440 with 167 gates as of the 2026-09-30 R-7.15c/h re-read — this exact shape has not been re-run since; what has been re-run is the checkout battery, and what is being re-run is the download, on both of its install shapes (row D).',
     witness: 'benchmarks/results/r75_install_shapes_20260927.log',
   },
   {
@@ -33,7 +33,7 @@ const SHAPES = [
     name: 'unpacked sdist / “Download ZIP”, no .git',
     status: 'verified',
     detail:
-      'the whole battery ran inside the unpacked sdist on 2026-09-28, on both install shapes the one tarball supports: `pip install <sdist>` printed 33 of 35 lines and 1,119 + 20 = 1,139 with 85 gates and two named grammar refusals, and `pip install \'<sdist>[ts]\'` printed 35 of 35 and 1,210 + 20 = 1,230 with 111 gates, agreeing with SPEC §6 as written. Those are that tree\'s prints — the battery is 37 lines as of the 2026-09-29 re-reads (1,345 + 20 = 1,365 with 157 gates on the R-7.15e print, the fourth of that day), and this driver is what re-measures both shapes rather than adding two to the old totals: its expected line count comes from `battery_reread.BATTERY`, so on this tree it asks for 35 of 37 on the plain install and 37 of 37 with the grammar. The driver fails if a TypeScript vector passes on the plain install — that shape is supposed to refuse.',
+      'the whole battery ran inside the unpacked sdist on 2026-09-28, on both install shapes the one tarball supports: `pip install <sdist>` printed 33 of 35 lines and 1,119 + 20 = 1,139 with 85 gates and two named grammar refusals, and `pip install \'<sdist>[ts]\'` printed 35 of 35 and 1,210 + 20 = 1,230 with 111 gates, agreeing with SPEC §6 as written. Those are that tree\'s prints — the battery is 37 lines as of the 2026-09-29 and -30 re-reads (1,345 + 20 = 1,365 with 157 gates on the R-7.15e print, the fourth of that day, 1,377 + 20 = 1,397 with 161 gates on the R-7.15f/g print, the fifth, and 1,420 + 20 = 1,440 with 167 gates on the R-7.15c/h print of 2026-09-30, the sixth), and this driver is what re-measures both shapes rather than adding two to the old totals: its expected line count comes from `battery_reread.BATTERY`, so on this tree it asks for 35 of 37 on the plain install and 37 of 37 with the grammar. The driver fails if a TypeScript vector passes on the plain install — that shape is supposed to refuse.',
     witness:
       'benchmarks/results/r75_sdist_battery_shapes_20260928.log (the charge-limited first pass is kept beside it as …_battgate_…)',
   },
@@ -87,7 +87,11 @@ export function Install() {
             </a>{' '}
             is a verbatim run of it, the refused turn included, and the keyboard tab is
             the same command driven through a real pseudo-terminal with every byte
-            timestamped — including the two turns it lost.
+            timestamped — the author&apos;s own demo task, two turns both solved and both
+            written,{' '}
+            <span className="num text-pass">last_rc=0</span>. The README names the two
+            losing prints that came before it, on the same seeded tree, and what was
+            fixed between them.
           </p>
         </Reveal>
 

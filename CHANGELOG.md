@@ -9,6 +9,39 @@ versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- **R-7.15h: `flash session` answers in prose when no oracle is named — it became a chat,
+  not only a scorer.** Every mode used to demand `--test` and print telemetry, so a
+  greeting got a `PATCH MISSING` refusal; the author's complaint was that it "can't even
+  reply hi" and can't say *what is this* the way Claude Code does. Omit `--test` and the
+  session is a MODE: `cmd_session` sets `use_oracle = args.test is not None`, threads
+  `chat=not use_oracle` into `solve_routed`, which short-circuits after `enrich_task` (the
+  project source stays in the prompt — R-7.15f), loads only the small model, and returns
+  `routed="chat"` with a `chat` ledger row; the printed turn is the model's prose, not the
+  `[turn N] routed=…` line. The banner says `no verification` — a turn is graded by nothing,
+  and it can still carry a patch, so `hi`, `what does money.py do`, and `create a logger
+  module that prefixes [app]` all work, the last writing a brand-new file with the R-7.15c
+  create address. `run --test` stays required, so the scored path is unchanged, and
+  `_land_edits` is chat-aware (a chat turn reports `this turn produced a workspace`, never
+  `the oracle passed`). Offline: `python benchmarks/session_check.py --sweep` → **81/81
+  checks, 26/26 mutants** in both lanes, the 31st line of §6 — the vector runs the real
+  `solve_routed(chat=True)` with only `load_model`/`_generate` stubbed and asserts prose
+  lands green, one model loads, the project header is present, a `chat` ledger row is
+  written, a patch inside a prose answer founds a new file, and a refused patch prints
+  `PATCH REFUSED` with the repair fed back; 6 new mutants, 3 of them below the command
+  (`_oracle_key` unguarded, `_land_edits` scored-landing, `solve_chat` prose-refused).
+- **R-7.15c: the patch arm can create a whole new FILE, not only revise a symbol.** Three
+  of eight attempts on the demo turn invented a module (`format_dollar_amount.py`, then
+  `cents_to_str.py`) and were refused because the workspace had no such key. `# edit:
+  <newfile> :: *` (whole file) and `# edit: <newfile> :: +Name` (one definition) now
+  create it — the grammar-checks the body, one patch per new file, an empty body is
+  refused, and the oracle guard runs BEFORE the new-file branch. `land` accepts a key that
+  was never in the workspace only when this run's patch arm founded it and the oracle
+  scored it, so an unverified new file still cannot be written (the escape guard and the
+  protected-oracle guard are unchanged). Offline: `python -m flash.patches --selftest` →
+  **94/94**, `python benchmarks/patch_landing_check.py --sweep` → **65/65 checks, 28/28
+  mutants** — the created file lands as a `[("money.py",+1,-1),("new.py",+1,-0)]` change,
+  a 3-line create reports `+3 -0`, `../new.py` create is refused by the escape guard, and
+  the oracle cannot be founded.
 - **R-7.15: the loop got the surface the author was actually asking for — `flash
   session`, many turns against your repo and your own asserts, with the tree
   re-read from disk between turns.** The reports that made it a requirement were "if
@@ -199,6 +232,114 @@ versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   distinct commands in 200 citations across 15 documents** and **87 source paths**, and
   `python -m pyflakes flash/*.py
   benchmarks/*.py` **0 findings**.
+- **R-7.15f: the chat is now shown the project it is asked to patch — and the demo turn it
+  was bought for still lost, which is how R-7.15g was found.** Measured offline, with no
+  model: `cmd_session`'s first message for a 96-character ask was **2129 characters** of
+  request plus protocol and **not one line of source**, while `task["files"]` already held
+  `money.py` and `t.py`; `flash run --edit --context <dir>` was the same shape, and
+  `enrich_task` returned edit tasks unchanged on the argument that an edit task ships its
+  own source — true only of the *stored* corpus tasks, which the generator composes with
+  `describe(workspace)` in the prompt. That is why six of the eight attempts in the last
+  live run were refusals for not knowing what the project is: four invented a module
+  (`main.py`, `money.format`, `cents_to_str.py`, `cents_to_str`) and two reached for the
+  oracle. One composer fixes both surfaces at once: `patches.project_prompt(ask, files,
+  test)` (`flash/patches.py:917`) emits `The project is below, with the real text of every
+  file.` + the listing + `Requested change: <ask>` + the oracle's text, `edit_prompt` is
+  now only that plus `PROTOCOL`, and `loop.enrich_task`'s edit branch is the single attach
+  point, guarded on that header so a task that already ships the block comes back
+  byte-identical. Because `enrich_task` is reached only from `solve_routed`, `run --edit`
+  and every `session` turn take the same line. Measured, same shape: **2129 → 2893
+  characters** (project block 860, both files named, header once), `describe`'s cap holds —
+  a 19 200-character tree composes **12 325 chars** — and live `prompt_tokens` moved from
+  the blind run's **503–676** to **728–904**. R-3.2 clause 1's comparability is re-proved
+  rather than re-claimed: `gen_edit_tasks.build()` calls the same function and rebuilding
+  the corpus reproduces the committed `benchmarks/tasks/edit_tasks.jsonl` **byte for byte**
+  (10 records equal; `main()`'s serializer emits the file's SHA-1 prefix `fc5b27b383f5`),
+  so no stored prompt moved and the published `m7_heldout` rows still measure the prompt
+  they measured. Vectors, run 2026-09-29 on the edited tree: `python -m flash.patches
+  --selftest` **71 → 78/78** (`patches selftest: 78/78 checks passed`; 7 new, a
+  `# 7d. PROJECT PROMPT` section — every key named as an address, the real body rather than
+  an outline, the ask quoted verbatim under its own heading, the oracle fenced and labelled,
+  no test heading invented when no test was named, the header being the marker
+  `enrich_task` reads, and the over-cap path) and `python
+  benchmarks/patch_landing_check.py --sweep` **53 → 61 checks, 27 → 28 mutants** (`R-3.2
+  clause 3, patch landing: 61/61 checks passed`, `patch-landing mutants: 28/28 caught` in
+  both lanes) — the new checks include that **both arms** get the same `# file:` block, that
+  their two messages are identical up to the sentence naming the answer format, that
+  composing is idempotent, and that the composed message exceeds the ask by more than the
+  protocol's own tail; the new mutant returns an edit task with only its typed ask and
+  defeats 6 checks. Witnesses: `benchmarks/results/patches_selftest_r715f_20260929.log`,
+  `patch_landing_sweep_r715f_20260929.log`, `session_sweep_r715f_20260929.log`. **Live, same
+  driver, same seed, same two asks** (`session_pty_r715f_20260929.log`, trace
+  `20260929-224842-session-0e6b`): **all eight attempts addressed `money.py:cents_to_str`**,
+  every turn line reads `refused=0 whole=0 outside=0` — six refusals became zero — and the
+  turn still lost, `turns=2 solved=0 written=0 seconds=32.9 last_rc=1`, because all eight
+  patch rows reported `GOT: '$1.5'` for a module the turn had already rewritten. Docs moved
+  with it: README's chat section now states the 2129 → 2893 measurement and the patch block
+  says what `--edit` puts in the message, `docs/architecture.md` names the composer and the
+  single attach point, and `docs/methodology.md` keeps the seam rule this box tested.
+- **R-7.15g: VERIFY graded the bytes from before the edit, so a correct answer lost — and
+  the first green live chat turn on the author's own demo task.** The prompt fix worked and
+  the turn kept losing, which moved the finding off the model and onto the oracle seam.
+  `harness.score_files` writes the candidate workspace into a temp root and substitutes
+  `<TMPDIR>` into the test, but the demo's `t.py` carries a **literal**
+  `sys.path.insert(0, "/tmp/flash-chat-demo")` — the bootstrap anyone writes so `python t.py`
+  runs from anywhere. That path resolves to the live tree, so it stayed ahead of the temp
+  root on `sys.path`, `from money import cents_to_str` bound the **unpatched** module, and
+  the verdict was computed from files the turn had replaced: eight `applied=1` patches,
+  eight identical `GOT: '$1.5'`. No count in the report could have caught it — the patch
+  layer, the verdict line and the trace all said the edit landed; only the scored copy
+  disagreed. `harness._unshadow` now inserts the temp root **as its own line, carrying the
+  bootstrap's indentation**, after any `sys.path.insert(0, <literal>)` whose path resolves to
+  a directory holding one of the scored files — and it leaves an oracle alone when its
+  bootstrap is `<TMPDIR>` or names a directory holding none of them, so no byte of the exam
+  changes. **The first version of this fix was a silent no-op on exactly the shape it was
+  bought for**, and it was found by attacking the implementation rather than by the checks
+  that shipped with it: appending `; sys.path.insert(...)` to the bootstrap line works until
+  that line ends in a comment, and a `#` swallows whatever follows. Measured both shapes —
+  `(True, '')` uncommented against `(False, '… GOT: \'live\' …')` with one. So the appended
+  form is itself a mutant now. Vectors, run 2026-09-29: `python -m flash.harness --selftest`
+  **20 → 28/28** (`harness selftest: 28/28 checks passed`; the 8 new ones are the patched
+  copy winning, the pre-edit bytes still failing with `GOT: 'live'` so this is precedence
+  and not a softened verdict, `score_files` ranking the shadowed shape off the patched copy,
+  a `<TMPDIR>` bootstrap and an unrelated-directory bootstrap both left byte-identical, the
+  rewrite adding ONE precedence line and changing no other byte, the trailing-comment case,
+  and the indented-block case) and `python benchmarks/session_check.py --sweep` **49 → 58
+  checks, 17 → 20 mutants** (`R-7.15 interactive session: 58/58 checks passed`, `session
+  mutants: 20/20 caught` in both lanes) — 4 new checks drive the real `cmd_session` over a
+  tree whose oracle names its own directory, including that the refusal the model reads
+  quotes the oracle's assert **verbatim**, so a precedence fix that rewrote the exam cannot
+  pass while turns start going green; 2 new mutants, `VERIFY writes the patch and then grades
+  the tree that was there before it` and `the precedence statement lands behind the oracle's
+  own comment`. Witnesses: `benchmarks/results/harness_selftest_r715g_20260929.log`,
+  `session_sweep_r715g_20260929.log`. **Live, and green for the first time**
+  (`session_pty_r715g_20260929.log`, trace `20260929-231604-session-b07a`): turn 1
+  `routed=small tier=big solved=True attempts=3 (13.5s) patches=1 refused=0` → `[R-3.2] wrote
+  money.py (+4 -1 lines)`; turn 2 `tier=small solved=True attempts=1 (5.7s)` → `wrote
+  money.py (+2 -0 lines)`; `[session] turns=2 solved=2 written=2 seconds=19.2 last_rc=0`; the
+  child exited **rc 0** in 29.4 s; and the driver re-ran the oracle from outside the session
+  against the bytes on disk and printed `rc=0 ORACLE GREEN`. The file it left is what the
+  asserts describe — an `isinstance` guard raising `ValueError`, zero-padded cents, a minus
+  sign in front of the dollar. The model's addresses were already right before this box
+  closed; what changed is that the verdict finally scores the copy it claims to.
+  **§6, re-read on this tree and printed:** `python benchmarks/battery_reread.py` →
+  `checks 1377  oracle 20  §6 total 1397  mutants 161`, 37 OK rows, no BAD row, **exit 0**, in
+  **20 min 43 s** on AC at 80% (`benchmarks/results/battery_reread_r715fg_20260929.log`), with
+  its own `matches SPEC §6 as written: 1377 + 20 = 1397 green, offline (+ 161 mutants)`. The
+  run before it exited 1 having printed every vector green, because a hand-summed `CLAIM` of
+  1376 met 37 rows that add to 1377 — `SPEC §6's checks claim is 1376, the tree prints 1377` —
+  and it is kept beside the confirming run as
+  `benchmarks/results/battery_reread_r715fg_claim1376_20260929.log`. The prediction moved; no
+  row did. Docs, the site and PLAN moved after that run, so the ordering is stated rather than
+  blurred, and the two gates that read those pages re-ran on the final surfaces at the numbers
+  they printed inside it — `portable_paths_check` **15/15 + 7/7 mutants**,
+  `documented_commands_check` **8/8 + 5/5 mutants**, census included
+  (`benchmarks/results/doc_gates_r715fg_20260930.log`). `dashboard_data.WITNESS` and
+  `export_site_data.SESSION_PTY` now point at this pass's prints, the three
+  `site/src/data/*.json` are regenerated from them, `npm run build` is green, and the built
+  page was read back through the browser rather than assumed: it renders 1,397 claims / 161
+  mutation gates / 37 vectors, the proof panel's keyboard tab is the green witness ending
+  `rc=0 ORACLE GREEN`, and install rows C and D name 1,377 + 20 = 1,397 as the current total.
 - **Model residency, re-measured rather than remembered, because the number quoted
   before this pass did not reproduce:** three fresh processes, 51% on battery,
   first load **2.01 / 2.10 / 2.05 s** and second load after the free

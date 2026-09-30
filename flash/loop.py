@@ -194,11 +194,20 @@ def enrich_task(task: dict, root, max_chars: int = 4000) -> dict:
     and ranked doc excerpts for tasks that declare `doc_urls` (Phase-4 web
     tool: knowledge as a tool, PLAN §25a3). Both idempotent via markers."""
     from pathlib import Path
-    if task.get("edit"):
-        # An edit task ships its own real source in the prompt; a skeleton on
-        # top of it would be pure token cost.
-        return task
     prompt = task["prompt"]
+    if task.get("edit"):
+        # R-7.15f: an edit task must ship its own real source. The suite's
+        # stored tasks already do, so the header is the marker that the material
+        # is there and nothing is added twice. A `--context` tree read off disk
+        # did not, which left the CLI's patch arm addressing files it had never
+        # been shown — inventing a module and reaching for the oracle were the
+        # six refusals that came out of that. A skeleton on top of real source
+        # would be pure token cost, so this is the only injection here.
+        from flash.patches import PROJECT_HEADER, project_prompt
+        files = task.get("files") or {}
+        if files and PROJECT_HEADER not in prompt:
+            prompt = project_prompt(prompt, files, task.get("test") or "")
+        return dict(task, prompt=prompt)
     query = prompt                                  # rank vs the RAW prompt
     if task.get("context"):
         task = dict(task, _ctx_dir=str(Path(root) / task["context"]))
@@ -438,6 +447,71 @@ def _solve_edits(model, tokenizer, task: dict, max_attempts: int,
             break
         messages += [{"role": "assistant", "content": out},
                      {"role": "user", "content": err + "\n\n" + RETRY_EDITS}]
+    res.seconds = round(time.perf_counter() - t0, 1)
+    return res
+
+
+def solve_chat(model, tokenizer, task: dict, max_attempts: int = 2,
+               max_tokens: int = 1024, stage: str = "small") -> SolveResult:
+    """Answer one turn in prose, with the project in front of it (R-7.15h).
+
+    The patch arm cannot carry this: `_solve_edits` fails an attempt whose
+    response holds no `# edit:` header, because on a task with an oracle a prose
+    answer is a non-answer — there is nothing for the test to have verified. With
+    no oracle there is nothing to verify either, so that check stops being a
+    guard and becomes the reason `hi` gets a refusal instead of a reply.
+
+    So the shapes are accepted together here, in the order the user means them:
+      * no patch in the response  -> the text IS the answer, and it is green;
+      * patches that apply        -> they land, and the text is still the answer,
+        which is what makes "create me a logger module" work in one turn;
+      * patches that are refused  -> the turn is not green, because the model
+        said it changed something and changed nothing. That is a lie about the
+        project, and a session that prints it green is worse than one that
+        refuses.
+
+    The answer is the ONLY thing here that reaches the user: `code` carries the
+    prose so the CLI can print it, and `workspace` carries the patched tree for
+    `land`. Verification is deliberately absent — that is the whole trade of
+    chat mode, and the CLI says so on the line that opens the session.
+    """
+    from flash.patches import (PROJECT_HEADER, apply_patches, parse_patches,
+                               project_prompt)
+    t0 = time.perf_counter()
+    res = SolveResult(task_id=task["id"], solved=False)
+    workspace = dict(task.get("files") or {})
+    ask = task["prompt"]
+    prompt = ask if PROJECT_HEADER in ask else project_prompt(ask, workspace)
+    messages = [{"role": "user", "content": prompt}]
+    for attempt_i in range(max_attempts):
+        out = _generate(model, tokenizer, messages, max_tokens,
+                        temp=0.0 if attempt_i == 0 else 0.7, seed=attempt_i,
+                        task_id=task["id"], attempt=attempt_i)
+        patches = parse_patches(out)
+        err = ""
+        ok = True
+        if patches:
+            result = apply_patches(workspace, patches,
+                                   oracle=task.get("test_path") or "")
+            if result.ok and result.applied:
+                workspace = result.files
+            else:
+                ok = False
+                err = "PATCH REFUSED: " + "; ".join(
+                    f"{p.file}:{p.address} — {w}" for p, w in result.refusals)
+        trace.event("chat", task_id=task["id"], attempt=attempt_i, ok=ok,
+                    kind="patch" if patches else "prose",
+                    chars=len(out), applied=len(workspace) - len(task.get("files") or {}),
+                    why=err[:trace.MAX_ERR] if err else None,
+                    ms=round((time.perf_counter() - t0) * 1000))
+        res.attempts.append(Attempt(code=out, ok=ok, err=err,
+                                    patches=len(patches)))
+        if ok:
+            res.solved = True
+            res.workspace = dict(workspace)
+            break
+        messages += [{"role": "assistant", "content": out},
+                     {"role": "user", "content": err}]
     res.seconds = round(time.perf_counter() - t0, 1)
     return res
 
@@ -763,7 +837,8 @@ def solve_routed(small_repo: str, big_repo: str, task: dict, root,
                  small_attempts: int = 2, big_attempts: int = 2,
                  max_tokens: int = 1024, max_chars: int = 4000,
                  threshold: float = 0.5, allow_big: str = "auto",
-                 tournament: int = 1, confidence: bool = False
+                 tournament: int = 1, confidence: bool = False,
+                 chat: bool = False
                  ) -> tuple[SolveResult, str, str]:
     """The full policy: PERCEIVE(repo skeleton) -> ROUTE -> small -> reactive ESC.
 
@@ -785,6 +860,13 @@ def solve_routed(small_repo: str, big_repo: str, task: dict, root,
     so width 1 keeps the chain. Multi-file and edit tasks keep the chain too
     (a candidate is a whole project there, not an answer).
 
+    `chat` (R-7.15h) is the free-form turn: one small-tier generation, prose
+    accepted as the answer, no router, no escalation, no tournament and no
+    confidence table — every one of those spends its budget on predicting or
+    verifying a TEST, and a chat turn has no test to spend on. The tier it ran
+    on is still reported, because the money question ("which model answered me")
+    does not stop being interesting just because nothing was scored.
+
     `confidence` (R-2.3) adds §34.2's prospective evidence table on the answer
     this run surfaces — on BOTH tiers, and on a failure too, because "what did
     you actually verify" is the same question either way. It never changes the
@@ -796,18 +878,51 @@ def solve_routed(small_repo: str, big_repo: str, task: dict, root,
     from flash.route import route_task, tier_name
 
     task = enrich_task(task, root, max_chars)
-    # R-5.3: adopt whatever the dead session left on THIS task before any arm
-    # runs, so the chain/patch/tournament below sees a resumed span instead of
-    # starting a cold one. A frame naming another task is left on disk alone:
-    # its own task will pick it up when the loop reaches it.
-    if checkpoint.armed():
-        checkpoint.handoff(checkpoint.session(), task["id"])
+
     entry = {"task_id": task["id"], "prompt": task["prompt"][:300],
              "ctx": bool(task.get("context")),
              # the label is the model that made the decision, adapter included:
              # a ledger row that says "7B" for a 7B+lora is a wrong attribution,
              # not a shorthand one.
              "small": small_label(small_repo), "big": big_label(big_repo)}
+    conf_ok, conf_why = confidence_eligible(confidence, task)
+    if chat:
+        # §34.2's four signals execute one `solution.py` against its hidden
+        # test; a chat turn has no test, so the honest gate is a refusal that
+        # the record still goes through — every ledger.row passes with_conf,
+        # and a chat's contributes nothing.
+        conf_ok, conf_why = False, "chat mode: no test to assess confidence against"
+
+    def with_conf(r: SolveResult) -> None:
+        """Merge §34.2's evidence fields into the record this run ends in.
+        Called at every return path, so a shed or a big answer carries the
+        same evidence as a small one — the gate counts offers, not tiers."""
+        if conf_ok:
+            entry.update(assess_confidence(task, r))
+
+    if chat:
+        # One model, one turn, no verdict to earn. The ledger row is still
+        # written: a chat session costs the same GPU seconds as a scored one,
+        # and the whole point of the ledger is that nobody has to guess what
+        # this machine spent.
+        model, tok = load_model(small_repo)
+        r = solve_chat(model, tok, task, max_attempts=small_attempts,
+                       max_tokens=max_tokens)
+        del model, tok
+        mx.clear_cache()
+        tier = "small" if r.solved else "failed"
+        with_conf(r)
+        ledger.record({**entry, "chat": True,
+                       "tier": tier, "routed": "chat", "solved": r.solved,
+                       "attempts": r.n_attempts, "seconds": r.seconds})
+        return r, tier, "chat"
+
+    # R-5.3: adopt whatever the dead session left on THIS task before any arm
+    # runs, so the chain/patch/tournament below sees a resumed span instead of
+    # starting a cold one. A frame naming another task is left on disk alone:
+    # its own task will pick it up when the loop reaches it.
+    if checkpoint.armed():
+        checkpoint.handoff(checkpoint.session(), task["id"])
     st, caps = power.governor(power.peak_gb(small_repo))
     entry["profile"] = caps.profile
     model, tok = load_model(small_repo)
@@ -848,7 +963,6 @@ def solve_routed(small_repo: str, big_repo: str, task: dict, root,
     # "tournament asked for and declined by the width cap".
     from flash import tourney
     tour_ok, tour_why = tourney.eligible(tournament, caps.tournament_width, task)
-    conf_ok, conf_why = confidence_eligible(confidence, task)
     trace.event("route", task_id=task["id"], routed=routed,
                 route_p=None if route_p is None else round(route_p, 4),
                 route_why=route_why,
@@ -858,13 +972,6 @@ def solve_routed(small_repo: str, big_repo: str, task: dict, root,
                 conf_on=confidence, conf_used=conf_ok,
                 why=None if big_ok else big_why,
                 tour_why=tour_why or None, conf_why=conf_why or None)
-
-    def with_conf(r: SolveResult) -> None:
-        """Merge §34.2's evidence fields into the record this run ends in.
-        Called at every return path, so a shed or a big answer carries the
-        same evidence as a small one — the gate counts offers, not tiers."""
-        if conf_ok:
-            entry.update(assess_confidence(task, r))
 
     if routed.startswith("big"):             # rare, high-precision: go direct
         if not big_ok:                       # the governor outranks the router

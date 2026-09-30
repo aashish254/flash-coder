@@ -41,10 +41,30 @@ the two rules that make the rest of the design necessary.
   reads names the oracle rather than a line number past the end (`SPEC.md` R-7.15e);
   one function, `cli._oracle_key`, supplies the key to that refusal and to the
   write-back gate, so they cannot disagree about which file the run scores against.
+  A patch can also *found* a module rather than revise one: `# edit: <newfile> :: *`
+  writes the whole file and `# edit: <newfile> :: +Name` writes one definition, the
+  grammar-checks the body, and `land` accepts a key that was never in the workspace only
+  when this run's patch arm founded it and the oracle scored it — so an unverified new
+  file still cannot reach disk while a verified one can (`SPEC.md` R-7.15c).
+  What the model is *shown* is composed by one function too: `patches.project_prompt(ask,
+  files, test)` puts the real text of every workspace file, the request and the oracle into
+  the message, and `loop.enrich_task`'s edit branch is the only place it attaches — guarded
+  on that header, so the suite's stored tasks and a typed `flash session` ask are built by
+  the same line and cannot drift apart (`SPEC.md` R-7.15f; before it, a 96-character ask was
+  the whole message inside 2129 characters of protocol, and four of eight attempts invented a
+  module to patch).
 - **VERIFY** `flash/harness.py` runs the task's assertions one at a time in a
   sandboxed subprocess (`flash/sandbox.py`) and reports a failure as `GOT`/`WANT`
   rather than as a stack line. A static pass (`pyflakes` via
-  `python-lsp-server`) short-circuits before generation is even diagnosed.
+  `python-lsp-server`) short-circuits before generation is even diagnosed. The verdict is
+  about the copy the turn produced: `score_files` writes the patched workspace to a temp
+  root, and when the oracle bootstraps `sys.path` with a literal directory of its own — the
+  shape a stranger's `t.py` really is — `harness._unshadow` inserts that temp root **as its
+  own line, with the bootstrap's indentation**, so the unpatched module cannot stay first on
+  the path and silently grade the bytes from before the edit (`SPEC.md` R-7.15g). An
+  inserted line rather than a `; sys.path.insert(...)` appended after the bootstrap, because
+  a bootstrap ending in a comment swallows anything appended to it; both the check and the
+  mutant name that case.
 - **ESCALATE** `flash/power.py` decides what the machine may load right now — AC
   or battery, thermal pressure, free memory, load per core — and `flash/loop.py`
   hot-swaps to the brain only when both the policy and the governor agree.
@@ -61,7 +81,13 @@ it types the next request rather than at Ctrl-D — re-reading the workspace fro
 disk at the start of every turn so turn N+1 edits what turn N landed; it is always
 the patch arm, it protects the oracle for the whole session, and it exits with the
 last turn's code (`SPEC.md` R-7.15). On a terminal it prints `you> ` before each read;
-on a pipe it prints no marker, because a session's stdout is also a report. Neither
+on a pipe it prints no marker, because a session's stdout is also a report. **The oracle
+is optional: with no `--test` the same session is a chat that answers in prose** —
+`use_oracle = args.test is not None`, `chat=not use_oracle` short-circuits
+`solve_routed` after `enrich_task`, one model loads, and the printed turn is the reply
+rather than the `[turn N] routed=…` telemetry line; a turn is graded by nothing (the
+banner says `no verification`) but can still carry a patch that founds a new file under
+`--apply` (`SPEC.md` R-7.15h). Neither
 one holds the weights between turns:
 `solve_routed` frees the small tier before the brain loads, five times over, and
 that is a memory invariant rather than an oversight.

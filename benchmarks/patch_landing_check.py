@@ -68,7 +68,7 @@ sys.path.insert(0, str(ROOT))
 from flash import cli, loop, patches, trace                          # noqa: E402
 from flash.patches import (LandError, workspace_from_dir)            # noqa: E402
 
-NUM_BUGS = 27
+NUM_BUGS = 28
 
 # A four-file project in the shapes the patch arm actually meets: a top-level
 # module, a sibling it must not disturb, the oracle (in the tree, so listed by
@@ -150,7 +150,12 @@ def text(root, rel) -> str:
 def new_tree(files: dict[str, str] | None = None) -> Path:
     d = tempfile.TemporaryDirectory(prefix="flash-land-")
     _KEEP.append(d)
-    root = Path(d.name)
+    # The project sits one level below the temp dir, so a `../new.py` escape
+    # lands in this tree's OWN parent rather than the shared system temp base —
+    # otherwise a mutant that writes-before-it-refuses leaves a file there that
+    # the next check reads as "the escape guard did not run".
+    root = Path(d.name) / "proj"
+    root.mkdir(parents=True, exist_ok=True)
     for rel, text in (FILES if files is None else files).items():
         p = root / rel
         p.parent.mkdir(parents=True, exist_ok=True)
@@ -256,8 +261,21 @@ def land_copy(**knob):
             dest = (root / key).resolve()
             if k["escape"] and (key.is_absolute() or not dest.is_relative_to(root)):
                 raise LandError(f"{rel}: outside the project root")
-            if k["newfile"] and rel not in before:
-                raise LandError(f"{rel}: not a scored file")
+            if rel not in before:
+                # R-7.15c: a key absent from the listing was FOUNDED by the patch
+                # arm's create verb, and `land` writes the whole body. The shipped
+                # counts are the diff against NOTHING, which is what `_counts`
+                # gets from an empty `before` entry.
+                if not k["newfile"]:
+                    raise LandError(f"{rel}: not a file this workspace was "
+                                    "read from")
+                added, _ = _counts(rel, text, dict(before, **{rel: ""}))
+                removed = 0
+                if k["atomic"]:
+                    todo.append((rel, dest, added, removed))
+                else:
+                    _write(rel, dest, added, removed)
+                continue
             added, removed = _counts(rel, text, before)
             if k["atomic"]:
                 todo.append((rel, dest, added, removed))
@@ -409,14 +427,42 @@ def _land_checks() -> None:
 
     root = new_tree()
     before = workspace_from_dir(root)
+    rows = try_land(root, before, {"money.py": MONEY_FIXED,
+                                   "new.py": "X = 1\n"})
+    check("a key the listing never had is CREATED, not refused: R-7.15c gave the "
+          "patch arm a verb to found a file, and a write-back that refused it "
+          "would print a creation that never reached the tree",
+          rows == [("money.py", 1, 1), ("new.py", 1, 0)]
+          and text(root, "new.py") == "X = 1\n", f"{rows}")
+    root = new_tree()
+    rows = try_land(root, workspace_from_dir(root), {"brand.py": "a\nb\nc\n"})
+    check("a created file is counted against NOTHING, so its report is its whole "
+          "body and never a diff against a file that did not exist",
+          rows == [("brand.py", 3, 0)], f"{rows}")
+
+    root = new_tree()
+    before = workspace_from_dir(root)
     snap = snapshot(root)
     err = try_land(root, before, {"money.py": MONEY_FIXED,
-                                  "new.py": "X = 1\n"})
-    check("a key the oracle never scored is refused rather than added to someone's "
-          "project",
+                                  "../new.py": "X = 1\n"})
+    check("a CREATED file is still bounded by the project root: founding a file "
+          "one directory up is the same string as founding one inside it, and the "
+          "escape guard runs before the create path",
           isinstance(err, str) and err.startswith("RAISED: LandError")
-          and "not a file this workspace was read from" in err
-          and not (root / "new.py").exists(), str(err)[:160])
+          and "outside the project root" in err
+          and not (root.parent / "new.py").exists(), str(err)[:160])
+    check("and the refusal holds the sibling back too, creation included",
+          snapshot(root) == snap, "money.py landed before the refusal")
+
+    root = new_tree()
+    before = workspace_from_dir(root)
+    err = try_land(root, before, {"money.py": MONEY_FIXED,
+                                  "t.py": "assert True\n"}, ("t.py",))
+    check("the oracle cannot be FOUNDED either: it is in the listing so this is "
+          "the protection clause, and a new name for it escapes by path, not by "
+          "kind",
+          isinstance(err, str) and err.startswith("RAISED: LandError")
+          and "protected" in err, str(err)[:160])
 
     root = new_tree()
     before = workspace_from_dir(root)
@@ -596,6 +642,14 @@ def drive(argv: list[str], workspace: dict | None = None, solved: bool = True):
     def fake(small_repo, big_repo, task, root, **kw):
         box["reached"] = True
         SEEN["task"] = dict(task)
+        # R-7.15f: the arm's first message is built INSIDE `solve_routed`, which
+        # this stub replaces, so the two lines the real one runs before it routes
+        # run here — with the real functions, so a mutant that disables the
+        # composition changes what the check reads rather than what it expects.
+        enriched = loop.enrich_task(task, root, kw.get("max_chars", 4000))
+        SEEN["prompt"] = enriched["prompt"]
+        SEEN["message"] = (patches.edit_prompt(enriched) if enriched.get("edit")
+                           else enriched["prompt"])
         r = result_for(None, solved)
         if workspace is not None and task.get("files"):
             r.workspace = dict(task["files"], **workspace)
@@ -747,10 +801,67 @@ def _cli_checks() -> None:
           and SEEN["task"]["files"].get("t.py") == ORACLE,
           f"{SEEN.get('task', {}).get('test_path')!r}")
 
+    # R-7.15f: the message the command actually puts in front of the model. This
+    # was the accuracy hole — `run --edit` read the tree into `task["files"]` and
+    # then sent only the typed ask, so the patch arm addressed files it had never
+    # been shown. These read the composed message, not the task, because the task
+    # was already full and the model still never saw it.
+    root = new_tree()
+    drive(["run", "zero-pad the cents", "--test", str(root / "t.py"),
+           "--context", str(root), "--edit"],
+          workspace={"money.py": MONEY_FIXED})
+    msg, keys = SEEN["message"], sorted(SEEN["task"]["files"])
+    check("the message `flash run --edit` sends names every file of the tree it "
+          "read as an addressable `# file:` block — a patch refused for a file the "
+          "model was never shown is a refusal about the harness, not the code",
+          all(f"# file: {k}" in msg for k in keys), f"{len(msg)} chars, {keys}")
+    check("...and it carries the real body of the symbol the ask names, not an "
+          "outline of it: the protocol makes the model re-type the complete "
+          "definition, so a signature list cannot produce one",
+          "def cents(n):" in msg and 'return f"${n // 100}.{n % 100}"' in msg,
+          msg[:200])
+    check("the typed ask survives verbatim under `Requested change:`, so the "
+          "project block and the request are one message without either overwriting "
+          "the other",
+          "Requested change: zero-pad the cents" in msg
+          and msg.count("Requested change:") == 1,
+          f"{msg[-400:]!r}")
+    check("the oracle's assertions are in the same message, which is the only way "
+          "'exactly as t.py asserts' can be honoured — and the reason R-7.15e's "
+          "refusal has a file to point at",
+          "The test that must pass afterwards:" in msg
+          and 'assert cents(5) == "$0.05"' in msg, msg[-300:])
+    check("composing is idempotent, because the suite's stored tasks already ship "
+          "this block: a second `enrich_task` on a composed prompt returns it "
+          "byte-identical rather than nesting the project inside itself",
+          loop.enrich_task({"id": "twice", "prompt": SEEN["prompt"], "edit": True,
+                            "files": SEEN["task"]["files"]}, ROOT, 4000)["prompt"]
+          == SEEN["prompt"], f"{SEEN['prompt'].count(patches.PROJECT_HEADER)} headers")
+
     after = sorted(p.name for p in tdir.glob("*.jsonl")) if tdir.is_dir() else []
     check("every command this vector drove left its session in the trace store it "
           "was given, so a check run adds nothing to the repository's record",
           after == before, f"{len(after) - len(before)} new session(s)")
+
+
+def _arm_message(task: dict, out: str, edit: bool) -> str:
+    """The first message an arm is GENERATED from, with the model replaced by a
+    recorder. R-3.2's control arm is a comparison of answer formats, which is only
+    honest if the two arms were handed the same input — and that is a claim about
+    the wiring, so it is read off the arm rather than off a prompt built here."""
+    real = loop._generate
+    box: dict = {}
+
+    def stub(model, tokenizer, messages, max_tokens, **kw):
+        box.setdefault("first", messages[0]["content"])
+        return out
+
+    loop._generate = stub
+    try:
+        loop.solve(None, None, task, max_attempts=1, edit=edit)
+    finally:
+        loop._generate = real
+    return box.get("first", "")
 
 
 def _solve(task: dict, outs: list[str]) -> loop.SolveResult:
@@ -886,6 +997,36 @@ def _loop_checks() -> None:
           and "PATCH REFUSED" not in r6.attempts[-1].err,
           f"{str(r6.attempts[-1].err)[:160] if r6.attempts else str(r6)[:160]}")
 
+    # R-3.2 clause 1's comparability, re-read on the CLI's shape rather than on a
+    # stored suite task. The A/B was booked as "same input, different answer
+    # format"; until R-7.15f the CLI's edit arm had no input to compare, so the
+    # claim was only ever true for the published tasks.
+    root = new_tree()
+    raw = {"id": "comparability", "prompt": "zero-pad the cents", "test": ORACLE,
+           "edit": True, "multi": True, "files": workspace_from_dir(root)}
+    shown = loop.enrich_task(raw, ROOT, 4000)
+    patch_msg = _arm_message(shown, PATCH, edit=True)
+    whole_msg = _arm_message(shown, f"# file: money.py\n```python\n{MONEY_FIXED}```\n",
+                             edit=False)
+    check("both arms are handed the project: the same `# file:` block and the same "
+          "oracle text reach the patch arm and the whole-file control, which is "
+          "what the R-3.2 A/B was promising on a tree read off disk",
+          all(f"# file: {k}" in patch_msg for k in raw["files"])
+          and all(f"# file: {k}" in whole_msg for k in raw["files"])
+          and "The test that must pass afterwards:" in patch_msg
+          and "The test that must pass afterwards:" in whole_msg,
+          f"patch={len(patch_msg)} whole={len(whole_msg)}")
+    check("...and the two messages are IDENTICAL up to the sentence that names the "
+          "answer format — a protocol comparison that let the prompt differ would "
+          "measure the prompt instead of the protocol",
+          patch_msg[:-len(patches.PROTOCOL)] == whole_msg[:-len(loop.WHOLE_FILE_PROTOCOL)],
+          f"{patch_msg[:80]!r} / {whole_msg[:80]!r}")
+    check("the ask is not what the arm is given: the composed message is larger "
+          "than the prompt it started from by more than the protocol's own tail, so "
+          "a regression that sends the bare ask cannot hide inside a passing count",
+          len(patch_msg) > len(raw["prompt"]) + len(patches.PROTOCOL) + 100,
+          f"{len(raw['prompt'])} -> {len(patch_msg)}")
+
 
 def _doc_checks() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
@@ -929,6 +1070,7 @@ def mutants() -> list[tuple[str, object, object, str]]:
     _solve_edits, _build = L._solve_edits, C.build_parser
     _mkcreate = P._resolve_create
     _apply = P.apply_patches
+    _enrich = L.enrich_task
 
     def never_relativizes(path, root):
         return path
@@ -967,6 +1109,15 @@ def mutants() -> list[tuple[str, object, object, str]]:
         disarms and the patch layer is never told, from one returned empty string."""
         return ""
 
+    def blind(task, root, max_chars=4000):
+        """R-7.15f undone: `enrich_task` returns an edit task exactly as it came in,
+        so the tree that was read off disk never enters the message. This is not a
+        hypothetical shape — it is the code that produced six refusals about files
+        the model had never been shown."""
+        if task.get("edit"):
+            return dict(task)
+        return _enrich(task, root, max_chars)
+
     return [
         ("rewrites every file in the workspace, so an untouched sibling loses its "
          "mtime and a whole tree looks like a change",
@@ -974,9 +1125,12 @@ def mutants() -> list[tuple[str, object, object, str]]:
         ("lets an address escape the project root, where `# edit: ../../etc/hosts` "
          "is one string away from a real one",
          (P, "land"), land_copy(escape=False), "outside the project root is refused"),
-        ("adds a file the oracle never scored, so a name that merely appeared in "
-         "the response enters the project unverified",
-         (P, "land"), land_copy(newfile=False), "never scored is refused"),
+        ("refuses to write a file the listing never had, which is R-7.15c's create "
+         "verb arriving in memory and never reaching the tree: the session prints "
+         "the new module, the patch layer reports it applied, and the project on "
+         "disk still does not have it",
+         (P, "land"), land_copy(newfile=False),
+         "a key the listing never had is CREATED"),
         ("ignores the protected list, so the patch set that weakened the assertion "
          "is a fix after all",
          (P, "land"), land_copy(protect=False), "protected file the patch set"),
@@ -1052,6 +1206,10 @@ def mutants() -> list[tuple[str, object, object, str]]:
          "`land`'s protection from one return value",
          (C, "_oracle_key"), keyless,
          "hands the arm the oracle's workspace key"),
+        ("returns an edit task with only its typed ask, which is the state "
+         "R-7.15f was filed for: the project was read off disk and never shown",
+         (L, "enrich_task"), blind,
+         "names every file of the tree it read"),
     ]
 
 

@@ -7,7 +7,7 @@ again — no API key, no container, nothing leaving the machine.
 Two things about this repo are load-bearing, and both are visible in the files:
 
 - **Every claim is a printed number.** The offline verification battery is
-  **1,345 checks + 20 oracle verifications + 157 mutation gates** over 37 vectors, and
+  **1,420 checks + 20 oracle verifications + 167 mutation gates** over 37 vectors, and
   `SPEC.md` §6
   records why the totals come from the fraction each run *prints* — never an exit
   code, never a phrase grep — after both of those shortcuts produced a wrong total
@@ -125,11 +125,12 @@ need weights first.
 # 4. a suite, with the loop's own cost report
 .venv/bin/python -m flash.cli run-suite --tasks benchmarks/tasks/m2_tasks.jsonl --with-context
 
-# 5. code with it: this is the chat. Run it and it waits for you at `you> `.
+# 5. code with it: this is the scored chat. Run it and it waits for you at `you> `.
 # Type one request, press Enter, read the answer, type the next — turn 2 edits
 # what turn 1 wrote, because every turn re-reads your files from disk. `quit`,
 # `exit`, `q` or Ctrl-D ends it. Nothing lands without --apply, and the oracle
-# you passed with --test is never a file it may edit.
+# you passed with --test is never a file it may edit. Drop --test and the same
+# command is a prose chat that answers "hi" and can create whole new files (R-7.15h).
 .venv/bin/python -m flash.cli session --context . --test t.py --apply
 # or drive it from a script, which is the same code path one line at a time:
 printf 'zero-pad the cents\nadd a bulk discount\n' |
@@ -143,59 +144,96 @@ with one line a script can parse, and exits with the **last** turn's code. Verba
 from a real terminal — a pseudo-tty driven by `python benchmarks/session_pty_demo.py`,
 so the `you> ` lines below are the keyboard path and not a here-doc — on a one-function
 money module whose asserts require a zero-padded cent field and a minus sign in front of
-the dollar. Both turns lost, and this is what an honest loss looks like
-([`benchmarks/results/session_pty_20260929.log`](benchmarks/results/session_pty_20260929.log)):
+the dollar
+([`benchmarks/results/session_pty_r715g_20260929.log`](benchmarks/results/session_pty_r715g_20260929.log)):
 
 ```text
 flash session on /tmp/flash-chat-demo against the oracle /tmp/flash-chat-demo/t.py — one ask per line, and each answer arrives before you type the next. `quit` or Ctrl-D ends it.
 you> zero-pad the cents and keep a negative sign in front of the dollar sign, exactly as t.py asserts
-[turn 1] routed=small tier=failed solved=False attempts=4 (11.2s) patches=1 refused=1 whole=0 outside=0
-  oracle| PATCH REFUSED: money.py:format_dollar — no symbol 'format_dollar' in money.py (it defines: cents_to_str)
-[R-3.2] NOT APPLIED: the task was not solved, so --apply wrote nothing to /tmp/flash-chat-demo
+[turn 1] routed=small tier=big solved=True attempts=3 (13.5s) patches=1 refused=0 whole=0 outside=0
+[R-3.2] wrote money.py (+4 -1 lines)
 you> make cents_to_str raise ValueError when cents is not an int
-[turn 2] routed=small tier=failed solved=False attempts=4 (11.9s) patches=1 refused=0 whole=0 outside=0
-  oracle| FAILING_ASSERT: assert cents_to_str(150) == "$1.50" | GOT: '$1.5' | WANT: '$1.50'
-[R-3.2] NOT APPLIED: the task was not solved, so --apply wrote nothing to /tmp/flash-chat-demo
+[turn 2] routed=small tier=small solved=True attempts=1 (5.7s) patches=1 refused=0 whole=0 outside=0
+[R-3.2] wrote money.py (+2 -0 lines)
 you> quit
-[session] turns=2 solved=0 written=0 seconds=23.1 last_rc=1
+[session] turns=2 solved=2 written=2 seconds=19.2 last_rc=0
+[trace] replay this session:  flash trace show 20260929-231604-session-b07a
 ```
 
 Read the timestamps in the witness for the property this section is about: the banner
-arrives at t+0.06 s, the first `you> ` at t+2.15 s, turn 1's verdict at **t+19.22 s**,
-and the second request is typed at **t+19.43 s** — after the first answer, not after
-Ctrl-D. `python benchmarks/session_pty_demo.py` re-runs it in about 40 s; which assert
-turn 2 trips first moves between runs, because it depends on the patch the model offers,
-so the witness is the run of record.
+arrives at t+0.06 s, the first `you> ` at t+1.86 s, turn 1's verdict at **t+20.78 s**,
+and the second request is typed at **t+20.99 s** — after the first answer, not after
+Ctrl-D. The child exited **rc 0** in 29.4 s, and the driver then re-ran the oracle from
+outside the session, against the bytes the turns left on disk: `rc=0 ORACLE GREEN`. Turn
+2 ran on the small tier and took one attempt, because turn 1's work was already on disk
+when the session re-read the tree — that re-read, not a memory, is what makes this a
+conversation instead of two unrelated runs.
 
-**Read the transcript as the interface, not as a demo of success: both turns lost.** Three
-things have changed since it was taken. `PATCH REFUSED: money.py:format_dollar — no symbol
-'format_dollar' in money.py` used to be a dead end, because the arm could revise a symbol
-it could see and could not create one. It can now — `# edit: money.py :: +format_dollar`
-creates the definition at a position the AST chooses, and the README's own patch block
-below shows it. And a patch aimed at `t.py` no longer gets an answer about line numbers: the
-arm now says `t.py is the oracle this run scores against, so it is not a patch target`,
-before it looks at the address at all. Neither bought the turn. Re-running the same two asks
-on that tree is the honest part (`benchmarks/results/session_pty_r715e_20260929.log`, trace
-`20260929-203852-session-3973`): turn 1 lost again, `turns=2 solved=0 written=0
-seconds=23.3 last_rc=1`. Of its eight attempts, two reached for `t.py` and both got that new
-sentence — the box is closed — while **four invented a module** (`main.py`, `money.format`,
-`cents_to_str.py`, `cents_to_str`). They invented it because the chat has never been shown
-the project: that ask is 96 characters inside a 2129-character message, and none of the rest
-of it is source. `SPEC.md` **R-7.15f** is that gap, measured rather than guessed;
-**R-7.15c** and **R-7.15d** sit beside it, priced in milliseconds rather than reworded into
-a pass.
+**Two defects stood between that transcript and the one before it, and neither was the
+model.** The earlier witness
+([`session_pty_r715e_20260929.log`](benchmarks/results/session_pty_r715e_20260929.log))
+closed `turns=2 solved=0 written=0 last_rc=1` with four of eight attempts inventing a
+module (`main.py`, `money.format`, `cents_to_str.py`, `cents_to_str`) and two reaching for
+`t.py`. The reason was that the chat had never been shown the project: the typed ask is 96
+characters inside a **2129-character** message that was otherwise protocol and nothing
+else, while both files sat unused in `task["files"]`. `SPEC.md` **R-7.15f** fixes it with
+one composer shared by `run --edit`, `session` and the suite generator, so the same ask now
+carries **2893 characters including the real text of both files** — and the generator's
+rebuilt corpus is byte-identical to the committed `benchmarks/tasks/edit_tasks.jsonl`, so
+the published patch-vs-whole-file A/B is still a comparison of answer formats rather than
+of inputs. That moved the live numbers the way you would want: **all eight attempts then
+addressed `money.py:cents_to_str`, zero refusals** (`session_pty_r715f_20260929.log`).
 
-Note what those two turns cost: `tier=failed` is not the small model giving up.
-The router escalated to the 30B brain on both turns and **that** failed too, so on
-this task the loss is not a tier problem. Turn 1's refusal is the shape SPEC
-R-7.15b books: the model answered by addressing a symbol named `format_dollar`,
-which is the function it wanted to *write*, and the patch arm can only address a
-symbol the file already defines. It reproduced on the re-run, same symbol, same
-refusal. Nothing was written because nothing verified — `written=0` and the last
-line's `last_rc=1` are the session refusing to look green.
+The turn still lost, and **R-7.15g** is why: `VERIFY` was grading the pre-edit bytes. The
+harness writes the candidate tree into a temp directory, but that demo's `t.py` carries a
+literal `sys.path.insert(0, "/tmp/flash-chat-demo")` — the bootstrap everyone writes so
+`python t.py` runs from anywhere — so the live, unpatched module stayed first on
+`sys.path`. Eight patches applied cleanly and eight times the oracle answered `GOT:
+'$1.5'` from the file the turn had already replaced — the count is the trace's
+(`20260929-224842-session-0e6b`, eight `patch` rows all `applied=1`), since the terminal
+witness prints the failing assert once per turn. `flash/harness.py` now gives the
+patched copy precedence by inserting its own line with the bootstrap's indentation, which
+is the part that took a second pass: the first version appended `; sys.path.insert(...)` to
+the bootstrap line, and a bootstrap ending in a `#` comment swallowed it, leaving the fix
+silently inert on exactly the file shape it was written for. That case is a check and a
+mutant now, not a lesson.
+
+Note what the two turns cost, because `tier=big` on turn 1 is the escalation working and
+`tier=small` on turn 2 is the point: the router escalated to the 30B brain to land the
+zero-pad-and-sign change, then the small tier solved the follow-up in one attempt. Nothing
+was written on either turn until it verified — `written=2` is counted by re-reading the
+tree, and the same command without `--apply` prints `NOT APPLIED` and leaves your files
+alone.
 
 The whole conversation replays with `flash trace show <id>`, which the session prints
 on its own line before it exits.
+
+**Drop `--test` and the session is a chat, not a scorer.** The complaint this answers is
+that a coding CLI that can't reply "hi" or say *what is this?* isn't a chat at all: every
+mode used to demand an oracle and print telemetry, so a greeting got a `PATCH MISSING`
+refusal. With no `--test`, `flash session --context DIR` opens at `you> `, routes every
+turn to `loop.solve_chat`, and prints the model's **prose as the reply** — the answer
+itself, not `[turn N] routed=…`. The banner says `no verification`, because there is no
+oracle to pass: a turn is graded by nothing, and it can still carry a patch. So `hi`,
+`what does money.py do`, and `create a logger module that prefixes [app]` all work, and
+the last of them writes a brand-new file with the R-7.15c create address
+(`# edit: logger.py :: *`), which lands under `--apply` exactly as a scored edit does.
+The scored path is untouched — `run --test` stays required.
+
+```text
+# illustrative of the shape, not a captured terminal — the offline vector is the witness
+.venv/bin/python -m flash.cli session --context .
+you> hi                      ->  a prose reply, printed as the turn (no [turn N] routed= line)
+you> create a logger module  ->  # edit: logger.py :: *  then  [R-3.2] wrote logger.py (+2 -0 lines)
+```
+
+The mode is pinned offline by `python benchmarks/session_check.py --sweep`
+(**81/81 checks, 26/26 mutants**): it runs the real `solve_routed(chat=True)` with only
+the model load stubbed, and asserts the prose lands green, one model loads, the project
+source is in the prompt, a `chat` ledger row is written, a patch inside a prose answer
+founds a new file, and a refused patch prints `PATCH REFUSED` and feeds the repair back.
+A live real-weights transcript is still pending (see `benchmarks/results/`); until it
+lands, this paragraph's authority is that sweep, not a terminal capture.
 
 `.venv/bin/python -m flash.cli --help` lists all 31 subcommands, and `bench/`,
 `trace`, `resume`, `ledger` and `learn` are how a long run is inspected rather than
@@ -324,8 +362,11 @@ Vision is benchmarked once the text brain is picked (PLAN §M1–M2).
 # assert, and those two values come from the SAME evaluation that decided the verdict.
 # An assert whose side mutates is therefore reported honestly (`q.pop() == "high"` on a
 # failing assert says GOT: 'low' | WANT: 'high', not GOT == WANT for a difference that
-# was really there).
-.venv/bin/python -m flash.harness --selftest        # 20 offline checks on the oracle
+# was really there). And the verdict is about the PATCHED copy: when your test file
+# bootstraps `sys.path` with its own real directory, VERIFY inserts the temp copy ahead
+# of it as its own line — so a bootstrap ending in a comment cannot swallow the
+# precedence and quietly grade the bytes from before the edit (SPEC R-7.15g).
+.venv/bin/python -m flash.harness --selftest        # 28 offline checks on the oracle
 .venv/bin/python benchmarks/m0_bakeoff.py --dry-run # 20/20 reference solutions pass
 
 # All 37 offline vectors in this file (36 check-summing + m0_bakeoff's oracle) in
@@ -541,12 +582,23 @@ Vision is benchmarked once the text brain is picked (PLAN §M1–M2).
 # in a temp copy of the tree, so a bare `assert cents_to_str(5) == "$0.05"` raises
 # `NameError` and can never go green no matter what the patch does. Start the test with
 # the bootstrap the task corpus uses — `import sys; sys.path.insert(0, "<TMPDIR>")`, then
-# `from money import cents_to_str` — and `<TMPDIR>` becomes that copy's directory.
+# `from money import cents_to_str` — and `<TMPDIR>` becomes that copy's directory. A test
+# that instead names its own real directory (the `sys.path.insert(0, "/path/to/repo")`
+# everyone writes so `python t.py` works from anywhere) is also fine: VERIFY puts the
+# patched copy first either way, as its own inserted line, so the rule holds when that
+# bootstrap ends in a comment and when it sits inside a `try:` block (SPEC R-7.15g).
+#
+# And the model is shown the tree it is being asked to change: `--edit` and `session`
+# compose `The project is below, with the real text of every file.` + the file listing +
+# your request + the oracle's text through one function the task corpus uses too, capped at
+# 6000 characters of listing. Before that, a typed ask was the whole message — 96
+# characters of request inside 2129 of protocol — and four of eight attempts on the demo
+# task invented a module to patch (SPEC R-7.15f).
 .venv/bin/python -m flash.cli run "..." --test t.py --context src/ --edit
 .venv/bin/python -m flash.cli run "..." --test t.py --context src/ --edit --apply
 .venv/bin/python -m flash.cli run-suite --tasks benchmarks/tasks/edit_tasks.jsonl --edit
 .venv/bin/python benchmarks/patch_landing_check.py --sweep  # the write-back, offline
-.venv/bin/python -m flash.patches --selftest     # 71 offline checks, incl. the loop arm
+.venv/bin/python -m flash.patches --selftest     # 78 offline checks, incl. the loop arm
 .venv/bin/python -m flash.patches --suite benchmarks/tasks/edit_tasks.jsonl  # the suite's premise
 
 #   the patch protocol (one header + one fenced block per symbol):

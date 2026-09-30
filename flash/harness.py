@@ -105,7 +105,45 @@ def score_files(files: dict[str, str], test: str, timeout: int = 15) -> Score:
                 return Score(False, 0, 0, f"unsafe file path: {rel}")
             dest.parent.mkdir(parents=True, exist_ok=True)
             dest.write_text(src)
-        return score("", test.replace("<TMPDIR>", str(root)), timeout, root=root)
+        test = _unshadow(test.replace("<TMPDIR>", str(root)), root, files)
+        return score("", test, timeout, root=root)
+
+
+_INSERT0 = re.compile(r"sys\.path\.insert\(\s*0\s*,\s*(['\"])([^'\"]+)\1")
+
+
+def _unshadow(test: str, root: Path, files: dict[str, str]) -> str:
+    """Make the copy VERIFY was handed win the import, not the tree on disk.
+
+    R-7.15g. An oracle that bootstraps with `sys.path.insert(0, "<the project
+    directory>")` — which is what `flash session` gets, because the test file
+    lives in the project it tests and names its own folder — puts the LIVE tree
+    ahead of the temp copy this function just wrote. The patch is applied, the
+    address resolves, `applied=1` is true, and the assert still runs against the
+    bytes from before the edit. Measured on the demo task 2026-09-29: the 30B's
+    answer printed `['$0.05', '$1.50', '-$1.05']` when called by hand and
+    `GOT: '$1.5'` when scored here, which is the unpatched module's output.
+
+    So a bootstrap path that names a directory holding one of the files being
+    scored gets the temp root inserted on the line AFTER it, which leaves it
+    first in `sys.path`. A new line rather than a `; sys.path.insert(...)`
+    appended to the same one, because a bootstrap that ends in a comment — the
+    shape a stranger's `t.py` really is — swallows anything appended after it and
+    silently restores the bug. Only the precedence moves: the oracle's own text,
+    its comment, its asserts and any path it opens are untouched, and a corpus
+    that bootstraps through `<TMPDIR>` or a directory holding none of the scored
+    files resolves to this very root or matches nothing, so neither is rewritten.
+    """
+    out: list[str] = []
+    for line in test.splitlines():
+        out.append(line)
+        m = _INSERT0.search(line)
+        if m:
+            named = Path(m.group(2)).resolve()
+            if named != root and any((named / rel).is_file() for rel in files):
+                indent = line[:len(line) - len(line.lstrip())]
+                out.append(f"{indent}sys.path.insert(0, {str(root)!r})")
+    return "\n".join(out) + "\n"
 
 
 def _hoist_path_bootstrap(test: str) -> tuple[str, str]:
@@ -457,6 +495,77 @@ def run_selftest() -> int:
        not s.ok and s.passed == 1 and s.total == 2, f"{s.passed}/{s.total} {s.err}")
     ck("diagnose stays exactly score's verdict",
        diagnose("def f(x):\n    return x + 2\n", test3) == (False, score("def f(x):\n    return x + 2\n", test3).err[:400]))
+
+    # --- R-7.15g: an oracle that bootstraps with its OWN directory
+    # The session's oracle lives inside the project it tests, so the natural text
+    # names that folder. VERIFY writes the patch to a temp copy of the tree, and
+    # without the precedence fix that copy imports second: the edit resolves,
+    # `applied=1` is true, and the assert grades the pre-edit bytes.
+    assert_line = 'assert V == "patched"'
+    with tempfile.TemporaryDirectory() as live_dir, \
+            tempfile.TemporaryDirectory() as boot_dir:
+        live = Path(live_dir).resolve()
+        (live / "sh.py").write_text('V = "live"\n')
+        shadow = (f"import sys\nsys.path.insert(0, {str(live)!r})\n"
+                  "from sh import V\n" + assert_line + "\n")
+        patched = {"sh.py": 'V = "patched"\n', "t.py": shadow}
+        ok, err = diagnose_files(patched, shadow)
+        ck("VERIFY grades the PATCHED copy when the oracle names its own tree",
+           ok and err == "", f"ok={ok} err={err[:120]!r}")
+        ok, err = diagnose_files({"sh.py": 'V = "live"\n', "t.py": shadow}, shadow)
+        ck("...and the pre-edit bytes still fail under the same oracle, so the fix "
+           "moved precedence rather than softening the verdict",
+           not ok and "GOT: 'live'" in err and "WANT: 'patched'" in err, err[:160])
+        s = score_files(patched, shadow)
+        ck("score_files ranks the shadowed shape off the patched copy too",
+           s.ok and s.passed == 1 and s.total == 1, f"{s.passed}/{s.total} {s.err[:80]}")
+
+        # The shapes a corpus already uses must come back byte-identical: a
+        # rewrite here would move precedence in a suite that never had the bug.
+        broot = Path(boot_dir).resolve()
+        (broot / "m.py").write_text("X = 1\n")
+        tok = ("import sys; sys.path.insert(0, '<TMPDIR>')\nfrom m import X\n"
+               "assert X == 1\n")
+        sub = tok.replace("<TMPDIR>", str(broot))
+        ck("a <TMPDIR> bootstrap is not rewritten even when its directory holds "
+           "the scored files — the token already points at the temp copy",
+           _unshadow(sub, broot, {"m.py": "X = 1\n"}) == sub,
+           repr(_unshadow(sub, broot, {"m.py": "X = 1\n"})))
+        elsewhere = (f"import sys\nsys.path.insert(0, {str(broot)!r})\n"
+                     "from sh import V\n" + assert_line + "\n")
+        ck("a bootstrap naming a directory that holds none of the scored files is "
+           "not rewritten either",
+           _unshadow(elsewhere, live, {"sh.py": 'V = "patched"\n'}) == elsewhere,
+           repr(_unshadow(elsewhere, live, {"sh.py": 'V = "patched"\n'}))[:120])
+        before = shadow.splitlines()
+        after = _unshadow(shadow, broot, patched).splitlines()
+        added = [l for l in after if l not in before]
+        ck("the rewrite adds ONE precedence line and changes no other byte of the "
+           "oracle — its bootstrap, its import and its assert stay as the task "
+           "file wrote them",
+           len(after) == len(before) + 1 and len(added) == 1
+           and added[0].strip().startswith("sys.path.insert(0,")
+           and [l for l in after if l in before] == before, f"{after}")
+
+        # A stranger's `t.py` comments its bootstrap. Appending the precedence
+        # statement to that line put it behind the `#`, which restored the bug
+        # quietly: the temp copy lost, the pre-edit module answered, and nothing
+        # in a report says a comment decided the verdict.
+        commented = (f"import sys\nsys.path.insert(0, {str(live)!r})"
+                     "  # so this runs from anywhere\nfrom sh import V\n" +
+                     assert_line + "\n")
+        ok, err = diagnose_files({"sh.py": 'V = "patched"\n', "t.py": commented},
+                                 commented)
+        ck("a bootstrap that ends in a comment still grades the patched copy",
+           ok and err == "", f"ok={ok} err={err[:120]!r}")
+        ck("...and a bootstrap inside an indented block keeps the block's "
+           "indentation, so the precedence line cannot change when the oracle runs",
+           "    sys.path.insert(0," in _unshadow(
+               f"try:\n    sys.path.insert(0, {str(live)!r})\nexcept "
+               "NameError:\n    pass\n", broot, {"sh.py": "V = 1\n"}),
+           repr(_unshadow(f"try:\n    sys.path.insert(0, {str(live)!r})\n"
+                          "except NameError:\n    pass\n", broot,
+                          {"sh.py": "V = 1\n"})))
 
     for name, ok, note in checks:
         print(f"  {'OK  ' if ok else 'FAIL'} {name}" + (f"  [{note}]" if not ok and note else ""))

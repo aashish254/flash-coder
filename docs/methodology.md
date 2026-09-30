@@ -24,13 +24,18 @@ fraction, and a last-line grep read one vector's `14/14 mutants` summary as if
 it were its check count, under-counting the published total by 17 while looking
 clean.
 
-So the totals in the README (`1,345 checks + 20 oracle verifications + 157
+So the totals in the README (`1,420 checks + 20 oracle verifications + 167
 mutation gates`) come from the line `battery_reread` prints, and the file holds
 one entry per §6 item with the exact fraction that item must print. When the
 numbers disagree, the run reports the disagreement out loud. It has: one CLAIM
 was set by arithmetic before the run and the tree printed a different mutant
 count, which is the only reason anyone noticed the BATTERY entry had carried `3`
-for a vector that printed `4/4`. And once the disagreement was with the page
+for a vector that printed `4/4`; and on the R-7.15f/g pass a hand-summed CLAIM
+came out one short of what its own 37 OK lines add up to, so the run exited 1
+having printed every vector green, saying `SPEC §6's checks claim is 1376, the
+tree prints 1377`. That disagreement was with my arithmetic, not with a vector,
+and the fix was the prediction — a row is only ever moved when the row is what
+changed. And once the disagreement was with the page
 writing it: a re-read printed `1099 … mutants 75` against a claim of 1107/80
 because the new documented-command gate was failing on **SPEC's own paragraph
 about two commands that do not exist** — a backticked `flash …` span means "run
@@ -63,6 +68,27 @@ repo's vectors exist because that distinction was learned the hard way:
   second mutant returns `""` from `cli._oracle_key`, which is the one return
   value that disarms the patch layer *and* the write-back gate at once. Testing
   `suite_from_dataset()` directly would have passed while the bug stayed.
+- R-7.15g's clause named *which copy* the verdict is computed from, and every count in the
+  report agreed that the edit had landed: eight attempts applied (`applied=1`, `refused=0`),
+  the verdict line printed `solved=False`, and the trace recorded the right symbol each
+  time. The bug was that the candidate's oracle carried a literal
+  `sys.path.insert(0, "<the live tree>")`, so the module imported at score time was the one
+  from before the patch. A check on `score()` alone could not see this — the temp root it
+  builds is where the patched bytes are, and nothing about that call is wrong. So the vector
+  drives `cmd_session` over a seeded repo whose `t.py` bootstraps with its own directory, and
+  asserts four things at that seam: the patched copy wins, the pre-edit body still fails with
+  a `GOT:` (so the fix moved precedence rather than softening the verdict), the refusal the
+  model reads quotes the oracle's assert verbatim (so a fix that rewrote the exam cannot ride
+  along while turns start passing), and the trailing-comment case below.
+- R-7.15h's clause was about a *mode switch at the seam the user types*: `--test` became
+  optional, and the defect it fixes ("it can't even reply hi") lived in the CLI→loop wiring,
+  not in a helper. A check that only asserted `solve_chat` returns a string would pass while
+  the command still printed the telemetry line or still demanded an oracle. So the vector
+  drives the real `solve_routed(chat=True)` with only `load_model`/`_generate` stubbed, and
+  puts three of its six mutants *below the command* — an unguarded `cli._oracle_key`, a
+  `_land_edits` that lands a scored verdict on a chat turn, and a `solve_chat` that refuses
+  prose — each of which the shipped command must defeat, because the mode is defined by what
+  the printed turn is and not by what a function returns.
 
 ## 3. Every gate pays for a mutation
 

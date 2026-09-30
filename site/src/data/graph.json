@@ -1,19 +1,6 @@
 {
  "nodes": [
   {
-   "id": "flash/ambient.py::Finding",
-   "file": "flash/ambient.py",
-   "symbol": "Finding",
-   "kind": "class",
-   "degree": 5,
-   "label": "Finding",
-   "pos": [
-    3.67,
-    -9.44,
-    29.8
-   ]
-  },
-  {
    "id": "flash/ambient.py::Sandbox.git",
    "file": "flash/ambient.py",
    "symbol": "Sandbox.git",
@@ -21,9 +8,9 @@
    "degree": 7,
    "label": "git",
    "pos": [
-    -0.96,
-    -5.24,
-    28.57
+    3.69,
+    -9.49,
+    29.57
    ]
   },
   {
@@ -34,9 +21,9 @@
    "degree": 54,
    "label": "check",
    "pos": [
-    7.52,
-    -5.68,
-    27.34
+    -1.01,
+    -5.21,
+    28.23
    ]
   },
   {
@@ -47,9 +34,9 @@
    "degree": 9,
    "label": "check_drift",
    "pos": [
-    -0.06,
-    -11.69,
-    26.1
+    7.53,
+    -5.68,
+    26.88
    ]
   },
   {
@@ -60,9 +47,9 @@
    "degree": 7,
    "label": "draft_one",
    "pos": [
-    1.67,
-    -1.62,
-    24.87
+    -0.02,
+    -11.62,
+    25.54
    ]
   },
   {
@@ -73,9 +60,9 @@
    "degree": 21,
    "label": "run",
    "pos": [
-    7.11,
-    -10.27,
-    23.64
+    1.71,
+    -1.84,
+    24.2
    ]
   },
   {
@@ -86,9 +73,9 @@
    "degree": 116,
    "label": "run_selftest",
    "pos": [
-    -2.19,
-    -7.6,
-    22.4
+    6.76,
+    -10.01,
+    22.86
    ]
   },
   {
@@ -99,9 +86,9 @@
    "degree": 11,
    "label": "scan",
    "pos": [
-    5.48,
-    -3.96,
-    21.17
+    -1.42,
+    -7.52,
+    21.51
    ]
   },
   {
@@ -112,9 +99,9 @@
    "degree": 14,
    "label": "state",
    "pos": [
-    2.8,
-    -9.61,
-    19.94
+    4.46,
+    -5.11,
+    20.17
    ]
   },
   {
@@ -768,16 +755,29 @@
    ]
   },
   {
+   "id": "flash/harness.py::_unshadow",
+   "file": "flash/harness.py",
+   "symbol": "_unshadow",
+   "kind": "function",
+   "degree": 7,
+   "label": "_unshadow",
+   "pos": [
+    1.49,
+    -27.58,
+    11.22
+   ]
+  },
+  {
    "id": "flash/harness.py::ck",
    "file": "flash/harness.py",
    "symbol": "ck",
    "kind": "function",
-   "degree": 20,
+   "degree": 28,
    "label": "ck",
    "pos": [
-    1.6,
-    -27.87,
-    10.16
+    -3.29,
+    -23.21,
+    9.74
    ]
   },
   {
@@ -788,9 +788,22 @@
    "degree": 12,
    "label": "diagnose",
    "pos": [
-    -3.39,
-    -23.17,
-    7.91
+    5.28,
+    -23.71,
+    8.26
+   ]
+  },
+  {
+   "id": "flash/harness.py::diagnose_files",
+   "file": "flash/harness.py",
+   "symbol": "diagnose_files",
+   "kind": "function",
+   "degree": 6,
+   "label": "diagnose_files",
+   "pos": [
+    -2.17,
+    -29.52,
+    6.78
    ]
   },
   {
@@ -798,12 +811,12 @@
    "file": "flash/harness.py",
    "symbol": "run_selftest",
    "kind": "function",
-   "degree": 43,
+   "degree": 61,
    "label": "run_selftest",
    "pos": [
-    4.7,
-    -23.88,
-    5.66
+    -0.45,
+    -20.23,
+    5.3
    ]
   },
   {
@@ -814,9 +827,22 @@
    "degree": 16,
    "label": "score",
    "pos": [
-    -1.03,
-    -27.64,
-    3.41
+    3.94,
+    -27.61,
+    3.82
+   ]
+  },
+  {
+   "id": "flash/harness.py::score_files",
+   "file": "flash/harness.py",
+   "symbol": "score_files",
+   "kind": "function",
+   "degree": 7,
+   "label": "score_files",
+   "pos": [
+    -2.13,
+    -25.38,
+    2.34
    ]
   },
   {
@@ -1145,6 +1171,19 @@
    ]
   },
   {
+   "id": "flash/loop.py::Attempt",
+   "file": "flash/loop.py",
+   "symbol": "Attempt",
+   "kind": "class",
+   "degree": 6,
+   "label": "Attempt",
+   "pos": [
+    5.06,
+    22.82,
+    1.11
+   ]
+  },
+  {
    "id": "flash/loop.py::solve",
    "file": "flash/loop.py",
    "symbol": "solve",
@@ -1152,9 +1191,9 @@
    "degree": 14,
    "label": "solve",
    "pos": [
-    5.2,
-    22.46,
-    -0.32
+    0.08,
+    27.52,
+    -1.14
    ]
   },
   {
@@ -1162,12 +1201,25 @@
    "file": "flash/loop.py",
    "symbol": "solve_routed",
    "kind": "function",
-   "degree": 18,
+   "degree": 21,
    "label": "solve_routed",
    "pos": [
-    0.97,
-    27.08,
-    -4.2
+    8.17,
+    26.81,
+    -3.39
+   ]
+  },
+  {
+   "id": "flash/loop.py::with_conf",
+   "file": "flash/loop.py",
+   "symbol": "with_conf",
+   "kind": "function",
+   "degree": 6,
+   "label": "with_conf",
+   "pos": [
+    2.44,
+    23.05,
+    -5.64
    ]
   },
   {
@@ -1292,12 +1344,12 @@
    "file": "flash/patches.py",
    "symbol": "Patch",
    "kind": "class",
-   "degree": 50,
+   "degree": 65,
    "label": "Patch",
    "pos": [
-    -23.54,
-    3.87,
-    -0.6
+    -23.53,
+    3.85,
+    -0.75
    ]
   },
   {
@@ -1305,12 +1357,12 @@
    "file": "flash/patches.py",
    "symbol": "Refused",
    "kind": "class",
-   "degree": 16,
+   "degree": 15,
    "label": "Refused",
    "pos": [
-    -27.82,
-    7.72,
-    -1.42
+    -27.85,
+    7.73,
+    -1.61
    ]
   },
   {
@@ -1321,9 +1373,9 @@
    "degree": 10,
    "label": "_resolve_create",
    "pos": [
-    -19.77,
-    7.35,
-    -2.25
+    -19.74,
+    7.36,
+    -2.47
    ]
   },
   {
@@ -1331,12 +1383,12 @@
    "file": "flash/patches.py",
    "symbol": "apply_patches",
    "kind": "function",
-   "degree": 52,
+   "degree": 66,
    "label": "apply_patches",
    "pos": [
-    -27.2,
-    1.35,
-    -3.07
+    -27.21,
+    1.34,
+    -3.33
    ]
   },
   {
@@ -1344,12 +1396,12 @@
    "file": "flash/patches.py",
    "symbol": "check",
    "kind": "function",
-   "degree": 77,
+   "degree": 100,
    "label": "check",
    "pos": [
     -25.52,
-    11.84,
-    -3.9
+    11.83,
+    -4.2
    ]
   },
   {
@@ -1357,12 +1409,12 @@
    "file": "flash/patches.py",
    "symbol": "check_result",
    "kind": "function",
-   "degree": 13,
+   "degree": 11,
    "label": "check_result",
    "pos": [
-    -19.32,
-    2.3,
-    -4.72
+    -19.35,
+    2.32,
+    -5.06
    ]
   },
   {
@@ -1373,9 +1425,9 @@
    "degree": 14,
    "label": "definitions",
    "pos": [
-    -30.81,
-    5.31,
-    -5.55
+    -30.74,
+    5.32,
+    -5.92
    ]
   },
   {
@@ -1386,9 +1438,9 @@
    "degree": 16,
    "label": "find_defs",
    "pos": [
-    -20.02,
-    10.96,
-    -6.37
+    -20.1,
+    10.87,
+    -6.78
    ]
   },
   {
@@ -1396,12 +1448,12 @@
    "file": "flash/patches.py",
    "symbol": "land",
    "kind": "function",
-   "degree": 6,
+   "degree": 7,
    "label": "land",
    "pos": [
-    -24.23,
-    -0.57,
-    -7.2
+    -24.24,
+    -0.39,
+    -7.64
    ]
   },
   {
@@ -1412,9 +1464,9 @@
    "degree": 17,
    "label": "outside_lines",
    "pos": [
-    -28.85,
-    10.7,
-    -8.02
+    -28.67,
+    10.52,
+    -8.51
    ]
   },
   {
@@ -1425,9 +1477,9 @@
    "degree": 18,
    "label": "resolve",
    "pos": [
-    -18.11,
-    5.59,
-    -8.85
+    -18.46,
+    5.62,
+    -9.37
    ]
   },
   {
@@ -1438,9 +1490,9 @@
    "degree": 13,
    "label": "run_premise",
    "pos": [
-    -29.0,
-    2.31,
-    -9.67
+    -28.64,
+    2.6,
+    -10.23
    ]
   },
   {
@@ -1448,12 +1500,12 @@
    "file": "flash/patches.py",
    "symbol": "run_selftest",
    "kind": "function",
-   "degree": 190,
+   "degree": 244,
    "label": "run_selftest",
    "pos": [
-    -23.53,
-    11.41,
-    -10.5
+    -23.63,
+    10.78,
+    -11.09
    ]
   },
   {
@@ -1464,22 +1516,9 @@
    "degree": 15,
    "label": "run_wiring",
    "pos": [
-    -21.71,
-    2.02,
-    -11.32
-   ]
-  },
-  {
-   "id": "flash/patches.py::splice",
-   "file": "flash/patches.py",
-   "symbol": "splice",
-   "kind": "function",
-   "degree": 6,
-   "label": "splice",
-   "pos": [
-    -28.1,
-    6.94,
-    -12.15
+    -22.22,
+    2.78,
+    -11.96
    ]
   },
   {
@@ -1490,9 +1529,9 @@
    "degree": 10,
    "label": "walk",
    "pos": [
-    -22.35,
-    7.11,
-    -12.97
+    -26.62,
+    6.57,
+    -12.82
    ]
   },
   {
@@ -1503,22 +1542,9 @@
    "degree": 11,
    "label": "lsp_diagnostics",
    "pos": [
-    22.62,
-    8.54,
-    -7.1
-   ]
-  },
-  {
-   "id": "flash/perceive.py::send",
-   "file": "flash/perceive.py",
-   "symbol": "send",
-   "kind": "function",
-   "degree": 6,
-   "label": "send",
-   "pos": [
-    18.38,
-    13.17,
-    -10.99
+    22.65,
+    8.46,
+    -9.04
    ]
   },
   {
@@ -1529,22 +1555,9 @@
    "degree": 10,
    "label": "_table",
    "pos": [
-    -6.58,
-    -24.72,
-    -7.16
-   ]
-  },
-  {
-   "id": "flash/power.py::allow_model",
-   "file": "flash/power.py",
-   "symbol": "allow_model",
-   "kind": "function",
-   "degree": 6,
-   "label": "allow_model",
-   "pos": [
-    -11.44,
-    -20.25,
-    -8.82
+    -6.54,
+    -24.81,
+    -7.51
    ]
   },
   {
@@ -1555,9 +1568,9 @@
    "degree": 9,
    "label": "check",
    "pos": [
-    -2.87,
-    -20.78,
-    -10.48
+    -11.48,
+    -20.23,
+    -9.41
    ]
   },
   {
@@ -1568,9 +1581,9 @@
    "degree": 12,
    "label": "profile_for",
    "pos": [
-    -10.12,
-    -26.34,
-    -12.13
+    -3.02,
+    -20.83,
+    -11.3
    ]
   },
   {
@@ -1581,9 +1594,9 @@
    "degree": 9,
    "label": "read_state",
    "pos": [
-    -8.41,
-    -17.93,
-    -13.79
+    -9.83,
+    -25.87,
+    -13.2
    ]
   },
   {
@@ -1594,9 +1607,9 @@
    "degree": 41,
    "label": "run_selftest",
    "pos": [
-    -5.36,
-    -23.78,
-    -15.45
+    -8.13,
+    -19.36,
+    -15.1
    ]
   },
   {
@@ -1607,9 +1620,9 @@
    "degree": 34,
    "label": "ck",
    "pos": [
-    -7.89,
-    17.76,
-    -9.42
+    -7.85,
+    17.67,
+    -9.77
    ]
   },
   {
@@ -1620,9 +1633,9 @@
    "degree": 9,
    "label": "probe",
    "pos": [
-    -12.75,
-    22.23,
-    -11.08
+    -12.79,
+    22.25,
+    -11.67
    ]
   },
   {
@@ -1633,9 +1646,9 @@
    "degree": 7,
    "label": "realpath",
    "pos": [
-    -4.18,
-    21.69,
-    -12.74
+    -4.33,
+    21.65,
+    -13.57
    ]
   },
   {
@@ -1646,9 +1659,9 @@
    "degree": 65,
    "label": "run_selftest",
    "pos": [
-    -11.43,
-    16.13,
-    -14.39
+    -11.14,
+    16.6,
+    -15.46
    ]
   },
   {
@@ -1659,22 +1672,9 @@
    "degree": 8,
    "label": "seatbelt",
    "pos": [
-    -9.72,
-    24.55,
-    -16.05
-   ]
-  },
-  {
-   "id": "flash/sandbox.py::status",
-   "file": "flash/sandbox.py",
-   "symbol": "status",
-   "kind": "function",
-   "degree": 6,
-   "label": "status",
-   "pos": [
-    -6.67,
-    18.7,
-    -17.71
+    -9.44,
+    23.12,
+    -17.36
    ]
   },
   {
@@ -1952,11 +1952,6 @@
   }
  ],
  "edges": [
-  {
-   "s": "flash/ambient.py::check_drift",
-   "d": "flash/ambient.py::Finding",
-   "kind": "calls"
-  },
   {
    "s": "flash/ambient.py::draft_one",
    "d": "flash/ambient.py::scan",
@@ -2333,6 +2328,21 @@
    "kind": "calls"
   },
   {
+   "s": "flash/harness.py::diagnose_files",
+   "d": "flash/harness.py::score_files",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/harness.py::score_files",
+   "d": "flash/harness.py::_unshadow",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/harness.py::score_files",
+   "d": "flash/harness.py::score",
+   "kind": "calls"
+  },
+  {
    "s": "flash/harness.py::diagnose",
    "d": "flash/harness.py::score",
    "kind": "calls"
@@ -2349,7 +2359,22 @@
   },
   {
    "s": "flash/harness.py::run_selftest",
+   "d": "flash/harness.py::diagnose_files",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/harness.py::run_selftest",
    "d": "flash/harness.py::score",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/harness.py::run_selftest",
+   "d": "flash/harness.py::score_files",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/harness.py::run_selftest",
+   "d": "flash/harness.py::_unshadow",
    "kind": "calls"
   },
   {
@@ -2618,6 +2643,16 @@
    "kind": "calls"
   },
   {
+   "s": "flash/loop.py::solve",
+   "d": "flash/loop.py::Attempt",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/loop.py::solve_routed",
+   "d": "flash/loop.py::with_conf",
+   "kind": "calls"
+  },
+  {
    "s": "flash/loop.py::solve_routed",
    "d": "flash/loop.py::solve",
    "kind": "calls"
@@ -2739,11 +2774,6 @@
   },
   {
    "s": "flash/patches.py::apply_patches",
-   "d": "flash/patches.py::splice",
-   "kind": "calls"
-  },
-  {
-   "s": "flash/patches.py::apply_patches",
    "d": "flash/patches.py::check_result",
    "kind": "calls"
   },
@@ -2824,7 +2854,7 @@
   },
   {
    "s": "flash/patches.py::run_selftest",
-   "d": "flash/patches.py::splice",
+   "d": "flash/patches.py::land",
    "kind": "calls"
   },
   {
@@ -2835,11 +2865,6 @@
   {
    "s": "flash/patches.py::run_selftest",
    "d": "flash/patches.py::run_wiring",
-   "kind": "calls"
-  },
-  {
-   "s": "flash/perceive.py::lsp_diagnostics",
-   "d": "flash/perceive.py::send",
    "kind": "calls"
   },
   {
@@ -2859,22 +2884,12 @@
   },
   {
    "s": "flash/power.py::run_selftest",
-   "d": "flash/power.py::allow_model",
-   "kind": "calls"
-  },
-  {
-   "s": "flash/power.py::run_selftest",
    "d": "flash/power.py::read_state",
    "kind": "calls"
   },
   {
    "s": "flash/sandbox.py::seatbelt",
    "d": "flash/sandbox.py::realpath",
-   "kind": "calls"
-  },
-  {
-   "s": "flash/sandbox.py::status",
-   "d": "flash/sandbox.py::seatbelt",
    "kind": "calls"
   },
   {
@@ -2895,11 +2910,6 @@
   {
    "s": "flash/sandbox.py::run_selftest",
    "d": "flash/sandbox.py::seatbelt",
-   "kind": "calls"
-  },
-  {
-   "s": "flash/sandbox.py::run_selftest",
-   "d": "flash/sandbox.py::status",
    "kind": "calls"
   },
   {
@@ -2995,9 +3005,9 @@
  },
  "sampled": {
   "shown_nodes": 150,
-  "shown_edges": 207,
-  "repo_nodes": 4989,
-  "repo_edges": 28637,
+  "shown_edges": 209,
+  "repo_nodes": 5085,
+  "repo_edges": 29689,
   "note": "the 150 most-connected functions, classes and methods under flash/, joined by their call and import edges; `reads` edges and the rest of the index are not drawn"
  },
  "extracted_by": "python -c 'from flash.graph import build; build(...)'"

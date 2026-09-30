@@ -1,0 +1,115 @@
+  OK   `session` is a command on the shipped parser and routes to `cmd_session`, so the gate below tests what a stranger actually runs
+  OK   session asks for the one thing a turn cannot do without — the tree it patches — and never for a prompt, which comes in on stdin one turn at a time. `--test` became optional at R-7.15h: omitting it is a MODE, not a missing argument
+  OK   no positional prompt: a `session` line with one is the parser accepting an argument it will ignore
+  OK   --apply defaults off, exactly as on `run`: a session that writes to a project because it was opened is not a session
+  OK   --turns is an int, and 0 means until EOF
+  OK   session carries no `--edit` flag, because the patch arm is the only answer shape a session can land — an argument that silently does nothing is worse than one that does not exist
+  OK   the cost switches keep the governor's three choices, so a turn sheds the brain the same way a `run` does and cannot invent a fourth
+  OK   an oracle that cannot be read stops the session before turn 1: every turn is defined by its verify step, so a missing one is a chat that prints confident answers
+  OK   a session that refuses leaves the tree exactly as it found it
+  OK   a blank oracle is refused in its own words, not read as a test that always passes — the vacuous-green shape this repo gates everywhere else
+  OK   the refusal covers a file that exists but cannot be read, not only one that is absent
+  OK   blank lines are not turns — a paste with an empty line between two requests would otherwise send a prompt nobody typed to the model and charge for it
+  OK   a turn's prompt reaches the router verbatim and stripped
+  OK   every turn is an edit turn against the session's own context and its one oracle, whatever the caller's flags were
+  OK   `quit` ends the session rather than becoming a turn
+  OK   `exit` ends it too, so a person does not have to remember which of the three they know
+  OK   `q` ends it too, so a person does not have to remember which of the three they know
+  OK   --turns caps a session reading from stdin, which is what lets a driver and a keyboard mean the same thing
+  OK   the cap counts turns, not lines, and the dropped prompts never reach the router
+  OK   a session with nothing to do exits 2 and says it verified nothing — an empty session that looks green is a run with no result
+  OK   EOF ends the session and the report counts what ran
+  OK   turn 1 is ANSWERED before turn 2 is read — the reads interleave with the solves (read1, solve1, read2, solve2) instead of draining stdin up front, which is the whole difference between a chat and a batch file with a prompt painted on it
+  OK   a capped session stops ASKING, not just stops counting: with `--turns 1` stdin is read once and never again, so a keyboard is not left waiting for a fourth line after the session is over
+  OK   a keyboard is told what to do before it is asked: the session prints `you> ` on a terminal, which is the line a person needs to see to believe it is waiting rather than hung
+  OK   a pipe gets no marker at all, because a session's stdout is also a report and a driver's captured text must stay parseable
+  OK   turn 2 edits what turn 1 WROTE, not what the process remembered: the workspace is re-read from disk every turn, so the fix and the new constant are both on disk at the end
+  OK   the turn-2 patch was offered a `before` that already carried the turn-1 fix — the previous check shows the result; this one shows the input the clause is about
+  OK   a file the session never addressed is untouched, byte for byte
+  OK   the oracle survived a session that patched its own directory
+  OK   the reversal the re-read prevents is a silent one: writing back a whole file from remembered bytes would drop turn 1 and still print solved=True
+  OK   turn 1's message names every file the session read as a `# file:` block, so an address the model writes is one it has seen — including a module in a package directory, the shape a flat module list hides
+  OK   ...and it carries the target module's real body under the typed ask, because the protocol makes the model re-type the complete definition and 'fix the rounding' cannot be about a body nobody quoted
+  OK   the oracle's assertions are in EVERY turn's message, not only the first: a session's `oracle|` lines are answerable because the model was shown the test it is scored against, and R-7.15e's refusal has a file to point at rather than a guess at one
+  OK   turn N+1 is shown the bytes turn N wrote: the second message carries the fix that landed on disk and no longer carries the definition turn 1 replaced, so a re-read that reached the model stale would have it re-send the body it just retired
+  OK   the project is composed once per turn: a turn's message states the project header exactly one time, so a session that re-enriched its own output would grow with every turn rather than stay at the tree's size
+  OK   without --apply nothing is on disk, and the next turn sees the same unwritten bytes — a NOT APPLIED turn must not leak into the session's own idea of the tree
+  OK   the oracle stays protected for the whole session, not just the first patch set: a later turn that rewrites the assert is refused
+  OK   a refused turn writes nothing, so the tree keeps the earlier turn's fix and none of the weakening
+  OK   every turn is handed the oracle's workspace key, so the patch layer is the one that refuses a patch aimed at the assertion — and on the turn after a write, from the bytes the re-read found
+  OK   a turn whose verified workspace is byte-identical to the tree says so, and is not counted as a write
+  OK   VERIFY grades the patched money.py when the session's oracle names its own directory — the live demo's shape, where the run of 2026-09-29 scored the bytes from before the edit
+  OK   ...and the same oracle still refuses the pre-edit body, so the fix moved WHICH COPY is graded rather than what passes
+  OK   the sentence a model is refused on is the oracle's own assert, byte for byte — a precedence fix that rewrote the exam would fail here even while turns started passing
+  OK   a bootstrap that ends in a comment still grades the patched copy, because the first version of this fix appended the precedence statement to that line and the `#` swallowed it
+  OK   every turn ends in a verdict line naming itself, its tier and its solved state — the one property a session cannot delegate to prose
+  OK   a turn's verdict carries the patch arm's own audit counts, so `refused=` and `outside=` are visible per turn rather than only inside a trace file
+  OK   a failing turn prints the oracle's words under `oracle|`, which is the difference between a session that says no and one a person can answer
+  OK   a passing turn prints no oracle error block, so the prefix cannot become decoration on a green answer
+  OK   the landing sentence is the one `run` prints, shared rather than reworded for a second surface
+  OK   a chat turn is green on PROSE: `_solve_edits`'s 'PATCH MISSING' is the clause that made `hi` unanswerable, and this arm has no such check, so the text comes back as the answer rather than as a refusal
+  OK   a chat turn loads ONE model — the small tier — so the router, the governor and the big tier are never reached, and a question costs one generation rather than an escalation
+  OK   a chat turn is asked with the PROJECT in front of it (R-7.15f carried into this arm): the message names money.py, so 'what is this' has a referent
+  OK   the ledger row says CHAT, because a question spent the same GPU seconds as a scored turn and nobody should have to guess which it was
+  OK   a chat turn that answers AND writes a file lands the file in the workspace — this is 'create me a logger module' in one turn, which is the shape R-7.15c's verb exists for
+  OK   a chat turn that writes a file is ONE attempt, not a repair loop: the patch applied, so there is nothing to re-sample
+  OK   a chat turn whose patch is REFUSED is not green: the model said it changed something and changed nothing, and a session that prints that as an answer is a lie about the project
+  OK   the refusal is fed back as the repair prompt, so attempt 2 sees the reason — the same second-chance the scored arm gets, on the same text
+  OK   the refusal text is the patch layer's own sentence, not a reworded one: an unknown symbol says which file and which name
+  OK   with no --test the session OPENS: it says it is a chat, takes the turn, and exits green — the state the author's 'it cant even reply hi' report was about, and there was no command to type it into
+  OK   the reply IS the answer: the prose prints, and the per-turn telemetry line does not — a person who asked a question gets a sentence back, not a report about which tier served it
+  OK   every chat turn is handed chat=True, `test` empty and no oracle key, so the arm cannot be scored against a file that was never named
+  OK   a chat turn is still an EDIT turn over the re-read tree: the same workspace plumbing that lets turn N+1 edit turn N's bytes, which is what makes 'now change that file' work after 'create it'
+  OK   naming an oracle puts the session back exactly where it was: the turn is NOT a chat, so this vector's other 60 checks are about the shipped scored surface and not about a mode that leaked into it
+  OK   --apply lands a chat turn's NEW file on disk, and the sibling it did not touch keeps its bytes: R-7.15c's creation reaches the tree through the chat arm, not only through the scored one
+  OK   the chat landing sentence never claims an oracle passed: the only claim this mode can make is that the turn produced a workspace, and the banner's own 'no oracle' is not a verdict
+  OK   without --apply a chat turn says NOT APPLIED in chat words, so the tree is never assumed to have changed by an answer that read like one
+  OK   a refused chat turn prints the refusal without the `oracle|` prefix — the prefix would attribute the failure to a verify step that this session has never seen
+  OK   and it is not green: the session's last code is the refusal's
+  OK   `_oracle_key` answers the no-oracle question with the empty string instead of a traceback: `land` and the patch arm both ask it on every turn, so a crash here is the session dying on `hi`
+  OK   a chat session's own report counts what ran, so the mode cannot make the parseable EOF line disappear
+  OK   the help names chat mode, because `--test` being optional is not guessable from a flag list — a reader has to be told what omitting it does
+  OK   the EOF report prints turns, solved, written, seconds and last_rc on one line a driver can parse
+  OK   the exit code belongs to the LAST turn: a session that fixed one thing and ended on a failure is not green
+  OK   and the other order is green, from the same line — which proves the code is the last turn's, not the worst turn's
+  OK   the replay line names a session id `flash trace show` takes
+  OK   one session is one trace file, not one per turn, so `flash trace show` reconstructs the whole conversation (I-6)
+  OK   a session's first turn does not reach the model when the oracle cannot be read — and here it can, so exactly one turn ran
+  OK   `run` is untouched by the session's arrival: one prompt, the same three landing sentences, and none of the per-turn scaffolding
+  OK   the session's own help is reachable, because a command nobody can read the flags of is a command nobody installs
+  OK   the optionality stopped at `session`: `run --test` is still required, so the scored surface cannot silently become a chat that prints confident answers with no verify step behind it
+  OK   the agreement between the shipped command and the mutant copy holds on every clean scenario — otherwise a check below fails for drift, not for the bug it names
+
+R-7.15 interactive session: 81/81 checks passed
+  fresh>ok  MUTATION: turn 2 re-reads nothing: the workspace is taken once at session start, which is exactly how a wh
+  fresh>ok  MUTATION: no oracle guard: a missing or blank verify file is read anyway, and the session generates agains
+  fresh>ok  MUTATION: an empty session exits 0: the run looks green because nothing failed, though nothing was asked
+  fresh>ok  MUTATION: --turns is decoration: the cap is not applied, so a driver cannot bound a session it pipes into
+  fresh>ok  MUTATION: `quit` becomes a turn: the session asks the model to 'quit', which is the shape a person hitting
+  fresh>ok  MUTATION: blank lines are turns: a pasted request with an empty line sends an empty prompt and charges for
+  fresh>ok  MUTATION: the per-turn verdict line disappears, leaving prose and a final report — every turn's answer bec
+  fresh>ok  MUTATION: a failing turn stops printing the oracle's own words, so 'no' arrives without a reason a person 
+  fresh>ok  MUTATION: the write-back becomes the default: a session writes to the project the moment it is opened
+  fresh>ok  MUTATION: the oracle is protected on no turn at all — a session whose third turn can rewrite its own exam
+  fresh>ok  MUTATION: `written=` counts turns that were solved instead of turns that moved a file, which is a report c
+  fresh>ok  MUTATION: seconds reports the last turn rather than the session, so a five-turn cost looks like a one-turn
+  fresh>ok  MUTATION: the exit code comes from the FIRST turn: a session that ended in failure exits 0 because it had 
+  fresh>ok  MUTATION: the session honours a --edit flag it no longer has, so a turn without the patch arm is scored bu
+  fresh>ok  MUTATION: stdin is drained before turn 1 runs: every turn still answers, every count still matches, and a 
+  fresh>ok  MUTATION: no marker on a terminal: the session is waiting and prints nothing at all, which is how a runnin
+  fresh>ok  MUTATION: the turn stops carrying the oracle's key: `land` still recomputes it, so the tree is safe while 
+  fresh>ok  MUTATION: a turn is generated from the typed line alone: the session still reads the tree, still lands the
+  fresh>ok  MUTATION: VERIFY writes the patch and then grades the tree that was there before it: every count in the re
+  fresh>ok  MUTATION: the precedence statement lands behind the oracle's own comment: the fix is present, correct, and
+  fresh>ok  MUTATION: no chat mode: a session with no oracle refuses to start, which is the state that left the author
+  fresh>ok  MUTATION: the turn is not told it is a chat: `cmd_session` reads the mode for its own banner and never pas
+  fresh>ok  MUTATION: the answer is replaced by its own telemetry: the prose is generated, stored and traced, and the 
+  fresh>ok  MUTATION: the oracle key is derived without asking whether there is one: every turn of a chat session rais
+  fresh>ok  MUTATION: the chat turn's landing sentence is the scored one: nothing was verified and the report says an 
+  fresh>ok  MUTATION: prose is a failure inside the arm: `_solve_edits`'s PATCH MISSING rule reused verbatim on a chat
+
+session mutants, fresh process each: 26/26 caught
+
+session mutants: 26/26 caught
+session mutants, one process:        26/26 caught
+OK  each mutant is caught by its named check in a fresh process too, so no count here is a leftover from the previous bug

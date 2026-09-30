@@ -1,0 +1,48 @@
+# doc-gate re-run on the FINAL R-7.15f/g surfaces: SPEC.md, README.md, CHANGELOG.md, TODO.md, docs/*, site/src/components/* and the regenerated site/src/data/*.json all moved after the §6 confirming run. Date 2026-09-30.
+# command: python benchmarks/portable_paths_check.py
+  OK   the scan has a spine: every corpus this vector depends on is inside its scope, and the scope is wider than the three files it was written for — a scanner that scans nothing passes vacuously
+  OK   nothing this repo EXECUTES or tells a user to run carries a host path (/Users/, /home/, /opt/homebrew/) — that is what 'clone it anywhere' has to mean before it can mean anything
+  OK   ...and the one exemption above is a checked fact, not a wink: every host-path literal in the scanned tree sits on this file's own marker declaration, so a file that leaks for some other reason is still a failure rather than an exclusion
+  OK   ...and the token that replaced them is actually load-bearing: the corpora carry it 72 times, so the gate above cannot be green because nobody needs a path at all
+  OK   every corpus `sys.path` bootstrap names one of ['<REPO>', '<TMPDIR>'] instead of a literal directory — 99 of them across 24 task files. This is the gate that does not care where the tree lives, which is precisely what a marker list cannot do
+  OK   `harness.REPO` is resolved from the package's own file, not recorded in it: it points at this checkout and the fixture package is really under it
+  OK   no `<REPO>` survives into the program text — a token that reaches the interpreter is an ImportError wearing a passing-suite badge
+  OK   the corpus is still a corpus after the rewrite: every line parses and 72 context tasks carry a reference solution to score, so the seam gates below have real work in them
+  OK   ALL FOUR SEAMS pass EVERY reference solution in the context corpora, launched from a foreign cwd: `run_test`, `score`'s probe loop, `debug`'s tracer and `confidence`'s seeded re-run. This is the gate the fix is booked by — expanding the token at one seam and not the next is precisely how the suites broke, and no single-seam test can see it
+  OK   the same four seams REJECT the frozen WRONG answers — the 7B's own first attempts, stored verbatim — on every task and in every seam, so a green seam row above cannot mean the oracle stopped deciding something
+  OK   the token and the path it replaced decide the same thing: scoring the reference solution against the PRE-expansion literal path still passes on this machine, so the rewrite changed portability and not semantics
+  OK   `benchmarks/tasks/m2_perceive_test.py` locates the repo from its own file, which is the portable form a standalone test body has to use
+  OK   the exclusion covers DATA only: no file under `benchmarks/results/**` has any of .py, .sh, .toml, .yml, .yaml, .cfg, .md, so 'we do not scan results/' cannot be a place an executed path hides
+  OK   every host path left in the tracked tree lives in a RECORD group this vector can explain (a trace or ledger prompt the model was actually shown, an embedding cache keyed by that text, an adapter run's own paths), and no unexplained directory hides behind the exclusion
+  OK   `docs/portability.md` exists, names every group the exclusion covers and states a residue floor (['411']) against the 411 live occurrences in 228 record files — so a new record directory fails here until the doc says why it is a record
+
+portable-suite checks: 15/15 passed
+  ok   MUTATION: the token stops being expanded — the bug this file exists for: the suites import nothing, every context task fails on a ModuleNotFoundError, and the suite still prints a verdict -> 1 check(s) fail  [630bc523184e]
+  ok   MUTATION: the token expands, but to a directory that is not this checkout — the shape of a hardcoded path that happens to exist -> 2 check(s) fail  [630bc523184e]
+  ok   MUTATION: a host path is put back into one corpus line, which is what a task generator that never learned the token would do -> 3 check(s) fail  [630bc523184e]
+  ok   MUTATION: the corpora lose the token without gaining a path — the vacuous-green shape: the scan gate passes because nothing needs expansion -> 4 check(s) fail  [630bc523184e]
+  ok   MUTATION: the scan scope shrinks to the three files the fix touched, so a host path in any other executed file is invisible -> 4 check(s) fail  [630bc523184e]
+  ok   MUTATION: a `.py` carrying a host path appears under the excluded prefix — the shape the exclusion is actually there to forbid, and the only gate that can see it is the data-only one, because the scan never looks there -> 1 check(s) fail  [630bc523184e]
+  ok   MUTATION: the residue doc stops naming one of the record groups, so the exclusion is an unexplained allowance again -> 1 check(s) fail  [630bc523184e]
+
+portability mutants: 7/7 gates defeated by exactly their checks
+portable_paths_check rc=0
+# command: python benchmarks/documented_commands_check.py
+  OK   the collector has a spine: it found 26 distinct commands in 202 citations across 15 documents, which is wide enough that 'every documented command exists' cannot be green because nothing was read
+  OK   the two packaging files are among the documents scanned, and commands actually come out of them — `pyproject.toml` and `MANIFEST.in` are what a stranger reads to decide what to install, their only prose is comments, and that is where `flash vision --run` sat for a whole release claiming to be a command
+  OK   every one of those 26 commands resolves in `flash.cli.build_parser()` — the parser, not a copy of its help text
+  OK   every source file a document points a reader at exists (87 paths collected from the same spans, records under `benchmarks/results/` exempt because a run writes them) — a `python benchmarks/x.py` that is not there is the same defect wearing a .py
+  OK   the collector finds a command it has never heard of, and the existence check rejects it — this vector's own instrument is gated, so it cannot go blind and still print a pass
+  OK   every `flash` command line in the published workflows resolves (found 5 across 2 files: ['doctor', 'run-suite', 'selftest']) — the pipelines a stranger sees on the repo's front page must not call a command that does not exist
+  OK   ...and the two commands R-7.6 added are among them, so the workflow that used to be dangling is now gated by this file and by `backend_free_check.py`
+  OK   `flash --version` (top level, so not a subcommand) runs and prints the package's version: 'flash 0.0.1'
+
+documented-command checks: 8/8 passed
+  ok   MUTATION: the command pattern stops matching, so the collector reads zero documents and 'every command exists' is vacuously true -> 2 check(s) fail ['the collector has a spine: it ', 'the two packaging files are am']
+  ok   MUTATION: `resolves` returns True whatever the parser says, which is exactly how `flash doctor` shipped inside a setup block for a commit -> 1 check(s) fail ['the collector finds a command ']
+  ok   MUTATION: the CI `run:` lines stop being collected, so the published pipeline can call a missing command again -> 2 check(s) fail ['every `flash` command line in ', '...and the two commands R-7.6 ']
+  ok   MUTATION: SPEC's own mutation-check: delete a documented subcommand's parser entry, and the gate must name the documents and lines that still cite it -> 2 check(s) fail ['every one of those 26 commands', 'every `flash` command line in ']
+  ok   MUTATION: `pyproject.toml` and `MANIFEST.in` leave the scanned set — which is exactly where `flash vision --run` hid while every markdown page was being read -> 1 check(s) fail ['the two packaging files are am']
+
+documented-command mutants: 5/5 gates defeated by exactly their checks
+documented_commands_check rc=0

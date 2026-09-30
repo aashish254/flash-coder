@@ -1,0 +1,41 @@
+# R-7.15 clause 7 live arm, 2026-09-29: a real pseudo-terminal, so the keyboard path is what runs.
+# command: python -m flash.cli session --context /tmp/flash-chat-demo --test /tmp/flash-chat-demo/t.py --apply
+# turns, in the order they were typed (each only AFTER the previous turn's verdict reached the terminal): 'zero-pad the cents and keep a negative sign in front of the dollar sign, exactly as t.py asserts' / 'make cents_to_str raise ValueError when cents is not an int' / 'quit'
+# tree: money.py seeded as cents_to_str(c) -> f"${c / 100}"; oracle t.py 3 asserts, the third one being the negative case
+# driver: python benchmarks/session_pty_demo.py --tree /tmp/flash-chat-demo --out <this file>
+# child exit code: 0 after 29.4s
+# Every line below is stamped at the moment the terminal received it.
+[t+  0.00s] zero-pad the cents and keep a negative sign in front of the dollar sign, exactly as t.py asserts
+[t+  0.06s] flash session on /tmp/flash-chat-demo against the oracle /tmp/flash-chat-demo/t.py — one ask per line, and each answer arrives before you type the next. `quit` or Ctrl-D ends it.
+[t+  1.86s] you> 
+[t+  1.88s] 
+[t+  1.88s] 
+[t+ 11.69s] 
+[t+ 11.69s] 
+[t+ 11.69s] 
+[t+ 20.78s] [turn 1] routed=small tier=big solved=True attempts=3 (13.5s) patches=1 refused=0 whole=0 outside=0
+[t+ 20.99s] 
+[t+ 20.99s] <<< typed: 'make cents_to_str raise ValueError when cents is not an int'
+[t+ 20.99s] [R-3.2] wrote money.py (+4 -1 lines)
+[t+ 20.99s] you> make cents_to_str raise ValueError when cents is not an int
+[t+ 21.61s] 
+[t+ 21.62s] 
+[t+ 21.62s] 
+[t+ 28.95s] [turn 2] routed=small tier=small solved=True attempts=1 (5.7s) patches=1 refused=0 whole=0 outside=0
+[t+ 29.16s] 
+[t+ 29.16s] <<< typed: 'quit'
+[t+ 29.16s] [R-3.2] wrote money.py (+2 -0 lines)
+[t+ 29.16s] you> quit
+[t+ 29.16s] [session] turns=2 solved=2 written=2 seconds=19.2 last_rc=0
+[t+ 29.16s] [trace] replay this session:  flash trace show 20260929-231604-session-b07a
+=== child exited rc=0 after 29.4s ===
+=== final money.py ===
+def cents_to_str(cents: int) -> str:
+    if not isinstance(cents, int):
+        raise ValueError("cents must be an integer")
+    if cents >= 0:
+        return f"${cents // 100}.{abs(cents) % 100:02d}"
+    else:
+        return f"-${abs(cents) // 100}.{abs(abs(cents) % 100):02d}"
+=== oracle re-run against the bytes now on disk ===
+rc=0 ORACLE GREEN

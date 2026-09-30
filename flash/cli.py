@@ -189,7 +189,13 @@ def _oracle_key(args, task: dict) -> str:
     file is protected — the old arrangement, where `land` computed the key itself
     and the patch arm was never told, is what let a patch addressed at the oracle
     come back as a complaint about line numbers in it.
+
+    No `--test` means no oracle to protect, which is chat mode: the answer here
+    has to be the empty string rather than a crash, because `land` and the patch
+    arm both ask it on every turn.
     """
+    if not args.test:
+        return ""
     rel = _rel_to(args.test, args.context)
     return rel if rel in (task.get("files") or {}) else ""
 
@@ -218,11 +224,20 @@ def _land_edits(args, task: dict, r) -> int:
     Returns the exit code: a run that solved but could not land is not a success.
     """
     from flash.patches import LandError, land
+    chat = bool(task.get("chat"))
     if not args.apply:
-        what = ("the oracle passed this patch set" if r.solved
-                else "nothing passed the oracle")
+        if chat:
+            # Chat mode has no oracle to pass, so the only fact worth stating is
+            # whether the turn produced a workspace at all.
+            what = ("this turn produced a workspace" if r.workspace is not None
+                    else "this turn produced no patch set")
+            tail = "Re-run with --apply to write what it produced."
+        else:
+            what = ("the oracle passed this patch set" if r.solved
+                    else "nothing passed the oracle")
+            tail = "Re-run with --apply to land the patch set."
         print(f"[R-3.2] NOT APPLIED: {what} in memory; {args.context} on disk "
-              "is unchanged. Re-run with --apply to land the patch set.")
+              f"is unchanged. {tail}")
         return 0 if r.solved else 1
     if r.workspace is None:
         print(f"[R-3.2] NOT APPLIED: the task was not solved, so --apply wrote "
@@ -356,13 +371,16 @@ def _read_turns(stream, limit: int = 0, prompt: str = ""):
 
 
 def cmd_session(args) -> int:
-    """Many turns against one repo and one oracle (R-7.15).
+    """Many turns against one repo and one oracle (R-7.15), or chat mode.
 
     `run` answers exactly one task per process, so coding with it meant
     re-typing `--test … --context … --edit --apply` for every change. A session
     keeps that pair and puts a printed verdict at the end of each turn — and the
     turn arm is always the patch arm, because a session whose answers can only
     be pasted by hand is the defect R-3.2's clause 3 just closed.
+
+    Chat mode (--test omitted): free-form questions, new file creation, no
+    verification step. Every turn is accepted as long as it parses (if Python).
     """
     import sys
     from flash import trace
@@ -370,18 +388,24 @@ def cmd_session(args) -> int:
     from flash.loop import solve_routed
     from flash.patches import workspace_from_dir
 
-    # An oracle that cannot be read is not a session with no verify: it is a
-    # chat that prints confident answers, so it refuses before generating.
-    try:
-        test = open(args.test).read()
-    except OSError as e:
-        print(f"session: the oracle {args.test} cannot be read ({e}) — every "
-              "turn needs a verify step")
-        return 2
-    if not test.strip():
-        print(f"session: the oracle {args.test} is empty — nothing would be "
-              "verified, so no turn could ever be green")
-        return 2
+    # Optional oracle: if present, verify; if absent, enable chat mode
+    test = ""
+    use_oracle = args.test is not None
+    
+    if use_oracle:
+        try:
+            test = open(args.test).read()
+        except OSError as e:
+            print(f"session: the oracle {args.test} cannot be read ({e}) — "
+                  "omit --test for chat mode")
+            return 2
+        if not test.strip():
+            print(f"session: the oracle {args.test} is empty — omit --test for "
+                  "chat mode")
+            return 2
+    else:
+        print("session in CHAT MODE — no oracle, free-form questions and new "
+              "file creation allowed")
 
     loop.ADAPTER = args.adapter or ""
     loop.CONSTRAIN = args.constrain
@@ -390,7 +414,7 @@ def cmd_session(args) -> int:
     loop.HINTS = _hint_names(args.no_source_hint, args.no_graph_hint)
     trace.CAPTURE = args.trace_full
     sid = trace.open_session("session", cmd="session",
-                            params={"context": args.context, "test": args.test,
+                            params={"context": args.context, "test": args.test or "",
                                     "small": args.small, "big": args.big,
                                     "allow_big": args.allow_big,
                                     "adapter": args.adapter, "edit": True,
@@ -398,13 +422,18 @@ def cmd_session(args) -> int:
                                     "tournament": args.tournament,
                                     "hints": loop.HINTS,
                                     "confidence": args.confidence,
-                                    "turns": args.turns})
+                                    "turns": args.turns,
+                                    "chat": not use_oracle})
     tty = bool(getattr(sys.stdin, "isatty", lambda: False)())
     # Printed before the first read, because on a keyboard the alternative is a
     # cursor sitting there with no idea what the program wants.
-    print(f"flash session on {args.context} against the oracle {args.test} — "
-          "one ask per line, and each answer arrives before you type the next. "
-          "`quit` or Ctrl-D ends it.")
+    if use_oracle:
+        print(f"flash session on {args.context} against the oracle {args.test} — "
+              "one ask per line, and each answer arrives before you type the next. "
+              "`quit` or Ctrl-D ends it.")
+    else:
+        print(f"flash chat session on {args.context} — free-form questions, "
+              "code creation, no verification. `quit` or Ctrl-D ends it.")
     solved_n = written_n = ran = 0
     seconds = 0.0
     rc = 2
@@ -413,7 +442,7 @@ def cmd_session(args) -> int:
         ran += 1
         i = ran
         task = {"id": f"turn{i}", "prompt": prompt, "test": test,
-                "context": args.context}
+                "context": args.context, "chat": not use_oracle}
         # The workspace comes off the DISK every turn, so turn N edits the bytes
         # turn N-1 wrote rather than the bytes this process remembered.
         task["files"] = workspace_from_dir(args.context)
@@ -428,17 +457,28 @@ def cmd_session(args) -> int:
                                        max_tokens=args.max_tokens,
                                        allow_big=args.allow_big,
                                        tournament=args.tournament,
-                                       confidence=args.confidence)
+                                       confidence=args.confidence,
+                                       chat=not use_oracle)
         trace.event("task_end", task_id=task["id"], prompt=prompt[:200],
                     solved=r.solved, tier=tier, attempts=r.n_attempts,
                     seconds=r.seconds, routed=routed,
                     **loop.tournament_fields(r), **_conf_fields(r),
                     **_patch_fields(r))
-        print(f"[turn {i}] routed={routed} tier={tier} solved={r.solved} "
-              f"attempts={r.n_attempts} ({r.seconds}s){_patch_note(r)}")
-        if not r.solved and r.attempts and r.attempts[-1].err:
-            for line in r.attempts[-1].err.splitlines()[:8]:
-                print(f"  oracle| {line}")
+        # Chat mode prints the reply, not the telemetry. The user asked a
+        # question; a line about which tier answered it is an answer to a
+        # different question, and the routing detail still reaches the trace.
+        answer = r.attempts[-1].code if r.attempts else ""
+        if not use_oracle:
+            print(answer.strip())
+            if not r.solved and r.attempts and r.attempts[-1].err:
+                for line in r.attempts[-1].err.splitlines()[:8]:
+                    print(f"  {line}")
+        else:
+            print(f"[turn {i}] routed={routed} tier={tier} solved={r.solved} "
+                  f"attempts={r.n_attempts} ({r.seconds}s){_patch_note(r)}")
+            if not r.solved and r.attempts and r.attempts[-1].err:
+                for line in r.attempts[-1].err.splitlines()[:8]:
+                    print(f"  oracle| {line}")
         rc = _land_edits(args, task, r)
         # Counted from the tree, not from what the write-back reported: a turn
         # that was refused has to show up as zero files changed, and the disk is
@@ -1231,11 +1271,14 @@ def build_parser() -> argparse.ArgumentParser:
                         "run can be re-fed to a model")
     p.set_defaults(fn=cmd_run)
 
-    p = sub.add_parser("session", help="many turns against one repo and one "
-                                       "oracle; every turn ends in a verdict")
-    p.add_argument("--test", required=True,
+    p = sub.add_parser("session", help="many turns against one repo — scored by "
+                                       "an oracle, or a chat that answers in "
+                                       "prose; every turn ends in an answer")
+    p.add_argument("--test", default=None,
                    help="the oracle: a file with asserts that verify each turn "
-                        "(read once — a turn cannot rewrite it, see R-3.2 c3)")
+                        "(read once — a turn cannot rewrite it, see R-3.2 c3; "
+                        "omit for chat mode, which answers in prose and writes "
+                        "new files with no verify step, see R-7.15h)")
     p.add_argument("--context", required=True,
                    help="the project each turn patches, and the directory the "
                         "workspace is re-read from at the start of every turn")

@@ -49,11 +49,11 @@ SOURCE = ROOT / "benchmarks" / "results" / "dashboard_data.json"
 OUT_DIR = ROOT / "site" / "src" / "data"
 # The R-7.15 live arm: three turns at a real 7B, two diffs landed, one refusal.
 SESSION_LIVE = dashboard_data.RESULTS / "session_live_20260929.log"
-# R-7.15 clause 7's arm, re-run on the R-7.15e tree: the same command behind a real
+# R-7.15 clause 7's arm, re-run on the R-7.15f/g tree: the same command behind a real
 # pseudo-terminal, so the keyboard path is what the page shows, with every byte stamped.
-# This is the print where a patch aimed at `t.py` is answered as the oracle rather than as
-# a line number, and where the turn still loses — the panel shows both.
-SESSION_PTY = dashboard_data.RESULTS / "session_pty_r715e_20260929.log"
+# This is the print where the demo turn goes green — both turns solved, both diffs
+# written, the driver's independent oracle re-run answering rc=0.
+SESSION_PTY = dashboard_data.RESULTS / "session_pty_r715g_20260929.log"
 
 # The hero shows a slice, and says it is one.
 GRAPH_NODES = 150

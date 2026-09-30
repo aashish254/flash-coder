@@ -61,9 +61,18 @@ sys.path.insert(0, str(ROOT / "benchmarks"))
 
 import flash                                                   # noqa: E402
 from flash import cli, doctor                                  # noqa: E402
+import battery_reread                                          # noqa: E402
 
 PY = sys.executable
 CHECKS: list[tuple[str, bool, str]] = []
+
+# The harness row's own fraction, read out of the battery's table instead of
+# written as a second literal here: a check added to `flash.harness --selftest`
+# moves that row, and a copy of the number in this file turns a green battery
+# into a red one for a reason that has nothing to do with what doctor reports.
+HARNESS_ROW = next(f"{want}/{want}" for label, _argv, want, _mut, _kind
+                   in battery_reread.BATTERY
+                   if label == "flash.harness --selftest")
 
 
 def ck(label: str, ok: bool, detail: str = "") -> None:
@@ -424,13 +433,13 @@ def run_gates() -> None:
     ck("`battery_reread --backend-free --quick harness` proves the blocker before "
        "it prints a fraction, and says out loud that a --quick total is not a §6 "
        "re-read",
-       "20/20" in out and "--quick run" in out
+       HARNESS_ROW in out and "--quick run" in out
        and ("proof --backend-free" in out or "note --backend-free" in out),
        out[-220:])
     proc = run("-m", "flash.cli", "selftest", "--all", "--quick", "harness")
     ck("`flash selftest --all` is a thin wrapper: the same line, the same "
        "fraction, printed through the CLI",
-       "20/20" in proc.stdout and proc.returncode == 0,
+       HARNESS_ROW in proc.stdout and proc.returncode == 0,
        f"rc={proc.returncode} {proc.stdout[-160:]}")
 
     # ---- R-7.7: the package itself, with no backend importable

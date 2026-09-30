@@ -1,0 +1,43 @@
+# R-7.15 clause 7 live arm, 2026-09-29: a real pseudo-terminal, so the keyboard path is what runs.
+# command: python -m flash.cli session --context /tmp/flash-chat-demo --test /tmp/flash-chat-demo/t.py --apply
+# turns, in the order they were typed (each only AFTER the previous turn's verdict reached the terminal): 'zero-pad the cents and keep a negative sign in front of the dollar sign, exactly as t.py asserts' / 'make cents_to_str raise ValueError when cents is not an int' / 'quit'
+# tree: money.py seeded as cents_to_str(c) -> f"${c / 100}"; oracle t.py 3 asserts, the third one being the negative case
+# driver: python benchmarks/session_pty_demo.py --tree /tmp/flash-chat-demo --out <this file>
+# child exit code: 1 after 50.3s
+# Every line below is stamped at the moment the terminal received it.
+[t+  0.00s] zero-pad the cents and keep a negative sign in front of the dollar sign, exactly as t.py asserts
+[t+  0.14s] flash session on /tmp/flash-chat-demo against the oracle /tmp/flash-chat-demo/t.py — one ask per line, and each answer arrives before you type the next. `quit` or Ctrl-D ends it.
+[t+  3.07s] you> 
+[t+  3.09s] 
+[t+  3.09s] 
+[t+ 14.31s] 
+[t+ 14.31s] 
+[t+ 14.31s] 
+[t+ 27.47s] [turn 1] routed=small tier=failed solved=False attempts=4 (17.3s) patches=1 refused=0 whole=0 outside=0
+[t+ 27.47s]   oracle| FAILING_ASSERT: assert cents_to_str(150) == "$1.50" | GOT: '$1.5' | WANT: '$1.50'
+[t+ 27.47s] [R-3.2] NOT APPLIED: the task was not solved, so --apply wrote nothing to /tmp/flash-chat-demo
+[t+ 27.68s] 
+[t+ 27.68s] <<< typed: 'make cents_to_str raise ValueError when cents is not an int'
+[t+ 27.68s] you> make cents_to_str raise ValueError when cents is not an int
+[t+ 28.41s] 
+[t+ 28.41s] 
+[t+ 28.41s] 
+[t+ 38.68s] 
+[t+ 38.68s] 
+[t+ 38.68s] 
+[t+ 49.64s] [turn 2] routed=small tier=failed solved=False attempts=4 (15.6s) patches=1 refused=0 whole=0 outside=0
+[t+ 49.64s]   oracle| FAILING_ASSERT: assert cents_to_str(150) == "$1.50" | GOT: '$1.5' | WANT: '$1.50'
+[t+ 49.64s] [R-3.2] NOT APPLIED: the task was not solved, so --apply wrote nothing to /tmp/flash-chat-demo
+[t+ 49.85s] 
+[t+ 49.85s] <<< typed: 'quit'
+[t+ 49.85s] you> quit
+[t+ 49.85s] [session] turns=2 solved=0 written=0 seconds=32.9 last_rc=1
+[t+ 49.85s] [trace] replay this session:  flash trace show 20260929-224842-session-0e6b
+=== child exited rc=1 after 50.3s ===
+=== final money.py ===
+def cents_to_str(cents: int) -> str:
+    return f"${cents / 100}"
+=== oracle re-run against the bytes now on disk ===
+rc=1 Traceback (most recent call last):
+  File "<string>", line 6, in <module>
+AssertionError

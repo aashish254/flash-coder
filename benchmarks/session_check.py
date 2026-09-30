@@ -1,5 +1,5 @@
-"""R-7.15, OFFLINE: many turns against one repo and one oracle, and every turn
-ends in a verdict — including the turn that must say it changed nothing.
+"""R-7.15, OFFLINE: many turns against one repo — scored by an oracle, or a chat
+that answers in prose — and every turn ends in something a person can use.
 
 `flash run` answers exactly one task per process. That is the right shape for a
 benchmark and the wrong shape for coding: to make two changes a person re-types
@@ -8,9 +8,11 @@ weights again. The author's own first use of the tool reported it as
 "what is this how will i code on this?", six questions after R-3.2's clause 3
 put a verified patch on disk.
 
-So `flash session` reads turns from stdin against one (repo, oracle) pair. Six
-questions, none of them about a model — the router is stubbed here, so what is
-under test is the loop around the write-back:
+So `flash session` reads turns from stdin against one (repo, oracle) pair — or
+against the repo ALONE, which since R-7.15h is a mode rather than an error. Six
+questions, none of them about a model — the router is stubbed for the command's
+checks and only the weights are stubbed for the chat arm's, so what is under
+test is the loop around the write-back and the arm around the answer:
 
 * **Does turn N see what turn N-1 wrote?** The workspace is re-read from disk at
   the start of every turn. A session that kept the bytes it started with would
@@ -19,13 +21,19 @@ under test is the loop around the write-back:
   vector's loudest mutant takes, and it is invisible to any one-turn test.
 * **Does a turn that did not write say so?** The landing sentence comes from the
   same `cli._land_edits` the one-command surface prints, so `NOT APPLIED` and
-  `REFUSED` cannot drift between the two surfaces.
+  `REFUSED` cannot drift between the two surfaces — and in chat mode neither can
+  the one claim this mode must never make, that an oracle passed.
 * **Can the exam be edited mid-session?** The oracle is read once and named
   protected on every turn, so a patch that weakens an assertion is refused on
   turn 3 exactly as on turn 1.
-* **Is an empty session a green one?** A missing oracle, a blank oracle and zero
-  turns all refuse with rc 2 before any generation: a session with no verify step
-  is a chat, and a chat that prints confident answers is what this project is not.
+* **Does `hi` get an answer?** With no `--test` the turn goes to `solve_chat`,
+  which accepts prose: the reply prints, a patch inside the reply still lands,
+  and a REFUSED patch is not green. `_solve_edits` cannot carry this — its
+  "PATCH MISSING" clause is what made a question unanswerable.
+* **Is an empty session a green one?** A missing oracle is now a mode, an
+  unreadable one is still a refusal, and zero turns refuse with rc 2 before any
+  generation: a session that answers with nothing behind it is what this
+  project is not.
 * **Does the exit code belong to the last turn?** A session that fixed three
   things and ended on a failure is not green, so the report prints `last_rc` and
   returns it.
@@ -50,7 +58,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from flash import cli, loop, trace                                # noqa: E402
+from flash import cli, harness, loop, patches, trace              # noqa: E402
 
 MONEY = 'def cents_to_str(cents):\n    return str(cents) + "." + "00"\n'
 MONEY_FIXED_BODY = 'return f"${cents // 100}.{cents % 100:02d}"'
@@ -61,6 +69,15 @@ ORACLE = ('import sys\nsys.path.insert(0, "<TMPDIR>")\n'
           'from money import cents_to_str\n'
           'assert cents_to_str(5) == "$0.05", cents_to_str(5)\n')
 OTHER = 'TAX_RATE = 0.08\n'
+# A file the project does not have, which only a chat turn is asked to write —
+# R-7.15c's verb, reached through R-7.15h's arm.
+LOG_SRC = 'def log(msg):\n    print("[app]", msg)\n'
+# The three shapes a chat turn can come back as, in the words the arm uses.
+CHAT_ANSWER = "Hi — this project formats cents as dollars in money.py."
+CHAT_PATCH = ('I added a logger.\n\n# edit: logger.py :: *\n'
+              '```python\n' + LOG_SRC + '```\n')
+CHAT_BAD = ('Here it is.\n\n# edit: money.py :: no_such\n```python\n'
+            'def no_such():\n    pass\n```\n')
 FILES = {"money.py": MONEY, "other.py": OTHER, "t.py": ORACLE}
 
 
@@ -135,9 +152,10 @@ def field(out: str, key: str, prefix: str = "[session] turns=") -> str:
 # them as functions of `files` is the whole point: a stub returning a fixed dict
 # could not tell a stale `before` from a fresh one.
 
-def turn(edit=None, solved=True, err="", seconds=1.0, patches=1):
+def turn(edit=None, solved=True, err="", seconds=1.0, patches=1,
+         code="# edit: money.py :: cents_to_str"):
     return {"edit": edit, "solved": solved, "err": err, "seconds": seconds,
-            "patches": patches}
+            "patches": patches, "code": code}
 
 
 def _fix_money(files):
@@ -165,6 +183,16 @@ NO_OP = turn()
 FAIL_MONEY = turn(edit=_rename, solved=False,
                   err="AssertionError: 5.00\n  line 4, in <module>")
 WEAKEN_ORACLE = turn(edit=_weaken)
+# R-7.15h: a chat turn's answer is prose, and the turn that also writes a file
+# carries the patch header inside that prose. Both shapes reach the CLI through
+# the same `Attempt.code`, so which one prints is a property of the command, not
+# of the stub.
+HELLO = turn(code=CHAT_ANSWER, patches=0)
+WRITE_FILE = turn(edit=lambda files: dict(files, **{"logger.py": LOG_SRC}),
+                  code=CHAT_PATCH, patches=1)
+REFUSED_TURN = turn(code="One patch, and it does not apply.",
+                    solved=False, err="PATCH REFUSED: money.py:no_such — unknown "
+                                      "symbol")
 
 
 def fake_solve(script, log: list | None = None):
@@ -180,7 +208,13 @@ def fake_solve(script, log: list | None = None):
 
     def _solve(small_repo, big_repo, task, root, **kw):
         step = script[min(len(seen), len(script) - 1)]
+        # R-7.15f: the message the turn is GENERATED from is built inside
+        # `solve_routed`, which this stand-in replaces, so the line the real one
+        # runs first is run here — with the real `enrich_task`, so a mutant that
+        # takes the composition out changes what these checks read.
+        shown = loop.enrich_task(task, root, kw.get("max_chars", 4000))
         seen.append({"id": task["id"], "prompt": task["prompt"],
+                    "message": patches.edit_prompt(shown),
                     "files": dict(task["files"]), "edit": task.get("edit"),
                     "multi": task.get("multi"), "context": task.get("context"),
                     "test": task["test"], "test_path": task.get("test_path"),
@@ -191,7 +225,7 @@ def fake_solve(script, log: list | None = None):
         ws = step["edit"](files) if step["edit"] else dict(files)
         r = loop.SolveResult(
             task_id=task["id"], solved=step["solved"], seconds=step["seconds"],
-            attempts=[loop.Attempt(code="# edit: money.py :: cents_to_str",
+            attempts=[loop.Attempt(code=step["code"],
                                    ok=step["solved"], err=step["err"],
                                    patches=step["patches"])])
         if step["solved"]:
@@ -248,7 +282,11 @@ def drive(fn=None, prompts="", argv=None, script=None, root=None,
     fake = fake_solve(script, log)
     real = (loop.solve_routed, sys.stdin, sys.argv, trace.DIR)
     trace.DIR = Path(tempfile.mkdtemp(prefix="flash-session-trace-"))
-    flags = ["--test", str(root / oracle), "--context", str(root)]
+    # `oracle=None` is chat mode: the flag is absent, not pointed at a file, so
+    # the command sees exactly what a stranger typing `flash session --context
+    # .` sees.
+    flags = [] if oracle is None else ["--test", str(root / oracle)]
+    flags += ["--context", str(root)]
     sys.argv = ["flash", command, *flags, *(argv or [])]
     sys.stdin = (TtyStream(prompts, log, tty)
                  if tty or log is not None else stdin_text(prompts))
@@ -295,27 +333,41 @@ def session_copy(**knob):
              skip_blank=True, edit_flag=False, apply_default=False,
              protect=True, write_count=True, last_rc=True, sum_seconds=True,
              verdict=True, oracle_lines=True, empty_refuses=True,
-             interleaved=True, tty_prompt=True, oracle_key=True)
+             interleaved=True, tty_prompt=True, oracle_key=True,
+             chat_mode=True, chat_arg=True, answer_print=True)
     k.update(knob)
 
     def cmd(args) -> int:
         from flash.loop import solve_routed
         from flash.patches import land, workspace_from_dir
 
-        if k["oracle_guard"]:
-            try:
-                test = open(args.test).read()
-            except OSError as e:
-                print(f"session: the oracle {args.test} cannot be read ({e}) — "
-                      "every turn needs a verify step")
-                return 2
-            if not test.strip():
-                print(f"session: the oracle {args.test} is empty — nothing would "
-                      "be verified, so no turn could ever be green")
-                return 2
+        use_oracle = args.test is not None
+        if not use_oracle and not k["chat_mode"]:
+            # R-7.15h put back: no oracle means no session, which is the state
+            # that had nothing to type `hi` into.
+            print(f"session: the oracle {args.test} is missing — every turn "
+                  "needs a verify step")
+            return 2
+        if use_oracle:
+            if k["oracle_guard"]:
+                try:
+                    test = open(args.test).read()
+                except OSError as e:
+                    print(f"session: the oracle {args.test} cannot be read ({e})"
+                          " — every turn needs a verify step")
+                    return 2
+                if not test.strip():
+                    print(f"session: the oracle {args.test} is empty — nothing "
+                          "would be verified, so no turn could ever be green")
+                    return 2
+            else:
+                got = outcome(lambda: open(args.test).read())
+                test = "" if isinstance(got, str) and got.startswith("RAISED") \
+                    else got
         else:
-            got = outcome(lambda: open(args.test).read())
-            test = "" if isinstance(got, str) and got.startswith("RAISED") else got
+            test = ""
+            print("session in CHAT MODE — no oracle, free-form questions and new "
+                  "file creation allowed")
 
         loop.ADAPTER = args.adapter or ""
         loop.CONSTRAIN = args.constrain
@@ -326,9 +378,10 @@ def session_copy(**knob):
         trace.CAPTURE = args.trace_full
         sid = trace.open_session("session", cmd="session",
                                  params={"context": args.context,
-                                         "test": args.test, "edit": True,
+                                         "test": args.test or "", "edit": True,
                                          "apply": args.apply,
-                                         "turns": args.turns})
+                                         "turns": args.turns,
+                                         "chat": not use_oracle})
         tty = bool(getattr(sys.stdin, "isatty", lambda: False)())
         marker = cli.PROMPT if (tty and k["tty_prompt"]) else ""
 
@@ -353,9 +406,13 @@ def session_copy(**knob):
 
         # The banner goes up before the first read, as in the command: on a
         # keyboard the alternative is a cursor and no sentence to read.
-        print(f"flash session on {args.context} against the oracle "
-              f"{args.test} — one ask per line, and each answer arrives before "
-              "you type the next. `quit` or Ctrl-D ends it.")
+        if use_oracle:
+            print(f"flash session on {args.context} against the oracle "
+                  f"{args.test} — one ask per line, and each answer arrives "
+                  "before you type the next. `quit` or Ctrl-D ends it.")
+        elif k["chat_mode"]:
+            print(f"flash chat session on {args.context} — free-form questions, "
+                  "code creation, no verification. `quit` or Ctrl-D ends it.")
         # `interleaved=False` is the defect the author hit: drain stdin, then
         # run. Same turns, same counts, same sentences — and not a chat.
         stream = asks() if k["interleaved"] else iter(list(asks()))
@@ -367,7 +424,7 @@ def session_copy(**knob):
             ran += 1
             i = ran
             task = {"id": f"turn{i}", "prompt": prompt, "test": test,
-                    "context": args.context}
+                    "context": args.context, "chat": not use_oracle}
             task["files"] = (workspace_from_dir(args.context) if k["re_read"]
                              else dict(cached))
             task["edit"] = armed
@@ -382,20 +439,31 @@ def session_copy(**knob):
                                            max_tokens=args.max_tokens,
                                            allow_big=args.allow_big,
                                            tournament=args.tournament,
-                                           confidence=args.confidence)
+                                           confidence=args.confidence,
+                                           **({"chat": not use_oracle}
+                                              if k["chat_arg"] else {}))
             trace.event("task_end", task_id=task["id"], prompt=prompt[:200],
                         solved=r.solved, tier=tier, attempts=r.n_attempts,
                         seconds=r.seconds, routed=routed,
                         **loop.tournament_fields(r), **cli._conf_fields(r),
                         **cli._patch_fields(r))
-            if k["verdict"]:
-                print(f"[turn {i}] routed={routed} tier={tier} solved={r.solved} "
-                      f"attempts={r.n_attempts} ({r.seconds}s)"
-                      f"{cli._patch_note(r)}")
-            if k["oracle_lines"] and not r.solved and r.attempts \
-                    and r.attempts[-1].err:
-                for ln in r.attempts[-1].err.splitlines()[:8]:
-                    print(f"  oracle| {ln}")
+            answer = r.attempts[-1].code if r.attempts else ""
+            if use_oracle or not k["answer_print"]:
+                if k["verdict"]:
+                    print(f"[turn {i}] routed={routed} tier={tier} "
+                          f"solved={r.solved} attempts={r.n_attempts} "
+                          f"({r.seconds}s){cli._patch_note(r)}")
+                if k["oracle_lines"] and not r.solved and r.attempts \
+                        and r.attempts[-1].err:
+                    for ln in r.attempts[-1].err.splitlines()[:8]:
+                        print(f"  oracle| {ln}")
+            else:
+                # Chat: the prose is the reply, so it is what prints — the
+                # telemetry line goes to the trace and nowhere else.
+                print(answer.strip())
+                if not r.solved and r.attempts and r.attempts[-1].err:
+                    for ln in r.attempts[-1].err.splitlines()[:8]:
+                        print(f"  {ln}")
             if k["apply_default"]:
                 args.apply = True
             rc = cli._land_edits(args, task, r)
@@ -433,11 +501,12 @@ def session_copy(**knob):
     return cmd
 
 
-def _quiet(fn, prompts, script, root, argv, tty=False):
+def _quiet(fn, prompts, script, root, argv, tty=False, oracle="t.py"):
     """Run `fn` over one scenario and return everything a reader could compare:
     the exit code, the printed lines with the volatile ones removed, and the
     bytes the tree ended with."""
-    rc, out, _seen, _root = drive(fn, prompts, argv, script, root, tty=tty)
+    rc, out, _seen, _root = drive(fn, prompts, argv, script, root, oracle,
+                                  tty=tty)
     # Two scenarios run on two different temp trees, so the session's own header —
     # which prints the absolute directory it was pointed at — differs by
     # construction. Collapsing the prefix keeps the comparison about the sentences:
@@ -464,17 +533,27 @@ def agree() -> str:
         # keyboard, which is the one place a prompt is for.
         ("fix\nadd\n", [FIX_MONEY, ADD_CONST], True, [], True),
         ("one\n\nquit\n", [FIX_MONEY], False, [], True),
+        # R-7.15h's lane: no oracle at all, so `oracle=None` and the answers are
+        # prose, a file-write, and a refusal — the three shapes one chat turn can
+        # take, each of which the copy has to print the same way.
+        ("hi\nwhat is this?\n", [HELLO, HELLO], False, [], False, None),
+        ("make a logger\n", [WRITE_FILE], True, [], False, None),
+        ("write it\nbreak it\n", [WRITE_FILE, REFUSED_TURN], True, [],
+         False, None),
+        ("hi\nquit\n", [HELLO], False, [], True, None),
     ]
     for scenario in scenarios:
         prompts, script, apply, extra = scenario[:4]
         tty = scenario[4] if len(scenario) > 4 else False
+        oracle = scenario[5] if len(scenario) > 5 else "t.py"
         seen = []
         for fn in (cli.cmd_session, session_copy()):
             seen.append(_quiet(fn, prompts, script, new_tree(),
-                               (["--apply"] if apply else []) + extra, tty))
+                               (["--apply"] if apply else []) + extra, tty,
+                               oracle))
         if seen[0] != seen[1]:
-            return (f"{prompts!r} apply={apply} tty={tty} {extra}: "
-                    f"shipped={seen[0]} copy={seen[1]}")
+            return (f"{prompts!r} apply={apply} tty={tty} oracle={oracle} "
+                    f"{extra}: shipped={seen[0]} copy={seen[1]}")
     if isinstance(outcome(agree_copy_is_honest), str):
         return f"the copy raised: {outcome(agree_copy_is_honest)}"
     return ""
@@ -491,13 +570,19 @@ def agree_copy_is_honest() -> bool:
                  apply_default=True, protect=False, write_count=False,
                  last_rc=False, sum_seconds=False, verdict=False,
                  oracle_lines=False, empty_refuses=False, interleaved=False,
-                 tty_prompt=False)
+                 tty_prompt=False, chat_mode=False, chat_arg=False,
+                 answer_print=False, oracle_key=False)
     for name in knobs:
         copy = session_copy(**{name: knobs[name]})
-        rc, lines, state = _quiet(copy, "fix\nadd\n", [FIX_MONEY, ADD_CONST],
-                                 new_tree(), ["--apply"])
-        if isinstance(rc, str):
-            raise AssertionError(f"knob {name} broke its own copy: {rc}")
+        # Both lanes: a knob that only misbehaves once there is no oracle would
+        # pass the original scenario and still be an unfair mutant.
+        for prompts, script, argv, oracle in (
+                ("fix\nadd\n", [FIX_MONEY, ADD_CONST], ["--apply"], "t.py"),
+                ("hi\nwrite it\n", [HELLO, WRITE_FILE], ["--apply"], None)):
+            rc, lines, state = _quiet(copy, prompts, script, new_tree(),
+                                      argv, False, oracle)
+            if isinstance(rc, str):
+                raise AssertionError(f"knob {name} broke its own copy: {rc}")
     return True
 
 
@@ -508,12 +593,14 @@ def _parser_checks() -> None:
     check("`session` is a command on the shipped parser and routes to "
           "`cmd_session`, so the gate below tests what a stranger actually runs",
           getattr(a, "fn", None) is cli.cmd_session, repr(getattr(a, "fn", None)))
-    check("session asks for the two things a turn cannot do without — the oracle "
-          "and the tree it patches — and never for a prompt, which comes in on "
-          "stdin one turn at a time",
-          "are required: --test, --context" in rejects(["session"])
-          and "required: --context" in rejects(["session", "--test", "t.py"])
-          and "required: --test" in rejects(["session", "--context", "."]),
+    check("session asks for the one thing a turn cannot do without — the tree it "
+          "patches — and never for a prompt, which comes in on stdin one turn at "
+          "a time. `--test` became optional at R-7.15h: omitting it is a MODE, "
+          "not a missing argument",
+          "required: --context" in rejects(["session"])
+          and parsed(["session", "--context", "."]).test is None
+          and parsed(["session", "--test", "t.py", "--context", "."]).test
+          == "t.py",
           rejects(["session"])[-120:])
     check("no positional prompt: a `session` line with one is the parser "
           "accepting an argument it will ignore",
@@ -672,6 +759,48 @@ def _disk_checks() -> None:
           "solved=True",
           MONEY_FIXED_BODY in final, final[-160:])
 
+    # R-7.15f on the session rather than the one-command surface. A turn is asked
+    # to patch a project it first has to be SHOWN, and on a keyboard the ask is a
+    # line of prose with no path in it, so the message is the only place the tree
+    # can appear. These read the message the arm is generated from, because that
+    # is where the six refusals this clause was filed for came out of.
+    shown_tree = new_tree({**FILES, "pkg/deep.py": "LIMIT = 3\n"})
+    rc, out, seen, _ = drive(prompts="fix the rounding\nadd a constant\n",
+                             root=shown_tree, script=[FIX_MONEY, ADD_CONST],
+                             argv=["--apply"])
+    check("turn 1's message names every file the session read as a `# file:` block, "
+          "so an address the model writes is one it has seen — including a module in "
+          "a package directory, the shape a flat module list hides",
+          all(f"# file: {k}" in seen[0]["message"]
+              for k in ("money.py", "other.py", "t.py", "pkg/deep.py")),
+          f"{len(seen[0]['message'])} chars, keys={sorted(seen[0]['files'])}")
+    check("...and it carries the target module's real body under the typed ask, "
+          "because the protocol makes the model re-type the complete definition and "
+          "'fix the rounding' cannot be about a body nobody quoted",
+          "def cents_to_str(cents):" in seen[0]["message"]
+          and 'return str(cents) + "." + "00"' in seen[0]["message"]
+          and "Requested change: fix the rounding" in seen[0]["message"],
+          seen[0]["message"][:160])
+    check("the oracle's assertions are in EVERY turn's message, not only the first: "
+          "a session's `oracle|` lines are answerable because the model was shown "
+          "the test it is scored against, and R-7.15e's refusal has a file to point "
+          "at rather than a guess at one",
+          'assert cents_to_str(5) == "$0.05"' in seen[0]["message"]
+          and 'assert cents_to_str(5) == "$0.05"' in seen[1]["message"],
+          f"turn2={len(seen[1]['message'])} chars")
+    check("turn N+1 is shown the bytes turn N wrote: the second message carries the "
+          "fix that landed on disk and no longer carries the definition turn 1 "
+          "replaced, so a re-read that reached the model stale would have it re-send "
+          "the body it just retired",
+          MONEY_FIXED_BODY in seen[1]["message"]
+          and 'return str(cents) + "." + "00"' not in seen[1]["message"],
+          seen[1]["message"][:200])
+    check("the project is composed once per turn: a turn's message states the "
+          "project header exactly one time, so a session that re-enriched its own "
+          "output would grow with every turn rather than stay at the tree's size",
+          seen[1]["message"].count(patches.PROJECT_HEADER) == 1,
+          f"{seen[1]['message'].count(patches.PROJECT_HEADER)} header(s)")
+
     root = new_tree()
     rc, out, seen, _ = drive(prompts="fix\nadd\n", root=root,
                             script=[FIX_MONEY, ADD_CONST])
@@ -709,6 +838,50 @@ def _disk_checks() -> None:
           "byte-identical" in out and field(out, "written") == "0", out[-200:])
 
 
+def _shadow_checks() -> None:
+    """R-7.15g: the session's oracle lives INSIDE the tree it tests.
+
+    Every other check here scripts the turn's verdict, because a session's cost is
+    a model. These are the ones that reach the real oracle, and they use the shape
+    the release actually produces: `t.py` sits next to `money.py` and bootstraps
+    with the folder it is in. VERIFY writes the patched workspace to a temp copy
+    of the same keys, so that bootstrap keeps the pre-edit module first on
+    `sys.path`. Measured on the live pty run of 2026-09-29: the 30B's correct
+    `cents_to_str` scored `FAILING_ASSERT … GOT: '$1.5'`, which is what the module
+    returned BEFORE the turn, and the turn was reported as lost.
+    """
+    root = new_tree()
+    live_oracle = ('import sys\nsys.path.insert(0, %r)\n'
+                   'from money import cents_to_str\n'
+                   'assert cents_to_str(5) == "$0.05"\n' % str(root))
+    tree = {"money.py": MONEY_FIXED, "other.py": OTHER, "t.py": live_oracle}
+    ok, err = harness.diagnose_files(tree, live_oracle)
+    check("VERIFY grades the patched money.py when the session's oracle names its "
+          "own directory — the live demo's shape, where the run of 2026-09-29 "
+          "scored the bytes from before the edit",
+          ok, f"ok={ok} err={err[:180]}")
+    pre_ok, pre_err = harness.diagnose_files({**tree, "money.py": MONEY},
+                                             live_oracle)
+    check("...and the same oracle still refuses the pre-edit body, so the fix moved "
+          "WHICH COPY is graded rather than what passes",
+          not pre_ok and 'GOT:' in pre_err, f"ok={pre_ok} err={pre_err[:180]}")
+    check("the sentence a model is refused on is the oracle's own assert, byte for "
+          "byte — a precedence fix that rewrote the exam would fail here even while "
+          "turns started passing",
+          'assert cents_to_str(5) == "$0.05"' in pre_err, pre_err[:200])
+
+    # The shape a stranger's test file actually is: a bootstrap with a sentence
+    # after it. Anything appended to that line is behind a `#`.
+    commented = ('import sys\nsys.path.insert(0, %r)  # so this runs from '
+                 'anywhere\nfrom money import cents_to_str\n'
+                 'assert cents_to_str(5) == "$0.05"\n' % str(root))
+    c_ok, c_err = harness.diagnose_files({**tree, "t.py": commented}, commented)
+    check("a bootstrap that ends in a comment still grades the patched copy, "
+          "because the first version of this fix appended the precedence statement "
+          "to that line and the `#` swallowed it",
+          c_ok, f"ok={c_ok} err={c_err[:180]}")
+
+
 def _verdict_checks() -> None:
     rc, out, seen, _ = drive(prompts="fix\nfail\n",
                             script=[FIX_MONEY, FAIL_MONEY], argv=["--apply"])
@@ -738,6 +911,194 @@ def _verdict_checks() -> None:
     check("the landing sentence is the one `run` prints, shared rather than "
           "reworded for a second surface",
           "[R-3.2] wrote money.py (+1 -1 lines)" in out, out[-260:])
+
+
+# ----------------------------------------------------------------- the chat arm
+
+
+def ask_chat(reply, extra=None):
+    """One chat turn through the REAL `loop.solve_routed`, weights replaced only.
+
+    `load_model` and `_generate` are the two stubs. Everything the scored path
+    does — the router, the power governor, the tournament, the oracle harness —
+    runs as shipped, so the claim under test is exactly the one the command
+    makes: a chat turn is short-circuited before any of it, and the prose is
+    what comes back.
+    """
+    from flash import ledger
+    repos: list[str] = []
+    rows: list[dict] = []
+    prompts: list[str] = []
+
+    def _load(repo, adapter=None):
+        repos.append(repo)
+        return object(), object()
+
+    def _gen(model, tok, messages, max_tokens, **gkw):
+        prompts.append(messages[-1]["content"])
+        return reply
+
+    real = (loop.load_model, loop._generate, ledger.record, trace.DIR)
+    trace.DIR = Path(tempfile.mkdtemp(prefix="flash-chat-trace-"))
+    loop.load_model = _load
+    loop._generate = _gen
+    ledger.record = lambda row, *a, **k: rows.append(row)
+    task = {"id": "chat1", "prompt": "hi", "test": "", "edit": True,
+            "chat": True, "files": dict(FILES)}
+    task.update(extra or {})
+    try:
+        r, tier, routed = loop.solve_routed("small-repo", "big-repo", task,
+                                            ROOT, chat=True)
+    finally:
+        (loop.load_model, loop._generate, ledger.record, trace.DIR) = real
+    return r, tier, routed, {"repos": repos, "rows": rows, "prompts": prompts}
+
+
+def _chat_checks() -> None:
+    # ---- the arm itself: prose, patch, refusal
+    r, tier, routed, seen = ask_chat(CHAT_ANSWER)
+    check("a chat turn is green on PROSE: `_solve_edits`'s 'PATCH MISSING' is the "
+          "clause that made `hi` unanswerable, and this arm has no such check, so "
+          "the text comes back as the answer rather than as a refusal",
+          routed == "chat" and tier == "small" and r.solved
+          and r.attempts[-1].code == CHAT_ANSWER,
+          f"routed={routed} tier={tier} solved={r.solved} "
+          f"err={r.attempts[-1].err[:120]!r}")
+    check("a chat turn loads ONE model — the small tier — so the router, the "
+          "governor and the big tier are never reached, and a question costs one "
+          "generation rather than an escalation",
+          seen["repos"] == ["small-repo"] and len(r.attempts) == 1,
+          seen["repos"])
+    check("a chat turn is asked with the PROJECT in front of it (R-7.15f carried "
+          "into this arm): the message names money.py, so 'what is this' has a "
+          "referent",
+          all("money.py" in p and "Hi" not in p for p in seen["prompts"])
+          and len(seen["prompts"]) == 1,
+          [p[:80] for p in seen["prompts"]])
+    check("the ledger row says CHAT, because a question spent the same GPU "
+          "seconds as a scored turn and nobody should have to guess which it was",
+          len(seen["rows"]) == 1 and seen["rows"][0].get("chat") is True
+          and seen["rows"][0]["routed"] == "chat", seen["rows"])
+
+    r2, tier2, routed2, seen2 = ask_chat(CHAT_PATCH)
+    check("a chat turn that answers AND writes a file lands the file in the "
+          "workspace — this is 'create me a logger module' in one turn, which is "
+          "the shape R-7.15c's verb exists for",
+          r2.solved and "logger.py" in r2.workspace
+          and r2.workspace["money.py"] == FILES["money.py"],
+          sorted(r2.workspace or {}))
+    check("a chat turn that writes a file is ONE attempt, not a repair loop: the "
+          "patch applied, so there is nothing to re-sample",
+          len(r2.attempts) == 1 and r2.attempts[0].patches == 1,
+          r2.n_attempts)
+
+    r3, _t3, _r3, seen3 = ask_chat(CHAT_BAD)
+    check("a chat turn whose patch is REFUSED is not green: the model said it "
+          "changed something and changed nothing, and a session that prints that "
+          "as an answer is a lie about the project",
+          not r3.solved and r3.workspace is None
+          and r3.attempts[-1].err.startswith("PATCH REFUSED"),
+          f"solved={r3.solved} err={r3.attempts[-1].err[:140]!r}")
+    check("the refusal is fed back as the repair prompt, so attempt 2 sees the "
+          "reason — the same second-chance the scored arm gets, on the same text",
+          len(seen3["prompts"]) == 2 and "PATCH REFUSED" in seen3["prompts"][1],
+          [p[-90:] for p in seen3["prompts"]])
+    r4, _t4, _r4, _s4 = ask_chat(CHAT_BAD, {"chat": False})
+    check("the refusal text is the patch layer's own sentence, not a reworded "
+          "one: an unknown symbol says which file and which name",
+          "money.py" in r4.attempts[-1].err and "no_such" in r4.attempts[-1].err,
+          r4.attempts[-1].err[:160])
+
+    # ---- the command's side of the same contract
+    root = new_tree()
+    rc, out, seen, _ = drive(prompts="hi\nwhat is this?\n", script=[HELLO],
+                             root=root, oracle=None)
+    check("with no --test the session OPENS: it says it is a chat, takes the "
+          "turn, and exits green — the state the author's 'it cant even reply hi' "
+          "report was about, and there was no command to type it into",
+          rc == 0 and "CHAT MODE" in out and len(seen) == 2
+          and "flash chat session" in out,
+          f"rc={rc} turns={len(seen)} out={out[:200]!r}")
+    check("the reply IS the answer: the prose prints, and the per-turn telemetry "
+          "line does not — a person who asked a question gets a sentence back, "
+          "not a report about which tier served it",
+          out.count(CHAT_ANSWER) == 2 and "[turn 1]" not in out,
+          out[:260])
+    check("every chat turn is handed chat=True, `test` empty and no oracle key, "
+          "so the arm cannot be scored against a file that was never named",
+          all(s["kw"].get("chat") is True and s["test"] == ""
+              and s["test_path"] == "" for s in seen),
+          [{key: s[key] for key in ("test", "test_path")} for s in seen])
+    check("a chat turn is still an EDIT turn over the re-read tree: the same "
+          "workspace plumbing that lets turn N+1 edit turn N's bytes, which is "
+          "what makes 'now change that file' work after 'create it'",
+          all(s["edit"] is True and "money.py" in s["files"] for s in seen),
+          [s["edit"] for s in seen])
+
+    rc, out, seen, _ = drive(prompts="fix it\n", script=[FIX_MONEY])
+    check("naming an oracle puts the session back exactly where it was: the turn "
+          "is NOT a chat, so this vector's other 60 checks are about the shipped "
+          "scored surface and not about a mode that leaked into it",
+          len(seen) == 1 and seen[0]["kw"].get("chat") is False,
+          seen[0]["kw"].get("chat"))
+
+    root = new_tree()
+    rc, out, seen, _ = drive(prompts="make a logger\n", script=[WRITE_FILE],
+                             root=root, oracle=None, argv=["--apply"])
+    check("--apply lands a chat turn's NEW file on disk, and the sibling it did "
+          "not touch keeps its bytes: R-7.15c's creation reaches the tree through "
+          "the chat arm, not only through the scored one",
+          rc == 0 and tree_state(root)["logger.py"] == LOG_SRC
+          and tree_state(root)["money.py"] == MONEY,
+          f"rc={rc} tree={sorted(tree_state(root))}")
+    check("the chat landing sentence never claims an oracle passed: the only "
+          "claim this mode can make is that the turn produced a workspace, and "
+          "the banner's own 'no oracle' is not a verdict",
+          rc == 0 and "[R-3.2] wrote logger.py (+2 -0 lines)" in out
+          and "the oracle passed" not in out,
+          out[-260:])
+
+    root = new_tree()
+    rc, out, _seen, _ = drive(prompts="make a logger\n", script=[WRITE_FILE],
+                              root=root, oracle=None)
+    check("without --apply a chat turn says NOT APPLIED in chat words, so the "
+          "tree is never assumed to have changed by an answer that read like one",
+          rc == 0 and "NOT APPLIED" in out
+          and "this turn produced a workspace" in out
+          and tree_state(root) == FILES,
+          f"rc={rc} out={out[-200:]!r}")
+
+    rc, out, _seen, _ = drive(prompts="hi\nbreak it\n",
+                              script=[HELLO, REFUSED_TURN], oracle=None)
+    check("a refused chat turn prints the refusal without the `oracle|` prefix — "
+          "the prefix would attribute the failure to a verify step that this "
+          "session has never seen",
+          "PATCH REFUSED" in out and "oracle|" not in out, out[-200:])
+    check("and it is not green: the session's last code is the refusal's",
+          rc == 1, f"rc={rc}")
+
+    ns = outcome(lambda: cli.build_parser().parse_args(
+        ["session", "--context", "."]))
+    got = outcome(lambda: cli._oracle_key(ns, {"files": dict(FILES)}))
+    check("`_oracle_key` answers the no-oracle question with the empty string "
+          "instead of a traceback: `land` and the patch arm both ask it on every "
+          "turn, so a crash here is the session dying on `hi`",
+          got == "", repr(got))
+    check("a chat session's own report counts what ran, so the mode cannot make "
+          "the parseable EOF line disappear",
+          field(drive(prompts="hi\n", script=[HELLO], oracle=None)[1],
+                "turns") == "1",
+          drive(prompts="hi\n", script=[HELLO], oracle=None)[1][-160:])
+
+    got = outcome(lambda: subprocess.run(
+        [sys.executable, "-m", "flash.cli", "session", "--help"],
+        capture_output=True, text=True, cwd=ROOT))
+    check("the help names chat mode, because `--test` being optional is not "
+          "guessable from a flag list — a reader has to be told what omitting it "
+          "does",
+          not isinstance(got, str) and "chat mode" in got.stdout.lower(),
+          got if isinstance(got, str) else got.stdout[-200:])
+
 
 
 def _report_checks() -> None:
@@ -825,6 +1186,12 @@ def _no_regression_checks() -> None:
           and "--turns" in got.stdout,
           got if isinstance(got, str) else f"rc={got.returncode}")
 
+    check("the optionality stopped at `session`: `run --test` is still required, "
+          "so the scored surface cannot silently become a chat that prints "
+          "confident answers with no verify step behind it",
+          "required: --test" in rejects(["run", "fix it", "--context", "."]),
+          rejects(["run", "fix it", "--context", "."])[-120:])
+
     check("the agreement between the shipped command and the mutant copy holds "
           "on every clean scenario — otherwise a check below fails for drift, "
           "not for the bug it names",
@@ -837,7 +1204,9 @@ def run_checks() -> int:
     _oracle_checks()
     _turn_checks()
     _disk_checks()
+    _shadow_checks()
     _verdict_checks()
+    _chat_checks()
     _report_checks()
     _no_regression_checks()
     return len(CHECKS)
@@ -866,6 +1235,80 @@ def mutants() -> list[tuple[str, object, str]]:
     store, stdin — and a mutant that leaks it would show up as a different count
     in the next lane rather than as its own bug.
     """
+    real_enrich = loop.enrich_task
+
+    def blind_edit(task, root, max_chars=4000):
+        """R-7.15f undone from below the command: an edit task comes back holding
+        only the line the person typed, which is the shape that left a session's
+        patch arm addressing files it had never been shown."""
+        if task.get("edit"):
+            return dict(task)
+        return real_enrich(task, root, max_chars)
+
+    def unguarded_oracle_key(args, task):
+        """The no-oracle line taken out of the key every turn asks for: the mode
+        check becomes a traceback, because `land` and the patch arm ask this
+        question of a `--test` that chat mode never had."""
+        rel = cli._rel_to(args.test, args.context)
+        return rel if rel in (task.get("files") or {}) else ""
+
+    real_land = cli._land_edits
+
+    def scored_landing(args, task, r):
+        """R-7.15h's other half undone: the tree facts stay right and the claim
+        about them is the scored arm's, so a chat turn reports that an oracle
+        passed a turn nothing ever verified."""
+        if not args.apply:
+            what = ("the oracle passed this patch set" if r.solved
+                    else "nothing passed the oracle")
+            print(f"[R-3.2] NOT APPLIED: {what} in memory; {args.context} on disk "
+                  "is unchanged. Re-run with --apply to land the patch set.")
+            return 0 if r.solved else 1
+        # The write-back is not the clause under test, so the shipped one runs it.
+        return real_land(args, task, r)
+
+    real_chat = loop.solve_chat
+
+    def prose_is_refused(model, tok, task, max_attempts=2, max_tokens=1024,
+                         stage="small"):
+        """`_solve_edits`'s PATCH MISSING rule reused verbatim one layer down: the
+        prose is generated and printed exactly as shipped, then marked red — which
+        is the refusal `hi` used to get, and no count of turns can tell it from a
+        chat that answered."""
+        r = real_chat(model, tok, task, max_attempts, max_tokens, stage)
+        if r.solved and r.attempts and r.attempts[-1].patches == 0:
+            r.solved = False
+            r.workspace = None
+            r.attempts[-1].ok = False
+            r.attempts[-1].err = ("PATCH MISSING: no "
+                                  "'# edit: <file> :: <symbol>' patch")
+        return r
+
+    def shadowed(test, root, files):
+        """R-7.15g undone: VERIFY writes the patched workspace and then grades
+        whatever the oracle's own `sys.path` line reaches first, which on a test
+        file that lives in the project is the module from before the turn. Nothing
+        else in a session notices — the address resolves, `applied=1` is true, and
+        the verdict is about bytes nobody wrote."""
+        return test
+
+    def appended(test, root, files):
+        """The FIRST version of R-7.15g: the precedence statement joined to the
+        bootstrap line with `;` instead of put on a line of its own. Every report
+        is identical until the oracle comments its bootstrap — which a stranger's
+        `t.py` does — and then the statement is behind a `#`, the fix is a no-op,
+        and the pre-edit module answers again."""
+        out = []
+        for line in test.splitlines():
+            m = harness._INSERT0.search(line)
+            if m:
+                named = Path(m.group(2)).resolve()
+                if named != root and any((named / rel).is_file()
+                                         for rel in files):
+                    line = f"{line}; sys.path.insert(0, {str(root)!r})"
+            out.append(line)
+        return "\n".join(out) + "\n"
+
     return [
         ("turn 2 re-reads nothing: the workspace is taken once at session start, "
          "which is exactly how a whole-file write-back silently reverts the "
@@ -939,12 +1382,76 @@ def mutants() -> list[tuple[str, object, str]]:
          "edit comes back as a complaint about its own line numbers",
          session_copy(oracle_key=False),
          "every turn is handed the oracle's workspace key"),
+        ("a turn is generated from the typed line alone: the session still reads "
+         "the tree, still lands the patch, still prints the same verdict, and the "
+         "model is asked to address files it was never shown — the state the six "
+         "refusals of R-7.15f came out of, which no count of turns or writes sees",
+         (loop, "enrich_task", blind_edit),
+         "turn 1's message names every file the session read"),
+        ("VERIFY writes the patch and then grades the tree that was there before "
+         "it: every count in the report stays honest, the turn is decided by the "
+         "unpatched module, and a correct answer is printed as a failure — the "
+         "shape that lost the live demo turn after R-7.15f was fixed",
+         (harness, "_unshadow", shadowed),
+         "VERIFY grades the patched money.py when the session's oracle names its"),
+        ("the precedence statement lands behind the oracle's own comment: the fix "
+         "is present, correct, and reachable only by a test file that does not "
+         "annotate its bootstrap — which is the shape the release ships into",
+         (harness, "_unshadow", appended),
+         "a bootstrap that ends in a comment still grades the patched copy"),
+        ("no chat mode: a session with no oracle refuses to start, which is the "
+         "state that left the author's `it cant even reply hi` with nowhere to go "
+         "— the turns never ran, so no count of turns or writes notices",
+         session_copy(chat_mode=False),
+         "with no --test the session OPENS"),
+        ("the turn is not told it is a chat: `cmd_session` reads the mode for its "
+         "own banner and never passes it down, so the scored arm gets the prose "
+         "and answers `hi` with a refusal while every printed line still claims "
+         "chat mode",
+         session_copy(chat_arg=False),
+         "every chat turn is handed chat=True"),
+        ("the answer is replaced by its own telemetry: the prose is generated, "
+         "stored and traced, and the person gets `routed=chat tier=small "
+         "solved=True` where the sentence should be — the shape of a chat that "
+         "reports on itself instead of replying",
+         session_copy(answer_print=False),
+         "the reply IS the answer"),
+        ("the oracle key is derived without asking whether there is one: every "
+         "turn of a chat session raises on `Path(None)` instead of answering, so "
+         "the mode check becomes a traceback on the first `hi`",
+         (cli, "_oracle_key", unguarded_oracle_key),
+         "`_oracle_key` answers the no-oracle question"),
+        ("the chat turn's landing sentence is the scored one: nothing was "
+         "verified and the report says an oracle passed, which is the one claim "
+         "this mode is not allowed to make",
+         (cli, "_land_edits", scored_landing),
+         "a chat turn says NOT APPLIED in chat words"),
+        ("prose is a failure inside the arm: `_solve_edits`'s PATCH MISSING rule "
+         "reused verbatim on a chat turn, so `hi` is generated correctly, printed, "
+         "and then marked red — the refusal that started R-7.15h, one layer down",
+         (loop, "solve_chat", prose_is_refused),
+         "a chat turn is green on PROSE"),
     ]
 
 
 def _lane(copy) -> list[str]:
-    """Run every check against one mutated command; name the ones that fail."""
+    """Run every check against one mutated surface; name the ones that fail.
+
+    Usually that is a copy of the command. It can also be `(holder, attr, value)`
+    for a clause that lives BELOW the command — R-7.15f composes the message in
+    `loop.enrich_task`, which `cmd_session` never calls, so a copy of the session
+    could not put that defect back without also changing another clause.
+    """
     shipped = cli.__dict__["cmd_session"]
+    if isinstance(copy, tuple):
+        holder, attr, value = copy
+        real = getattr(holder, attr)
+        setattr(holder, attr, value)
+        try:
+            run_checks()
+        finally:
+            setattr(holder, attr, real)
+        return [n for n, ok, _d in CHECKS if not ok]
     cli.cmd_session = copy
     try:
         run_checks()

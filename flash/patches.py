@@ -26,6 +26,11 @@ Refusals (all of them, in one attempt, are atomic — see `apply_patches`):
   whose result does not parse | a patch whose result loses the symbol it was
   addressing.
 
+A file the workspace does not have is a special case of "unknown file" with a
+verb of its own (R-7.15c): `+Name` or `*` on that key FOUNDs it, since the body
+is then the whole file, while a bare symbol or range address there is still
+refused — it claims to replace something the file never had.
+
 The address→range resolution is pure AST (stdlib) for Python, so this module
 works with no language server and no extras; `flash.lang_ts` answers for a
 `.ts`/`.tsx` address, and where that optional grammar is not installed the patch
@@ -98,6 +103,11 @@ def is_python(path: str) -> bool:
     """
     return not _is_ts(path)
 
+# The one sentence that says the project's real text is in this message. Both
+# the suite generator and the CLI write it, and `enrich_task` reads it as the
+# marker that the material is already there — so a prompt cannot be half-shipped.
+PROJECT_HEADER = "The project is below, with the real text of every file."
+
 PROTOCOL = (
     "Reply ONLY with patches. One patch is a header line naming what it "
     "replaces, then a fenced block with the new text:\n"
@@ -126,11 +136,18 @@ PROTOCOL = (
     "definition, or after the container's last member — so never re-type the "
     "existing code around it. A `+` address on a name that already exists is "
     "refused, because that is a revision and must say so;\n"
+    "* to CREATE a whole FILE the project does not have yet, address a file "
+    "name that is not in the listing above: `# edit: <new_file> :: *` writes "
+    "your block as the entire file, and `# edit: <new_file> :: +<Name>` creates "
+    "the file holding just that one definition. Either way the body must parse, "
+    "one patch founds one file, and an empty body is refused. This is the ONLY "
+    "case where `*` is the right answer — for a file that already exists, `*` "
+    "means you re-typed something you could have addressed;\n"
     "* never address a patch at the test file that came with the request. It is "
     "the oracle this run scores against, not one of the files to change: an "
     "assertion edited to fit the code is not a fix, so the change belongs in the "
     "module the test imports;\n"
-    "* `# edit: <file> :: *` rewrites the whole file. Use it only when no "
+    "* `# edit: <file> :: *` rewrites a file that exists. Use it only when no "
     "symbol address fits — it is the thing patches exist to avoid.\n"
     "Change only what the request asks for. One patch per symbol."
 )
@@ -215,6 +232,13 @@ class Applied:
     #: change lives in one method — narrowing keeps that over-wide address from
     #: re-emitting a sibling that did not change. See `narrow`.
     spans: tuple[tuple[int, int], ...] | None = None
+    #: This patch founded a file the project did not have (R-7.15c). A `*`
+    #: address is the ledger's signal for "the patch arm had to re-type a file
+    #: it could have addressed symbol by symbol", and on a file with no previous
+    #: bytes that reading is simply false — there was no symbol to address. So
+    #: the flag keeps a new file out of `whole_rewrites` while leaving the
+    #: address recorded as what it was.
+    founded: bool = False
 
     @property
     def regenerated(self) -> int:
@@ -236,7 +260,8 @@ class ApplyResult:
 
     @property
     def whole_rewrites(self) -> int:
-        return sum(1 for a in self.applied if a.patch.kind == "whole")
+        return sum(1 for a in self.applied
+                   if a.patch.kind == "whole" and not a.founded)
 
     def summary(self) -> str:
         bits = []
@@ -583,17 +608,29 @@ def _names(src: str, path: str = "") -> dict[tuple[str, str], bool]:
     return {(d.container, d.name): d.exported for d in definitions(src, path)}
 
 
+def _syntax_check(path: str, src: str) -> str:
+    """Why this text is not valid code in the grammar its filename claims, or `""`.
+
+    One question asked by two grammars, and the answer has to arrive in the same
+    shape either way so a caller can just print it. `check_result` raised
+    `Refused` with its own two sentences; a file being CREATED has to ask the
+    same question before it is allowed into the workspace at all, so the
+    verdict became this function and both callers read it.
+    """
+    if _is_ts(path):
+        return _ts_syntax(path, src)
+    try:
+        ast.parse(src)
+    except SyntaxError as e:
+        return f"line {e.lineno}: {e.msg}"
+    return ""
+
+
 def check_result(patch: Patch, before: str, after: str) -> None:
     """A patch may not break the file or lose the thing it addressed."""
-    if _is_ts(patch.file):
-        bad = _ts_syntax(patch.file, after)
-        if bad:
-            raise Refused(f"replacement does not parse: {bad}")
-    else:
-        try:
-            ast.parse(after)
-        except SyntaxError as e:
-            raise Refused(f"replacement does not parse: line {e.lineno}: {e.msg}")
+    bad = _syntax_check(patch.file, after)
+    if bad:
+        raise Refused(f"replacement does not parse: {bad}")
     if patch.kind == "create":
         # The inverse of the rule below: a create is only a create if the name
         # is there afterwards. A body that defines `format_dolar` under an
@@ -651,6 +688,11 @@ def apply_patches(workspace: dict[str, str], patches: list[Patch],
     files = dict(workspace)
     applied: list[Applied] = []
     refusals: list[tuple[Patch, str]] = []
+    
+    # New files to create: key -> (the patch that asked for it, its whole text).
+    # The patch is kept because `Applied` has to name where the file came from,
+    # and a summary that said `+new` would be a lie about the address used.
+    new_files_created: dict[str, tuple[Patch, str]] = {}
 
     by_file: dict[str, list[Patch]] = {}
     for p in patches:
@@ -658,14 +700,54 @@ def apply_patches(workspace: dict[str, str], patches: list[Patch],
 
     staged: dict[str, tuple[str, list[Applied]]] = {}
     for fname, ps in by_file.items():
-        if fname not in workspace:
-            refusals.extend((p, f"{fname} is not one of the project files "
-                              f"({', '.join(sorted(workspace))})") for p in ps)
-            continue
+        # The oracle is out of scope before anything else is read, including the
+        # new-file rule below: a test file that happens to be absent from the
+        # listing must not become the one file this patch set is allowed to write.
         if oracle and fname == oracle:
             refusals.extend((p, ORACLE_MSG.format(fname)) for p in ps)
             continue
-        src0 = workspace[fname]
+
+        if fname in workspace:
+            src0 = workspace[fname]
+        else:
+            # R-7.15c: CREATE A FILE. The tree has no bytes for this key, so the
+            # patch's body is the file. Only two addresses can mean that:
+            # `+Name` (the file is created holding that one definition) and `*`
+            # (the body is the whole file). A bare symbol address cannot,
+            # because it claims to REPLACE something the file does not have.
+            if len(ps) != 1:
+                refusals.extend((p, f"{fname} is not one of the project files "
+                                  f"({', '.join(sorted(workspace))}) — a new file "
+                                  f"is written by ONE patch, not several") for p in ps)
+                continue
+            p = ps[0]
+            if p.kind not in ("create", "whole"):
+                refusals.append((p, f"{fname} is not one of the project files "
+                                  f"({', '.join(sorted(workspace))}) — to CREATE "
+                                  f"it, address the one patch as "
+                                  f"'{CREATE_PREFIX}{p.name or 'Symbol'}' (that "
+                                  f"definition alone) or '*' (the whole file)"))
+                continue
+            if not p.body.strip():
+                refusals.append((p, f"{fname}: the body is empty, so the file this "
+                                  f"patch creates would hold nothing — write at "
+                                  f"least one statement"))
+                continue
+            try:
+                bad = _syntax_check(fname, p.body)
+            except Refused as e:
+                # The optional grammar is not installed: the sentence that names
+                # the install is the refusal, exactly as the existing-file path
+                # reports it, so a `.tsx` create on a machine without the extra
+                # teaches the operator what to add instead of crashing the run.
+                refusals.append((p, str(e)))
+                continue
+            if bad:
+                refusals.append((p, f"{fname} does not parse: {bad}"))
+                continue
+            new_files_created[fname] = (p, p.body)
+            continue
+
         resolved: list[Applied] = []
         for p in ps:
             try:
@@ -727,6 +809,21 @@ def apply_patches(workspace: dict[str, str], patches: list[Patch],
     for fname, (src, resolved) in staged.items():
         files[fname] = src
         applied.extend(resolved)
+    
+    # New files land last, after every existing-file patch has been accepted:
+    # a create that has to be refused must not have already written its bytes
+    # into the returned workspace. The span is the whole new file, and `spans`
+    # is empty because a file that did not exist has no line of its own that
+    # this patch re-typed — which is what makes `outside_lines` charge a create
+    # nothing rather than charging it for inventing a file.
+    for fname, (p, body) in new_files_created.items():
+        files[fname] = body
+        n = len(body.split("\n"))
+        a = Applied(p, 1, n, 0, n)
+        a.spans = ()
+        a.founded = True
+        applied.append(a)
+
     return ApplyResult(files, applied, [])
 
 
@@ -881,9 +978,14 @@ def land(root: str | Path, before: dict[str, str], after: dict[str, str],
         if key.is_absolute() or not dest.is_relative_to(root):
             raise LandError(f"{rel}: addresses a path outside the project "
                             f"root ({root}), so nothing was written")
+        # Allow creating new files that weren't in 'before'
         if rel not in before:
-            raise LandError(f"{rel}: not a file this workspace was read from, "
-                            "so nothing was written")
+            ops = _opcodes("", text)
+            added = sum(j2 - j1 for tag, _, _, j1, j2 in ops
+                        if tag in ("insert", "replace"))
+            removed = 0
+            todo.append((rel, dest, added, removed))
+            continue
         ops = _opcodes(before[rel], text)
         added = sum(j2 - j1 for tag, _, _, j1, j2 in ops
                     if tag in ("insert", "replace"))
@@ -909,13 +1011,33 @@ def _opcodes(old: str, new: str) -> list[tuple[str, int, int, int, int]]:
     return [op for op in sm.get_opcodes() if op[0] != "equal"]
 
 
+def project_prompt(ask: str, files: dict[str, str], test: str = "") -> str:
+    """The message an edit arm is asked to work on: the tree's real text, the
+    request, and the oracle's own words.
+
+    R-7.15f is the reason this is a function instead of a line in a generator.
+    A symbol address has to name a file the project has and a symbol the file
+    has; shown only the request, the model invents both and every refusal it
+    gets is about its own imagination. `describe` is capped, so a big tree costs
+    a truncated block rather than an unbounded prompt.
+    """
+    out = f"{PROJECT_HEADER}\n\n{describe(files)}\n\nRequested change: {ask}"
+    if test:
+        out += (f"\n\nThe test that must pass afterwards:\n"
+                f"```python\n{test.rstrip()}\n```")
+    return out
+
+
 def edit_prompt(task: dict) -> str:
     """The shared request plus the patch protocol.
 
-    The project listing and the test already live in `task["prompt"]`, because
-    the whole-file control (R-3.2's A/B) is shown exactly the same material and
-    only told a different answer format — a protocol comparison has to hold the
-    input still.
+    The project listing and the test already live in `task["prompt"]`: the suite
+    generator composes them with `project_prompt`, and the CLI's `run --edit`
+    and `session` get the same treatment from `loop.enrich_task`, which is what
+    stopped a typed ask from being the whole message. The whole-file control
+    (R-3.2's A/B) is shown exactly the same material and only told a different
+    answer format — a protocol comparison has to hold the input still, and on
+    the CLI shape it could not until both arms had the tree.
     """
     return f"{task['prompt']}\n\n{PROTOCOL}"
 
@@ -1515,6 +1637,176 @@ def run_selftest(verbose: bool = True) -> int:
           "the refusal is the second line of defence and not the first",
           "never address a patch at the test file" in PROTOCOL
           and "the module the test imports" in PROTOCOL, PROTOCOL[-400:])
+
+    # 7e. R-7.15c: CREATE A FILE. Up to here the patch arm could only put words
+    # into a file the project already had, so "make me a module that does X" —
+    # the single most common thing a person asks a coding chat — was a refusal
+    # about a file not being one of the project's. The key that is missing from
+    # the workspace is now a legal target, and the body is the whole file.
+    created = apply_patches({"app.py": "def run():\n    return 1\n"},
+                            [Patch("helpers.py", "+slug",
+                                   'def slug(s):\n    return s.lower()')])
+    check("create-file: a key the workspace does not have becomes that file, "
+          "holding the one definition the patch wrote — nothing else is invented",
+          created.ok and created.files["helpers.py"] == 'def slug(s):\n    return s.lower()',
+          repr(created.files.get("helpers.py", ""))[:70] if created.ok
+          else created.refusals[0][1][:80])
+    check("create-file: the file that was already there is untouched, byte for "
+          "byte, which is the same promise a symbol patch makes",
+          created.ok and created.files["app.py"] == "def run():\n    return 1\n")
+    check("create-file: the new file's lines are all insertions, so the audit "
+          "charges it nothing — `spans` empty is the honest record of a file "
+          "that had no previous bytes to re-type",
+          created.ok and created.applied[0].spans == ()
+          and created.applied[0].regenerated == 0,
+          f"spans {getattr(created.applied[0], 'spans', None) if created.ok else ''}")
+    whole_new = apply_patches({}, [Patch("cfg.py", "*", 'DEBUG = True\nTIMEOUT = 30\n')])
+    check("create-file: `:: *` on a missing key writes the whole text as given, "
+          "which is the other way to found a module and the only way to write "
+          "statements that are not a definition",
+          whole_new.ok and whole_new.files["cfg.py"] == 'DEBUG = True\nTIMEOUT = 30\n',
+          whole_new.refusals[0][1][:80] if not whole_new.ok else "")
+    check("create-file: a founded file is NOT counted as a whole rewrite, because "
+          "that column means 'the patch arm re-typed a file it could have "
+          "addressed symbol by symbol' and a file with no previous bytes had no "
+          "symbol to address — meanwhile a real whole-file rewrite still scores 1",
+          whole_new.ok and whole_new.whole_rewrites == 0
+          and apply_patches(ws, [Patch("cart.py", "*", cart)])
+                        .whole_rewrites == 1,
+          f"founded={whole_new.whole_rewrites if whole_new.ok else 'n/a'}")
+    check("create-file: a create is recorded against the address the model "
+          "actually wrote, not a stand-in — a summary that said '+new' would "
+          "describe a patch that was never sent",
+          created.ok and created.summary().startswith("helpers.py:+slug"),
+          created.summary()[:60] if created.ok else "")
+    mixed_new = apply_patches({"app.py": "def run():\n    return 1\n"},
+                              [Patch("app.py", "run", "def run():\n    return 2"),
+                               Patch("log.py", "+warn", 'def warn(m):\n    print(m)')])
+    check("create-file: one set can REVISE an existing symbol and FOUND a new "
+          "file at the same time — a session that made the user split those into "
+          "two turns would not be a coding chat",
+          mixed_new.ok and "return 2" in mixed_new.files["app.py"]
+          and "def warn" in mixed_new.files["log.py"],
+          mixed_new.refusals[0][1][:80] if not mixed_new.ok else "")
+    bare_new = apply_patches({}, [Patch("brand.py", "go", 'def go():\n    pass')])
+    check("refuse: a bare symbol address on a missing file is refused, and the "
+          "sentence says how to CREATE it rather than just naming the gap — the "
+          "address claims to replace something the file never had",
+          not bare_new.ok and "+go" in bare_new.refusals[0][1]
+          and "'*'" in bare_new.refusals[0][1],
+          bare_new.refusals[0][1][:100] if bare_new.refusals else "it applied")
+    two_new = apply_patches({}, [Patch("pair.py", "+a", 'def a():\n    pass'),
+                                 Patch("pair.py", "+b", 'def b():\n    pass')])
+    check("refuse: two patches for one new file are refused, because there is no "
+          "second body to put anywhere — the file's whole content is the first "
+          "patch, so a set that also carries a second is a set that lost one",
+          not two_new.ok and "ONE patch" in two_new.refusals[0][1],
+          two_new.refusals[0][1][:90] if two_new.refusals else "it applied")
+    empty_new = apply_patches({}, [Patch("nothing.py", "*", "")])
+    check("refuse: an empty body is refused, because landing it would leave the "
+          "project holding an empty file and report that as success",
+          not empty_new.ok and "empty" in empty_new.refusals[0][1],
+          empty_new.refusals[0][1][:90] if empty_new.refusals else "it applied")
+    bad_new = apply_patches({}, [Patch("broken.py", "+x", 'def x(')])
+    check("refuse: a new file whose text does not parse is refused with the "
+          "parser's own line and message — the same grammar check an edit gets, "
+          "so a brand-new file cannot be sloppier than a changed one",
+          not bad_new.ok and "does not parse" in bad_new.refusals[0][1]
+          and "line" in bad_new.refusals[0][1],
+          bad_new.refusals[0][1][:90] if bad_new.refusals else "it applied")
+    badset = apply_patches({"app.py": "def run():\n    return 1\n"},
+                           [Patch("good.py", "+a", 'def a():\n    pass'),
+                            Patch("bad.py", "+b", 'def b(')])
+    check("refuse: one unparseable create voids the set, so a turn that would "
+          "have written two files writes neither — atomicity is not relaxed for "
+          "the file that does not exist yet",
+          not badset.ok and badset.files == {"app.py": "def run():\n    return 1\n"}
+          and "good.py" not in badset.files,
+          f"{list(badset.files)}")
+    oracle_new = apply_patches({"money.py": "def cents(n):\n    return n\n"},
+                               [Patch("t.py", "*", 'def check_it():\n    pass\n')],
+                               oracle="t.py")
+    check("oracle: the oracle guard runs BEFORE the new-file rule, so a test file "
+          "that is absent from the listing cannot be written into existence as a "
+          "back door around the one rule that has no exceptions",
+          not oracle_new.ok and "is the oracle this run scores against"
+          in oracle_new.refusals[0][1]
+          and "t.py" not in oracle_new.files,
+          oracle_new.refusals[0][1][:80] if oracle_new.refusals else "it applied")
+    check("create-file: the PROTOCOL names both founding addresses AND says `*` "
+          "means something different for a file that exists, so a model can ask "
+          "for a new file on the first attempt instead of learning it from a "
+          "refusal — and does not learn to reach for `*` as a habit",
+          "CREATE a whole FILE" in PROTOCOL and ":: *" in PROTOCOL
+          and "the ONLY case where `*` is the right answer" in PROTOCOL)
+    import tempfile
+    with tempfile.TemporaryDirectory() as _td:
+        _found = apply_patches({}, [Patch("brand_new.py", "+go", 'def go():\n    return 7')])
+        _wrote = land(_td, {}, _found.files)
+        # Read inside the block: the directory is deleted when it exits, and a
+        # witness that was collected after its own evidence vanished is the
+        # same kind of claim as not collecting one.
+        _on_disk = (Path(_td) / "brand_new.py").read_text() \
+            if (Path(_td) / "brand_new.py").exists() else None
+    check("create-file: `land` writes a key that was never in `before`, which is "
+          "the difference between a workspace that holds the new file and a "
+          "project that actually gets it — the file on disk is the witness, not "
+          "the return value",
+          _found.ok and _wrote == [("brand_new.py", 2, 0)]
+          and _on_disk == 'def go():\n    return 7',
+          f"{_wrote} on_disk={_on_disk!r}")
+    readd = apply_patches(created.files,
+                          [Patch("helpers.py", "slug",
+                                 'def slug(s):\n    return s.strip().lower()')])
+    check("create-file: what this turn founded, the next turn can address — the "
+          "new file is in the workspace, so a bare symbol patch on it resolves "
+          "and revises like any other file. This is R-7.15's session promise one "
+          "level down: turn N+1 edits what turn N wrote",
+          readd.ok and "s.strip().lower()" in readd.files["helpers.py"],
+          readd.refusals[0][1][:80] if not readd.ok else "")
+
+    # 7f. R-7.15f: the project a model is asked to patch has to be IN the message
+    # it is asked with. Every check here reads the composed text, because the
+    # measured failure was a 96-character ask standing in for a two-file project.
+    demo = {"money.py": 'def cents_to_str(cents: int) -> str:\n'
+                        '    return f"${cents / 100}"\n',
+            "t.py": 'from money import cents_to_str\n'
+                    'assert cents_to_str(5) == "$0.05"\n'}
+    ask = "zero-pad the cents"
+    composed = project_prompt(ask, demo, demo["t.py"])
+    check("project prompt: every key of the tree is named as an address the model "
+          "can write — a patch set can only be refused for a file it was shown",
+          all(f"# file: {k}" in composed for k in demo), composed[:120])
+    check("project prompt: the real body ships rather than an outline, because a "
+          "symbol patch has to re-type that symbol's statements and a listing of "
+          "names gives it nothing to re-type",
+          'return f"${cents / 100}"' in composed)
+    check("project prompt: the ask is quoted verbatim under a heading that says "
+          "what it is, so the project block and the request are not one blob",
+          f"Requested change: {ask}" in composed)
+    check("project prompt: the oracle arrives fenced and labelled, which is what "
+          "lets the model read the assertion it must satisfy instead of patching "
+          "it — R-7.15e's refusal is the backstop, this is the front line",
+          "The test that must pass afterwards:" in composed
+          and 'assert cents_to_str(5) == "$0.05"' in composed)
+    no_test = project_prompt(ask, demo)
+    check("project prompt: with no test named, no test heading is invented — a "
+          "session always has an oracle but `run --edit` without `--test` must not "
+          "claim one it was never given",
+          "The test that must pass" not in no_test
+          and f"Requested change: {ask}" in no_test)
+    check("project prompt: the header is one exact sentence at the front, and it "
+          "is the same object `enrich_task` reads as the marker — a prompt that "
+          "drifted from it would be composed twice",
+          composed.count(PROJECT_HEADER) == 1 and composed.startswith(PROJECT_HEADER))
+    big = {f"m{i}.py": "x = 1\n" * 400 for i in range(8)}
+    capped = project_prompt(ask, big)
+    raw_total = sum(len(v) for v in big.values())
+    check("project prompt: an over-cap tree costs a truncated block instead of an "
+          "unbounded prompt — every file is still named, so the addresses stay "
+          "legal while the token budget holds",
+          len(capped) < raw_total and all(f"# file: {k}" in capped for k in big),
+          f"{len(capped)} chars composed from {raw_total} of source")
 
     # 8. degradation: a response with no patches at all costs the attempt, not the workspace
     empty = apply_patches(ws, [])

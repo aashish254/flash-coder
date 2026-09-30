@@ -42,14 +42,14 @@ PY = sys.executable
 # (label, argv, checks it must print, mutants it must print, kind)
 # kind: "checks" feeds the selftest/end-to-end/premise sum, "oracle" the second.
 BATTERY = [
-    ("flash.harness --selftest", "-m flash.harness --selftest", 20, None, "checks"),
+    ("flash.harness --selftest", "-m flash.harness --selftest", 28, None, "checks"),
     ("flash lsp-selftest", "-m flash.cli lsp-selftest", 22, None, "checks"),
     ("flash power --selftest", "-m flash.cli power --selftest", 22, None, "checks"),
     ("flash jobs --selftest", "-m flash.jobs --selftest", 20, None, "checks"),
     ("flash trace --selftest", "-m flash.cli trace --selftest", 30, None, "checks"),
     ("flash web --selftest", "-m flash.cli web --selftest", 9, None, "checks"),
     ("flash.grammar --selftest", "-m flash.grammar --selftest", 47, None, "checks"),
-    ("flash.patches --selftest", "-m flash.patches --selftest", 71, None, "checks"),
+    ("flash.patches --selftest", "-m flash.patches --selftest", 94, None, "checks"),
     ("flash.debug --selftest", "-m flash.debug --selftest", 55, None, "checks"),
     ("flash.tourney --selftest", "-m flash.tourney --selftest", 16, None, "checks"),
     ("flash.confidence --selftest", "-m flash.confidence --selftest", 29, None, "checks"),
@@ -76,9 +76,9 @@ BATTERY = [
     ("benchmarks/ts_patch_check.py",
      "benchmarks/ts_patch_check.py --sweep", 52, 15, "checks"),
     ("benchmarks/patch_landing_check.py",
-     "benchmarks/patch_landing_check.py --sweep", 53, 27, "checks"),
+     "benchmarks/patch_landing_check.py --sweep", 65, 28, "checks"),
     ("benchmarks/session_check.py",
-     "benchmarks/session_check.py --sweep", 49, 17, "checks"),
+     "benchmarks/session_check.py --sweep", 81, 26, "checks"),
     ("benchmarks/hint_ab_check.py", "benchmarks/hint_ab_check.py",
      14, 8, "checks"),
     ("benchmarks/portable_paths_check.py", "benchmarks/portable_paths_check.py",
@@ -94,7 +94,18 @@ BATTERY = [
      20, None, "oracle"),
 ]
 
-CLAIM = {"checks": 1345, "oracle": 20, "mutants": 157}
+# Predicted BEFORE the run, by hand — that is the field's whole use, and the addition
+# is on the page because this pass's first hand-sum came out one short of what 37 OK
+# lines add up to: 1345 (the committed total) + 8 `harness` + 7 `patches` + 8
+# `patch_landing_check` + 9 `session_check` = 1377 checks, and 157 + 1 + 3 = 161
+# mutants. R-7.15c and R-7.15h move three rows on top of that: `patches` 78 → 94
+# (+16 for the create verb's 7e section), `patch_landing_check` 61 → 65 (+4 for the
+# four clauses a created file has to carry: it lands, it counts against nothing, it
+# cannot escape the root, it cannot found the oracle) and `session_check` 58 → 81
+# (+23 for the chat arm). 1377 + 16 + 4 + 23 = 1420 checks, and 161 + 6 = 167
+# mutants. The rows are the authority; a CLAIM that disagrees with them is an
+# arithmetic error, and the fix is this number, never a row.
+CLAIM = {"checks": 1420, "oracle": 20, "mutants": 167}
 
 
 def run(argv: str) -> str:
@@ -120,12 +131,12 @@ def mutant_count(text: str) -> int:
     three `13/13`-style summaries (this process, the fresh-process lane, and the
     sweep's own verdict), which agree because the run refuses to print a
     fresh-process total unless the child listed all thirteen.
-    `session_check.py --sweep` is that shape a fifth time: sixteen
+    `session_check.py --sweep` is that shape a fifth time: twenty
     `fresh>ok  MUTATION:` verdicts — prefixed, so the `^OK MUTATION` counter never
-    sees them — and then three `16/16 caught` summaries (this process, the fresh
+    sees them — and then three `20/20 caught` summaries (this process, the fresh
     process each, and the sweep's own verdict), which agree because the sweep
     returns 1 unless the child lanes and the in-process lane both caught all
-    sixteen.
+    twenty.
     """
     best = 0
     for line in text.replace("\r", "\n").split("\n"):

@@ -100,13 +100,19 @@ export function Proof() {
             <span className="num text-fog-0">flash doctor</span> page that answers
             <span className="num text-refuse"> no</span> on a machine missing half
             of what it needs, which is the behaviour the last six release boxes
-            exist to protect, and the <span className="num text-fog-0">session</span>{' '}
-            transcripts that keep their own refusals in the middle of them: one turn
-            asked for a function that did not exist yet and the patch arm said so
-            instead of inventing one, and the keyboard tab — every byte stamped as the
-            terminal received it — is two turns that both lost to{' '}
-            <span className="num text-refuse">tier=failed</span> even after the router
-            escalated to the 30B. Nothing here was selected for being green.
+            exist to protect, and two <span className="num text-fog-0">session</span>{' '}
+            transcripts that keep their own history in the middle of them: the first
+            is three turns where one asked for a function that did not exist yet and
+            the patch arm said so instead of inventing one, and the keyboard tab —
+            every byte stamped as the terminal received it — is now the same command
+            on the author&apos;s own demo task answering{' '}
+            <span className="num text-pass">turns=2 solved=2 written=2 last_rc=0</span>.
+            It went green because two defects were fixed, not because a greener log
+            was picked: the witnesses where this command printed two{' '}
+            <span className="num text-refuse">tier=failed</span> turns are committed
+            beside it, and{' '}
+            <span className="num text-fog-0">README.md</span> names both.
+            Nothing here was selected for being green.
           </>
         }
       />

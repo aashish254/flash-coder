@@ -1,0 +1,30 @@
+  OK   passing test -> (True, '')
+  OK   failing == reports GOT vs WANT
+  OK   side-effecting side evaluated EXACTLY ONCE (GOT is the compared value)
+  OK   failing pop-assert reports the value the pop actually returned
+  OK   prefix replay keeps mutation real (2nd assert sees n=1, not 2)
+  OK   assert-with-message still fails (and keeps its message)
+  OK   assert-with-message that holds passes
+  OK   non-== condition fails without fabricated GOT/WANT
+  OK   raising condition reports ERROR
+  OK   block-nested-only test still fails with the real traceback
+  OK   diagnose_files reports the same GOT/WANT
+  OK   path-escape guard refuses an out-of-tree file
+  OK   score: a fully correct candidate is ok with every assert passed
+  OK   score: dying on the 2nd of 3 asserts scores 1/3
+  OK   score: dying on the first assert scores 0/3
+  OK   score: an unparsable candidate scores below every running one
+  OK   score: probes all pass but the full test gate still fails it
+  OK   score: a test with no top-level assert still gets a verdict
+  OK   score_files ranks a file set the same way
+  OK   diagnose stays exactly score's verdict
+  OK   VERIFY grades the PATCHED copy when the oracle names its own tree
+  OK   ...and the pre-edit bytes still fail under the same oracle, so the fix moved precedence rather than softening the verdict
+  OK   score_files ranks the shadowed shape off the patched copy too
+  OK   a <TMPDIR> bootstrap is not rewritten even when its directory holds the scored files — the token already points at the temp copy
+  OK   a bootstrap naming a directory that holds none of the scored files is not rewritten either
+  OK   the rewrite adds ONE precedence line and changes no other byte of the oracle — its bootstrap, its import and its assert stay as the task file wrote them
+  OK   a bootstrap that ends in a comment still grades the patched copy
+  OK   ...and a bootstrap inside an indented block keeps the block's indentation, so the precedence line cannot change when the oracle runs
+
+harness selftest: 28/28 checks passed
