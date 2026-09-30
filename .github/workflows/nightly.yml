@@ -43,7 +43,7 @@ jobs:
           python-version: "3.11"
 
       - name: Cache the Hugging Face weights
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/huggingface
           key: hf-${{ runner.os }}-qwen2.5-coder-7b-4bit-v1
