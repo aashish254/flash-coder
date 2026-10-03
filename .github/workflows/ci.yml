@@ -101,7 +101,7 @@ jobs:
 
       - name: Save the run so a cited number stays citable
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: battery-macos-py3.11
           path: benchmarks/results/ci/
