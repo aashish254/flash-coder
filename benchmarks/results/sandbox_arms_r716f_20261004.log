@@ -1,0 +1,85 @@
+### flash.sandbox --selftest, both platform arms, on one macOS box (2026-10-04)
+### arm 1: Seatbelt ENFORCED — the vector as the Mac runs it
+sandbox selftest, Seatbelt ENFORCED here: the claims below are measured against the kernel
+  OK   the tilde case is not the confinement case: open('~/.ssh/x') writes into the root, because open() never expands a tilde
+  OK   reap_own_artifact deletes our own leftover...
+  OK   ...and refuses anything else: a sweep of ~/.ssh that deleted a real key would be the worse bug
+  OK   ...and is quiet about a file that was never there
+  OK   profile double-quotes the root: a single-quoted path is read as a SYMBOL and sandbox-exec dies with 'unexpected symbol argument'
+  OK   profile is given the REALPATH: /var/folders is a symlink to /private/var/folders and the exception silently misses the symlink
+  OK   profile shape: one blanket write-deny AND one filtered allow naming this root — the two lines the clause's 'writable root' rests on (specificity, not order, is what binds: see `profile`'s docstring)
+  OK   (deny network-outbound) is in the profile every seam receives
+  OK   a box with no wrapper degrades to no prefix and still verifies (a Linux rollout host is not broken by this module)
+  OK   seatbelt() is an enforcement probe, not a Path.exists(): this box has the wrapper AND a deny-only profile really refuses a write
+  OK   a wrapper that IGNORES its profile yields seatbelt()=False and an empty prefix — no check here can then pass unearned, which is the only honest failure mode left
+  OK   VECTOR: a candidate that writes to ~/.ssh is refused by the kernel, not by us pattern-matching the path
+  OK   ...and the file it tried to create still does not exist afterwards
+  OK   VECTOR: a candidate that opens a socket is refused by the kernel before a packet leaves
+  OK   the refusal is not only the raw syscall: urllib raises too, and the harness reports it as a verdict (a candidate cannot hide behind its own try/except because the ERROR line is what the retry sees)
+  OK   and a HOSTNAME never resolves either — name service is itself outbound, so the refusal arrives early as gaierror, not as a long timeout
+  OK   VECTOR: the suite still RANKS a hostile candidate like any partial answer — the assert before the refusal passed, so passed/total say 1/2
+  OK   ...and the retry loop still gets actionable feedback about it, in the same GOT/WANT/ERROR shape every other failure uses
+  OK   no hostile candidate hung or crashed the harness: the verdicts above came back in one run each
+  OK   a benign candidate verifies exactly as it did without the sandbox
+  OK   TMPDIR is retargeted into the root, so a candidate's own temp files land in the directory we hand it and delete after it
+  OK   the root may reach us in the /var symlink form and the write exception still binds, because profile() realpaths it
+  OK   a relative write lands in the root and the candidate's cwd IS the root — without that, 'writable root' would not confine the common case
+  OK   a candidate that shells out keeps working, and its child inherits the same confinement (the null device is the profile's one exception)
+  OK   reads stay open, and that is a STATED limit of this sandbox, not an accident: the clause asks for a writable root, no network and rlimits
+  OK   RLIMIT_CPU binds THROUGH the wrapper: a busy loop died on the signal in about its cpu seconds, not at the 30s wall timeout
+  OK   the child reports the limit it was given (witness from inside the sandbox, not a number printed from outside it)
+  OK   the default cpu budget is wider than the wall clock by the box's own width, so a candidate that fans out workers is not killed for our arithmetic (measured: the wall timeout is what actually fires)
+  OK   RLIMIT_FSIZE turns a disk-filling write into an ordinary failure: the kernel stops the writer — whether this platform surfaces EFBIG to the interpreter (measured here on macOS) or kills it with SIGXFSZ (Linux) — and either way the file stays under the cap
+  OK   memory ceiling is what a fresh child answers after TRYING setrlimit, so the claim tracks the platform instead of a table here
+  OK   status names every layer the clause asks for, including the one this box cannot do
+  OK   the five candidate-execution seams — harness run_test and _probes, debug _run, confidence _seeded_run and edge_probe — spawn through sandbox.run, so the clause is one call site and not a convention
+  OK   ...and each one is given a root of its own, not the caller's cwd
+  OK   a multi-file set still imports its sibling module from inside the sandbox: the <TMPDIR> bootstrap and cwd=root agree, so ranking survives the move (1/2, not an error-out)
+
+sandbox selftest: 34/34 checks passed  [seatbelt=enforced, memory=UNAVAILABLE: no memory rlimit can ]
+
+### arm 2: SENTRY swapped to a nonexistent path — what a Linux or Windows host
+### prints natively. Same vector, same 34 denominators, degradation claims instead of kernel
+### claims, and the two network candidates aimed at a closed loopback port (no egress).
+### simulated platform: no /nonexistent/sandbox-exec, seatbelt()=False
+### `python -m flash.sandbox --selftest` on a Linux or Windows host is this state
+
+sandbox selftest, no /nonexistent/sandbox-exec on darwin: the same claims are measured against the degradation — an absent jail named as absent
+  OK   the tilde case is not the confinement case: open('~/.ssh/x') writes into the root, because open() never expands a tilde
+  OK   reap_own_artifact deletes our own leftover...
+  OK   ...and refuses anything else: a sweep of ~/.ssh that deleted a real key would be the worse bug
+  OK   ...and is quiet about a file that was never there
+  OK   profile double-quotes the root: a single-quoted path is read as a SYMBOL and sandbox-exec dies with 'unexpected symbol argument'
+  OK   profile is given the REALPATH: /var/folders is a symlink to /private/var/folders and the exception silently misses the symlink
+  OK   profile shape: one blanket write-deny AND one filtered allow naming this root — the two lines the clause's 'writable root' rests on (specificity, not order, is what binds: see `profile`'s docstring)
+  OK   (deny network-outbound) is in the profile every seam receives
+  OK   a box with no wrapper degrades to no prefix and still verifies (a Linux rollout host is not broken by this module)
+  OK   seatbelt() is False on this box and the prefix is empty, so nothing below can read as a jail: the probe asked the platform and the platform said it has no Seatbelt
+  OK   a wrapper that IGNORES its profile yields seatbelt()=False and an empty prefix — no check here can then pass unearned, which is the only honest failure mode left
+  OK   VECTOR: with no jail the same candidate's write LANDS — which is how this run knows the prefix really is empty instead of quietly passing a confinement claim it never made
+  OK   ...and what it wrote sits in that throwaway HOME, never in the real ~/.ssh
+  OK   VECTOR: no jail here, and the vector names that instead of borrowing a refusal it did not earn — a connect to a closed local port fails as the box's own ConnectionRefusedError, never as a PermissionError, while status() calls the network unconfined
+  OK   urllib raises here too, on a local refused connect rather than on egress this box cannot be asked about — the arm keeps the harness's job, which is to turn the candidate's error into a verdict instead of a hang or a bare traceback
+  OK   a hostname is NOT shown confined here: the lookup either resolves or fails as a plain gaierror, and either way the module says unconfined rather than claiming the early refusal this box did not produce
+  OK   VECTOR: with no jail the hostile candidate passes 2/2 — the only honest reading on this box, because a 1/2 here would be a refusal this kernel never applied
+  OK   ...and the retry loop still gets a GOT/WANT/ERROR verdict for the candidate that does fail here, in the same shape every other failure uses — no hang, no empty report
+  OK   no hostile candidate hung, and none of them reached the real ~/.ssh: the unconfined arm aimed every write at the throwaway HOME
+  OK   a benign candidate verifies exactly as it did without the sandbox
+  OK   TMPDIR is retargeted into the root, so a candidate's own temp files land in the directory we hand it and delete after it
+  OK   the root may reach us in the /var symlink form and the write exception still binds, because profile() realpaths it
+  OK   a relative write lands in the root and the candidate's cwd IS the root — without that, 'writable root' would not confine the common case
+  OK   a candidate that shells out keeps working, and its child inherits the same confinement (the null device is the profile's one exception)
+  OK   reads stay open, and that is a STATED limit of this sandbox, not an accident: the clause asks for a writable root, no network and rlimits
+  OK   RLIMIT_CPU binds with no wrapper in front of it here: the busy loop died on the signal in about its cpu seconds, so the limit is the child's own and not something the prefix was doing
+  OK   the child reports the limit it was given (witness from inside the sandbox, not a number printed from outside it)
+  OK   the default cpu budget is wider than the wall clock by the box's own width, so a candidate that fans out workers is not killed for our arithmetic (measured: the wall timeout is what actually fires)
+  OK   RLIMIT_FSIZE turns a disk-filling write into an ordinary failure: the kernel stops the writer — whether this platform surfaces EFBIG to the interpreter (measured here on macOS) or kills it with SIGXFSZ (Linux) — and either way the file stays under the cap
+  OK   memory ceiling is what a fresh child answers after TRYING setrlimit, so the claim tracks the platform instead of a table here
+  OK   status names every layer the clause asks for, including the one this box cannot do
+  OK   the five candidate-execution seams — harness run_test and _probes, debug _run, confidence _seeded_run and edge_probe — spawn through sandbox.run, so the clause is one call site and not a convention
+  OK   ...and each one is given a root of its own, not the caller's cwd
+  OK   a multi-file set still imports its sibling module from inside the sandbox: the <TMPDIR> bootstrap and cwd=root agree, so ranking survives the move (1/2, not an error-out)
+
+sandbox selftest: 34/34 checks passed  [seatbelt=unavailable, memory=UNAVAILABLE: no memory rlimit can ]
+
+### rc = 0

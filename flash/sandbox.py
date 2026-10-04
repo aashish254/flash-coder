@@ -40,13 +40,18 @@ sandbox-exec dies with "unexpected symbol argument"), and the root must be a
 REALPATH (`/var/folders/...` is a symlink to `/private/var/folders/...`; the
 exception silently misses and the candidate's own temp writes fail).
 
-Offline: `python -m flash.sandbox --selftest`.
+Offline: `python -m flash.sandbox --selftest`. That vector makes nine claims about
+Seatbelt, which is a macOS mechanism, and it makes them on boxes that have no
+Seatbelt — so each of those nine is asked in two arms (enforced refusal here,
+named-and-absent degradation there) rather than dropping out of the denominator,
+which is the only way a runner on any platform can be held to one printed fraction.
 """
 from __future__ import annotations
 
 import functools
 import os
 import resource
+import signal
 import subprocess
 import sys
 import tempfile
@@ -275,6 +280,19 @@ _FETCH_AT_IMPORT = ("import urllib.request\n"
                     "def f(x): return x\n")
 _DNS_AT_IMPORT = ("import socket\nsa = socket.getaddrinfo('example.com', 80)\n"
                   "def f(x): return x\n")
+# The degradation arm's two network candidates. A documentation IP's fate on a box
+# with no jail is that box's own business — it can time out, refuse, or be answered by
+# a proxy the runner happens to have — and a check may not depend on which. Port 1
+# (tcpmux) on loopback answers the same way everywhere with nothing leaving the machine:
+# refused. So the arm keeps the claim it can actually make — the harness turns a
+# candidate's error into a verdict, and no PermissionError is credited to a jail that
+# is not here — on a target that cannot vary with the runner's egress.
+_NET_REFUSED_PORT = ("import socket\ns = socket.socket(); s.settimeout(2)\n"
+                     "s.connect(('127.0.0.1', 1))\n"
+                     "def f(x): return x\n")
+_FETCH_REFUSED_PORT = ("import urllib.request\n"
+                       "b = urllib.request.urlopen('http://127.0.0.1:1/', timeout=2).read()\n"
+                       "def f(x): return x\n")
 
 
 def reap_own_artifact(path: str | Path) -> bool:
@@ -296,27 +314,51 @@ def reap_own_artifact(path: str | Path) -> bool:
 
 def run_selftest() -> int:
     """The R-9.2 vector: a hostile candidate fails, honestly reported, and the
-    honest ones never notice the sandbox is there."""
+    honest ones never notice the sandbox is there.
+
+    Nine of its thirty-four claims belong to one macOS mechanism. On a box that has
+    no `/usr/bin/sandbox-exec` — which is every Linux and Windows host this package
+    installs on — those claims cannot be earned by asking the kernel to refuse
+    something it was never told to refuse, and they cannot be quietly dropped either,
+    because a denominator that moves with the platform is a number no runner can be
+    held to. So each is asked twice, in the two arms below: where Seatbelt binds the
+    vector measures the refusal, and where it does not the vector measures the
+    DEGRADATION — the jail absent, the module saying so, the hostile write landing in
+    a throwaway HOME rather than a real `~/.ssh`, and no check claiming a denial this
+    box did not produce. `arm()` picks the label, the same branch picks the condition,
+    and the line printed before either run says which arm the box took.
+    """
     checks = []
 
     def ck(name, cond, note=""):
         checks.append((name, bool(cond), str(note)))
         print(f"  {'OK  ' if cond else 'FAIL'} {name}" + (f"  [{note}]" if note and not cond else ""))
 
+    confined = seatbelt()
+    shipped_sentry = SENTRY
+
+    def arm(has, lacks):
+        return has if confined else lacks
+
+    print("sandbox selftest, " + arm(
+        "Seatbelt ENFORCED here: the claims below are measured against the kernel",
+        f"no {SENTRY} on {sys.platform}: the same claims are measured against the "
+        "degradation — an absent jail named as absent"))
+
     # Never aim at the real id_rsa: a leaking sandbox would destroy a key, and
     # the denial being tested is the same rule over any path in ~/.ssh.
-    sentinel = str(Path.home() / ".ssh" / "flash-sandbox-probe-must-not-exist")
+    real_sentinel = str(Path.home() / ".ssh" / "flash-sandbox-probe-must-not-exist")
     # A run against a MUTANT (the blanket deny removed) lets the write land, so
     # the clean run reaps its own leftover before it measures anything.
-    reap_own_artifact(sentinel)
-    pre = Path(sentinel).exists()
+    reap_own_artifact(real_sentinel)
+    pre = Path(real_sentinel).exists()
     # `~/.ssh/id_rsa` spelled literally is NOT the hazard: open() does not expand
     # a tilde, so that candidate makes '<root>/~/.ssh/id_rsa' inside its own
     # writable root. Only the expanded form reaches the real home directory, so
     # the vector is run that way and the distinction is stated, not glossed.
     ck("the tilde case is not the confinement case: open('~/.ssh/x') writes into "
        "the root, because open() never expands a tilde",
-       not Path(sentinel).exists())
+       not Path(real_sentinel).exists())
 
     with tempfile.TemporaryDirectory() as td:
         root = realpath(td)
@@ -370,9 +412,13 @@ def run_selftest() -> int:
         finally:
             globals()["SENTRY"] = _saved
             seatbelt.cache_clear()
-        ck("seatbelt() is an enforcement probe, not a Path.exists(): this box "
-           "has the wrapper AND a deny-only profile really refuses a write",
-           seatbelt() is True and Path(SENTRY).exists())
+        ck(arm("seatbelt() is an enforcement probe, not a Path.exists(): this box "
+               "has the wrapper AND a deny-only profile really refuses a write",
+               "seatbelt() is False on this box and the prefix is empty, so nothing "
+               "below can read as a jail: the probe asked the platform and the "
+               "platform said it has no Seatbelt"),
+           (seatbelt() is True and Path(SENTRY).exists()) if confined
+           else (seatbelt() is False and prefix(root) == []))
         # The mutation this exists to kill: a seatbelt() that only asked
         # `Path(SENTRY).exists()` would report a sandbox on a box whose wrapper
         # ignores profiles. So hand it one that does, and require the answer to
@@ -391,40 +437,112 @@ def run_selftest() -> int:
         finally:
             globals()["SENTRY"] = _saved
             seatbelt.cache_clear()
-        assert seatbelt() is True
+        # The invariant the two SENTRY swaps above exist to protect is their own
+        # restoration, stated as that. This line used to be `assert seatbelt() is
+        # True`, which a box with no Seatbelt can never satisfy: on Linux the vector
+        # died here with a bare AssertionError, printed no fraction at all, and the
+        # runner read that as a red test it had no code to fix.
+        assert SENTRY == shipped_sentry and seatbelt() is confined, \
+            "the SENTRY swaps must leave the shipped wrapper path and the box's own answer in place"
+        # Where the hostile candidates aim. Confined, that is the user's real ~/.ssh,
+        # because the jail is both the thing under test and what makes aiming there
+        # safe. Unconfined it is a throwaway HOME inside this run's temp root, because
+        # on that box the write LANDS — and a vector that litters a real home directory
+        # with a probe file, then reports the file as proof of a refusal it never got,
+        # is the worse bug. The aim changes with the arm; the claim each check makes is
+        # still about this module.
+        if confined:
+            sentinel = real_sentinel
+        else:
+            fake_home = Path(root) / "fake-home"
+            (fake_home / ".ssh").mkdir(parents=True, exist_ok=True)
+            sentinel = str(fake_home / ".ssh" / "flash-sandbox-probe-must-not-exist")
 
         # --- 2. the vector: two hostile candidates, normally reported -------
         s = score(_WRITE_AT_IMPORT.format(p=sentinel, b=SENTINEL_BYTES),
                   "assert f(1) == 1\nassert f(2) == 2\n", timeout=20)
-        ck("VECTOR: a candidate that writes to ~/.ssh is refused by the kernel, "
-           "not by us pattern-matching the path",
-           not s.ok and "PermissionError" in s.err, s.err[:90])
-        ck("...and the file it tried to create still does not exist afterwards",
-           not Path(sentinel).exists(), f"existed before this run: {pre}")
-        s = score(_NET_AT_IMPORT, "assert f(1) == 1\nassert f(2) == 2\n", timeout=20)
-        ck("VECTOR: a candidate that opens a socket is refused by the kernel "
-           "before a packet leaves", not s.ok and "PermissionError" in s.err, s.err[:90])
-        s = score(_FETCH_AT_IMPORT, "assert f(1) == 1\nassert f(2) == 2\n", timeout=20)
-        ck("the refusal is not only the raw syscall: urllib raises too, and the "
-           "harness reports it as a verdict (a candidate cannot hide behind its "
-           "own try/except because the ERROR line is what the retry sees)",
-           not s.ok and "URLError" in s.err and "not permitted" in s.err, s.err[:100])
+        ck(arm("VECTOR: a candidate that writes to ~/.ssh is refused by the kernel, "
+               "not by us pattern-matching the path",
+               "VECTOR: with no jail the same candidate's write LANDS — which is how "
+               "this run knows the prefix really is empty instead of quietly passing "
+               "a confinement claim it never made"),
+           (not s.ok and "PermissionError" in s.err) if confined
+           else (s.ok and Path(sentinel).exists() and not Path(real_sentinel).exists()),
+           s.err[:90])
+        ck("...and the file it tried to create still does not exist afterwards" if confined
+           else "...and what it wrote sits in that throwaway HOME, never in the real ~/.ssh",
+           (not Path(sentinel).exists()) if confined
+           else (Path(sentinel).exists() and not Path(real_sentinel).exists()),
+           f"existed before this run: {pre}")
+        s = score(_NET_AT_IMPORT if confined else _NET_REFUSED_PORT,
+                  "assert f(1) == 1\nassert f(2) == 2\n", timeout=20)
+        ck(arm("VECTOR: a candidate that opens a socket is refused by the kernel "
+               "before a packet leaves",
+               "VECTOR: no jail here, and the vector names that instead of borrowing a "
+               "refusal it did not earn — a connect to a closed local port fails as the "
+               "box's own ConnectionRefusedError, never as a PermissionError, while "
+               "status() calls the network unconfined"),
+           (not s.ok and "PermissionError" in s.err) if confined
+           else (not s.ok and "ConnectionRefusedError" in s.err
+                 and "PermissionError" not in s.err
+                 and status()["network"] == "unconfined"),
+           s.err[:90])
+        s = score(_FETCH_AT_IMPORT if confined else _FETCH_REFUSED_PORT,
+                  "assert f(1) == 1\nassert f(2) == 2\n", timeout=20)
+        ck(arm("the refusal is not only the raw syscall: urllib raises too, and the "
+               "harness reports it as a verdict (a candidate cannot hide behind its "
+               "own try/except because the ERROR line is what the retry sees)",
+               "urllib raises here too, on a local refused connect rather than on "
+               "egress this box cannot be asked about — the arm keeps the harness's "
+               "job, which is to turn the candidate's error into a verdict instead of "
+               "a hang or a bare traceback"),
+           (not s.ok and "URLError" in s.err and "not permitted" in s.err) if confined
+           else (not s.ok and "URLError" in s.err and "PermissionError" not in s.err),
+           s.err[:100])
         s = score(_DNS_AT_IMPORT, "assert f(1) == 1\nassert f(2) == 2\n", timeout=20)
-        ck("and a HOSTNAME never resolves either — name service is itself outbound, "
-           "so the refusal arrives early as gaierror, not as a long timeout",
-           not s.ok and "gaierror" in s.err, s.err[:90])
+        ck(arm("and a HOSTNAME never resolves either — name service is itself outbound, "
+               "so the refusal arrives early as gaierror, not as a long timeout",
+               "a hostname is NOT shown confined here: the lookup either resolves or "
+               "fails as a plain gaierror, and either way the module says unconfined "
+               "rather than claiming the early refusal this box did not produce"),
+           (not s.ok and "gaierror" in s.err) if confined
+           else ((s.ok or "gaierror" in s.err) and "PermissionError" not in s.err
+                 and status()["network"] == "unconfined"), s.err[:90])
         s = score(_HOSTILE, f"assert f(1) == 1\nassert touch({sentinel!r}) == 'wrote'\n",
                   timeout=20)
-        ck("VECTOR: the suite still RANKS a hostile candidate like any partial "
-           "answer — the assert before the refusal passed, so passed/total say 1/2",
-           not s.ok and (s.passed, s.total) == (1, 2), f"{s.passed}/{s.total} {s.err[:60]}")
-        ok, err = diagnose(_HOSTILE, f"assert touch({sentinel!r}) == 'wrote'\n",
-                           timeout=20)
-        ck("...and the retry loop still gets actionable feedback about it, in the "
-           "same GOT/WANT/ERROR shape every other failure uses",
-           not ok and "ERROR: PermissionError" in err, err[:90])
+        ck(arm("VECTOR: the suite still RANKS a hostile candidate like any partial "
+               "answer — the assert before the refusal passed, so passed/total say 1/2",
+               "VECTOR: with no jail the hostile candidate passes 2/2 — the only "
+               "honest reading on this box, because a 1/2 here would be a refusal "
+               "this kernel never applied"),
+           (not s.ok and (s.passed, s.total) == (1, 2)) if confined
+           else (s.ok and (s.passed, s.total) == (2, 2)),
+           f"{s.passed}/{s.total} {s.err[:60]}")
+        if confined:
+            ok2, err2 = diagnose(_HOSTILE, f"assert touch({sentinel!r}) == 'wrote'\n",
+                                 timeout=20)
+        else:
+            # The write candidate cannot be the error vector on an unconfined box (it
+            # just succeeds), so the same module's socket call stands in for it, aimed
+            # at the closed local port for the same reason as above. It is raised
+            # INSIDE the assert, which is where the GOT/WANT/ERROR probe lives: an
+            # import-time failure would print a bare traceback and report nothing
+            # actionable, and that distinction is the claim below.
+            ok2, err2 = diagnose(_HOSTILE,
+                                 "assert f(1) == 1\nassert dial('127.0.0.1', 1)\n",
+                                 timeout=20)
+        ck(arm("...and the retry loop still gets actionable feedback about it, in the "
+               "same GOT/WANT/ERROR shape every other failure uses",
+               "...and the retry loop still gets a GOT/WANT/ERROR verdict for the "
+               "candidate that does fail here, in the same shape every other failure "
+               "uses — no hang, no empty report"),
+           (not ok2 and "ERROR: PermissionError" in err2) if confined
+           else (not ok2 and "ERROR:" in err2), err2[:90])
         ck("no hostile candidate hung or crashed the harness: the verdicts above "
-           "came back in one run each", not Path(sentinel).exists())
+           "came back in one run each" if confined else
+           "no hostile candidate hung, and none of them reached the real ~/.ssh: the "
+           "unconfined arm aimed every write at the throwaway HOME",
+           not Path(real_sentinel).exists())
 
         # --- 3. no collateral damage -----------------------------------------
         ck("a benign candidate verifies exactly as it did without the sandbox",
@@ -470,8 +588,11 @@ def run_selftest() -> int:
         t = time.monotonic()
         r = probe("while True: pass", cpu=2, timeout=30)
         wall = time.monotonic() - t
-        ck("RLIMIT_CPU binds THROUGH the wrapper: a busy loop died on the signal in"
-           " about its cpu seconds, not at the 30s wall timeout",
+        ck(arm("RLIMIT_CPU binds THROUGH the wrapper: a busy loop died on the signal in"
+               " about its cpu seconds, not at the 30s wall timeout",
+               "RLIMIT_CPU binds with no wrapper in front of it here: the busy loop died"
+               " on the signal in about its cpu seconds, so the limit is the child's own"
+               " and not something the prefix was doing"),
            r.returncode == -24 and 1.5 < wall < 12, f"rc={r.returncode} wall={wall:.2f}s")
         r = probe("import resource; print(resource.getrlimit(resource.RLIMIT_CPU))",
                   cpu=3, timeout=30)
@@ -488,10 +609,14 @@ def run_selftest() -> int:
         big = Path(root, "big.bin")
         r = probe(f"open({str(big)!r},'wb').write(b'x' * 600 * 1024 * 1024);"
                   "print('__PASS__')", timeout=60)
-        ck("RLIMIT_FSIZE turns a disk-filling write into an ordinary failure",
-           r.returncode != 0 and "File too large" in r.stderr
-           and (not big.exists() or big.stat().st_size < 300 * 1024 * 1024),
-           r.stderr.strip()[-90:])
+        ck("RLIMIT_FSIZE turns a disk-filling write into an ordinary failure: the"
+           " kernel stops the writer — whether this platform surfaces EFBIG to the"
+           " interpreter (measured here on macOS) or kills it with SIGXFSZ (Linux) —"
+           " and either way the file stays under the cap",
+           r.returncode != 0
+           and (not big.exists() or big.stat().st_size < 300 * 1024 * 1024)
+           and ("File too large" in r.stderr or r.returncode == -signal.SIGXFSZ.value),
+           f"rc={r.returncode} {r.stderr.strip()[-70:]}")
         mem = memory_ceiling()
         ck("memory ceiling is what a fresh child answers after TRYING setrlimit,"
            " so the claim tracks the platform instead of a table here",

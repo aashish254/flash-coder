@@ -1,9 +1,9 @@
 {
- "witness": "battery_reread_r716d_20261004.log",
+ "witness": "battery_reread_r716f_20261004.log",
  "totals": {
-  "checks": 1427,
+  "checks": 1429,
   "oracle": 20,
-  "total": 1447,
+  "total": 1449,
   "mutants": 172,
   "vectors": 37,
   "mutant_vectors": 14
@@ -174,13 +174,13 @@
    "mutants": 0
   },
   {
-   "command": "python -m flash.cli lsp-selftest",
-   "checks": 22,
-   "expected": 22,
+   "command": "python -m flash.cli power --selftest",
+   "checks": 24,
+   "expected": 24,
    "mutants": 0
   },
   {
-   "command": "python -m flash.cli power --selftest",
+   "command": "python -m flash.cli lsp-selftest",
    "checks": 22,
    "expected": 22,
    "mutants": 0
@@ -249,92 +249,92 @@
  "timings": [
   {
    "command": "python -m flash.tourney --selftest",
-   "median_s": 14.884,
-   "min_s": 14.838,
-   "max_s": 14.916,
+   "median_s": 14.929,
+   "min_s": 14.835,
+   "max_s": 14.935,
    "repeats": 3
   },
   {
    "command": "python -m flash.grammar --selftest",
-   "median_s": 13.291,
-   "min_s": 13.222,
-   "max_s": 13.317,
+   "median_s": 13.2,
+   "min_s": 12.95,
+   "max_s": 13.22,
    "repeats": 3
   },
   {
    "command": "python -m flash.ambient --selftest",
-   "median_s": 10.886,
-   "min_s": 10.834,
-   "max_s": 10.953,
+   "median_s": 10.826,
+   "min_s": 10.761,
+   "max_s": 10.899,
    "repeats": 3
   },
   {
    "command": "python -m flash.confidence --selftest",
-   "median_s": 6.245,
-   "min_s": 6.238,
-   "max_s": 6.317,
+   "median_s": 6.234,
+   "min_s": 6.225,
+   "max_s": 6.235,
    "repeats": 3
   },
   {
    "command": "python -m flash.debug --selftest",
-   "median_s": 4.347,
-   "min_s": 4.341,
-   "max_s": 4.36,
+   "median_s": 4.374,
+   "min_s": 4.326,
+   "max_s": 4.416,
    "repeats": 3
   },
   {
    "command": "python -m flash.sandbox --selftest",
-   "median_s": 3.06,
-   "min_s": 3.059,
-   "max_s": 4.327,
+   "median_s": 3.127,
+   "min_s": 3.021,
+   "max_s": 3.623,
    "repeats": 3
   },
   {
    "command": "python -m flash.checkpoint --selftest",
-   "median_s": 2.88,
-   "min_s": 2.878,
-   "max_s": 2.88,
+   "median_s": 2.881,
+   "min_s": 2.879,
+   "max_s": 2.882,
    "repeats": 3
   },
   {
    "command": "python -m flash.patches --selftest",
-   "median_s": 1.812,
+   "median_s": 1.877,
    "min_s": 1.81,
-   "max_s": 1.816,
+   "max_s": 1.892,
    "repeats": 3
   },
   {
    "command": "python -m flash.train --selftest",
-   "median_s": 1.483,
-   "min_s": 1.466,
-   "max_s": 1.514,
+   "median_s": 1.478,
+   "min_s": 1.472,
+   "max_s": 1.952,
    "repeats": 3
   },
   {
    "command": "python -m flash.graph --selftest",
-   "median_s": 1.083,
-   "min_s": 1.076,
-   "max_s": 1.084,
+   "median_s": 1.065,
+   "min_s": 1.061,
+   "max_s": 1.095,
    "repeats": 3
   },
   {
    "command": "python -m flash.harness --selftest",
-   "median_s": 0.921,
-   "min_s": 0.911,
-   "max_s": 0.935,
+   "median_s": 0.871,
+   "min_s": 0.87,
+   "max_s": 0.881,
    "repeats": 3
   },
   {
    "command": "python -m flash.power --selftest",
-   "median_s": 0.472,
-   "min_s": 0.466,
-   "max_s": 0.473,
+   "median_s": 0.402,
+   "min_s": 0.402,
+   "max_s": 0.405,
    "repeats": 3
   },
   {
    "command": "python -m flash.jobs --selftest",
-   "median_s": 0.075,
-   "min_s": 0.074,
+   "median_s": 0.074,
+   "min_s": 0.073,
    "max_s": 0.076,
    "repeats": 3
   },
@@ -342,14 +342,14 @@
    "command": "python -m flash.web --selftest",
    "median_s": 0.05,
    "min_s": 0.05,
-   "max_s": 0.051,
+   "max_s": 0.05,
    "repeats": 3
   },
   {
    "command": "python -m flash.trace --selftest",
    "median_s": 0.023,
    "min_s": 0.023,
-   "max_s": 0.024,
+   "max_s": 0.023,
    "repeats": 3
   }
  ],
@@ -357,11 +357,11 @@
   "measured": true,
   "fixture_ms": 0.1,
   "budget_ms": 200.0,
-  "wide_ms": 30.0,
+  "wide_ms": 28.5,
   "wide_nodes": 5377,
   "wide_edges": 10058,
-  "build_ms": 589.0,
-  "warm_ms": 7.8
+  "build_ms": 571.0,
+  "warm_ms": 7.7
  },
  "market": {
   "witness": "market_compare_20260928.log",

@@ -129,7 +129,7 @@ Three habits, all of them learned the expensive way here:
 | --- | --- | --- |
 | I-1 | Every mutation of code, weights, skills or memory is a commit | git history; `flash ambient` refuses to merge or push |
 | I-2 | No self-modification ships without beating the frozen harness | `SPEC.md` R-6.4's booked negative: trained arm 16/20 vs base 18/20 |
-| I-3 | The agent sheds load before the user notices | `flash power --selftest` (22), `tier="shed"` in every trace |
+| I-3 | The agent sheds load before the user notices | `flash power --selftest` (24), `tier="shed"` in every trace |
 | I-4 | Every feature degrades gracefully with no network | the whole offline battery runs radio-off; `python -m flash.graph --selftest` |
 | I-5 | Decisions, tool calls and file sets are schema-valid by construction | `flash.grammar --selftest` (47), the `# file:`/`# edit:` contract validators — **PARTIAL**, see R-4.2 |
 | I-6 | Any behavior is replayable and explainable | `flash trace <sid> --task <id>`; `--trace-full` stores exact prompts |

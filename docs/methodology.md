@@ -24,7 +24,7 @@ fraction, and a last-line grep read one vector's `14/14 mutants` summary as if
 it were its check count, under-counting the published total by 17 while looking
 clean.
 
-So the totals in the README (`1,427 checks + 20 oracle verifications + 172
+So the totals in the README (`1,429 checks + 20 oracle verifications + 172
 mutation gates`) come from the line `battery_reread` prints, and the file holds
 one entry per §6 item with the exact fraction that item must print. When the
 numbers disagree, the run reports the disagreement out loud. It has: one CLAIM
@@ -59,6 +59,22 @@ holds to the rule above: nothing is *skipped*. A death that names no cause is a 
 line, a row that prints its fraction is counted whether or not a list names it, and
 `backend_free_check.py` gates the decoder against deaths it must not read and against
 a plain-lane child that must still fail with the block injected but the flag withheld.
+
+**A row must print one fraction, not one per platform.** The backend is only one
+reason a hosted runner can disagree with the author's laptop. The first ubuntu run
+also turned up two rows written in one platform's grammar: `flash power`'s live probe
+asserted a memory size it only knew how to read from `sysctl hw.memsize`, so a box
+with a perfectly readable `/proc/meminfo` printed 21/22, and `flash.sandbox`'s vector
+carried a bare `assert seatbelt() is True`, which a machine with no Seatbelt can never
+satisfy — it died there, printed no fraction at all, and the runner read a red test it
+had no code to fix. Neither is a gap you are allowed to close by label: `power` now
+reads three memory sources and the line names which one answered, and the sandbox
+vector asks its nine Seatbelt claims in two arms — enforcement where the kernel can
+refuse, the honesty of the absence where it cannot, with the hostile write aimed at a
+throwaway HOME so an unconfined box never litters a real `~/.ssh` to prove a denial it
+did not get. Both print the same denominator everywhere, because a number that moves
+with the platform is not a claim, it is a rumour. What stays refused is what has no
+arm to take: the two backend rows above.
 
 ## 2. Test at the seam the clause names
 

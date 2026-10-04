@@ -1968,6 +1968,45 @@ here rather than folded into P6's confidence work.
             sentence; README's headline and vector comment; `docs/methodology.md` §1;
             `docs/models.md`'s quoted lane subtotal; CHANGELOG; this box;
             `dashboard_data.WITNESS` and the `site/` data.
+      - [x] **§6 re-read on the platform-arm tree (CI round 3).** The pushed fix held —
+            the runner printed `note --backend-free: … no backend to lose` and
+            `OK benchmarks/backend_free_check.py 49/49 (+ 15 mutants)` — and `static
+            (3.11)` (run `37217140806`) then failed two rows further down for a cause
+            that is not the backend at all: `BAD flash power --selftest want 22/22 got
+            ['21/22']` and `BAD flash.sandbox --selftest want 34/34 got []`, its last
+            line `AssertionError`. `CLAIM` moves for the first of those two rows only:
+            `{"checks": 1429, "oracle": 20, "mutants": 172}` — `flash power` 22 → **24**
+            (+1 for a real `/proc/meminfo` dump, +1 for a dump with `MemTotal` but no
+            `MemAvailable`, which must report the size and refuse to invent a
+            percentage), sandbox's 34 unchanged because the fix is an arm, not a
+            subtraction. `power`'s memory reading is now three sources in order
+            (`sysctl hw.memsize` → `/proc/meminfo` → `sysconf`) with the check printing
+            which one answered; `flash.sandbox`'s `assert seatbelt() is True` became the
+            invariant it was actually guarding (`SENTRY` restored, and the box's own
+            answer back), nine Seatbelt claims gained a degradation arm, and the
+            unconfined aim moved to a throwaway HOME plus a closed loopback port so an
+            unjailed box can neither litter a real `~/.ssh` and then cite the file as a
+            refusal, nor be graded on how its own egress treats a documentation IP. Both
+            arms measured here: **34/34** with Seatbelt enforced and **34/34** with
+            `SENTRY` pointed at a nonexistent path (the state a Linux box is born in, in
+            `benchmarks/results/sandbox_arms_r716f_20261004.log`), plus `power` **24/24**
+            live and both non-mac sources reached in a child
+            (`benchmarks/results/power_nonmac_arm_r716f_20261004.log`);
+            `backend_free_check` still **49/49, 15/15**. SPEC §6's list row (`flash
+            power` 22 → **24**), its totals
+            paragraph (1427 → **1429**, 1447 → **1449**) and its derivation; README's
+            headline, its `power` and `sandbox` comments and the new platform-arm
+            paragraph; `docs/methodology.md` §1 ("a row must print one fraction, not one
+            per platform"); `docs/models.md`'s lane subtotal (1299 → **1301**, 1319 →
+            **1321**); `docs/architecture.md` I-3; `docs/privacy.md`'s sandbox paragraph
+            (it is a macOS paragraph, and now says so); CHANGELOG; `dashboard_data.WITNESS`
+            and the `site/` data. The whole tree then re-read on that fix: **37** `OK`,
+            no `BAD`, `checks 1429  oracle 20  §6 total 1449  mutants 172`
+            (`battery_reread_r716f_20261004.log`, 23:56:10 → 00:21:08) and the lane's
+            **35** + the same two `REFUSED`, `checks 1301 … 1321 … 146`
+            (`battery_backendfree_lane_r716f_20261004.log`, 00:21:08 → 00:44:03), with
+            `portable_paths_check` 15/15 and `documented_commands_check` 8/8 + 5/5 after
+            the site data moved (`doc_gates_r716f_20261005.log`).
       - [ ] [L] **Not closed here:** `ci.yml`'s `battery` job has still never executed —
             `needs: static` skipped it on the run above — and the two refused rows have
             never been measured *passing* on a Linux install, because a Linux install

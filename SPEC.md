@@ -803,7 +803,8 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
 
 - **R-5.1 (SHIPPED)** The loop MUST consult the system profile before loading a
   model and MUST record a refusal instead of silently degrading.
-  Vector: `flash power --selftest` 22/22; live battery A/B on r03 (shed vs
+  Vector: `flash power --selftest` 24/24 (22 until R-7.16's CI round made the memory
+  reading portable — see §6); live battery A/B on r03 (shed vs
   allowed, Appendix A 2026-09-25).
 - **R-5.2 (SHIPPED)** A session MUST survive interruption at suite
   granularity, resume without re-billing settled work, and store its own
@@ -2293,7 +2294,7 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
 
 1. **Offline battery first** (seconds, no models, must be green before any live
    claim): `python -m flash.harness --selftest` 28 · `flash lsp-selftest` 22 ·
-   `flash power --selftest` 22 · `flash jobs --selftest` 20 ·
+   `flash power --selftest` 24 · `flash jobs --selftest` 20 ·
    `flash trace --selftest` 30 · `flash web --selftest` 9 ·
    `python -m flash.grammar --selftest` 47 · `python -m flash.patches --selftest`
    94 · `python -m flash.debug --selftest` 55 ·
@@ -2325,12 +2326,12 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
    `python -m flash.debug --suite` 32 ·
    `python -m flash.patches --suite benchmarks/tasks/edit_tasks.jsonl` 60 ·
    `python benchmarks/m0_bakeoff.py --dry-run` 20 reference solutions.
-   **Total: 1427 selftest / end-to-end / premise checks + 20 oracle
+   **Total: 1429 selftest / end-to-end / premise checks + 20 oracle
    verifications (m0_bakeoff's 20 reference solutions, which are the only
    numbers in that 20 — the 6 ambient, 15 lora, 5 band, 5 router-portability,
    12 graph, 12 graph-perceive, 13 ts-perception, 15 ts-patch, 28 patch-landing,
    26 session, 8 hint-ab, 7 path-portability, 15 backend-free and 5 documented-command
-   mutants are extra to both totals, 172 in all) = 1447 green, offline.**
+   mutants are extra to both totals, 172 in all) = 1449 green, offline.**
    Two of this page's own numbers were wrong when R-7.16 moved them, and the way
    they were wrong is worth keeping: `backend_free_check` was still listed at 42
    checks and 10 mutants while the tree had already printed 44 and 11 (the
@@ -2347,6 +2348,40 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
    `proof`, which dies on exactly that check: **49 / 15**, 1420 + 7 = 1427 checks and
    167 + 5 = 172 mutants, and the re-read on that tree printed `checks 1427  oracle 20
    §6 total 1447  mutants 172`.
+   That same ubuntu runner then moved a row that had nothing to do with a model, and it
+   is the same bug wearing a different hat: a check written in one platform's grammar.
+   `flash power`'s live probe asserted a memory size it only knew how to read from
+   `sysctl hw.memsize`, so a box with a perfectly readable `/proc/meminfo` printed
+   **21/22**; the fix is a source order (`sysctl`, then `/proc/meminfo`, then POSIX
+   `sysconf`) and a line that names which one answered, and it bought two table rows —
+   a real Linux dump and a dump with no `MemAvailable`, which must answer the total and
+   refuse to guess the percentage: **22 → 24**. `flash.sandbox` was worse, because it
+   did not print at all: its setup ended in `assert seatbelt() is True`, a sentence no
+   machine without Seatbelt can satisfy, so the vector raised before its first `ck()`,
+   printed no fraction, and the runner reported `want 34/34 got []`. Nine of its claims
+   belong to a macOS mechanism, and dropping them would make the denominator a rumour,
+   so each is asked in two arms — the enforcement claim where the kernel can refuse, and
+   on an unconfined box the degradation claim: the jail named absent, the hostile write
+   landing in a throwaway HOME instead of a real `~/.ssh`, the candidate passing 2/2
+   because nothing stopped it, and no line reading green because a mechanism was missing
+   rather than working. **34** on both arms, measured here in each (the Linux arm reached
+   by pointing `SENTRY` at a path that does not exist, which is the state a Linux box is
+   born in). 1427 + 2 = 1429 checks, 172 mutants unchanged, and the lane's own subtotal
+   moves by the same two: 1299 → 1301 checks, 1319 → 1321 total. The degradation arm's
+   two network candidates aim at a closed port on loopback instead of the documentation
+   IP the confined arm uses, because on a box with no jail the fate of an outbound
+   packet is the runner's own business — it can time out, refuse, or be answered by a
+   proxy — and a row may not print a fraction that depends on which. The tree re-read
+   whole on that fix: **37** `OK` and no `BAD` on `checks 1429  oracle 20  §6 total
+   1449  mutants 172` + `matches SPEC §6 as written`
+   (`benchmarks/results/battery_reread_r716f_20261004.log`, 23:56:10 → 00:21:08), then
+   the lane's **35** `OK` with the same two rows named `REFUSED`, no `BAD`, on `checks
+   1301  oracle 20  §6 total 1321  mutants 146` under `NOT a §6 re-read`
+   (`benchmarks/results/battery_backendfree_lane_r716f_20261004.log`, 00:21:08 →
+   00:44:03) — 1301 = 1429 − 128 and 146 = 172 − 26, its own banner's arithmetic. Both
+   lanes print `flash power --selftest 24/24` and `flash.sandbox --selftest 34/34`, so
+   the two rows that moved are green on a machine with the backend and on a machine
+   without it alike.
    Four of the rows above were moved twice to get here, and one of those moves is a
    correction rather than an addition: this numbered list still carried the
    R-7.15b tree's `63` and two `48`s while the page's own totals paragraph said that

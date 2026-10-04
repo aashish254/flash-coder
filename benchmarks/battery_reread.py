@@ -52,7 +52,7 @@ PY = sys.executable
 BATTERY = [
     ("flash.harness --selftest", "-m flash.harness --selftest", 28, None, "checks"),
     ("flash lsp-selftest", "-m flash.cli lsp-selftest", 22, None, "checks"),
-    ("flash power --selftest", "-m flash.cli power --selftest", 22, None, "checks"),
+    ("flash power --selftest", "-m flash.cli power --selftest", 24, None, "checks"),
     ("flash jobs --selftest", "-m flash.jobs --selftest", 20, None, "checks"),
     ("flash trace --selftest", "-m flash.cli trace --selftest", 30, None, "checks"),
     ("flash web --selftest", "-m flash.cli web --selftest", 9, None, "checks"),
@@ -127,11 +127,17 @@ BATTERY = [
 # installer's blocker line against BOTH probe outcomes, which a Mac cannot reach from
 # its own environment — it has a backend to lose, so `proof` is always true there) and
 # its mutants 14 → 15 (one planted: the installer printing `proof` whichever way its
-# own probe came back). 1426 + 1 = 1427 checks, 171 + 1 = 172 mutants.
+# own probe came back). 1426 + 1 = 1427 checks, 171 + 1 = 172 mutants. Then the same
+# runner moved two MORE rows, for the same class of reason — a claim written in one
+# platform's grammar: `flash power` 22 → 24 (+2 for the `/proc/meminfo` pair, the
+# memory source a non-macOS host actually has, since the live probe that used to be
+# the only reading of `hw.memsize` is exactly what made that row 21/22 on ubuntu) and
+# `flash.sandbox`'s 34 held at 34 but only because nine of its claims are now asked in
+# two arms — 1427 + 2 = 1429 checks, 172 mutants, unchanged.
 # The rows are the authority;
 # a CLAIM that disagrees with them is an arithmetic error, and the fix is this
 # number, never a row.
-CLAIM = {"checks": 1427, "oracle": 20, "mutants": 172}
+CLAIM = {"checks": 1429, "oracle": 20, "mutants": 172}
 
 # Rows that can die for a reason this run names rather than diagnoses, each with the
 # sentence it dies with. The lists are decoders, not exemptions: a row that answers

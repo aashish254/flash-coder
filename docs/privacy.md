@@ -64,6 +64,16 @@ rlimits. `python -m flash.sandbox --selftest` measures the enforcement rather
 than asserting it — on this machine it reports `seatbelt=enforced`, and the
 memory ceiling line reports honestly when the kernel refuses to grant one.
 
+Seatbelt is macOS' mechanism, so on Linux and Windows that same command prints
+the same 34 checks with `seatbelt=unavailable` and the writes and network lines
+reporting `unconfined`: the jail is not there, nothing about a candidate's
+egress is confined, and only the rlimits bind. The refusal claims are then
+measured as the honesty of that absence — the hostile write is aimed at a
+throwaway HOME so the vector cannot litter a real `~/.ssh` on a box that would
+let it land, and the candidate is reported as PASSING because nothing stopped
+it. Read the platform line before the privacy line: this page's confinement
+paragraph is a macOS paragraph.
+
 The sandbox is not a container and the page does not claim it is: it is
 unprivileged-code-does-not-leave-its-lane, which is what a candidate patch
 needs and less than what a hostile verifier needs. If you would not run a

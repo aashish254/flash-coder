@@ -924,6 +924,47 @@ versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `PYTHONPATH`, the same probe the installer answers from. **49/49 checks, 15/15
   mutants**, both on the plain tree and as a child of an injected lane
   (`benchmarks/results/backend_free_check_lane_shape_r716c_20261004.log`).
+- **R-7.16, third CI round: two rows that spoke only one platform's dialect.** The
+  Mac-only gate is fixed and the runner proved it — `static (3.11)` printed
+  `note --backend-free: … this machine has no backend to lose` and
+  `OK benchmarks/backend_free_check.py 49/49 (+ 15 mutants)` — then the same job went
+  red two rows further down (run `37217140806`): `BAD flash power --selftest want
+  22/22 got ['21/22']` and `BAD flash.sandbox --selftest want 34/34 got []`, the
+  second one's last line a bare `AssertionError`. Neither is a backend claim and
+  neither was closed by a label. `flash power`'s live probe demanded
+  `mem_total_gb is not None` while the module read physical size from exactly one
+  source, `sysctl hw.memsize`; it now reads `sysctl`, then `/proc/meminfo`
+  (`MemTotal`, and `MemAvailable` for the free percentage the governor sheds on), then
+  POSIX `sysconf`, and the check's detail prints **which source answered** — the same
+  discipline `mlx_lora_defaults()` uses for the trainer's defaults. Two table rows
+  carry the non-mac pair, one on a real Linux dump and one on a dump with no
+  `MemAvailable`, which must report the total and refuse to invent a percentage:
+  **22 → 24**. The two non-mac arms were exercised on this Mac by rewriting the
+  platform fact in a child and reading what the module answers *and* who it says
+  answered (`benchmarks/results/power_nonmac_arm_r716f_20261004.log`).
+  `flash.sandbox`'s vector ended its setup with `assert seatbelt() is
+  True`, an assertion no box without macOS' Seatbelt can satisfy, so on Linux it raised
+  before printing a single check and the runner could not tell it from a broken jail.
+  The invariant that assert was protecting is the restoration of `SENTRY` after the
+  vector's two wrapper swaps, and it is now stated as that; nine Seatbelt claims are
+  asked in two arms, and on an unconfined box the hostile write is aimed at a throwaway
+  HOME and the two network candidates at a closed loopback port instead of the
+  documentation IP the confined arm uses — a row may not print a fraction that depends
+  on how a runner's egress treats a packet it is not confining — because a vector that litters a real `~/.ssh` and then cites the file as proof
+  of a refusal it never got is the worse bug. **34/34 in both arms here**
+  (`benchmarks/results/sandbox_arms_r716f_20261004.log` holds both prints), the Linux
+  arm reached by pointing `SENTRY` at a path that does not exist, which is the state a
+  Linux box is born in, and `RLIMIT_FSIZE` now accepts whichever shape the kernel
+  reports (EFBIG to the interpreter on macOS, SIGXFSZ as a signal on Linux) since both
+  are the write being stopped. `flash power` 22 → 24 moves the totals: **1,429 checks +
+  20 oracle verifications = 1,449**, 172 mutants unchanged, and the lane's subtotal by
+  the same two (1299 → 1301 checks, 1319 → 1321). The tree re-read on that fix printed
+  **37** `OK` and no `BAD`
+  (`benchmarks/results/battery_reread_r716f_20261004.log`) and the lane **35** with the
+  same two rows named `REFUSED`
+  (`benchmarks/results/battery_backendfree_lane_r716f_20261004.log`), both lanes printing
+  `power 24/24` and `sandbox 34/34`. What this still does not buy is the
+  macos `battery` job, which `needs: static` has never let run.
 - **R-7.9** `python -m flash.train --dry-run` writes nothing, on both of its
   branches. `--suite-from-dataset` was dispatched above the branch that honoured the
   flag, so a command typed to *avoid* touching the tree rewrote the tracked

@@ -1230,22 +1230,9 @@
    "degree": 7,
    "label": "_send",
    "pos": [
-    15.11,
-    -23.68,
-    0.41
-   ]
-  },
-  {
-   "id": "flash/lsp.py::ast_symbols",
-   "file": "flash/lsp.py",
-   "symbol": "ast_symbols",
-   "kind": "function",
-   "degree": 6,
-   "label": "ast_symbols",
-   "pos": [
-    10.48,
-    -19.48,
-    -0.82
+    15.15,
+    -23.8,
+    -0.08
    ]
   },
   {
@@ -1256,22 +1243,9 @@
    "degree": 23,
    "label": "check",
    "pos": [
-    18.96,
-    -19.93,
-    -2.06
-   ]
-  },
-  {
-   "id": "flash/lsp.py::find_occurrences",
-   "file": "flash/lsp.py",
-   "symbol": "find_occurrences",
-   "kind": "function",
-   "degree": 6,
-   "label": "find_occurrences",
-   "pos": [
-    11.38,
-    -25.94,
-    -3.29
+    10.37,
+    -19.43,
+    -1.56
    ]
   },
   {
@@ -1282,9 +1256,9 @@
    "degree": 8,
    "label": "find_references",
    "pos": [
-    13.11,
-    -15.87,
-    -4.52
+    18.95,
+    -19.93,
+    -3.04
    ]
   },
   {
@@ -1295,9 +1269,9 @@
    "degree": 12,
    "label": "find_symbol",
    "pos": [
-    18.55,
-    -24.52,
-    -5.76
+    11.5,
+    -25.74,
+    -4.52
    ]
   },
   {
@@ -1308,9 +1282,9 @@
    "degree": 42,
    "label": "run_selftest",
    "pos": [
-    9.24,
-    -21.85,
-    -6.99
+    13.22,
+    -16.45,
+    -6.0
    ]
   },
   {
@@ -1321,9 +1295,9 @@
    "degree": 12,
    "label": "symbol_hint",
    "pos": [
-    16.92,
-    -18.21,
-    -8.22
+    17.61,
+    -23.83,
+    -7.48
    ]
   },
   {
@@ -1334,9 +1308,9 @@
    "degree": 9,
    "label": "walk",
    "pos": [
-    14.24,
-    -23.86,
-    -9.46
+    11.53,
+    -21.6,
+    -8.96
    ]
   },
   {
@@ -1604,12 +1578,25 @@
    "file": "flash/power.py",
    "symbol": "run_selftest",
    "kind": "function",
-   "degree": 41,
+   "degree": 44,
    "label": "run_selftest",
    "pos": [
     -8.13,
     -19.36,
     -15.1
+   ]
+  },
+  {
+   "id": "flash/sandbox.py::arm",
+   "file": "flash/sandbox.py",
+   "symbol": "arm",
+   "kind": "function",
+   "degree": 9,
+   "label": "arm",
+   "pos": [
+    -7.92,
+    17.84,
+    -9.13
    ]
   },
   {
@@ -1620,9 +1607,9 @@
    "degree": 34,
    "label": "ck",
    "pos": [
-    -7.85,
-    17.67,
-    -9.77
+    -12.7,
+    22.2,
+    -10.61
    ]
   },
   {
@@ -1633,9 +1620,9 @@
    "degree": 9,
    "label": "probe",
    "pos": [
-    -12.79,
-    22.25,
-    -11.67
+    -4.12,
+    21.71,
+    -12.09
    ]
   },
   {
@@ -1646,8 +1633,8 @@
    "degree": 7,
    "label": "realpath",
    "pos": [
-    -4.33,
-    21.65,
+    -11.57,
+    15.9,
     -13.57
    ]
   },
@@ -1656,12 +1643,12 @@
    "file": "flash/sandbox.py",
    "symbol": "run_selftest",
    "kind": "function",
-   "degree": 65,
+   "degree": 79,
    "label": "run_selftest",
    "pos": [
-    -11.14,
-    16.6,
-    -15.46
+    -9.85,
+    25.19,
+    -15.04
    ]
   },
   {
@@ -1669,12 +1656,25 @@
    "file": "flash/sandbox.py",
    "symbol": "seatbelt",
    "kind": "function",
-   "degree": 8,
+   "degree": 10,
    "label": "seatbelt",
    "pos": [
-    -9.44,
-    23.12,
-    -17.36
+    -5.46,
+    17.81,
+    -16.52
+   ]
+  },
+  {
+   "id": "flash/sandbox.py::status",
+   "file": "flash/sandbox.py",
+   "symbol": "status",
+   "kind": "function",
+   "degree": 8,
+   "label": "status",
+   "pos": [
+    -11.54,
+    20.04,
+    -18.0
    ]
   },
   {
@@ -2663,38 +2663,8 @@
    "kind": "calls"
   },
   {
-   "s": "flash/lsp.py::ast_symbols",
-   "d": "flash/lsp.py::walk",
-   "kind": "calls"
-  },
-  {
-   "s": "flash/lsp.py::find_symbol",
-   "d": "flash/lsp.py::ast_symbols",
-   "kind": "calls"
-  },
-  {
-   "s": "flash/lsp.py::find_symbol",
-   "d": "flash/lsp.py::find_occurrences",
-   "kind": "calls"
-  },
-  {
-   "s": "flash/lsp.py::find_references",
-   "d": "flash/lsp.py::find_occurrences",
-   "kind": "calls"
-  },
-  {
-   "s": "flash/lsp.py::run_selftest",
-   "d": "flash/lsp.py::ast_symbols",
-   "kind": "calls"
-  },
-  {
    "s": "flash/lsp.py::run_selftest",
    "d": "flash/lsp.py::check",
-   "kind": "calls"
-  },
-  {
-   "s": "flash/lsp.py::run_selftest",
-   "d": "flash/lsp.py::find_occurrences",
    "kind": "calls"
   },
   {
@@ -2893,6 +2863,21 @@
    "kind": "calls"
   },
   {
+   "s": "flash/sandbox.py::status",
+   "d": "flash/sandbox.py::seatbelt",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/sandbox.py::run_selftest",
+   "d": "flash/sandbox.py::seatbelt",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/sandbox.py::run_selftest",
+   "d": "flash/sandbox.py::arm",
+   "kind": "calls"
+  },
+  {
    "s": "flash/sandbox.py::run_selftest",
    "d": "flash/sandbox.py::ck",
    "kind": "calls"
@@ -2909,7 +2894,7 @@
   },
   {
    "s": "flash/sandbox.py::run_selftest",
-   "d": "flash/sandbox.py::seatbelt",
+   "d": "flash/sandbox.py::status",
    "kind": "calls"
   },
   {
@@ -3005,9 +2990,9 @@
  },
  "sampled": {
   "shown_nodes": 150,
-  "shown_edges": 209,
-  "repo_nodes": 5141,
-  "repo_edges": 29964,
+  "shown_edges": 206,
+  "repo_nodes": 5156,
+  "repo_edges": 30076,
   "note": "the 150 most-connected functions, classes and methods under flash/, joined by their call and import edges; `reads` edges and the rest of the index are not drawn"
  },
  "extracted_by": "python -c 'from flash.graph import build; build(...)'"

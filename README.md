@@ -7,7 +7,7 @@ again — no API key, no container, nothing leaving the machine.
 Two things about this repo are load-bearing, and both are visible in the files:
 
 - **Every claim is a printed number.** The offline verification battery is
-  **1,427 checks + 20 oracle verifications + 172 mutation gates** over 37 vectors,
+  **1,429 checks + 20 oracle verifications + 172 mutation gates** over 37 vectors,
   and `SPEC.md` §6
   records why the totals come from the fraction each run *prints* — never an exit
   code, never a phrase grep — after both of those shortcuts produced a wrong total
@@ -17,6 +17,13 @@ Two things about this repo are load-bearing, and both are visible in the files:
   there, so they print **REFUSED** with the sentence each row died with and the lane
   subtracts their own counts and says out loud it is not a §6 re-read. A death that
   names no cause is still a failure: that is the whole difference between the two.
+  A second class showed up on the first real Linux runner and is now fixed rather
+  than refused: two rows asked questions in one platform's grammar — a memory size
+  read only from `sysctl`, a jail only macOS ships — and a row that cannot be
+  answered on the box running it is not a test, so `flash power` grew the
+  `/proc/meminfo` source and `flash.sandbox` asks its nine Seatbelt claims in two
+  arms. Both print the same fraction everywhere, which is the only shape a runner
+  can be held to.
   That total is not a property of
   the author's disk: `python benchmarks/r75_sdist_battery_check.py` builds the
   sdist, installs it into a throwaway venv, checks which `flash` a child imports,
@@ -747,7 +754,7 @@ Vision is benchmarked once the text brain is picked (PLAN §M1–M2).
 # §34.1 power governor — every run asks the machine before loading a model
 .venv/bin/python -m flash.cli power                    # profile, state, allowed vs shed
 .venv/bin/python -m flash.cli power --json             # machine-readable
-.venv/bin/python -m flash.cli power --selftest         # 22 offline decision-table checks
+.venv/bin/python -m flash.cli power --selftest         # 24 offline checks: the table, and both platforms' memory source
 .venv/bin/python -m flash.cli run-suite --allow-big never   # single-track, never loads the brain
 #   auto (default) obeys the profile: on battery/heat/memory pressure the big tier is
 #   SHED — the task stays unsolved and the ledger records why. --allow-big always overrides.
@@ -883,7 +890,7 @@ Vision is benchmarked once the text brain is picked (PLAN §M1–M2).
 # that fetches). Cost, because a sandbox nobody can afford gets bypassed: +12.2 ms
 # per child spawn (26.8 → 39.0 ms), 60 score() calls 6.04s → 8.31s.
 .venv/bin/python -m flash.sandbox                    # what is enforced on THIS box right now
-.venv/bin/python -m flash.sandbox --selftest         # 34 checks: the hostile-candidate vector, and no collateral
+.venv/bin/python -m flash.sandbox --selftest         # 34 checks, in the arm this box earns
 # The vector IS the clause: a candidate that writes to ~/.ssh and one that opens a
 # socket both fail as ordinary verify errors, the sentinel file still does not exist
 # afterwards, and the suite still RANKS the hostile one like a partial answer (1/2)
@@ -892,6 +899,13 @@ Vision is benchmarked once the text brain is picked (PLAN §M1–M2).
 # root), so the vector uses os.path.expanduser and says so. `seatbelt()` is an
 # enforcement probe, not a Path.exists(): a wrapper that ignored its profile would
 # degrade to no prefix and a loud status line, never to green checks.
+# Those claims name one macOS mechanism, and the same 34 lines print on a box that
+# has no Seatbelt: there nine of them measure the DEGRADATION instead — the jail
+# absent and named absent, the hostile write landing in a throwaway HOME rather than
+# a real ~/.ssh, the network candidates aimed at a closed local port instead of the
+# outside, the candidate passing 2/2 because nothing refused it. A denominator
+# that moved with the platform would be a number no runner could be held to, so the
+# arm is what changes and the count is not.
 # The five candidate-execution seams (harness run_test/_probes, debug _run,
 # confidence _seeded_run/edge_probe) are verified at RUNTIME to spawn through
 # sandbox.run — a selftest spy records the caller's frame name for each, so "every

@@ -16,6 +16,10 @@ Design rules:
     the 7B fast tier keeps working when everything else is shed.
   * The OS already knows when to be quiet (low-power mode, thermal
     warnings, memory pressure). We read its mind instead of guessing.
+  * A size is read from whatever the platform publishes — `sysctl hw.memsize`,
+    `/proc/meminfo`, then POSIX `sysconf` — and the reading prints which source
+    answered. Invariant 7 says a lost reading may cost a capability, not that
+    only one platform is allowed to have the reading in the first place.
 """
 from __future__ import annotations
 
@@ -90,6 +94,28 @@ def parse_batt(out: str) -> tuple[bool | None, float | None]:
     return on_ac, (float(m.group(1)) if m else None)
 
 
+def parse_meminfo(out: str) -> tuple[float | None, int | None]:
+    """(mem_free_pct, mem_total_bytes) from a `/proc/meminfo` dump.
+
+    The non-macOS pair to `kern.memorystatus_level` + `hw.memsize`: MemAvailable is
+    what the kernel is willing to hand a new process (free + reclaimable), so it is
+    the number the governor's headroom test should read, and MemTotal is the box's
+    physical size in kB. Neither is guessable from the other, so a dump naming only
+    one answers (None, bytes) rather than inventing the missing half.
+    """
+    if not out:
+        return None, None
+    total = None
+    m = re.search(r"^MemTotal:\s+(\d+)\s*kB", out, re.M)
+    if m:
+        total = int(m.group(1)) * 1024
+    free_pct = None
+    avail = re.search(r"^MemAvailable:\s+(\d+)\s*kB", out, re.M)
+    if avail and total:
+        free_pct = round(100.0 * int(avail.group(1)) * 1024 / total, 1)
+    return free_pct, total
+
+
 def parse_therm(out: str) -> tuple[float | None, bool | None]:
     """(cpu_speed_limit_pct, thermal_warning) from `pmset -g therm`.
 
@@ -125,10 +151,47 @@ def read_thermal() -> tuple[float | None, bool | None]:
     return parse_therm(_run(["pmset", "-g", "therm"]))
 
 
+def mem_total_bytes() -> tuple[int | None, str]:
+    """(total bytes, which source answered).
+
+    The second half is not decoration, and it is the reason a Linux runner used to
+    read 21/22 here: the check used to demand a number this module only knew how to
+    get from `sysctl`, so a box with a perfectly readable memory size looked broken.
+    Three sources in order — macOS' sysctl, Linux' /proc, then the POSIX sysconf that
+    answers on both — and the line says which one spoke, so a reading is never
+    mistaken for a claim about the others.
+    """
+    if IS_MAC:
+        n = _sysctl_int("hw.memsize")
+        if n:
+            return n, "sysctl hw.memsize"
+    free_pct, total = parse_meminfo(_read_proc_meminfo())
+    if total:
+        return total, "/proc/meminfo MemTotal"
+    try:
+        page = os.sysconf("SC_PAGE_SIZE")
+        pages = os.sysconf("SC_PHYS_PAGES")
+    except (ValueError, OSError, AttributeError):
+        return None, "no memory source on this platform"
+    if page > 0 and pages > 0:
+        return page * pages, "sysconf SC_PAGE_SIZE x SC_PHYS_PAGES"
+    return None, "no memory source on this platform"
+
+
+def _read_proc_meminfo() -> str:
+    try:
+        with open("/proc/meminfo", encoding="utf-8") as fh:
+            return fh.read()
+    except OSError:
+        return ""
+
+
 def read_memory() -> tuple[float | None, float | None, float | None]:
     """(mem_free_pct, mem_total_gb, swap_used_gb)."""
     free = _sysctl_int("kern.memorystatus_level")
-    total = _sysctl_int("hw.memsize")
+    total, _source = mem_total_bytes()
+    if free is None:
+        free = parse_meminfo(_read_proc_meminfo())[0]
     swap_gb = None
     out = _run(["sysctl", "-n", "vm.swapusage"])
     m = re.search(r"used\s*=\s*([\d.]+)M", out)
@@ -364,6 +427,12 @@ def run_selftest(verbose: bool = True) -> int:
         ("batt draining", parse_batt("Now drawing from 'Battery Power'\n"
                                      " -InternalBattery-0\t55%; discharging; 3:36 remaining"),
          (False, 55.0)),
+        ("meminfo (the non-mac memory source)",
+         parse_meminfo("MemTotal:       32694504 kB\nSwapTotal:       4194300 kB\n"
+                       "MemAvailable:    26151040 kB\n"),
+         (80.0, 32694504 * 1024)),
+        ("meminfo with no MemAvailable answers total, never a guessed free pct",
+         parse_meminfo("MemTotal:       1024 kB\n"), (None, 1024 * 1024)),
     ]
     for label, got, want in cases:
         check(f"parse: {label}", got == want, f"{got} (want {want})")
@@ -412,9 +481,11 @@ def run_selftest(verbose: bool = True) -> int:
 
     # live probe: every reading must parse or be None, never crash
     st = read_state()
+    _bytes, source = mem_total_bytes()
     check("probe: live sample returns a usable state",
           st.cores is not None and st.mem_total_gb is not None,
-          f"cores={st.cores} mem={st.mem_total_gb}GB free={st.mem_free_pct}% "
+          f"cores={st.cores} mem={st.mem_total_gb}GB[{source}] "
+          f"free={st.mem_free_pct}% "
           f"on_ac={st.on_ac} idle={st.idle_seconds and round(st.idle_seconds)}s")
     st2, caps = governor(refresh=True)
     check("probe: governor() agrees with the table",

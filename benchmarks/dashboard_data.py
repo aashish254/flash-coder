@@ -41,10 +41,12 @@ RESULTS = ROOT / "benchmarks" / "results"
 
 # The §6 witness the counts are parsed from. A dated print, not a live run: the
 # counts it carries are the counts the README publishes. Moved to the CI-fix pass's
-# print the day that pass ran — 37 lines, `checks 1427 … mutants 172` —
+# print the day that pass ran — 37 lines, `checks 1429 … mutants 172`, with the two
+# rows that used to speak only one platform's dialect now printing 24/24 and 34/34 on
+# both of its arms —
 # because the page publishing yesterday's total while the tree prints a
 # larger one is the same breach as publishing a number no run printed.
-WITNESS = RESULTS / "battery_reread_r716d_20261004.log"
+WITNESS = RESULTS / "battery_reread_r716f_20261004.log"
 
 # The cross-tool print, same rule: a competitor's number enters the page only if a
 # run wrote it into this file. One dated witness, parsed rather than quoted.

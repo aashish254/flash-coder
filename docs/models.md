@@ -67,13 +67,26 @@ rows green and prints a `REFUSED` line naming the other two — `flash.grammar
 --selftest`, whose mask checks load the tokenizer through `mlx_lm.tokenizer_utils`,
 and `benchmarks/session_check.py`, whose chat arm walks past
 `flash.loop.solve_routed`'s preamble `import mlx.core` — then prints its own subtotal
-(`checks 1299  oracle 20  §6 total 1319  mutants 146`, measured 2026-10-04) under a
+(`checks 1301  oracle 20  §6 total 1321  mutants 146`, this tree's own lane print) under a
 `NOT a §6 re-read` banner. A Linux runner is therefore never asked to fail a test it
 has no code to fix — and the sentence it reads before that subtotal is its own, not a
 Mac's: `backend_free_check`'s gate asks the installer to prove the blocker with the
 branch this box earns, `proof --backend-free` where `import mlx.core` survives without
 the shim and `note --backend-free` where it does not, with a mutant for printing
 `proof` regardless.
+
+Backend-free is one half of that promise; the other half is what the first real ubuntu
+run found, and it is not about the model at all. `flash power` read its machine's
+memory size from `sysctl hw.memsize` and nowhere else, so a Linux box with a readable
+`/proc/meminfo` printed **21/22**; `flash.sandbox`'s vector ended its setup with a bare
+`assert seatbelt() is True`, so on a box with no Seatbelt it raised `AssertionError`,
+printed no fraction, and looked like a failing test nobody there can repair. Both are
+fixed at the reading rather than re-labelled: `power` now tries `sysctl`, then
+`/proc/meminfo`, then POSIX `sysconf`, and the line prints which one answered, and the
+sandbox vector asks its nine Seatbelt claims in two arms so **34** prints on every
+platform — enforcement where the kernel can refuse, the honesty of an absent jail where
+it cannot. A row that has no arm to take stays REFUSED; a row that only ever spoke one
+platform's dialect gets taught the other one.
 
 What that means in practice on a non-Mac:
 

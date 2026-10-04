@@ -1,0 +1,4 @@
+proc arm    (33479172096, '/proc/meminfo MemTotal') (80.0, 31.2, 0.00091796875)
+sysconf arm (34359738368, 'sysconf SC_PAGE_SIZE x SC_PHYS_PAGES') (None, 32.0, 0.00091796875)
+read_state  cores 10 mem_total_gb 32.0 mem_free_pct None
+OK: both non-mac arms answer, and each names itself

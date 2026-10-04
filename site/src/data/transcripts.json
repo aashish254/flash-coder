@@ -12,7 +12,7 @@
     "  [yes] MLX backend: mlx 0.32.2, mlx_lm 0.31.3",
     " machine",
     "  [yes] python 3.11.15 \u00b7 darwin/arm64 \u00b7 27.0.1",
-    "  [yes] what this box may load: profile balanced, up to 17.3 GB right now (~27.8 GB free of 32, tournament width 2)",
+    "  [yes] what this box may load: profile maximum-performance, up to 17.3 GB right now (~27.2 GB free of 32, tournament width 4)",
     " cache",
     "  [   ] model cache ~/.cache/huggingface/hub: 41 repo(s), 4 of 4 \u00a722 candidates present",
     " tools",
@@ -31,10 +31,10 @@
    "command": "python -m flash.graph --selftest",
    "exit": 0,
    "lines": [
-    "  OK   the merge is what makes a repeat query cheap: a second pass over the wide repo costs 8.1 ms and re-extracts nothing",
+    "  OK   the merge is what makes a repeat query cheap: a second pass over the wide repo costs 7.6 ms and re-extracts nothing",
     "  OK   and on the wide repo the floor is still reported rather than assumed: a 400-file pass with no blind spots says so, and a reader can see that it is a property of THIS instrument, not of the algorithm",
-    "  ..  first query on a cold index: fixtures 0.1 ms, wide 28.5 ms (5377 nodes, 10058 edges, after a 659 ms build); language server settled 1/1",
-    "graph selftest: 44/44 checks passed  [fixtures query 0.1 ms of 200 ms budget, wide query 28.5 ms]"
+    "  ..  first query on a cold index: fixtures 0.1 ms, wide 28.6 ms (5377 nodes, 10058 edges, after a 566 ms build); language server settled 1/1",
+    "graph selftest: 44/44 checks passed  [fixtures query 0.1 ms of 200 ms budget, wide query 28.6 ms]"
    ],
    "redacted": []
   },
@@ -44,17 +44,17 @@
    "lines": [
     "OK   flash.harness --selftest                     28/28",
     "OK   flash lsp-selftest                           22/22",
-    "OK   flash power --selftest                       22/22",
+    "OK   flash power --selftest                       24/24",
     "OK   flash jobs --selftest                        20/20",
     "OK   flash trace --selftest                       30/30",
     "OK   flash web --selftest                         9/9",
     "  \u2026 37 lines, one per \u00a76 vector",
     "OK   benchmarks/m0_bakeoff.py --dry-run           20/20",
-    "checks 1427  oracle 20  \u00a76 total 1447  mutants 172",
-    "matches SPEC \u00a76 as written: 1427 + 20 = 1447 green, offline (+ 172 mutants)"
+    "checks 1429  oracle 20  \u00a76 total 1449  mutants 172",
+    "matches SPEC \u00a76 as written: 1429 + 20 = 1449 green, offline (+ 172 mutants)"
    ],
    "redacted": [],
-   "source": "battery_reread_r716d_20261004.log"
+   "source": "battery_reread_r716f_20261004.log"
   },
   {
    "command": "python -m flash.cli session --context /tmp/flash-session-live --test /tmp/flash-session-live/t.py --apply --turns 3",
