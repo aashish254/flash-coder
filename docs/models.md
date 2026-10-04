@@ -67,9 +67,13 @@ rows green and prints a `REFUSED` line naming the other two — `flash.grammar
 --selftest`, whose mask checks load the tokenizer through `mlx_lm.tokenizer_utils`,
 and `benchmarks/session_check.py`, whose chat arm walks past
 `flash.loop.solve_routed`'s preamble `import mlx.core` — then prints its own subtotal
-(`checks 1298  oracle 20  §6 total 1318  mutants 145`, measured 2026-10-04) under a
+(`checks 1299  oracle 20  §6 total 1319  mutants 146`, measured 2026-10-04) under a
 `NOT a §6 re-read` banner. A Linux runner is therefore never asked to fail a test it
-has no code to fix.
+has no code to fix — and the sentence it reads before that subtotal is its own, not a
+Mac's: `backend_free_check`'s gate asks the installer to prove the blocker with the
+branch this box earns, `proof --backend-free` where `import mlx.core` survives without
+the shim and `note --backend-free` where it does not, with a mutant for printing
+`proof` regardless.
 
 What that means in practice on a non-Mac:
 

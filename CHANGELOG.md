@@ -24,7 +24,7 @@ versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   offers tournament width ≥ 2 — a fact about the box, so it is refusable in *every*
   lane, because a hosted runner cannot be told to cool down and a warm laptop is not a
   failing test. The lists are decoders, not exemptions, and that is the measured part:
-  `python benchmarks/backend_free_check.py` → **48/48 checks, 14/14 mutants** — the
+  `python benchmarks/backend_free_check.py` → **49/49 checks, 15/15 mutants** — the
   decoder read against ten texts of which seven must NOT decode (an unrelated
   `AssertionError: expected 5 got 4`, a healthy line that merely names `mlx_lm`, empty
   output, each cause in the other arm), the named rows checked as battery arithmetic, a
@@ -906,6 +906,24 @@ versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   a named error on a machine with no MLX. **36/36 in both lanes**, count unchanged;
   `python -m flash.train --dry-run` and the training call itself still name MLX in the
   error a stranger gets.
+- **R-7.16, second CI round: the gate that demanded a Mac-only sentence.** The first
+  push's `static (3.11)` and `static (3.12)` jobs printed `backend-free checks: 47/48
+  passed` and `battery` was skipped by `needs: static`. The failing assertion was the
+  checker's own: it required the blocker line to say `proof --backend-free`, a sentence
+  only a machine that has MLX installed may honestly print. The fix is not a looser
+  assertion. The installer's branch is now bought from *both* paths — a fabricated-probe
+  gate feeds `install_backend_block()` a box where `import mlx.core` survives and a box
+  where it does not, and demands each print its own word and never the other's — with a
+  mutant (`blocker_is_a_literal`) that hard-wires `proof` and dies on exactly that check.
+  The gate then asks for whichever sentence this box earns, so a Linux runner takes the
+  `note` path, exits 0 and refuses the same two rows. A third instance of the same bug
+  class was caught locally before it reached a runner: the checker decided the
+  box-fact from its *inherited* `PYTHONPATH`, which the lane it gates had already
+  poisoned, so inside `--backend-free` on this Mac it demanded `note` while the
+  installer printed `proof` — 47/49 with the two FAIL labels naming it. It now strips
+  `PYTHONPATH`, the same probe the installer answers from. **49/49 checks, 15/15
+  mutants**, both on the plain tree and as a child of an injected lane
+  (`benchmarks/results/backend_free_check_lane_shape_r716c_20261004.log`).
 - **R-7.9** `python -m flash.train --dry-run` writes nothing, on both of its
   branches. `--suite-from-dataset` was dispatched above the branch that honoured the
   flag, so a command typed to *avoid* touching the tree rewrote the tracked

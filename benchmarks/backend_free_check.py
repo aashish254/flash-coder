@@ -439,7 +439,12 @@ def run_gates() -> None:
        "battery impossible to run",
        untouched.returncode == 0 and "ok" in untouched.stdout,
        f"rc={untouched.returncode} err={untouched.stderr[-180:]}")
-    plain = run("-c", "import mlx.core")
+    # The machine's backend-fact is taken the same way the installer takes it: with
+    # PYTHONPATH removed. This checker is itself a child of the lane it gates, so an
+    # inherited PYTHONPATH would report "no backend to lose" on a Mac and make the
+    # gates demand the `note` sentence from a box that just watched `proof` print.
+    plain = run("-c", "import mlx.core",
+                env={k: v for k, v in os.environ.items() if k != "PYTHONPATH"})
     import battery_reread as battery
     saved_env = dict(os.environ)
     try:
@@ -450,18 +455,62 @@ def run_gates() -> None:
         os.environ.clear()
         os.environ.update(saved_env)
     ck("the battery's own installer puts the shim FIRST on the PYTHONPATH its "
-       "children inherit, and the proof names what it found on this box (plain "
-       f"`import mlx.core`: "
+       "children inherit, and the proof names what it found on this box (`import "
+       "mlx.core` with PYTHONPATH stripped: "
        f"{'succeeds' if plain.returncode == 0 else 'fails'})",
        wired, f"PYTHONPATH[0]={first!r} shim={shim_path!r}")
+
+    # WHICH sentence the installer prints is a fact about the machine, and a Mac
+    # can only ever reach one branch of it from its own environment: here
+    # `import mlx.core` genuinely survives without the shim, so `proof` is the
+    # only honest word and a gate that merely required it would be a tautology.
+    # Both branches are therefore bought by feeding the installer fabricated probe
+    # results — the shimmed probe is the call with no `env=`, the plain one is
+    # `env=plain_env`, which is exactly the pair the branch is chosen from.
+    real_run = battery.subprocess.run
+    branches = {}
+    env_keep = dict(os.environ)
+    try:
+        for plain_rc, tag in ((0, "proof"), (1, "note")):
+            def probe(cmd, *a, _rc=plain_rc, **kw):
+                return subprocess.CompletedProcess(
+                    cmd, _rc if kw.get("env") is not None else 1, "", "")
+            battery.subprocess.run = probe
+            branches[tag] = capture(battery.install_backend_block)[1]
+    finally:
+        battery.subprocess.run = real_run
+        os.environ.clear()
+        os.environ.update(env_keep)
+    ck("the installer's blocker sentence follows its own probe and not the platform: "
+       "fed a box where `import mlx.core` survives without the shim it prints `proof "
+       "--backend-free`, fed one where it does not it prints `note --backend-free`, "
+       "and neither branch may print the other's word — because on a machine that has "
+       "no MLX to lose, `proof` is a claim about a backend that was never there, and a "
+       "gate that only ever asks for the branch this box happens to take cannot see "
+       f"that (here the stripped probe "
+       f"{'succeeds' if plain.returncode == 0 else 'fails'}, so only the "
+       f"{'proof' if plain.returncode == 0 else 'note'} half was reachable without "
+       "fabricating it)",
+       "proof --backend-free" in branches["proof"]
+       and "note --backend-free" not in branches["proof"]
+       and "note --backend-free" in branches["note"]
+       and "proof --backend-free" not in branches["note"],
+       f"proof={branches['proof'].strip()[:70]!r} note={branches['note'].strip()[:70]!r}")
     proc = run("benchmarks/battery_reread.py", "--backend-free", "--quick",
                "harness")
     out = proc.stdout + proc.stderr
+    box_backend = plain.returncode == 0
+    lane_said = "proof --backend-free" if box_backend else "note --backend-free"
+    lane_unsaid = "note --backend-free" if box_backend else "proof --backend-free"
     ck("`battery_reread --backend-free --quick harness` proves the blocker before "
-       "it prints a fraction, and says out loud that a --quick total is not a §6 "
-       "re-read",
+       "it prints a fraction, prints the ONE blocker sentence this box earns (a box "
+       f"where `import mlx.core` {'survives' if box_backend else 'fails'} with "
+       "PYTHONPATH stripped, which is the probe the installer itself answers from — "
+       "not this checker's inherited one, which the lane already poisoned says "
+       f"`{lane_said.split()[0]}` and must not say `{lane_unsaid.split()[0]}`), and "
+       "says out loud that a --quick total is not a §6 re-read",
        HARNESS_ROW in out and "--quick run" in out
-       and ("proof --backend-free" in out or "note --backend-free" in out),
+       and lane_said in out and lane_unsaid not in out,
        out[-220:])
     proc = run("-m", "flash.cli", "selftest", "--all", "--quick", "harness")
     ck("`flash selftest --all` is a thin wrapper: the same line, the same "
@@ -659,10 +708,12 @@ def run_gates() -> None:
        "disk and the parent reads the ones it was handed, so the two agreeing is a "
        "measurement, not a tautology: a list that names a row no lane ever saw die "
        "is a note, and a lane that forgives a row the list has no name for is a "
-       "freebie",
+       "freebie — and its blocker line is the branch THIS box earns, which is the "
+       "half a Mac cannot see from its own environment: a Linux runner takes the "
+       "`note` path, exits 0 and refuses the same two rows",
        lane.returncode == 0 and "BAD" not in lane_out
        and lane_refused == backend_rows and bool(lane_refused)
-       and "proof --backend-free" in lane_out
+       and lane_said in lane_out and lane_unsaid not in lane_out
        and all(battery.REFUSAL["backend"][l][:40] in lane_out
                for l in lane_refused & backend_rows),
        f"rc={lane.returncode} refused={sorted(lane_refused)} "
@@ -753,7 +804,9 @@ def run_gates() -> None:
        "read beside `refusal_map(False)`, which is the machine arm only, so the §6 "
        "denominator cannot drift depending on who happened to export a PYTHONPATH",
        plain_lane.returncode != 0 and "REFUSED flash.grammar" not in plain_out
-       and "proof --backend-free" not in plain_out and "will not refuse" in plain_out
+       and "proof --backend-free" not in plain_out
+       and "note --backend-free" not in plain_out
+       and "will not refuse" in plain_out
        and set(battery.refusal_map(False)) == set(battery.REFUSAL["machine"])
        and set(battery.refusal_map(True)) == named,
        f"rc={plain_lane.returncode} map_false="
@@ -820,6 +873,12 @@ BUGS = {
                                     "which is the one platform where a backend death "
                                     "might be a bug — §6's totals then come from a "
                                     "run that forgave a row", "gate"),
+    "blocker_is_a_literal": ("the installer prints `proof --backend-free` whichever "
+                             "way its own probe came back: on a Mac that is the truth "
+                             "and invisible, on every other machine it is a claim "
+                             "about a backend that was never there — which is exactly "
+                             "what the first ubuntu runner would have read as a proof",
+                             "gate"),
 }
 
 
@@ -907,6 +966,17 @@ def mutate(one: str | None = None) -> int:
             elif bug == "plain_lane_forgives_backend":
                 battery.refusal_map = lambda backend_free: {
                     **battery.REFUSAL["backend"], **battery.REFUSAL["machine"]}
+            elif bug == "blocker_is_a_literal":
+                keep["block"] = battery.install_backend_block
+
+                def always_proves():
+                    path, _ = capture(keep["block"])
+                    print("proof --backend-free: `import mlx.core` succeeds with a "
+                          "plain env and raises under the shim, so every line below "
+                          "ran with the backend genuinely gone.")
+                    return path
+
+                battery.install_backend_block = always_proves
             CHECKS.clear()
             run_gates()
             caught = [l for l, ok, _ in CHECKS if not ok]

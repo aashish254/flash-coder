@@ -2035,7 +2035,7 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   now prints a **REFUSED** line per row carrying the sentence the row died with,
   subtracts that row's own counts from `CLAIM`, and exits 0 behind a `NOT a §6
   re-read` banner that says which lane's subtotal it printed. The lists are
-  decoders, not exemptions, and that is gated four ways: the decoder read against
+  decoders, not exemptions, and that is gated five ways: the decoder read against
   ten texts of which seven must *not* decode (an unrelated `AssertionError`, a
   healthy line that merely names `mlx_lm`, empty output, and each cause in the
   other arm), the named rows checked as battery arithmetic (`lane_claim([])` is §6
@@ -2045,8 +2045,8 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   measurement), and a plain-lane child run *with the block injected but the flag
   withheld*, which must come back non-zero with a BAD line and no REFUSED — the
   flag decides forgiveness, not the environment. `python
-  benchmarks/backend_free_check.py`: **48/48 checks, 14/14 mutants**, each of the
-  three new ones killed by exactly its own check. A third arm exists for
+  benchmarks/backend_free_check.py`: **49/49 checks, 15/15 mutants**, each of the
+  four new ones killed by exactly its own check. A third arm exists for
   `checkpoint_resume_check.py`, whose precondition is live state rather than code:
   the §34.1 governor will not offer tournament width ≥ 2 on a busy or uncooled
   machine, and that row is refusable in *every* lane, because a hosted runner is
@@ -2078,6 +2078,44 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   prints' completion times and the fact that the driver ran them one after the other;
   the plain run's start is not in its own print, so only its totals are claimed.
   1426 − 128 = 1298 and 171 − 26 = 145, which is the subtraction the banner states.
+
+  **The CI round that moved the same row again.** Both prints above are dated to the
+  tree before this paragraph, and the reason they moved is the bug this requirement was
+  built to catch, aimed at its own gate. The first push ran `static (3.11)` and
+  `static (3.12)` on a real ubuntu runner and both printed `backend-free checks:
+  47/48 passed`, which cancelled the matrix and skipped `battery`. The failing check
+  demanded the installer's blocker line read `proof --backend-free` — a sentence only a
+  machine that owns MLX may print, so on a runner that has none the honest line is
+  `note --backend-free: … this machine has no backend to lose`. Fixed at the cause, not
+  loosened: the branch is bought from both paths by feeding `install_backend_block()`
+  fabricated probe results (a box where `import mlx.core` survives, a box where it does
+  not) and requiring each to print its own word and never the other's, with a 15th
+  mutant, `blocker_is_a_literal`, that hard-wires `proof` and dies on exactly that
+  check; the gates then ask for whichever sentence the box earns, so the Linux runner
+  takes the `note` path, exits 0 and refuses the same two rows. That is
+  `backend_free_check` **48 → 49 checks, 14 → 15 mutants**, and the re-read on that
+  tree printed `checks 1427  oracle 20  §6 total 1447  mutants 172` with **37** OK lines
+  and no BAD line (`battery_reread_r716c_20261004.log`).
+  **The same bug class, caught locally before it reached a runner.** The checker decided
+  its box-fact from `import mlx.core` in its *inherited* environment — and inside
+  `--backend-free` that PYTHONPATH already carries the shim, so on this Mac the lane
+  child reported "no backend to lose" while the installer's own probe, which strips
+  PYTHONPATH, reported `proof`. Measured, not argued: run as a lane child it printed
+  **47/49** with the two FAIL labels naming the two gates that keyed off the inherited
+  env, and after reading the same probe the installer answers from it printed **49/49 +
+  15/15** at rc 0
+  (`benchmarks/results/backend_free_check_lane_shape_r716c_20261004.log` holds both
+  halves of that in one file). A vector that gates a lane has to survive being *in* the
+  lane it gates, and the lane itself is now the gate that proves it.
+  **Both lanes on the fixed tree, sequentially.** The plain run printed **37** `OK`,
+  no `BAD`, rc 0 on `checks 1427  oracle 20  §6 total 1447  mutants 172` + `matches
+  SPEC §6 as written` (`battery_reread_r716d_20261004.log`, 21:15:13 → 21:39:37); the
+  `--backend-free` run then printed **35** `OK`, the same two named `REFUSED`, no `BAD`
+  and rc 0 on `checks 1299  oracle 20  §6 total 1319  mutants 146` under `NOT a §6
+  re-read` (`battery_backendfree_lane_r716d_20261004.log`, 21:39:37 → 22:01:20) — 1427
+  − 128 and 172 − 26, which is what its own banner states. That second print is the one
+  the fix bought: the same command on the pre-fix tree refused to total at all, because
+  it could not pass its own gate from inside the lane.
 
   **What this does not buy.** The `battery` job in `ci.yml` has still never
   executed — `needs: static` skipped it on the run above, so its first green on a
@@ -2282,17 +2320,17 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
    `python benchmarks/session_check.py --sweep` 81 (+ 26 mutants) ·
    `python benchmarks/hint_ab_check.py` 14 (+ 8 mutants) ·
    `python benchmarks/portable_paths_check.py` 15 (+ 7 mutants) ·
-   `python benchmarks/backend_free_check.py` 48 (+ 14 mutants) ·
+   `python benchmarks/backend_free_check.py` 49 (+ 15 mutants) ·
    `python benchmarks/documented_commands_check.py` 8 (+ 5 mutants) ·
    `python -m flash.debug --suite` 32 ·
    `python -m flash.patches --suite benchmarks/tasks/edit_tasks.jsonl` 60 ·
    `python benchmarks/m0_bakeoff.py --dry-run` 20 reference solutions.
-   **Total: 1426 selftest / end-to-end / premise checks + 20 oracle
+   **Total: 1427 selftest / end-to-end / premise checks + 20 oracle
    verifications (m0_bakeoff's 20 reference solutions, which are the only
    numbers in that 20 — the 6 ambient, 15 lora, 5 band, 5 router-portability,
    12 graph, 12 graph-perceive, 13 ts-perception, 15 ts-patch, 28 patch-landing,
-   26 session, 8 hint-ab, 7 path-portability, 14 backend-free and 5 documented-command
-   mutants are extra to both totals, 171 in all) = 1446 green, offline.**
+   26 session, 8 hint-ab, 7 path-portability, 15 backend-free and 5 documented-command
+   mutants are extra to both totals, 172 in all) = 1447 green, offline.**
    Two of this page's own numbers were wrong when R-7.16 moved them, and the way
    they were wrong is worth keeping: `backend_free_check` was still listed at 42
    checks and 10 mutants while the tree had already printed 44 and 11 (the
@@ -2300,7 +2338,15 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
    the control that proves the block fired), and the lane that refuses a row it can
    genuinely not run then put 4 more checks and 3 more mutants on the same vector —
    **48 / 14**, 1420 + 6 = 1426 checks and 167 + 4 = 171 mutants. The vector's own
-   `--mutant` run printed the 14/14 and this page copied it.
+   `--mutant` run printed the 14/14 and this page copied it. The first CI run on a real
+   ubuntu runner moved that same row a third time, for a reason worth keeping in the
+   sentence rather than in a commit message: the check that failed was demanding a
+   blocker sentence only a machine that owns MLX may print. That bought one more check —
+   both branches fed to the installer as fabricated probes, so neither word can be a
+   tautology on the box that happens to print it — and one more mutant that hard-wires
+   `proof`, which dies on exactly that check: **49 / 15**, 1420 + 7 = 1427 checks and
+   167 + 5 = 172 mutants, and the re-read on that tree printed `checks 1427  oracle 20
+   §6 total 1447  mutants 172`.
    Four of the rows above were moved twice to get here, and one of those moves is a
    correction rather than an addition: this numbered list still carried the
    R-7.15b tree's `63` and two `48`s while the page's own totals paragraph said that

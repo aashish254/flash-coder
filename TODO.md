@@ -1901,7 +1901,7 @@ here rather than folded into P6's confidence work.
             row's own counts, and the run exits 0 under `NOT a §6 re-read`. A third arm
             covers `checkpoint_resume_check.py`, whose governor precondition is refusable
             in **every** lane. Gated four ways and mutant-covered three ways:
-            `python benchmarks/backend_free_check.py` → **48/48 checks, 14/14 mutants**,
+            `python benchmarks/backend_free_check.py` → **49/49 checks, 15/15 mutants**,
             each new mutant killed by exactly its own check — including the one that
             makes the flag stop mattering, killed by a plain-lane child run with the
             block injected and the `--backend-free` withheld, which must still fail.
@@ -1920,7 +1920,8 @@ here rather than folded into P6's confidence work.
             `{"checks": 1426, "oracle": 20, "mutants": 171}` (`1420 + 2` the blocked-sweep
             arm and its control, `+ 4` the lane's gates; `167 + 1 + 3` mutants) — the hand
             sum is written beside `CLAIM` in the script and the rows are the authority.
-            **Both lanes then ran on the final tree, sequentially, on AC at 80%, and each
+            **Both lanes then ran on that tree (superseded by the CI-fix box below),
+            sequentially, on AC at 80%, and each
             printed its prediction:** the plain lane 37 `OK`, no `BAD`, rc 0 on
             `checks 1426  oracle 20  §6 total 1446  mutants 171` with
             `matches SPEC §6 as written` (`battery_reread_r716b_20261004.log`), and the
@@ -1940,6 +1941,33 @@ here rather than folded into P6's confidence work.
             its battery comment and the AC/governor note; `docs/methodology.md` §1 (a
             refusal is a printed line) and its "Running it yourself"; the R-7.16 box above;
             CHANGELOG; `dashboard_data.WITNESS` and the `site/` data.
+      - [x] **§6 re-read on the CI-fixed tree, and the docs pass it moved.** The first
+            push's ubuntu jobs failed on this box's own gate (`backend-free checks:
+            47/48`), so `CLAIM` moves once more — `{"checks": 1427, "oracle": 20,
+            "mutants": 172}` (`1420 + 2` the blocked-sweep arm and its control, `+ 4`
+            the lane's gates, `+ 1` the branch gate the runner bought; `167 + 1 + 3 + 1`
+            mutants) — with `backend_free_check` at **49 checks / 15 mutants**. The fix
+            is measured, not asserted: a fabricated-probe gate feeds the installer both
+            probe outcomes and requires each to print its own blocker word, and
+            `blocker_is_a_literal` (hard-wires `proof`) dies on exactly that check. A
+            second instance of the same bug class was caught locally — the checker read
+            the box-fact off its *inherited* PYTHONPATH, which the lane it gates already
+            poisoned, so as a lane child on this Mac it demanded `note` while the
+            installer printed `proof` (47/49, both FAIL labels named it). It strips
+            `PYTHONPATH` now, and `benchmarks/results/
+            backend_free_check_lane_shape_r716c_20261004.log` carries the before and the
+            after of the same command in one file. Both lanes then re-ran on that tree:
+            plain 37 `OK`, no `BAD`, rc 0 on `checks 1427  oracle 20  §6 total 1447
+            mutants 172` + `matches SPEC §6 as written`
+            (`battery_reread_r716c_20261004.log`, and again on the final tree in
+            `battery_reread_r716d_20261004.log`); `--backend-free` 35 `OK` + the two
+            named `REFUSED`, rc 0 on `checks 1299  oracle 20  §6 total 1319 mutants 146`
+            under `NOT a §6 re-read` (`battery_backendfree_lane_r716d_20261004.log`) —
+            1427 − 128 and 172 − 26. SPEC §6's list row (42 → 44 → 48 → **49**, + 10 → +
+            11 → + 14 → **+ 15 mutants**), its totals paragraph and its derivation
+            sentence; README's headline and vector comment; `docs/methodology.md` §1;
+            `docs/models.md`'s quoted lane subtotal; CHANGELOG; this box;
+            `dashboard_data.WITNESS` and the `site/` data.
       - [ ] [L] **Not closed here:** `ci.yml`'s `battery` job has still never executed —
             `needs: static` skipped it on the run above — and the two refused rows have
             never been measured *passing* on a Linux install, because a Linux install

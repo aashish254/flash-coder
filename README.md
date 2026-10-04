@@ -7,7 +7,7 @@ again — no API key, no container, nothing leaving the machine.
 Two things about this repo are load-bearing, and both are visible in the files:
 
 - **Every claim is a printed number.** The offline verification battery is
-  **1,426 checks + 20 oracle verifications + 171 mutation gates** over 37 vectors,
+  **1,427 checks + 20 oracle verifications + 172 mutation gates** over 37 vectors,
   and `SPEC.md` §6
   records why the totals come from the fraction each run *prints* — never an exit
   code, never a phrase grep — after both of those shortcuts produced a wrong total
@@ -566,7 +566,7 @@ Vision is benchmarked once the text brain is picked (PLAN §M1–M2).
 # the named rows checked as battery arithmetic, a live refused lane whose set must equal the
 # list, and a plain-lane child with the block injected but the flag withheld, which must
 # still fail. The flag decides forgiveness, not the environment.
-.venv/bin/python benchmarks/backend_free_check.py            # 48 checks + 14 mutants
+.venv/bin/python benchmarks/backend_free_check.py            # 49 checks + 15 mutants
 # Every `flash …` line printed anywhere in this repo — README, CONTRIBUTING, SPEC, docs
 # and the two published workflows' `run:` blocks — is parsed against the real argparse
 # parser, without dispatching, so this file and the pipeline on the front page cannot

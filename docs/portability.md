@@ -196,6 +196,24 @@ was never published:
   sandbox temp directory it executed in — so the set is now **188 record files at
   exactly 411 over 36**. The file count is what a working tree does; the occurrence
   count is what leaks.
+- Re-measured on the CI-fix tree (2026-10-04, after the second lane): **244 record
+  files at 420 occurrences over 37** — traces 241, top-level `results` 163, adapters 9,
+  `p6` 6, `jobs` 1. The seven new files are this pass's six prints
+  (`backend_free_check_r716c_20261004.log`,
+  `backend_free_check_lane_shape_r716c_20261004.log`,
+  `battery_reread_r716c_20261004.log`, `battery_backendfree_lane_r716c_20261004.log`,
+  `battery_reread_r716d_20261004.log`,
+  `battery_backendfree_lane_r716d_20261004.log`) plus
+  `doc_gates_r716_20261004.log`, and the count says which one moved the residue: each of
+  the six battery and gate prints carries **zero** host paths — a battery line is vector
+  names, relative paths and counts — while that one document-gate witness carries all
+  **6** of the +6. One of the six is worth naming as a witness of a *red* run:
+  `battery_backendfree_lane_r716c_20261004.log` carries the
+  `BAD benchmarks/backend_free_check.py want 49/49` line that the lane's own gate
+  produced, and it stays in the tree because the fix is only credible next to the
+  failure. `RECORD_RESIDUE` stays **411**, because the gate reads it as a floor and the
+  live figure is 420 — so a new witness can never break it, and keeping this row honest
+  is the only thing that can.
 - Re-measured on the R-7.16 tree: **237 record files at 414 over 37**. The group
   breakdown moved in one place only — `traces` 241, `adapters` 9, `p6` 6 and `jobs` 1
   are unchanged, while the top-level records went from 154 to **157** — and the whole

@@ -1,0 +1,16 @@
+LANE-SHAPE WITNESS 2026-10-04 — `backend_free_check.py` run as a CHILD of an injected --backend-free lane (the shape battery_reread --backend-free puts it in).
+BEFORE the fix: 47/49, rc 1, and the two FAIL labels name the gates that keyed the box-fact off the INHERITED PYTHONPATH while the installer's own stripped-env probe printed proof:
+
+proof --backend-free: `import mlx.core` succeeds with a plain env and raises under the shim, so every line below ran with the backend genuinely gone.
+REPRO_FAIL_LINES:
+  FAIL `battery_reread --backend-free --quick harness` proves the blocker before it prints a fraction, prints the ONE blocker sentence this box earns (a box where `import mlx.core` fails without the shim says `note` and must not say `proof`), and says out loud that a --quick total is not a §6 re-read
+  FAIL `battery_reread --backend-free --quick grammar session` answers rc 0 with a REFUSED line per row and no BAD line, each line showing that row's OWN cause sentence after the dash — and the rows the child refused are exactly the names this process's `backend` list carries. The child reads the lists off disk and the parent reads the ones it was handed, so the two agreeing is a measurement, not a tautology: a list that names a row no lane ever saw die is a note, and a lane that forgives a row the list has no name for is a freebie — and its blocker line is the branch THIS box earns, which is the half a Mac cannot see from its own environment: a Linux runner takes the `note` path, exits 0 and refuses the same two rows
+LAST: backend-free checks: 47/49 passed
+RC 1
+
+AFTER the fix (same command):
+proof --backend-free: `import mlx.core` succeeds with a plain env and raises under the shim, so every line below ran with the backend genuinely gone.
+FAIL lines: none
+backend-free checks: 49/49 passed
+backend-free mutants: 15/15 gates defeated by exactly their checks
+LANE_SHAPE_RC 0

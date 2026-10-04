@@ -92,7 +92,7 @@ BATTERY = [
     ("benchmarks/portable_paths_check.py", "benchmarks/portable_paths_check.py",
      15, 7, "checks"),
     ("benchmarks/backend_free_check.py", "benchmarks/backend_free_check.py",
-     48, 14, "checks"),
+     49, 15, "checks"),
     ("benchmarks/documented_commands_check.py",
      "benchmarks/documented_commands_check.py", 8, 5, "checks"),
     ("flash.debug --suite", "-m flash.debug --suite", 32, None, "checks"),
@@ -121,10 +121,17 @@ BATTERY = [
 # backend-free child whose refusals must match the parent's list, +1 for the plain
 # child with the block injected, which must NOT be forgiven) and its mutants 11 → 14
 # (one planted per arm, plus the one that makes the flag stop mattering).
-# 1420 + 2 + 4 = 1426 checks, 167 + 1 + 3 = 171 mutants. The rows are the authority;
+# 1420 + 2 + 4 = 1426 checks, 167 + 1 + 3 = 171 mutants. Then the first CI run on a
+# real ubuntu runner moved this row a third time, because the gate it failed was
+# asking for a Mac-only sentence: `backend_free_check` 48 → 49 (+1 for reading the
+# installer's blocker line against BOTH probe outcomes, which a Mac cannot reach from
+# its own environment — it has a backend to lose, so `proof` is always true there) and
+# its mutants 14 → 15 (one planted: the installer printing `proof` whichever way its
+# own probe came back). 1426 + 1 = 1427 checks, 171 + 1 = 172 mutants.
+# The rows are the authority;
 # a CLAIM that disagrees with them is an arithmetic error, and the fix is this
 # number, never a row.
-CLAIM = {"checks": 1426, "oracle": 20, "mutants": 171}
+CLAIM = {"checks": 1427, "oracle": 20, "mutants": 172}
 
 # Rows that can die for a reason this run names rather than diagnoses, each with the
 # sentence it dies with. The lists are decoders, not exemptions: a row that answers

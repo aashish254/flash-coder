@@ -24,7 +24,7 @@ fraction, and a last-line grep read one vector's `14/14 mutants` summary as if
 it were its check count, under-counting the published total by 17 while looking
 clean.
 
-So the totals in the README (`1,426 checks + 20 oracle verifications + 171
+So the totals in the README (`1,427 checks + 20 oracle verifications + 172
 mutation gates`) come from the line `battery_reread` prints, and the file holds
 one entry per §6 item with the exact fraction that item must print. When the
 numbers disagree, the run reports the disagreement out loud. It has: one CLAIM
