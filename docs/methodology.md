@@ -24,7 +24,7 @@ fraction, and a last-line grep read one vector's `14/14 mutants` summary as if
 it were its check count, under-counting the published total by 17 while looking
 clean.
 
-So the totals in the README (`1,420 checks + 20 oracle verifications + 167
+So the totals in the README (`1,426 checks + 20 oracle verifications + 171
 mutation gates`) come from the line `battery_reread` prints, and the file holds
 one entry per §6 item with the exact fraction that item must print. When the
 numbers disagree, the run reports the disagreement out loud. It has: one CLAIM
@@ -42,6 +42,23 @@ about two commands that do not exist** — a backticked `flash …` span means "
 this" to a reader and to the scanner alike, so a document that quotes a dead
 command cites it. The prose was rewritten and the gate was left alone, and
 `SPEC.md` R-7.8 now says why the quotation is written as bare words.
+
+**A refusal is a printed line too.** `python benchmarks/battery_reread.py
+--backend-free` re-reads the same 37 vectors with `mlx`, `mlx_lm` and `mlx_vlm`
+unimportable in every child process, because that is the install every Linux and
+Windows user actually gets and the only shape a Mac cannot see by definition. Two
+rows genuinely need the backend — `flash.grammar`'s mask checks load the tokenizer
+through `mlx_lm.tokenizer_utils`, and `session_check`'s chat arm walks past
+`flash.loop.solve_routed`'s preamble import — so each prints a `REFUSED` line
+carrying the sentence the row died with, and the totals below it are that lane's own
+subtotal: `CLAIM` minus those rows' counts, behind a `NOT a §6 re-read` banner. A
+third arm covers `checkpoint_resume_check.py`, whose precondition is that the §34.1
+governor will offer tournament width ≥ 2 on a machine that is cool, plugged in and
+not busy — a fact about the box, available to refuse in every lane. The whole design
+holds to the rule above: nothing is *skipped*. A death that names no cause is a BAD
+line, a row that prints its fraction is counted whether or not a list names it, and
+`backend_free_check.py` gates the decoder against deaths it must not read and against
+a plain-lane child that must still fail with the block injected but the flag withheld.
 
 ## 2. Test at the seam the clause names
 
@@ -263,4 +280,7 @@ the block fires before it will print any total, requires the blocker to leave
 `numpy` alone (a shim that broke everything would "prove" the claim by making
 the battery unrunnable), and then sweeps every submodule of the package under
 it — 26 of 26 — because "the two that used to fail import fine" is an
-enumeration, not a claim about the package.
+enumeration, not a claim about the package. What it prints for two of the 37
+rows is `REFUSED`, naming the sentence the row died with, and its totals are
+`CLAIM` minus those rows' own counts under a banner saying this lane is not a §6
+re-read — see §1 above for why a refusal gets the same treatment as a fraction.

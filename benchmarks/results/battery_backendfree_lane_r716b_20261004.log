@@ -1,0 +1,45 @@
+proof --backend-free: `import mlx.core` succeeds with a plain env and raises under the shim, so every line below ran with the backend genuinely gone.
+OK   flash.harness --selftest                     28/28
+OK   flash lsp-selftest                           22/22
+OK   flash power --selftest                       22/22
+OK   flash jobs --selftest                        20/20
+OK   flash trace --selftest                       30/30
+OK   flash web --selftest                         9/9
+REFUSED flash.grammar --selftest                 backend — the mask section loads the fast tier's tokenizer through `mlx_lm.tokenizer_utils` and the overhead section builds `mx` arrays
+     └─ tokenizer unavailable: ImportError mlx_lm blocked by --backend-free: this run is proving which of the battery's vectors need a generative backend
+OK   flash.patches --selftest                     94/94
+OK   flash.debug --selftest                       55/55
+OK   flash.tourney --selftest                     16/16
+OK   flash.confidence --selftest                  29/29
+OK   flash.sandbox --selftest                     34/34
+OK   flash.checkpoint --selftest                  31/31
+OK   flash.train --selftest                       36/36
+OK   flash.graph --selftest                       44/44 (+ 12 mutants)
+OK   flash.ambient --selftest                     61/61 (+ 6 mutants)
+OK   benchmarks/trace_resume_check.py             11/11
+OK   benchmarks/confidence_wiring_check.py        35/35
+OK   benchmarks/subtle_premise_check.py           52/52
+OK   benchmarks/p6_key_check.py                   28/28
+OK   benchmarks/confidence_tau_check.py           7/7
+OK   benchmarks/checkpoint_resume_check.py        35/35
+OK   benchmarks/lora_path_check.py                33/33 (+ 15 mutants)
+OK   benchmarks/dbg_band_check.py                 172/172 (+ 5 mutants)
+OK   benchmarks/router_portable_check.py          20/20 (+ 5 mutants)
+OK   benchmarks/graph_perceive_check.py           33/33 (+ 12 mutants)
+OK   benchmarks/ts_perception_check.py            47/47 (+ 13 mutants)
+OK   benchmarks/ts_patch_check.py                 52/52 (+ 15 mutants)
+OK   benchmarks/patch_landing_check.py            65/65 (+ 28 mutants)
+REFUSED benchmarks/session_check.py              backend — `flash.loop.solve_routed` imports `mlx.core` and `mlx_lm.load` in its preamble, which the chat arm's stubbed model still walks past
+     └─ ImportError: mlx blocked by --backend-free: this run is proving which of the battery's vectors need a generative backend
+OK   benchmarks/hint_ab_check.py                  14/14 (+ 8 mutants)
+OK   benchmarks/portable_paths_check.py           15/15 (+ 7 mutants)
+OK   benchmarks/backend_free_check.py             48/48 (+ 14 mutants)
+OK   benchmarks/documented_commands_check.py      8/8 (+ 5 mutants)
+OK   flash.debug --suite                          32/32
+OK   flash.patches --suite                        60/60
+OK   benchmarks/m0_bakeoff.py --dry-run           20/20
+
+checks 1298  oracle 20  §6 total 1318  mutants 145
+backend-free: 35/37 lines green with `mlx`, `mlx_lm` and `mlx_vlm` unimportable in every child process, 2 refused by name (flash.grammar --selftest, benchmarks/session_check.py). The totals above are therefore a claim about the rows a machine with no generative backend can answer, measured rather than asserted.
+NOT a §6 re-read: 2 of 37 rows refused by name (flash.grammar --selftest, benchmarks/session_check.py), so the totals above are this lane's own subtotal — SPEC §6's 1426 checks and 171 mutants, less the refused rows' 128 checks and 26 mutants. Read §6 whole on a machine that has the backend and a governor offering width.
+BACKENDFREE_RC=0

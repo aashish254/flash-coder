@@ -7,11 +7,17 @@ again — no API key, no container, nothing leaving the machine.
 Two things about this repo are load-bearing, and both are visible in the files:
 
 - **Every claim is a printed number.** The offline verification battery is
-  **1,420 checks + 20 oracle verifications + 167 mutation gates** over 37 vectors, and
-  `SPEC.md` §6
+  **1,426 checks + 20 oracle verifications + 171 mutation gates** over 37 vectors,
+  and `SPEC.md` §6
   records why the totals come from the fraction each run *prints* — never an exit
   code, never a phrase grep — after both of those shortcuts produced a wrong total
-  that looked clean on this project's own output. That total is not a property of
+  that looked clean on this project's own output. The same script re-reads that
+  battery with `mlx`, `mlx_lm` and `mlx_vlm` unimportable in every child, which is
+  the shape every non-Mac install actually has; two rows genuinely reach the backend
+  there, so they print **REFUSED** with the sentence each row died with and the lane
+  subtracts their own counts and says out loud it is not a §6 re-read. A death that
+  names no cause is still a failure: that is the whole difference between the two.
+  That total is not a property of
   the author's disk: `python benchmarks/r75_sdist_battery_check.py` builds the
   sdist, installs it into a throwaway venv, checks which `flash` a child imports,
   and runs the whole battery **inside the download**, on both install shapes one
@@ -59,8 +65,12 @@ Two things about this repo are load-bearing, and both are visible in the files:
 - **What is NOT claimed:** that a Linux or Windows machine has installed this. The
   install shapes that HAVE been run are a fresh clone's editable install, a wheel in
   a throwaway venv, and an unpacked sdist with no `.git` — all on Apple Silicon, all
-  logged under `benchmarks/results/` (SPEC R-7.5). On those other platforms the
-  non-generating half is *expected*, not verified.
+  logged under `benchmarks/results/` (SPEC R-7.5). What R-7.16 added is a measurement
+  of the shape those platforms get: `battery_reread --backend-free`, run on this Mac
+  with the backend unimportable in every child, printed **35 of 37** rows green and
+  named the two that genuinely need a model, so the non-generating half is now partly
+  measured and the remaining half — a real install on real non-macOS hardware — is
+  still expected rather than verified.
 - RAM decides what you can run, not the OS. `power` prints the profile the machine
   offers right now and the largest model it may load; the fast tier is ~4.4 GB of
   resident weights and the brain tier is 15–17 GB.
@@ -376,12 +386,18 @@ Vision is benchmarked once the text brain is picked (PLAN §M1–M2).
 # off SPEC §6's number. `--quick ambient lora` re-runs only named lines.
 # Put the machine on AC first: below 25% charge the governor forces tournament
 # width 1 and `checkpoint_resume_check` cannot pass on ANY tree (measured 2026-09-28).
+# Since R-7.16 that row prints a REFUSED line naming the governor's width and leaves
+# its own counts out of the lane's subtotal — a hosted runner cannot be told to cool
+# down, and a warm laptop is not a failing test.
 .venv/bin/python benchmarks/battery_reread.py       # 15 min measured 2026-09-27
 .venv/bin/python -m flash.cli selftest --all        # the same thing, by name
 .venv/bin/python -m flash.cli doctor                # nine answers about THIS install
 .venv/bin/python -m flash.cli --version             # flash <__version__>, no stale copy
 # `--backend-free` re-runs the battery with `mlx`, `mlx_lm` and `mlx_vlm` blocked in
-# every child, and refuses to print a total until it has PROVED the block bites.
+# every child, and refuses to print a total until it has PROVED the block bites. Two
+# rows reach the backend for real reasons there, so they print REFUSED with the
+# sentence each died with and the lane's own subtotal, and a death that names no
+# cause is still a failure (R-7.16).
 
 # §33.1 symbol perception: AST discovery + a live language server (jedi/pylsp).
 # The loop uses this automatically: a failure that names a repo symbol gets that
@@ -544,7 +560,13 @@ Vision is benchmarked once the text brain is picked (PLAN §M1–M2).
 # directory with no data tree, every module in it with a selftest is run there, and a death
 # is called data-dependence only if the selftest passes once `benchmarks/` is symlinked back
 # in. Two real bugs came out of that sweep on its first run; its mutant plants a seventh.
-.venv/bin/python benchmarks/backend_free_check.py            # 42 checks + 10 mutants
+# R-7.16's halfs: the sweep re-runs the same copy with the backend blocked, which is the
+# shape a real ubuntu runner reported `flash.train` dying in, and then the whole battery's
+# refusals are gated as a mechanism — the decoder read against deaths it must NOT decode,
+# the named rows checked as battery arithmetic, a live refused lane whose set must equal the
+# list, and a plain-lane child with the block injected but the flag withheld, which must
+# still fail. The flag decides forgiveness, not the environment.
+.venv/bin/python benchmarks/backend_free_check.py            # 48 checks + 14 mutants
 # Every `flash …` line printed anywhere in this repo — README, CONTRIBUTING, SPEC, docs
 # and the two published workflows' `run:` blocks — is parsed against the real argparse
 # parser, without dispatching, so this file and the pipeline on the front page cannot

@@ -9,16 +9,33 @@ name: CI
 #                       number: a hand-kept figure here would be a second claim to
 #                       keep true, and the last one did go stale. If this step
 #                       breaks, a Linux or Windows user cannot even install the
-#                       thing.
+#                       thing. Its battery step runs with `mlx`, `mlx_lm` and
+#                       `mlx_vlm` unimportable in every child, and two rows
+#                       genuinely need that backend — `flash.grammar`'s mask checks
+#                       load the tokenizer through `mlx_lm`, and `session_check`'s
+#                       chat arm walks past `flash.loop`'s preamble import — so each
+#                       prints a REFUSED line carrying the sentence the row died
+#                       with, the totals under it are that lane's own subtotal, and
+#                       the run exits 0 saying out loud it is NOT a §6 re-read. A
+#                       death that names no cause is still a BAD line, which is why
+#                       this lane can still be red for a real reason.
 #   battery (macos)   — the offline §6 battery, whose printed totals are quoted
 #                       in SPEC.md and README.md. It runs on push to main and on
 #                       demand rather than on every PR: Apple Silicon runners
 #                       cost four times a Linux minute, and a PR that cannot
-#                       move a check count should not pay for one.
+#                       move a check count should not pay for one. It pre-warms the
+#                       fast tier's tokenizer files and no weights, because a runner
+#                       that builds its cache from scratch would otherwise print a
+#                       cache miss as a failing test.
 #
-# GATED, NOT MEASURED: this workflow has never executed. It is authored from a
-# tree verified on one M-series laptop, and the first green run on a real runner
-# is the proof — not the file existing here.
+# RUN, AND RED — which is what a job is for. The static tier has executed on a real
+# ubuntu runner (run `37102668462`, 2026-10-03) and its *Backend-free import claim*
+# step found the one bug a Mac cannot see: `flash.train --selftest` importing
+# `mlx_lm.lora` on a platform where `pyproject.toml`'s marker never installs it.
+# R-7.16 fixed that at cause and gave the battery its refused-row lane, so this tier
+# is a measurement now rather than an author's claim. The macos `battery` job has
+# still never executed — `needs: static` skipped it on that run — so its first green
+# on a real runner is the proof for that tier, not this file existing here.
 
 on:
   pull_request:
@@ -95,6 +112,36 @@ jobs:
 
       - name: Pre-flight (what this machine can run)
         run: flash doctor
+
+      # R-7.16: `flash.grammar --selftest`'s mask checks load the fast tier's
+      # tokenizer and never its weights. The runner said so itself — the nightly
+      # job's battery printed `BAD flash.grammar --selftest want 47/47 got
+      # ['24/25']` four nights running — and the same cold cache lands on any
+      # macos runner that has not run the live suite yet. The pattern list below
+      # matches 7 files and 11M — measured here against a throwaway HOME, which is
+      # where `flash.grammar --selftest` then printed 47/47 — and without them the §6
+      # total is unreachable from CI, a download being reported as a failing test.
+      - name: Cache the tokenizer files
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/huggingface/hub
+          key: hf-tokenizer-qwen25-coder-7b-instruct-4bit
+
+      - name: Pre-warm the tokenizer (no weights)
+        run: |
+          python - <<'PY'
+          from huggingface_hub import snapshot_download
+          path = snapshot_download(
+              "mlx-community/Qwen2.5-Coder-7B-Instruct-4bit",
+              allow_patterns=["tokenizer*", "*.jinja", "chat_template.json",
+                              "special_tokens_map.json", "config.json",
+                              "generation_config.json", "added_tokens.json",
+                              "merges.txt", "vocab.json"])
+          print("snapshot:", path)
+          PY
+
+      - name: The tokenizer is really there (grammar's mask checks read it)
+        run: python benchmarks/battery_reread.py --quick grammar
 
       - name: Full offline battery against SPEC's printed totals
         run: flash selftest --all

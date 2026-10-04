@@ -1876,6 +1876,74 @@ here rather than folded into P6's confidence work.
             (patches 78→94, patch_landing 61→65, session 58→81 + 20→26) and totals paragraph
             (1377/1397/161 → 1420/1440/167); README's chat section; CHANGELOG; `docs/`; the
             `site/` data.
+- [x] [V] R-7.16 **a Mac cannot see the bug every other install has**: the first CI
+      run on a real ubuntu runner (`static (3.11)`, run `37102668462`, step
+      *Backend-free import claim*) printed `FAIL ...new unexplained failures:
+      [('train', 1, "    from mlx_lm.lora import CONFIG_DEFAULTS\nModuleNotFoundError:
+      No module named 'mlx_lm'")]` on code that had been re-read green on this laptop
+      days earlier, because `mlx-lm` sits behind
+      `sys_platform=='darwin' and platform_machine=='arm64'` in `pyproject.toml`.
+      SHIPPED 2026-10-04 in three halves.
+      - [x] **The training seam, offline for real.** `flash.train`'s slice-args checks
+            were argued against the *installed* library; the 29 defaults are now
+            recorded in the module, `build_slice_args` is pure over a dict, and
+            `mlx_lora_defaults()` names which source it used so the check's own detail
+            says whether it was read off the box or off the record (proven `==`
+            `mlx_lm.lora.CONFIG_DEFAULTS` here). `set(vars(a)) == set(defaults)` makes a
+            key the library would ignore a failure, and `default_slice` raises
+            `ValueError` on an empty dataset **before** any model import. **36/36 in
+            both lanes**, count unchanged — the fix is that it no longer needs a backend.
+      - [x] **The refused-row lane.** `--backend-free` measured 35 OK and 2 rows that
+            reach the backend for real reasons (`flash.grammar`'s mask checks load the
+            tokenizer through `mlx_lm.tokenizer_utils`; `session_check`'s chat arm walks
+            past `flash.loop.solve_routed`'s preamble `import mlx.core`). Those print
+            `REFUSED` with the sentence the row died with, `lane_claim` subtracts that
+            row's own counts, and the run exits 0 under `NOT a §6 re-read`. A third arm
+            covers `checkpoint_resume_check.py`, whose governor precondition is refusable
+            in **every** lane. Gated four ways and mutant-covered three ways:
+            `python benchmarks/backend_free_check.py` → **48/48 checks, 14/14 mutants**,
+            each new mutant killed by exactly its own check — including the one that
+            makes the flag stop mattering, killed by a plain-lane child run with the
+            block injected and the `--backend-free` withheld, which must still fail.
+      - [x] **CI's tokenizer pre-warm, bought from the nightly runner's own log.** Four
+            scheduled nightlies in a row died in *Offline battery first* with `flash.grammar
+            --selftest want 47/47 got ['24/25']` and `checkpoint_resume_check.py want 35/35
+            got []` on `AssertionError: the tournament arm needs the governor's width >= 2
+            and this machine offers 1 (free memory 6.2GB < 6.9GB needed, load 4.6/core)`
+            (latest `37193175901`). `ci.yml`'s macos `battery` job now caches and
+            pre-warms the tokenizer's 7 files (11M, no weights) and asserts
+            `battery_reread --quick grammar` in isolation; verified here against a
+            throwaway HOME, where `flash.grammar --selftest` then printed **47/47** rc 0.
+            The two identical steps for `nightly.yml` are written but held out of this
+            release — that workflow is not touched, so the nightly's failures stay OPEN.
+      - [x] **§6 whole-tree re-read and the docs pass.** `CLAIM` moves to
+            `{"checks": 1426, "oracle": 20, "mutants": 171}` (`1420 + 2` the blocked-sweep
+            arm and its control, `+ 4` the lane's gates; `167 + 1 + 3` mutants) — the hand
+            sum is written beside `CLAIM` in the script and the rows are the authority.
+            **Both lanes then ran on the final tree, sequentially, on AC at 80%, and each
+            printed its prediction:** the plain lane 37 `OK`, no `BAD`, rc 0 on
+            `checks 1426  oracle 20  §6 total 1446  mutants 171` with
+            `matches SPEC §6 as written` (`battery_reread_r716b_20261004.log`), and the
+            `--backend-free` lane 35 `OK` plus the two named `REFUSED` rows, rc 0 on
+            `checks 1298  oracle 20  §6 total 1318  mutants 145` under `NOT a §6 re-read`
+            (`battery_backendfree_lane_r716b_20261004.log`) — 1426 − 128 and 171 − 26, the
+            refused rows' own counts, subtracted by the script rather than by hand. The
+            lane's **22 min 47 s** is the gap between the two files' completion times; the
+            plain run's start is not in its own print, so no wall is claimed for it. The
+            two witnesses the R-7.16 halves cite were printed from the same tree: `python
+            -m flash.train --selftest` → **36/36** rc 0
+            (`train_selftest_r716_20261004.log`, whose slice-args row reads `SimpleNamespace
+            from installed mlx-lm 0.31.3` because that run had the library present), and
+            `python benchmarks/backend_free_check.py` with `--sweep`
+            (`backend_free_check_r716b_20261004.log`). SPEC §6's list row (backend_free 42 →
+            **48**, + 10 → **+ 14 mutants**) and totals paragraph; README's headline total,
+            its battery comment and the AC/governor note; `docs/methodology.md` §1 (a
+            refusal is a printed line) and its "Running it yourself"; the R-7.16 box above;
+            CHANGELOG; `dashboard_data.WITNESS` and the `site/` data.
+      - [ ] [L] **Not closed here:** `ci.yml`'s `battery` job has still never executed —
+            `needs: static` skipped it on the run above — and the two refused rows have
+            never been measured *passing* on a Linux install, because a Linux install
+            cannot run them at all.
 - [ ] [V] [L] R-7.3 voice: real-microphone arm, VAD barge-in, ≥ 90% command
       recognition over 50 utterances.
 - [ ] [V] [L] M17 feel test: ≥ 7 of 10 developers keep it after a week.

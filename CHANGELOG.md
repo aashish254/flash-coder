@@ -9,6 +9,37 @@ versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- **R-7.16: `--backend-free` now refuses the rows it genuinely cannot run, and says
+  which cause killed them.** With `mlx`, `mlx_lm` and `mlx_vlm` unimportable in every
+  child — the install shape every Linux and Windows user gets, from the platform
+  marker in `pyproject.toml` — the battery measured 35 rows green and 2 that reach the
+  backend for reasons that are real rather than planted: `flash.grammar`'s mask checks
+  load the tokenizer through `mlx_lm.tokenizer_utils`, and `session_check`'s chat arm
+  walks past `flash.loop.solve_routed`'s preamble `import mlx.core`. Calling those two
+  failures is a red badge nobody can fix in code, and calling them skipped is a lane
+  that totals nothing, so each now prints a **REFUSED** line carrying the sentence the
+  row died with, `lane_claim` subtracts that row's own counts from `CLAIM`, and the run
+  exits 0 under a `NOT a §6 re-read` banner naming the subtotal it printed. A third arm
+  covers `checkpoint_resume_check.py`, whose precondition is that §34.1's governor
+  offers tournament width ≥ 2 — a fact about the box, so it is refusable in *every*
+  lane, because a hosted runner cannot be told to cool down and a warm laptop is not a
+  failing test. The lists are decoders, not exemptions, and that is the measured part:
+  `python benchmarks/backend_free_check.py` → **48/48 checks, 14/14 mutants** — the
+  decoder read against ten texts of which seven must NOT decode (an unrelated
+  `AssertionError: expected 5 got 4`, a healthy line that merely names `mlx_lm`, empty
+  output, each cause in the other arm), the named rows checked as battery arithmetic, a
+  live `--backend-free --quick grammar session` whose refused set must equal the
+  parent's list (the child reads the lists off disk, so the agreement is a measurement),
+  and a plain-lane child run **with the block injected and the flag withheld**, which
+  must come back non-zero with a BAD line and no REFUSED. The three new mutants are
+  killed by exactly those checks, one apiece. `ci.yml`'s macos `battery` job
+  additionally caches and pre-warms the fast tier's tokenizer — 7 files, 11M, no
+  weights — and asserts `battery_reread --quick grammar` before asking for §6, because
+  four consecutive scheduled nightlies died with `flash.grammar --selftest want 47/47
+  got ['24/25']` on a cold cache (latest run `37193175901`); verified here against a
+  throwaway HOME, where the same row then printed **47/47** rc 0. The two identical
+  steps for `nightly.yml` are written and held back: that workflow is untouched in this
+  release, so the nightly's own failures remain open.
 - **R-7.15h: `flash session` answers in prose when no oracle is named — it became a chat,
   not only a scorer.** Every mode used to demand `--test` and print telemetry, so a
   greeting got a `PATCH MISSING` refusal; the author's complaint was that it "can't even
@@ -857,6 +888,24 @@ versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   re-run is the history growing — a *smaller* one would mean somebody rewrote it.
 
 ### Fixed
+- **R-7.16** `python -m flash.train --selftest` no longer needs a backend it cannot
+  have. The first CI run on a real ubuntu runner (`static (3.11)`, run `37102668462`,
+  step *Backend-free import claim*) printed `FAIL ...new unexplained failures:
+  [('train', 1, "    from mlx_lm.lora import CONFIG_DEFAULTS\nModuleNotFoundError: No
+  module named 'mlx_lm'")]`, and the same code had been re-read green on this laptop
+  days earlier — because `mlx-lm` sits behind
+  `sys_platform=='darwin' and platform_machine=='arm64'`, so a Mac is the one place
+  this class of bug is invisible. The slice-args checks were argued against the
+  *installed* library; the 29 defaults are now recorded in the module and
+  `build_slice_args` is pure over a dict, with `mlx_lora_defaults()` naming which
+  source it read so the check's detail says whether it was measured off the box or off
+  the record (proven `== mlx_lm.lora.CONFIG_DEFAULTS` on this machine, not merely
+  similar). The check asserts `set(vars(a)) == set(defaults)`, which turns a key the
+  library would silently ignore into a failure, and `default_slice` raises
+  `ValueError("no training rows in …")` before any model import, so an empty dataset is
+  a named error on a machine with no MLX. **36/36 in both lanes**, count unchanged;
+  `python -m flash.train --dry-run` and the training call itself still name MLX in the
+  error a stranger gets.
 - **R-7.9** `python -m flash.train --dry-run` writes nothing, on both of its
   branches. `--suite-from-dataset` was dispatched above the branch that honoured the
   flag, so a command typed to *avoid* touching the tree rewrote the tracked

@@ -1851,7 +1851,7 @@
    "file": "flash/train.py",
    "symbol": "run_selftest",
    "kind": "function",
-   "degree": 93,
+   "degree": 94,
    "label": "run_selftest",
    "pos": [
     11.84,
@@ -3006,8 +3006,8 @@
  "sampled": {
   "shown_nodes": 150,
   "shown_edges": 209,
-  "repo_nodes": 5085,
-  "repo_edges": 29689,
+  "repo_nodes": 5133,
+  "repo_edges": 29921,
   "note": "the 150 most-connected functions, classes and methods under flash/, joined by their call and import edges; `reads` edges and the rest of the index are not drawn"
  },
  "extracted_by": "python -c 'from flash.graph import build; build(...)'"

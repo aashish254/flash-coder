@@ -273,27 +273,62 @@ def dataset_stats(rows: list[Row]) -> dict:
 
 # --------------------------------------------------------------- training
 
+# mlx-lm 0.31.3's own `CONFIG_DEFAULTS`, dumped from the installed library on
+# 2026-10-04 and kept here because `mlx-lm` is an Apple-Silicon-only dependency
+# (the marker in `pyproject.toml`): on a Linux install, and in every child of the
+# battery's `--backend-free` lane, the live mapping simply does not exist, so the
+# slice arg could not be composed at all. `mlx_lora_defaults` prefers the installed
+# mapping wherever there is one, so a job that really trains is never argued against
+# this copy — and the seam check prints which mapping answered, because a green that
+# did not say so would be a claim about a copy rather than about the library.
+MLX_LORA_ARG_DEFAULTS = {
+    "adapter_path": "adapters", "batch_size": 4, "clear_cache_threshold": 0,
+    "config": None, "data": "mlx-community/WikiSQL", "fine_tune_type": "lora",
+    "grad_accumulation_steps": 1, "grad_checkpoint": False, "iters": 1000,
+    "learning_rate": 1e-05, "lora_parameters": {"dropout": 0.0, "rank": 8,
+                                                "scale": 20.0},
+    "lr_schedule": None, "mask_prompt": False, "max_seq_length": 2048,
+    "model": "Qwen/Qwen3-0.6b", "num_layers": 16, "optimizer": "adam",
+    "optimizer_config": {"adafactor": {}, "adam": {}, "adamw": {}, "muon": {},
+                         "sgd": {}},
+    "project_name": None, "report_to": None, "resume_adapter_file": None,
+    "save_every": 100, "seed": 0, "steps_per_eval": 200, "steps_per_report": 10,
+    "test": False, "test_batches": 500, "train": False, "val_batches": 25,
+}
 
-def slice_args(repo: str, adapter_dir, iters: int, resume_from=None,
-               num_layers: int = 16, rank: int = 8,
-               learning_rate: float = 1e-4, batch_size: int = 1,
-               max_seq_length: int = 2048, seed: int = 0):
-    """mlx-lm's training arguments for one slice, as the object it expects.
 
-    Split out of `default_slice` because mlx reads these as *attributes*
-    (`args.seed`, then `vars(args)`), so a dict — the natural thing to hand a
-    function — raises at the first step of the first live training run. Building
-    it apart from the model load is what lets the offline check catch that.
+def mlx_lora_defaults() -> tuple[dict, str]:
+    """The mapping a slice arg starts from, and who supplied it.
 
-    `iters` is mlx's step count, not an epoch count: one iter is one batch. So
-    `save_every=iters` writes `adapters.safetensors` exactly once, at the end of
-    the slice, which is the boundary a kill cannot cross.
+    The second half is not decoration: it is what the check prints, so a run on an
+    install without mlx-lm says "recorded" instead of looking like the library agreed.
+    """
+    try:
+        import mlx_lm
+        from mlx_lm.lora import CONFIG_DEFAULTS
+    except ImportError:
+        return dict(MLX_LORA_ARG_DEFAULTS), "recorded mlx-lm 0.31.3 defaults"
+    return (dict(CONFIG_DEFAULTS),
+            f"installed mlx-lm {getattr(mlx_lm, '__version__', '?')}")
+
+
+def build_slice_args(defaults: dict, repo: str, adapter_dir, iters: int,
+                     resume_from=None, num_layers: int = 16, rank: int = 8,
+                     learning_rate: float = 1e-4, batch_size: int = 1,
+                     max_seq_length: int = 2048, seed: int = 0):
+    """One slice's training arguments, composed from a caller's defaults mapping.
+
+    The composer takes `defaults` instead of fetching mlx-lm's own, because the one
+    thing here that needs the library is that mapping and every property a check
+    cares about — the object shape, `save_every` tracking `iters`, the resume path,
+    that no key we set is unknown to mlx — belongs to this composition. Splitting it
+    is what lets `--selftest` argue the seam on an install that cannot have mlx-lm
+    (SPEC R-7.7: the package and its checks are cross-platform, the trainer is Apple
+    Silicon only), while `slice_args` still hands a live job the real mapping.
     """
     from types import SimpleNamespace
 
-    from mlx_lm.lora import CONFIG_DEFAULTS
-
-    args = dict(CONFIG_DEFAULTS)
+    args = dict(defaults)
     args.update(model=repo, train=True, fine_tune_type="lora", seed=seed,
                 num_layers=num_layers, batch_size=batch_size, iters=iters,
                 learning_rate=learning_rate, max_seq_length=max_seq_length,
@@ -304,9 +339,30 @@ def slice_args(repo: str, adapter_dir, iters: int, resume_from=None,
                 steps_per_report=max(iters // 5, 1), steps_per_eval=10 ** 9,
                 val_batches=4, test=False, report_to=None, project_name=None,
                 grad_checkpoint=True, optimizer="adamw",
-                optimizer_config=CONFIG_DEFAULTS["optimizer_config"],
+                optimizer_config=defaults["optimizer_config"],
                 lr_schedule=None, clear_cache_threshold=0)
     return SimpleNamespace(**args)
+
+
+def slice_args(repo: str, adapter_dir, iters: int, resume_from=None, **kw):
+    """mlx-lm's training arguments for one slice, as the object it expects.
+
+    Split out of `default_slice` because mlx reads these as *attributes*
+    (`args.seed`, then `vars(args)`), so a dict — the natural thing to hand a
+    function — raises at the first step of the first live training run. Building
+    it apart from the model load is what lets the offline check catch that.
+
+    mlx's own defaults fill the four keys we do not set (`config`, `data`,
+    `grad_accumulation_steps`, `test_batches`), because `train_model` reads those as
+    attributes too; a slice arg missing one of them dies inside a live job, several
+    minutes and one download after the call that built it.
+
+    `iters` is mlx's step count, not an epoch count: one iter is one batch. So
+    `save_every=iters` writes `adapters.safetensors` exactly once, at the end of
+    the slice, which is the boundary a kill cannot cross.
+    """
+    defaults, _ = mlx_lora_defaults()
+    return build_slice_args(defaults, repo, adapter_dir, iters, resume_from, **kw)
 
 
 def read_jsonl(path) -> list:
@@ -322,18 +378,22 @@ def default_slice(*, repo: str, train_file: Path, valid_file: Path,
     """One mlx-lm LoRA slice of `iters` steps. Returns the wall seconds it took.
 
     Imports live inside so that mining a dataset — which is what the offline
-    checks do — never reaches for Metal.
+    checks do — never reaches for Metal. They live inside *after* the data check
+    because an empty training file is this function's own error to raise: on an
+    install with no mlx-lm it used to be masked by a `ModuleNotFoundError`, and in a
+    live job it used to cost a model download before saying anything.
     """
     import time
-
-    from mlx_lm import load
-    from mlx_lm.lora import train_model
-    from mlx_lm.tuner.datasets import ChatDataset
 
     data = read_jsonl(train_file)
     if not data:
         raise ValueError(f"no training rows in {train_file}")
     vdata = read_jsonl(valid_file)
+
+    from mlx_lm import load
+    from mlx_lm.lora import train_model
+    from mlx_lm.tuner.datasets import ChatDataset
+
     model, tok = load(repo)
     train_set = ChatDataset(data, tok, mask_prompt=True)
     valid_set = ChatDataset(vdata, tok, mask_prompt=True) if vdata else train_set
@@ -855,13 +915,18 @@ def run_selftest(verbose: bool = True) -> int:
           label_for("mlx-community/Qwen2.5-Coder-7B-Instruct-4bit", "ad/x")
           == "Qwen2.5-Coder-7B-Instruct-4bit+lora:x"
           and label_for("a/b") == "b", label_for("a/b", "ad/x"))
-    # ---- the training seam, argued against the INSTALLED mlx-lm (no model load)
+    # ---- the training seam: the arg object mlx reads, no model load, no mlx needed
+    defaults, src = mlx_lora_defaults()
     a = slice_args("repo/x", Path("ad/r"), 12, None)
     check("slice args are the object mlx reads them as: attributes and vars() "
-          "both resolve — a dict reaches train_model and dies on args.seed",
+          "both resolve, the key set is exactly the library's own defaults (so a "
+          "setting mlx would silently ignore is a failure here), and a dict reaches "
+          "train_model and dies on args.seed",
           a.iters == 12 and vars(a)["iters"] == 12
-          and a.fine_tune_type == "lora" and a.mask_prompt is True,
-          type(a).__name__)
+          and a.fine_tune_type == "lora" and a.mask_prompt is True
+          and set(vars(a)) == set(defaults),
+          f"{type(a).__name__} from {src}, "
+          f"keys={sorted(set(vars(a)) ^ set(defaults))}")
     check("a slice checkpoints exactly once, at its own end, so a kill cannot "
           "leave weights ahead of the recorded step count",
           a.save_every == a.iters, f"save_every={a.save_every}, iters={a.iters}")

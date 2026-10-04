@@ -61,6 +61,16 @@ to fail at import — `flash.decide` and `flash.route` through it — until SPEC
 **R-7.7** moved the backend import inside `decide()`; before that fix the sweep read
 **24 of 26**, which is the number two documents cited differently from a third.
 
+Importing is the weaker claim, and since **R-7.16** the battery stops making the
+stronger one falsely: with `--backend-free` the whole §6 tree measures **35 of 37**
+rows green and prints a `REFUSED` line naming the other two — `flash.grammar
+--selftest`, whose mask checks load the tokenizer through `mlx_lm.tokenizer_utils`,
+and `benchmarks/session_check.py`, whose chat arm walks past
+`flash.loop.solve_routed`'s preamble `import mlx.core` — then prints its own subtotal
+(`checks 1298  oracle 20  §6 total 1318  mutants 145`, measured 2026-10-04) under a
+`NOT a §6 re-read` banner. A Linux runner is therefore never asked to fail a test it
+has no code to fix.
+
 What that means in practice on a non-Mac:
 
 - works: `flash context`, `perceive`, `find`, `refs`, `symbols`, `graph`,

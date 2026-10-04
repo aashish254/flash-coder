@@ -150,5 +150,5 @@ guess, an unparseable file and a broken one's neighbours).
 
 MLX itself is not an extra — it is a marked dependency
 (`sys_platform == 'darwin' and platform_machine == 'arm64'`), and with it
-blocked every one of the package's 26 modules still imports, which
+blocked every one of the package's 27 modules still imports, which
 `benchmarks/backend_free_check.py` measures rather than asserts.

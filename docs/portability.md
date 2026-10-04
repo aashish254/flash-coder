@@ -196,6 +196,18 @@ was never published:
   sandbox temp directory it executed in — so the set is now **188 record files at
   exactly 411 over 36**. The file count is what a working tree does; the occurrence
   count is what leaks.
+- Re-measured on the R-7.16 tree: **237 record files at 414 over 37**. The group
+  breakdown moved in one place only — `traces` 241, `adapters` 9, `p6` 6 and `jobs` 1
+  are unchanged, while the top-level records went from 154 to **157** — and the whole
+  +3 is one file, `doc_gates_r715fg_20260930.log`: the driver that re-ran the two
+  document gates prints their names beside the marker list, so a witness about keeping
+  host paths out of a published log carries three of them. The 49 new files are the
+  R-7.15f/g and R-7.16 witnesses, and R-7.16's four (`train_selftest_r716_20261004.log`,
+  `backend_free_check_r716b_20261004.log`, `battery_reread_r716b_20261004.log`,
+  `battery_backendfree_lane_r716b_20261004.log`) carry **zero** for the ordinary reason —
+  a battery or selftest print is vector names, relative paths and counts.
+  `RECORD_RESIDUE` stays **411** because the gate reads it as a floor; the live figure is
+  414 and the gap is this row, not an unexplained drift.
 
 Eight of the 411 are this vector's pass-1 and reproduction logs and three are its
 pass-2 table — a count that includes the counter is the kind of detail worth

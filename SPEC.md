@@ -1996,6 +1996,98 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   minus sign in front of the dollar. Nothing here is the model getting smarter — the same
   eight addresses were already correct before this box closed; what changed is that the
   verdict finally scores the copy it claims to.
+- **R-7.16 (CLOSED 2026-10-04)** **A Mac cannot see the bug every other install
+  has.** The first CI run on a real runner said it in one line
+  (`static (3.11)`, run `37102668462`, step *Backend-free import claim*):
+  `FAIL ...and a failure that survives the data coming back is one of the three
+  named machine-state vectors … [('train', 1, "    from mlx_lm.lora import
+  CONFIG_DEFAULTS\nModuleNotFoundError: No module named 'mlx_lm'")]`. Several days
+  earlier the same code had been re-read green on this laptop, because a Mac has
+  `mlx-lm` installed and `pyproject.toml` puts it behind
+  `sys_platform=='darwin' and platform_machine=='arm64'`, so every Linux and Windows
+  install has the shape that line describes. Two halves came out of that, plus a
+  third the nightly runner handed over for free.
+
+  **Half one: the training seam, offline for real.** `flash.train --selftest`'s
+  slice-args checks had been argued against the *installed* library, so the
+  library's defaults are now recorded in the module
+  (`MLX_LORA_ARG_DEFAULTS`, the 29 keys of mlx-lm 0.31.3) and `build_slice_args` is
+  a pure function over a dict; `mlx_lora_defaults()` returns the recorded map when
+  `mlx_lm` cannot be imported and names its source either way, so the check's own
+  detail says which of the two the argument was made against — and on this box the
+  recorded map was proven `== mlx_lm.lora.CONFIG_DEFAULTS`, not merely similar. The
+  check asserts `set(vars(a)) == set(defaults)`, which makes a key the library would
+  silently ignore a failure rather than a no-op, and `default_slice` now raises
+  `ValueError("no training rows in …")` *before* any model import, so an empty
+  dataset is a named error on a machine with no backend. **36/36 in both lanes**,
+  unchanged in count, and the vector that catches this class of bug got the arm
+  that measures it: the package-only sweep re-runs all 16 selftests in the same
+  copy with `mlx`, `mlx_lm` and `mlx_vlm` unimportable, plus a control that imports
+  `mlx_lm.lora` in that interpreter and requires the shim's own sentence — so the
+  arm cannot go green because `BLOCKED` lost a name.
+
+  **Half two: a lane that refuses instead of lying.** With the block live, the
+  whole battery measured 35 rows green and 2 that reach the backend for reasons
+  that are real, not planted: `flash.grammar`'s mask checks load the tokenizer
+  through `mlx_lm.tokenizer_utils`, and `benchmarks/session_check.py`'s chat arm
+  walks past `flash.loop.solve_routed`'s preamble `import mlx.core`. Calling those
+  two failures on Linux is a red badge nobody can fix in code, so `--backend-free`
+  now prints a **REFUSED** line per row carrying the sentence the row died with,
+  subtracts that row's own counts from `CLAIM`, and exits 0 behind a `NOT a §6
+  re-read` banner that says which lane's subtotal it printed. The lists are
+  decoders, not exemptions, and that is gated four ways: the decoder read against
+  ten texts of which seven must *not* decode (an unrelated `AssertionError`, a
+  healthy line that merely names `mlx_lm`, empty output, and each cause in the
+  other arm), the named rows checked as battery arithmetic (`lane_claim([])` is §6
+  untouched; an 81-check 26-mutant row drops the claim by exactly 81 and 26), a
+  live `--backend-free --quick grammar session` whose REFUSED set must equal the
+  parent's list (the child reads the lists off disk, so the two agreeing is a
+  measurement), and a plain-lane child run *with the block injected but the flag
+  withheld*, which must come back non-zero with a BAD line and no REFUSED — the
+  flag decides forgiveness, not the environment. `python
+  benchmarks/backend_free_check.py`: **48/48 checks, 14/14 mutants**, each of the
+  three new ones killed by exactly its own check. A third arm exists for
+  `checkpoint_resume_check.py`, whose precondition is live state rather than code:
+  the §34.1 governor will not offer tournament width ≥ 2 on a busy or uncooled
+  machine, and that row is refusable in *every* lane, because a hosted runner is
+  not allowed to be cool and a laptop is not allowed to be quiet.
+
+  **Half three, from the nightly runner's own words.** Four consecutive scheduled
+  nightly failures (latest `37193175901`) died in *Offline battery first* with
+  exactly two BAD lines: `flash.grammar --selftest want 47/47 got ['24/25']` and
+  `checkpoint_resume_check.py want 35/35 got []` on `AssertionError: the
+  tournament arm needs the governor's width >= 2 and this machine offers 1 (free
+  memory 6.2GB < 6.9GB needed, load 4.6/core)`. The second is now a REFUSED line.
+  The first is a cold cache, not a failing test: the weights cache in that job only
+  fills *after* the live run, so `ci.yml`'s macos `battery` job now pre-warms the
+  tokenizer's 7 files (11M, `snapshot_download` with an `allow_patterns` list that
+  touches no weights) and asserts the row in isolation with `battery_reread --quick
+  grammar` before asking for §6. Verified here against a throwaway HOME, which is
+  where `flash.grammar --selftest` then printed **47/47** rc 0. The same two steps are
+  written for `nightly.yml` and are deliberately **not in this commit** — the nightly
+  workflow stays untouched until its own pass, so those four scheduled failures are
+  still open and named here rather than claimed fixed.
+
+  **The confirming re-read.** Both lanes ran on the final tree, sequentially, on AC
+  at 80%. The plain lane printed 37 `OK` lines, no `BAD` line and rc 0 with
+  `checks 1426  oracle 20  §6 total 1446  mutants 171` followed by `matches SPEC §6
+  as written: 1426 + 20 = 1446 green, offline (+ 171 mutants)`; the `--backend-free`
+  lane printed 35 `OK`, the two named `REFUSED` rows each carrying the sentence it
+  died with, and rc 0 with `checks 1298  oracle 20  §6 total 1318  mutants 145` above
+  the `NOT a §6 re-read` banner. The lane's **22 min 47 s** wall comes from the two
+  prints' completion times and the fact that the driver ran them one after the other;
+  the plain run's start is not in its own print, so only its totals are claimed.
+  1426 − 128 = 1298 and 171 − 26 = 145, which is the subtraction the banner states.
+
+  **What this does not buy.** The `battery` job in `ci.yml` has still never
+  executed — `needs: static` skipped it on the run above, so its first green on a
+  real macos-14 runner remains the proof, not this entry. And the two refused rows
+  have never been measured *passing* on a Linux install, because a Linux install
+  cannot run them; the lane now says that out loud instead of reporting it as a
+  defect. Witnesses: `benchmarks/results/train_selftest_r716_20261004.log`,
+  `benchmarks/results/backend_free_check_r716b_20261004.log`,
+  `benchmarks/results/battery_reread_r716b_20261004.log` and
+  `benchmarks/results/battery_backendfree_lane_r716b_20261004.log`.
 - **R-7.3 (OPEN)** Hands-free control (voice) at the measured spike latency:
   command-to-ack ~4.8s. Vector: real-microphone arm of the spike with VAD
   barge-in, ≥ 90% command recognition over 50 utterances.
@@ -2190,17 +2282,25 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
    `python benchmarks/session_check.py --sweep` 81 (+ 26 mutants) ·
    `python benchmarks/hint_ab_check.py` 14 (+ 8 mutants) ·
    `python benchmarks/portable_paths_check.py` 15 (+ 7 mutants) ·
-   `python benchmarks/backend_free_check.py` 42 (+ 10 mutants) ·
+   `python benchmarks/backend_free_check.py` 48 (+ 14 mutants) ·
    `python benchmarks/documented_commands_check.py` 8 (+ 5 mutants) ·
    `python -m flash.debug --suite` 32 ·
    `python -m flash.patches --suite benchmarks/tasks/edit_tasks.jsonl` 60 ·
    `python benchmarks/m0_bakeoff.py --dry-run` 20 reference solutions.
-   **Total: 1420 selftest / end-to-end / premise checks + 20 oracle
+   **Total: 1426 selftest / end-to-end / premise checks + 20 oracle
    verifications (m0_bakeoff's 20 reference solutions, which are the only
    numbers in that 20 — the 6 ambient, 15 lora, 5 band, 5 router-portability,
    12 graph, 12 graph-perceive, 13 ts-perception, 15 ts-patch, 28 patch-landing,
-   26 session, 8 hint-ab, 7 path-portability, 10 backend-free and 5 documented-command
-   mutants are extra to both totals, 167 in all) = 1440 green, offline.**
+   26 session, 8 hint-ab, 7 path-portability, 14 backend-free and 5 documented-command
+   mutants are extra to both totals, 171 in all) = 1446 green, offline.**
+   Two of this page's own numbers were wrong when R-7.16 moved them, and the way
+   they were wrong is worth keeping: `backend_free_check` was still listed at 42
+   checks and 10 mutants while the tree had already printed 44 and 11 (the
+   package-only sweep re-run with `mlx`, `mlx_lm` and `mlx_vlm` unimportable, plus
+   the control that proves the block fired), and the lane that refuses a row it can
+   genuinely not run then put 4 more checks and 3 more mutants on the same vector —
+   **48 / 14**, 1420 + 6 = 1426 checks and 167 + 4 = 171 mutants. The vector's own
+   `--mutant` run printed the 14/14 and this page copied it.
    Four of the rows above were moved twice to get here, and one of those moves is a
    correction rather than an addition: this numbered list still carried the
    R-7.15b tree's `63` and two `48`s while the page's own totals paragraph said that

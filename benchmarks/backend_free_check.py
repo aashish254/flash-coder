@@ -2,8 +2,8 @@
 
 `flash doctor`, `flash --version` and `flash selftest --all` exist to answer a
 stranger's first question — "is what I just installed the thing the README
-describes?" — which means a wrong answer is worse than none. Four ways that
-happens, and this vector gates each of them:
+describes?" — which means a wrong answer is worse than none. This vector gates
+each of the ways that happens:
 
 - A report that reads the filesystem and still says yes. So `install_shape` and
   `vector_tools` are called against SYNTHETIC trees built in a temp directory: a
@@ -36,6 +36,15 @@ happens, and this vector gates each of them:
   back in. A module that fails only when the tree is absent is data-dependent and
   must be tabled; a module that fails either way is this box's state and is on a
   named three-entry allow-list rather than being skipped.
+- A lane that cannot tell a refusal from a bug. `battery_reread --backend-free`
+  runs rows on a machine whose backend is gone, so two of them die with a sentence
+  naming `mlx`, and §34.1's governor can kill a third on a warm laptop. Those are
+  REFUSED lines rather than failures — but only if the death SAYS which cause it
+  is, and only in the lane that was asked to forgive it. So the decoder is gated
+  against the deaths it must not read (an unrelated `AssertionError`, a healthy
+  line that merely names `mlx_lm`), the named lists are gated against the rows the
+  battery actually has, and one live child runs the PLAIN lane with the block
+  injected to prove the flag, not the environment, decides what gets forgiven.
 
 Nothing here loads a model. It runs `flash`'s entry points as subprocesses and
 the rest in-process, and it takes seconds.
@@ -178,8 +187,10 @@ def selftest_mods(pkg: Path) -> list[str]:
     return out
 
 
-def run_in_copy(mod: str, pkg: Path) -> tuple[int, str]:
+def run_in_copy(mod: str, pkg: Path, with_shim: bool = False) -> tuple[int, str]:
     env = dict(os.environ, PYTHONPATH=str(pkg))
+    if with_shim:
+        env["PYTHONPATH"] = str(_shim_dir()) + os.pathsep + str(pkg)
     try:
         proc = subprocess.run([PY, "-m", f"flash.{mod}", "--selftest"],
                               cwd=pkg / "foreign", env=env, capture_output=True,
@@ -190,6 +201,7 @@ def run_in_copy(mod: str, pkg: Path) -> tuple[int, str]:
 
 
 _SWEEP: dict = {}
+_SHIM_DIR: Path | None = None
 
 
 def pkg_only_sweep():
@@ -197,7 +209,12 @@ def pkg_only_sweep():
     on the list of modules in the copy. The replay is what keeps ten mutant runs
     from each paying for sixteen subprocess selftests; the key is what makes the
     replay honest — a mutation that PLANTS a module changes the key, so the mutant
-    cannot be caught by a stale cache it happened to warm up first."""
+    cannot be caught by a stale cache it happened to warm up first.
+
+    The second arm is the same copy with the backend blocked, and it is the only
+    local shape a Linux install has: `mlx-lm` is behind a platform marker, so a
+    selftest that reaches for it is green here and red on the runner. Blocking beats
+    waiting for the runner."""
     bare = pkg_only_copy()
     mods = selftest_mods(bare)
     if _SWEEP.get("key") == mods:
@@ -213,22 +230,32 @@ def pkg_only_sweep():
             passed_twice += 1
             suspects.pop(m)
     died = {m: run_in_copy(m, with_data) for m in sorted(suspects)}
+    shimmed = {m: run_in_copy(m, bare, with_shim=True) for m in mods}
     dispatched = {m for m in mods
                   if "__main__" in (bare / "flash" / f"{m}.py").read_text()}
     _SWEEP["key"] = mods
     _SWEEP["result"] = (bare, with_data, mods, refused, died, passed_twice,
-                        dispatched)
+                        dispatched, shimmed)
     return _SWEEP["result"]
 
 
+def _shim_dir() -> Path:
+    """The directory holding the shipped `--backend-free` shim, built once per
+    process, read from the file the battery uses rather than a copy this vector
+    could keep true on its own."""
+    global _SHIM_DIR
+    if _SHIM_DIR is None:
+        import battery_reread as battery
+        d = Path(tempfile.mkdtemp(prefix="flash-shim-"))
+        (d / "sitecustomize.py").write_text(battery._SHIM)
+        _SHIM_DIR = d
+    return _SHIM_DIR
+
+
 def shim_env() -> dict:
-    """An env carrying the shipped `--backend-free` shim, read from the file the
-    battery uses rather than a copy this vector could keep true on its own."""
-    import battery_reread as battery
-    d = Path(tempfile.mkdtemp(prefix="flash-shim-"))
-    (d / "sitecustomize.py").write_text(battery._SHIM)
+    """An env carrying that shim ahead of whatever this process already had."""
     prior = os.environ.get("PYTHONPATH")
-    return dict(os.environ, PYTHONPATH=str(d)
+    return dict(os.environ, PYTHONPATH=str(_shim_dir())
                 + (os.pathsep + prior if prior else ""))
 
 
@@ -545,7 +572,7 @@ def run_gates() -> None:
     # repo; the ones that die are re-run in the same copy with the data symlinked
     # back. That separates "this install has no data tree" from "this box is loaded",
     # which is the difference between a refusal sentence and a skipped module.
-    bare, with_data, swept, refused, died, passed_twice, dispatched = \
+    bare, with_data, swept, refused, died, passed_twice, dispatched, shimmed = \
         pkg_only_sweep()
     data_dependent = {m for m, (rc, _) in died.items() if rc in (0, 2)}
     untabled = sorted(data_dependent - set(doctor.VECTOR_DATA))
@@ -578,6 +605,159 @@ def run_gates() -> None:
        not state,
        "new unexplained failures: "
        + str([(m, died[m][0], died[m][1].strip()[-90:]) for m in state]))
+
+    # ----------------------------- R-7.16: the same copy, with the backend blocked.
+    # `mlx-lm` sits behind a platform marker in `pyproject.toml`, so every Linux and
+    # Windows install has the shape this arm fakes and no Mac does. The first CI run
+    # on a real runner found the one selftest that reached for the library anyway —
+    # `flash.train`, whose slice-args checks were argued against the INSTALLED
+    # mlx-lm — and printed it as an unexplained death, correctly, several days after
+    # the same code had been re-read green on this laptop. Blocking is the only way
+    # that class of bug is visible before someone else's runner pays for it.
+    backend_deaths = sorted(m for m, (rc, _) in shimmed.items()
+                            if rc not in (0, 2) and m not in MACHINE_STATE)
+    ck(f"the same {len(swept)} selftests re-run in the same package-only copy with "
+       "`mlx`, `mlx_lm` and `mlx_vlm` unimportable: every one of them answers with "
+       "its fraction or with the shared refusal, and not one reaches for the "
+       "backend — which is the claim a stranger's `pip install .` on Linux actually "
+       "gets, measured on the machine that cannot run it rather than asserted from "
+       f"the one that can ({len(backend_deaths)} deaths)",
+       len(shimmed) == len(swept) and len(swept) >= 16 and not backend_deaths,
+       "selftests that need a backend: "
+       + str([(m, shimmed[m][0], shimmed[m][1].strip()[-90:])
+              for m in backend_deaths]))
+    backend_control = run("-c", "import mlx_lm.lora", env=shim_env())
+    ck("...and the block is live in the interpreter that arm used: `import "
+       "mlx_lm.lora` under the same environment the swept children inherited "
+       "raises with the shim's own sentence, so the line above cannot be green "
+       "because the shipped `BLOCKED` list lost a name and the second arm quietly "
+       "became a re-run of the first",
+       backend_control.returncode != 0 and "--backend-free" in backend_control.stderr,
+       f"rc={backend_control.returncode} err={backend_control.stderr[-120:]}")
+
+    # ----------------------------- R-7.16: the lane's refusal lists.
+    # A row that dies because the backend is gone is not a failing test, and neither
+    # is one that dies because the §34.1 governor would not offer width. The only
+    # thing separating either death from a real bug is a SENTENCE, so the decoder
+    # that reads it is the gate that matters most here: too loose and the lane
+    # forgives a crash, too tight and the lane reports a red battery on every Linux
+    # runner for a reason nobody has to fix in code.
+    lane = run("benchmarks/battery_reread.py", "--backend-free", "--quick",
+               "grammar", "session")
+    lane_out = lane.stdout + lane.stderr
+    lane_refused = {m.group(1) for line in lane_out.splitlines()
+                    if (m := re.match(r"REFUSED (.+?)\s+(?:backend|machine) — ",
+                                      line))}
+    reasons = {l: r for arm in ("backend", "machine")
+               for l, r in battery.REFUSAL[arm].items()}
+    named = set(reasons)
+    backend_rows = set(battery.REFUSAL["backend"])
+    ck("`battery_reread --backend-free --quick grammar session` answers rc 0 with a "
+       "REFUSED line per row and no BAD line, each line showing that row's OWN cause "
+       "sentence after the dash — and the rows the child refused are exactly the "
+       "names this process's `backend` list carries. The child reads the lists off "
+       "disk and the parent reads the ones it was handed, so the two agreeing is a "
+       "measurement, not a tautology: a list that names a row no lane ever saw die "
+       "is a note, and a lane that forgives a row the list has no name for is a "
+       "freebie",
+       lane.returncode == 0 and "BAD" not in lane_out
+       and lane_refused == backend_rows and bool(lane_refused)
+       and "proof --backend-free" in lane_out
+       and all(battery.REFUSAL["backend"][l][:40] in lane_out
+               for l in lane_refused & backend_rows),
+       f"rc={lane.returncode} refused={sorted(lane_refused)} "
+       f"listed={sorted(backend_rows)} out={lane_out[-200:]}")
+
+    shim_death = ("   tokenizer unavailable: ImportError mlx_lm blocked by "
+                  "--backend-free: this run is proving which of the battery's "
+                  "vectors need a generative backend")
+    linux_death = ('Traceback (most recent call last):\n'
+                   '  File "benchmarks/session_check.py", line 19, in <module>\n'
+                   "    from flash.loop import solve_routed\n"
+                   "ModuleNotFoundError: No module named 'mlx_lm'")
+    governor_death = ("AssertionError: the tournament arm needs the governor's "
+                      "width >= 2 and this machine offers 1 (on battery): put it "
+                      "on AC, let it cool, re-run")
+    bug_death = ('Traceback (most recent call last):\n'
+                 '  File "benchmarks/x_check.py", line 88, in run_gates\n'
+                 "    ck('the patch lands', n == 5, f'got {n}')\n"
+                 "AssertionError: expected 5 got 4")
+    healthy = ("  OK  the doctor reports mlx_lm: None on a linux install\n"
+               "OK   benchmarks/ts_perception_check.py 47/47\n")
+    cases = [(shim_death, "backend", True), (linux_death, "backend", True),
+             (governor_death, "machine", True), (shim_death, "machine", False),
+             (governor_death, "backend", False), (bug_death, "backend", False),
+             (bug_death, "machine", False), (healthy, "backend", False),
+             (healthy, "machine", False), ("", "backend", False)]
+    misdecoded = [(t.splitlines()[0][:38] if t else "<empty>", k, want,
+                   battery.refuses(k, t)[:58])
+                  for t, k, want in cases
+                  if bool(battery.refuses(k, t)) != want]
+    shown = battery.refuses("backend", shim_death)
+    ck("the decoder reads CAUSES, not words. Three deaths it must read: the shim's "
+       "own sentence and a Linux `ModuleNotFoundError: No module named 'mlx_lm'` "
+       "both decode as backend-bound (they are the same fact about two machines), "
+       "and the governor's clamp decodes as machine-bound. Seven it must not: an "
+       "unrelated `AssertionError: expected 5 got 4`, a healthy line that merely "
+       "NAMES `mlx_lm`, and empty output — in either arm, so the two causes cannot "
+       "cross-talk — and when it does read a cause it returns the sentence itself, "
+       "because the REFUSED line's evidence is the row's own words, not a byte "
+       "count. `if 'mlx' in out` would be green on every one of the ten cases above "
+       "and would forgive a real bug on the one platform that has the backend",
+       not misdecoded and "--backend-free" in shown
+       and battery.refuses("machine", governor_death) == governor_death
+       and battery.refuses("machine", shim_death) == "",
+       f"{len(misdecoded)} misdecoded: {misdecoded[:2]} shown={shown[:60]!r}")
+
+    rows = {label: (want, mut) for label, _argv, want, mut, _kind
+            in battery.BATTERY}
+    kinds = {label: kind for label, _argv, _w, _m, kind in battery.BATTERY}
+    unrowed = sorted(named - set(rows))
+    overlap = sorted(backend_rows & set(battery.REFUSAL["machine"]))
+    no_reason = sorted(l for l, r in reasons.items() if len(r) < 40)
+    bad_kind = sorted(l for l in named if kinds.get(l) not in battery.CLAIM)
+    dropped = battery.lane_claim([("benchmarks/session_check.py", 81, 26, "checks")])
+    partial = battery.lane_claim([("benchmarks/m0_bakeoff.py --dry-run", 20,
+                                   None, "oracle")])
+    ck(f"the lists are legal battery arithmetic: all {len(named)} named rows are "
+       "real `BATTERY` labels, the two arms are disjoint, every row carries its own "
+       "reason sentence rather than a placeholder, each row's kind is a key `CLAIM` "
+       "actually sums, and the subtraction uses the row's own counts — "
+       "`lane_claim([])` is §6 untouched, an 81-check 26-mutant row drops the claim "
+       "by exactly 81 and 26, and an oracle row with no mutants moves `oracle` and "
+       "still leaves `mutants` alone. A list that subtracts a number the row does "
+       "not print makes the lane's subtotal mean nothing, which is the failure this "
+       "whole mechanism exists to avoid",
+       not unrowed and not overlap and not no_reason and not bad_kind
+       and battery.lane_claim([]) == battery.CLAIM
+       and dropped["checks"] == battery.CLAIM["checks"] - 81
+       and dropped["mutants"] == battery.CLAIM["mutants"] - 26
+       and dropped["oracle"] == battery.CLAIM["oracle"]
+       and partial["oracle"] == battery.CLAIM["oracle"] - 20
+       and partial["mutants"] == battery.CLAIM["mutants"],
+       f"unrowed={unrowed} overlap={overlap} no-reason={no_reason} kinds={bad_kind} "
+       f"dropped={dropped} partial={partial}")
+
+    # The other half of the claim: the FLAG decides what may be forgiven, not the
+    # shim's presence in the interpreter. Injecting the block into a plain-lane
+    # child kills the same row with the same sentence, and the plain lane must call
+    # it a failure — otherwise a Mac with MLX installed forgives a backend death and
+    # still prints §6's totals as though it had measured all of them.
+    plain_lane = run("benchmarks/battery_reread.py", "--quick", "grammar",
+                     env=shim_env())
+    plain_out = plain_lane.stdout + plain_lane.stderr
+    ck("...and the same killed row is a BAD line in the plain lane: `battery_reread "
+       "--quick grammar` run with the block on its PYTHONPATH but WITHOUT "
+       "--backend-free exits non-zero, prints no `proof --backend-free` line and no "
+       "REFUSED line, and says in its own note which lane will not refuse this one — "
+       "read beside `refusal_map(False)`, which is the machine arm only, so the §6 "
+       "denominator cannot drift depending on who happened to export a PYTHONPATH",
+       plain_lane.returncode != 0 and "REFUSED flash.grammar" not in plain_out
+       and "proof --backend-free" not in plain_out and "will not refuse" in plain_out
+       and set(battery.refusal_map(False)) == set(battery.REFUSAL["machine"])
+       and set(battery.refusal_map(True)) == named,
+       f"rc={plain_lane.returncode} map_false="
+       f"{sorted(battery.refusal_map(False))} out={plain_out[-200:]}")
 
 
 # ---------------------------------------------------------------- mutation cover
@@ -619,6 +799,27 @@ BUGS = {
     "table_drops_an_entry": ("one module leaves `VECTOR_DATA` while its guard stays "
                              "wired, so the table under-claims the package and the "
                              "sweep's refusals stop matching it", "gate"),
+    "selftest_reaches_backend": ("a module's selftest imports the trainer library on "
+                                 "its offline path: green on every Mac, red on every "
+                                 "other install, which is the exact shape the first "
+                                 "ubuntu runner reported — planted as a real file "
+                                 "because the claim is about a child process",
+                                 "gate"),
+    "refusal_decodes_anything": ("the lane's decoder matches on the shape of an "
+                                 "output instead of its cause, so every death in "
+                                 "every row is forgiven as 'the backend was missing' "
+                                 "and a real crash prints REFUSED with a green exit",
+                                 "gate"),
+    "refusal_list_loses_a_row": ("a backend-bound row leaves `REFUSAL['backend']` "
+                                 "while the lane keeps refusing it on the machine "
+                                 "that has the backend, so the list under-claims and "
+                                 "the lane's subtotal is computed against rows that "
+                                 "never died here", "gate"),
+    "plain_lane_forgives_backend": ("`refusal_map` stops asking which lane it is in "
+                                    "and opens the backend arm to the plain run, "
+                                    "which is the one platform where a backend death "
+                                    "might be a bug — §6's totals then come from a "
+                                    "run that forgave a row", "gate"),
 }
 
 
@@ -628,12 +829,16 @@ def mutate(one: str | None = None) -> int:
         if one and bug != one:
             continue
         ran += 1
+        import battery_reread as battery
         keep = {"vector_tools": doctor.vector_tools,
                 "install_shape": doctor.install_shape,
                 "dispatch": doctor.dispatch,
                 "missing": doctor.missing_vector_data,
                 "table": doctor.VECTOR_DATA,
                 "editable": doctor._is_editable,
+                "refuses": battery.refuses,
+                "map": battery.refusal_map,
+                "refusal": battery.REFUSAL,
                 "block": None}
         try:
             if bug == "always_yes_tools":
@@ -655,7 +860,6 @@ def mutate(one: str | None = None) -> int:
                     Path(sys.executable).resolve().parent.parent / "lib") \
                     not in str(Path(pkg_dir).resolve())
             elif bug == "decorative_shim":
-                import battery_reread as battery
                 keep["block"] = battery.install_backend_block
                 battery.install_backend_block = lambda: "/dev/null/sitecustomize.py"
             elif bug == "top_level_backend":
@@ -676,6 +880,33 @@ def mutate(one: str | None = None) -> int:
             elif bug == "table_drops_an_entry":
                 doctor.VECTOR_DATA = {k: v for k, v in doctor.VECTOR_DATA.items()
                                       if k != "lsp"}
+            elif bug == "selftest_reaches_backend":
+                planted = ROOT / "flash" / "_zz_shim_probe.py"
+                planted.write_text(
+                    "def run_selftest(verbose: bool = True) -> int:\n"
+                    "    # planted by this mutation: the offline path reaches for "
+                    "the\n"
+                    "    # trainer library, which is green here and red on Linux\n"
+                    "    from mlx_lm.lora import CONFIG_DEFAULTS\n"
+                    "    return 0 if CONFIG_DEFAULTS else 1\n\n\n"
+                    'if __name__ == "__main__":\n'
+                    "    raise SystemExit(run_selftest())\n")
+            elif bug == "refusal_decodes_anything":
+                # The bug the lane cannot be allowed to grow: a decoder that reads
+                # any output as a cause. Planted on the module so the in-process
+                # gates see it, while the child they run keeps reading the shipped
+                # lists off disk — which is what makes the disagreement visible.
+                battery.refuses = lambda kind, out: (
+                    out.strip().splitlines()[-1].strip() if out.strip() else "")
+            elif bug == "refusal_list_loses_a_row":
+                battery.REFUSAL = {
+                    **battery.REFUSAL,
+                    "backend": {k: v for k, v in
+                                battery.REFUSAL["backend"].items()
+                                if k != "flash.grammar --selftest"}}
+            elif bug == "plain_lane_forgives_backend":
+                battery.refusal_map = lambda backend_free: {
+                    **battery.REFUSAL["backend"], **battery.REFUSAL["machine"]}
             CHECKS.clear()
             run_gates()
             caught = [l for l, ok, _ in CHECKS if not ok]
@@ -688,14 +919,20 @@ def mutate(one: str | None = None) -> int:
                 for f in (ROOT / "flash" / "_zz_data_probe.py",
                           ROOT / "flash" / "__pycache__" / "_zz_data_probe.py"):
                     f.unlink(missing_ok=True)
+            if bug == "selftest_reaches_backend":
+                for f in (ROOT / "flash" / "_zz_shim_probe.py",
+                          ROOT / "flash" / "__pycache__" / "_zz_shim_probe.py"):
+                    f.unlink(missing_ok=True)
             doctor.vector_tools = keep["vector_tools"]
             doctor.install_shape = keep["install_shape"]
             doctor.dispatch = keep["dispatch"]
             doctor.missing_vector_data = keep["missing"]
             doctor.VECTOR_DATA = keep["table"]
             doctor._is_editable = keep["editable"]
+            battery.refuses = keep["refuses"]
+            battery.refusal_map = keep["map"]
+            battery.REFUSAL = keep["refusal"]
             if keep["block"]:
-                import battery_reread as battery
                 battery.install_backend_block = keep["block"]
         ok = bool(caught)
         failed += 0 if ok else 1

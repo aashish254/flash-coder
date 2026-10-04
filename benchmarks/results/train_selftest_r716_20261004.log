@@ -1,0 +1,44 @@
+  OK   verified-only: the solved tasks are kept, the unsolved one dropped  ['a1', 'a2', 'c1'] {'kept': 3, 'not_the_closing_attempt': 2, 'unverified_task': 1, 'no_stored_text': 1, 'torn_lines': 1, 'resumed_span': 1, 'sessions_read': 3}
+  OK   verified-only: only the attempt the session credits becomes a row — neither a rejected draft nor an answer whose task closed later  {'kept': 3, 'not_the_closing_attempt': 2, 'unverified_task': 1, 'no_stored_text': 1, 'torn_lines': 1, 'resumed_span': 1, 'sessions_read': 3}
+  OK   round-trip: a prompt that is not the template it claims is dropped  {'kept': 3, 'not_the_closing_attempt': 2, 'unverified_task': 1, 'no_stored_text': 1, 'torn_lines': 1, 'resumed_span': 1, 'sessions_read': 3}
+  OK   a torn trace line is counted as data, not a crash  {'kept': 3, 'not_the_closing_attempt': 2, 'unverified_task': 1, 'no_stored_text': 1, 'torn_lines': 1, 'resumed_span': 1, 'sessions_read': 3}
+  OK   R-5.3: a span resumed across a kill is not training text  {'kept': 3, 'not_the_closing_attempt': 2, 'unverified_task': 1, 'no_stored_text': 1, 'torn_lines': 1, 'resumed_span': 1, 'sessions_read': 3}
+  OK   a repair row keeps the failure conversation it was fixed from  {"role": "user", "content": "It failed:\nAssertionError: 3 !
+  OK   the assistant turn the model is trained on is the accepted answer  ['42', 'right', 'ok']
+  OK   leakage: the frozen suite's ids leave the training pool entirely  ['a2', 'c1'] {'excluded_leakage': 2, 'not_the_closing_attempt': 1, 'kept': 2, 'unverified_task': 1, 'no_stored_text': 1, 'torn_lines': 1, 'resumed_span': 1, 'sessions_read': 3}
+  OK   split: a task's rows never straddle train and valid  3/1 shared=[]
+  OK   split: the duplicate really did land on one side  a1
+  OK   the written file is mlx-lm's chat jsonl, plus the task id that makes the exclusion checkable from the artifact  3 train row(s)
+  OK   the manifest carries the counts the gates are read from  {'repairs': 1, 'train_rows': 3, 'train_task_ids': ['a1', 'a2', 'c1'], 'train_tasks': 3, 'valid_rows': 0, 'valid_task_ids': [], 'valid_tasks': 0}
+  OK   the manifest names the tasks on each side of the split  ['a1', 'a2', 'c1']
+  OK   the in-distribution file holds one row per trained id, so a task that lives in two suite files cannot count twice  ['a1', 'a2'] n=2
+  OK   the other side of the split stays out of the in-distribution file  ['a1', 'a2']
+  OK   an id the suites cannot supply is reported, not skipped  ['c1']
+  OK   writing into the directory it scans is not a feedback loop: a second run reads its own output and produces the same file  2 row(s) on the second pass
+  OK   the valid side names its own tasks and nothing the train side had  ['v1'] ['v2']
+  OK   a valid side with an id no suite file supplies is reported too — --suite-from-dataset exits nonzero on either gap  ['v2']
+  OK   an empty side of the split raises rather than writing a suite whose every row would be a task nobody trained on  manifest at /var/folders/jn/pnnpl_cn0gx93p8v1yf8jb080000gn/T/tmpssqqsw9w/ds names no 'train' tasks
+  OK   a prompt with no generation header is refused — there is no completion boundary to mask at  {'no_generation_header': 1, 'sessions_read': 1}
+  OK   a stored answer that wrote its own end-of-turn is kept, with that turn stripped: the renderer closes the turn anyway, so keeping the text would double-close it and dropping the row would throw away most of the store over a formatting difference  {"role": "assistant", "content": "42"}
+  OK   a stop token in the MIDDLE of an answer is refused — that turn really does contain template text  {'stop_token_inside': 1, 'sessions_read': 1}
+  OK   an answer that ran out its token budget is not a demonstration  {'answer_hit_token_cap': 1, 'sessions_read': 1}
+  OK   an untemplated prompt yields no row and says why  {'no_roundtrip': 1, 'sessions_read': 1}
+  OK   label: the brain's name carries the adapter on top  b+lora:x
+  OK   slice args are the object mlx reads them as: attributes and vars() both resolve, the key set is exactly the library's own defaults (so a setting mlx would silently ignore is a failure here), and a dict reaches train_model and dies on args.seed  SimpleNamespace from installed mlx-lm 0.31.3, keys=[]
+  OK   a slice checkpoints exactly once, at its own end, so a kill cannot leave weights ahead of the recorded step count  save_every=12, iters=12
+  OK   only a resumed slice names weights to load — a cold one starts from the base model, or the first step of a job would inherit a past run  None
+  OK   an empty training file is an error, not a zero-step slice that reads as progress  no training rows in no-such.jsonl
+[lora] step 8: valid loss 3.0
+[lora] step 16: valid loss 2.0
+[lora] step 24: valid loss 1.5
+[lora] step 32: valid loss 1.8
+[lora] step 40: valid loss 2.2
+  OK   the early stop fires after `patience` non-improving checkpoints, and names the step it is stopping for  40 overfit — 2 checkpoint(s) worse than step 24 (its loss 1.5)
+  OK   the adapter left at the root is the best-measured checkpoint, not the last one trained — a longer run is not a better model  w24
+  OK   every slice after the first resumes from the weights on disk — a silently cold restart would retrain the same steps and report progress  5 slice(s), first=None second=/var/folders/jn/pnnpl_cn0gx93p8v1yf8jb080000gn/T/tmpp4jef2s2/ad/adapters.safetensors
+  OK   a spent budget pauses at a slice boundary with zero slices run  budget 0 call(s)
+  OK   resuming into a directory with no weights is refused, not trained from the base model under a claimed step count  resume at step 24 but /var/folders/jn/pnnpl_cn0gx93p8v1yf8jb080000gn/T/tmpp4jef2s2/empty-ad/adapters.safetensors is missing
+[lora] step 48: valid loss 2.9
+  OK   a resumed job starts warm, at the step the checkpoint banked  48 from [PosixPath('/var/folders/jn/pnnpl_cn0gx93p8v1yf8jb080000gn/T/tmpp4jef2s2/ad/adapters.safetensors')]
+
+train selftest: 36/36 checks passed
