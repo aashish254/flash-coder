@@ -20,8 +20,9 @@ release's notes.
 A local, verify-first coding agent for Apple Silicon. It proposes an edit, runs the
 project's real tests, reads the actual failure values, and retries — on your machine,
 with no API key, no container, and nothing leaving the Mac. Its verification surface is
-offline and deterministic: 37 vectors that need no model, re-read as a battery against
-printed totals.
+offline and deterministic: 37 vectors that run with **no model weights** (one of them
+reads the fast tier's tokenizer files — 11M, no weights — which is why CI caches them
+before asking for the battery), re-read as a battery against printed totals.
 
 ```bash
 python3.11 -m venv .venv && source .venv/bin/activate
@@ -74,26 +75,43 @@ checks 1394  oracle 20  §6 total 1414  mutants 172
 ```
 
 1429 − 35 = 1394: the refused row's own 35 checks, subtracted by the rule that gates it.
-This machine's power state triggered the refusal, not the code, and the run declared
+The runner's power state triggered the refusal, not the code, and the run declared
 itself `NOT a §6 re-read` rather than quietly totalling. The step's lines are kept in the
 tree at `benchmarks/results/ci_battery_macos_37227171133_20261005.log` (runner paths
 removed) because that job's artifact step found nothing to upload.
 
 ## Measured on the author's Mac (the whole §6, 37 lines)
 
-Read on this Mac against commit `a135891` — the tree one commit before this release's
-changes — in `battery_reread_r716f_20261004.log` (25 min wall):
+Re-read on **this release's own tree** — launched 22:34:40, last line written 22:59:35
+(24 min 55 s), in `benchmarks/results/battery_reread_v010_20261005.log`:
 
 ```
 checks 1429  oracle 20  §6 total 1449  mutants 172
 matches SPEC §6 as written: 1429 + 20 = 1449 green, offline (+ 172 mutants)
 ```
 
-37 `OK`, no `BAD`, rc 0. The `--backend-free` lane on that same tree, back to back, 23
-min (`battery_backendfree_lane_r716f_20261004.log`): `checks 1301  oracle 20  §6 total
-1321  mutants 146`, 35 `OK` plus the same two rows refused by name. Budget that, not a
-couple of minutes: **the offline battery costs ~25 min plain and ~23 min in the lane** on
-this machine, and CI's three jobs cost 31m49s / 31m57s / 27m35s.
+37 `OK`, no `BAD`, no `REFUSED`, rc 0 — including the row CI's runner refused,
+`benchmarks/checkpoint_resume_check.py 35/35`, on a Mac that was on AC and offering
+tournament width 4. The same totals were read on the commit immediately before the
+version bump (`battery_reread_r716f_20261004.log`), so the bump moved no check count by
+design: nothing in §6 reads the version string except
+`benchmarks/backend_free_check.py`, which compares `flash --version`'s print against the
+module and so follows it.
+
+The `--backend-free` lane was measured on the pre-bump tree, paired with that tree's
+pre-bump plain re-read rather than with the 0.1.0 pass above; 23 min
+(`battery_backendfree_lane_r716f_20261004.log`): `checks 1301  oracle 20  §6 total
+1321  mutants 146`, 35 `OK` plus the same two rows refused by name — the identical print
+both ubuntu jobs of `37227171133` produced on a real Linux interpreter. Budget that, not
+a couple of minutes: **the offline battery costs ~25 min plain and ~23 min in the lane**
+on this machine, and CI's three jobs cost 31m49s / 31m57s / 27m35s.
+
+One ordering detail, stated because it is the only thing that would otherwise let the
+paragraph above read better than it is: the two §6 rows that look at prose —
+`benchmarks/portable_paths_check.py` and `benchmarks/documented_commands_check.py` — ran
+inside that 24 min pass, and these notes gained a few sentences after it. Both were
+re-run on the final text and printed **15/15 (+ 7 mutants)** and **8/8 (+ 5 mutants)**,
+and `python -m pyflakes flash/*.py benchmarks/*.py` printed nothing.
 
 Named vectors, from the same prints:
 
@@ -109,25 +127,31 @@ Named vectors, from the same prints:
 
 ## Live run witnessed here (real weights, not a selftest)
 
-`benchmarks/results/session_pty_r715g_20260929.log` — a real pseudo-terminal, three typed
-turns, each typed only after the previous verdict reached the screen:
+Verbatim from `benchmarks/results/session_pty_r715g_20260929.log` — a real
+pseudo-terminal, three typed turns, each typed only after the previous verdict reached
+the screen, on a scratch demo tree under `/tmp`:
 
 ```
-[t+  0.06s] flash session on <demo tree> against the oracle <demo tree>/t.py — one ask per line, …
+# command: python -m flash.cli session --context /tmp/flash-chat-demo --test /tmp/flash-chat-demo/t.py --apply
+[t+  0.06s] flash session on /tmp/flash-chat-demo against the oracle /tmp/flash-chat-demo/t.py — one ask per line, and each answer arrives before you type the next. `quit` or Ctrl-D ends it.
 [t+ 20.78s] [turn 1] routed=small tier=big solved=True attempts=3 (13.5s) patches=1 refused=0 whole=0 outside=0
 [t+ 20.99s] [R-3.2] wrote money.py (+4 -1 lines)
 [t+ 28.95s] [turn 2] routed=small tier=small solved=True attempts=1 (5.7s) patches=1 refused=0 whole=0 outside=0
+[t+ 29.16s] [session] turns=2 solved=2 written=2 seconds=19.2 last_rc=0
+=== child exited rc=0 after 29.4s ===
 ```
 
-Child exit code 0 after 29.4s. This is the demo task, not a benchmark suite; the
+This is the demo task, not a benchmark suite; the
 before/after claim about the loop's own value lives in SPEC's cross-tool panel, which is
 measured against the same served weights behind a token-counting proxy.
 
 ## Download shapes, measured (dated, on the v0.0.1-era tree)
 
 `benchmarks/r75_sdist_battery_check.py` built one sdist and ran the whole battery against
-it twice, 2026-09-28. The packaging has not moved since; the code has, so these are the
-*shapes*, not this release's totals:
+it twice, 2026-09-28. `git diff` over `pyproject.toml` and `MANIFEST.in` between that run
+and this release is **comment-only**, so the two shapes below are still this release's
+shapes; the *code* under them has moved a lot, so their totals are the dated prints of the
+tree that made them, not of `0.1.0`:
 
 - **shape A** — `pip install flash_coder-0.0.1.tar.gz`: `33/35` lines green in 13 min 22
   s, rc 1, with `checks 1119  oracle 20  §6 total 1139  mutants 85`. The two red lines
@@ -146,10 +170,10 @@ it twice, 2026-09-28. The packaging has not moved since; the code has, so these 
 filename shapes:
 
 ```
-publish sweep — 431 files in the working tree (1 of them not yet tracked) and 999 historical blobs, 7 credential families + filename shapes
+publish sweep — 432 files in the working tree (0 of them not yet tracked) and 1007 historical blobs, 7 credential families + filename shapes
   matches accepted by name: 2   unlisted: 0
   planted-secret proof: 8/8 families bite
-OK  no unlisted credential shape in the 431 files a push sends or in any of the 999 blobs ever committed, and 8/8 families proved they can bite.
+OK  no unlisted credential shape in the 432 files a push sends or in any of the 1007 blobs ever committed, and 8/8 families proved they can bite.
 ```
 
 Two matches accepted **by name**, each with the reason the scan prints: a literal
@@ -169,7 +193,7 @@ Booked open, with the reason it is open. None of these are closed by rewording a
 
 | Item | Status | Why |
 |---|---|---|
-| A CI run printing the whole 37-line §6 re-read | OPEN | A hosted macos runner is not allowed to be cool enough to offer tournament width ≥ 2, and that row's precondition is a fact about the box. The local §6 print above is the whole-tree claim; CI's prints are per-lane. |
+| A **CI** run printing the whole 37-line §6 re-read | OPEN | A hosted macos runner is not allowed to be cool enough to offer tournament width ≥ 2, and that row's precondition is a fact about the box. The whole-tree §6 print is the local one above, on this release's own tree; CI's prints are per-lane and say so. |
 | The two backend-bound rows measured *passing* on Linux | Impossible in that lane | A Linux install has no backend to load; the lane names them as refused. |
 | Prose chat transcript against real weights, beyond the demo task | OPEN | 81/81 + 26/26 offline, and one pseudo-terminal demo; no wider live transcript. |
 | Linux/Windows **generation** | GATED, not claimed | MLX is Apple Silicon only; everything except generation installs and runs there. A PC port is a model-layer port plus a full re-measure. |
@@ -187,8 +211,8 @@ into a table, no projected number presented as measured.
 - MLX backends (Apple Silicon only): `mlx-lm>=0.31`, `mlx-vlm>=0.3` (optional, for vision)
 - TypeScript grammar (optional): `pip install -e .[ts]` — `tree-sitter`,
   `tree-sitter-typescript`
-- `[dev]` pulls `pyflakes`, `pytest`, `build` **and** the `ts` grammar, because the
-  battery's two TypeScript rows are in the default run
+- `[dev]` pulls `pyflakes`, `build` **and** the `ts` grammar, because the battery's two
+  TypeScript rows are in the default run
 
 MIT. See `LICENSE`. `SPEC.md` records which of its own gates measured NO, and
 `CHANGELOG.md` traces every claim here to the run that printed it.
