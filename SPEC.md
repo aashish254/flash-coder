@@ -2118,10 +2118,27 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   the fix bought: the same command on the pre-fix tree refused to total at all, because
   it could not pass its own gate from inside the lane.
 
-  **What this does not buy.** The `battery` job in `ci.yml` has still never
-  executed — `needs: static` skipped it on the run above, so its first green on a
-  real macos-14 runner remains the proof, not this entry. And the two refused rows
-  have never been measured *passing* on a Linux install, because a Linux install
+  **What it did buy, measured.** The `battery` job in `ci.yml` has executed. Run
+  `37227171133` (commit `a135891`) is green on all three jobs — `static (3.11)` 31m49s,
+  `static (3.12)` 31m57s, and `battery` on a real macos-14 runner in 27m35s. That
+  battery step's `flash selftest --all` printed **36** `OK`, no `BAD`, and **1** row
+  refused by name: `benchmarks/checkpoint_resume_check.py` — `machine — the §34.1
+  governor will not offer tournament width >= 2 on this machine`, its detail line
+  printing `this machine offers 1 (free memory 6.0GB < 6.9GB needed)` — on
+  `checks 1394  oracle 20  §6 total 1414  mutants 172`, under the lane's own
+  `NOT a §6 re-read` banner. 1429 − 35 = 1394: the refused row's own 35 checks,
+  subtracted by the rule that row is gated by, so the runner's subtotal is a
+  machine-shaped refusal and not a silent shortfall. Both rows this round fixed at the
+  reading answered on the runner in the open: `flash power --selftest 24/24` and
+  `flash.sandbox --selftest 34/34`, the same fractions the Mac and the ubuntu job
+  print. The step's lines are kept in the tree as
+  `benchmarks/results/ci_battery_macos_37227171133_20261005.log` (runner paths
+  removed) because the job's own artifact step found nothing to upload.
+  **What it still does not buy** is narrower than the sentence this replaces: no CI run
+  has yet printed the whole 37-line §6 re-read, because a hosted macos runner is not
+  allowed to be cool enough to offer tournament width, and that row's precondition is a
+  property of the box rather than of the code. The two refused backend rows have also
+  still never been measured *passing* on a Linux install, because a Linux install
   cannot run them; the lane now says that out loud instead of reporting it as a
   defect. Witnesses: `benchmarks/results/train_selftest_r716_20261004.log`,
   `benchmarks/results/backend_free_check_r716b_20261004.log`,

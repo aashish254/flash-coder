@@ -6,13 +6,13 @@
    "lines": [
     "flash doctor \u2014 what this install can and cannot do",
     " install",
-    "  [yes] flash 0.0.1 at <checkout>/flash (editable checkout)",
+    "  [yes] flash 0.1.0 at <checkout>/flash (editable checkout)",
     "  [yes] verification surface beside the package: benchmarks/ present, 24 task corpora",
     " backend",
     "  [yes] MLX backend: mlx 0.32.2, mlx_lm 0.31.3",
     " machine",
     "  [yes] python 3.11.15 \u00b7 darwin/arm64 \u00b7 27.0.1",
-    "  [yes] what this box may load: profile maximum-performance, up to 17.3 GB right now (~27.2 GB free of 32, tournament width 4)",
+    "  [yes] what this box may load: profile maximum-performance, up to 17.3 GB right now (~25.6 GB free of 32, tournament width 4)",
     " cache",
     "  [   ] model cache ~/.cache/huggingface/hub: 41 repo(s), 4 of 4 \u00a722 candidates present",
     " tools",
@@ -31,10 +31,10 @@
    "command": "python -m flash.graph --selftest",
    "exit": 0,
    "lines": [
-    "  OK   the merge is what makes a repeat query cheap: a second pass over the wide repo costs 7.6 ms and re-extracts nothing",
+    "  OK   the merge is what makes a repeat query cheap: a second pass over the wide repo costs 7.8 ms and re-extracts nothing",
     "  OK   and on the wide repo the floor is still reported rather than assumed: a 400-file pass with no blind spots says so, and a reader can see that it is a property of THIS instrument, not of the algorithm",
-    "  ..  first query on a cold index: fixtures 0.1 ms, wide 28.6 ms (5377 nodes, 10058 edges, after a 566 ms build); language server settled 1/1",
-    "graph selftest: 44/44 checks passed  [fixtures query 0.1 ms of 200 ms budget, wide query 28.6 ms]"
+    "  ..  first query on a cold index: fixtures 0.1 ms, wide 29.7 ms (5377 nodes, 10058 edges, after a 568 ms build); language server settled 1/1",
+    "graph selftest: 44/44 checks passed  [fixtures query 0.1 ms of 200 ms budget, wide query 29.7 ms]"
    ],
    "redacted": []
   },

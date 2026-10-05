@@ -1,0 +1,54 @@
+macos-14 CI battery — run 37227171133, job "battery" (id 111515158797), commit a135891
+source  https://github.com/aashish254/flash-coder/actions/runs/37227171133
+job     battery in 27m35s, after static (3.11) 31m49s and static (3.12) 31m57s, all three green
+provenance  the two battery steps' stdout, lifted out of the job log by step name.
+  The job's own "Save the run so a cited number stays citable" step reported
+  "No files were found with the provided path: benchmarks/results/ci/", so the
+  artifact was empty and these lines are the only copy kept in the tree. Runner
+  paths are not reproduced here: only the driver's own printed lines are.
+
+== python benchmarks/battery_reread.py --quick grammar ==
+OK   flash.grammar --selftest                     47/47
+--quick run of 1/37 lines: totals are partial, not a §6 re-read
+
+== flash selftest --all (37 rows) ==
+OK   flash.harness --selftest                     28/28
+OK   flash lsp-selftest                           22/22
+OK   flash power --selftest                       24/24
+OK   flash jobs --selftest                        20/20
+OK   flash trace --selftest                       30/30
+OK   flash web --selftest                         9/9
+OK   flash.grammar --selftest                     47/47
+OK   flash.patches --selftest                     94/94
+OK   flash.debug --selftest                       55/55
+OK   flash.tourney --selftest                     16/16
+OK   flash.confidence --selftest                  29/29
+OK   flash.sandbox --selftest                     34/34
+OK   flash.checkpoint --selftest                  31/31
+OK   flash.train --selftest                       36/36
+OK   flash.graph --selftest                       44/44 (+ 12 mutants)
+OK   flash.ambient --selftest                     61/61 (+ 6 mutants)
+OK   benchmarks/trace_resume_check.py             11/11
+OK   benchmarks/confidence_wiring_check.py        35/35
+OK   benchmarks/subtle_premise_check.py           52/52
+OK   benchmarks/p6_key_check.py                   28/28
+OK   benchmarks/confidence_tau_check.py           7/7
+REFUSED benchmarks/checkpoint_resume_check.py    machine — the §34.1 governor will not offer tournament width >= 2 on this machine
+     └─ AssertionError: the tournament arm needs the governor's width >= 2 and this machine offers 1 (free memory 6.0GB < 6.9GB needed): put it on AC, let it 
+OK   benchmarks/lora_path_check.py                33/33 (+ 15 mutants)
+OK   benchmarks/dbg_band_check.py                 172/172 (+ 5 mutants)
+OK   benchmarks/router_portable_check.py          20/20 (+ 5 mutants)
+OK   benchmarks/graph_perceive_check.py           33/33 (+ 12 mutants)
+OK   benchmarks/ts_perception_check.py            47/47 (+ 13 mutants)
+OK   benchmarks/ts_patch_check.py                 52/52 (+ 15 mutants)
+OK   benchmarks/patch_landing_check.py            65/65 (+ 28 mutants)
+OK   benchmarks/session_check.py                  81/81 (+ 26 mutants)
+OK   benchmarks/hint_ab_check.py                  14/14 (+ 8 mutants)
+OK   benchmarks/portable_paths_check.py           15/15 (+ 7 mutants)
+OK   benchmarks/backend_free_check.py             49/49 (+ 15 mutants)
+OK   benchmarks/documented_commands_check.py      8/8 (+ 5 mutants)
+OK   flash.debug --suite                          32/32
+OK   flash.patches --suite                        60/60
+OK   benchmarks/m0_bakeoff.py --dry-run           20/20
+checks 1394  oracle 20  §6 total 1414  mutants 172
+NOT a §6 re-read: 1 of 37 rows refused by name (benchmarks/checkpoint_resume_check.py), so the totals above are this lane's own subtotal — SPEC §6's 1429 checks and 172 mutants, less the refused rows' 35 checks and 0 mutants. Read §6 whole on a machine that has the backend and a governor offering width.

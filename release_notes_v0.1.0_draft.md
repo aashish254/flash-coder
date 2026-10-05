@@ -1,169 +1,194 @@
-# Flash Coder v0.1.0 Release Notes
+# Flash Coder v0.1.0
 
-**Release Date**: October 4, 2026  
-**Commit**: (this pass's commit — shown beside the tag before anything is pushed)  
-**Tag**: v0.1.0
+**Date**: 2026-10-05
+**Package version**: `0.1.0` — `flash --version` prints `flash 0.1.0`, and that string
+comes from `flash/__init__.py`, which is the only place `pyproject.toml` reads it from.
+**Tag**: `v0.1.0` is **not created**. Cutting the tag, opening the GitHub release and
+uploading anything to PyPI are the maintainer's explicit calls and have not been made.
+Nothing on this page claims a published artifact exists.
+**Commit**: the commit that lands this file. A commit cannot quote its own SHA; it is the
+first line of `git log -1` and it is reported beside the green CI run.
+
+Every number below was printed by a command, and each is labelled with the tree and the
+platform that printed it. Nothing is carried over from a vendor page or a previous
+release's notes.
 
 ---
 
-## What is Flash Coder
+## What Flash Coder is
 
-Flash Coder is a **local, verify-first coding agent for Apple Silicon**. It writes code, runs tests, reads actual failure values, and retries—all on your machine with no API keys, no containers, nothing leaving your Mac.
-
-### Quick Start
+A local, verify-first coding agent for Apple Silicon. It proposes an edit, runs the
+project's real tests, reads the actual failure values, and retries — on your machine,
+with no API key, no container, and nothing leaving the Mac. Its verification surface is
+offline and deterministic: 37 vectors that need no model, re-read as a battery against
+printed totals.
 
 ```bash
-python3.11 -m venv .venv
-source .venv/bin/activate
+python3.11 -m venv .venv && source .venv/bin/activate
 pip install -e .[dev]
 
-# Check your installation
-flash doctor
-
-# Run the offline battery (no models needed)
-flash selftest --all
-
-# Get started coding
-.venv/bin/python benchmarks/m0_bakeoff.py --download --models qwen25-coder-7b
-.venv/bin/python -m flash.cli session --context . --test t.py --apply
+flash doctor              # what this install can and cannot do
+flash selftest --all      # the 37-vector offline battery, no model needed
 ```
 
+`flash run <task>`, `flash session --context . --test t.py --apply` and `flash power`
+(governor readout) are the working commands; `flash doctor` tells you which half of the
+project your install actually has.
+
 ---
 
-## What's Verified (Measured Only)
+## Measured on Linux (the shape a non-macOS install gets)
 
-### Installation Shapes
-All four install shapes tested against the §6 offline battery:
+A Linux box installs the package but cannot install MLX, so it gets the `--backend-free`
+lane: the same 37 vectors with `mlx`, `mlx_lm` and `mlx_vlm` made unimportable in every
+child process. Both ubuntu jobs of run `37227171133` printed, identically on Python 3.11
+and 3.12:
 
-| Shape | Result | Witnesses |
-|-------|--------|-----------|
-| Fresh clone editable install | ✅ 35/35 lines, checks 1210 + oracle 20 = 1230 green, mutants 111 | `benchmarks/results/r75_sdist_battery_20260928.log` |
-| Wheel in throwaway venv | ✅ 33/35 lines, checks 1119 + oracle 20 = 1139 green, mutants 85 (TS vectors refuse by name) | Same as above |
-| Packed sdist install `[ts]` extra | ✅ 35/35 lines, checks 1210 + oracle 20 = 1230 green, mutants 111 | Same as above |
-| Current tree (37 lines) | ✅ 37/37 lines, checks 1429 + oracle 20 = 1449 green, mutants 172 | `benchmarks/results/battery_reread_r716f_20261004.log` |
-| Same tree, `--backend-free` (the Linux shape) | ✅ 35/37 lines green + 2 refused by name, checks 1301 + oracle 20 = 1321, mutants 146 | `benchmarks/results/battery_backendfree_lane_r716f_20261004.log` |
+| Vector | Printed on the runner |
+|---|---|
+| `benchmarks/backend_free_check.py` | `49/49 (+ 15 mutants)` |
+| `flash power --selftest` | `24/24` |
+| `flash.sandbox --selftest` | `34/34` |
+| `benchmarks/battery_reread.py --backend-free` | 35 of 37 rows `OK`, 2 `REFUSED` by name (`flash.grammar --selftest`, `benchmarks/session_check.py`) — `checks 1301  oracle 20  §6 total 1321  mutants 146` |
 
-### Offline Battery Highlights (§6)
-- **1,429 premise checks** across 37 vectors
-- **20 oracle verifications** (held-out tests for patch application, confidence gates, etc.)
-- **172 mutation gates** planted bugs caught by the suite
+That run prints `NOT a §6 re-read` and says why: the two refused rows reach the
+generative backend, so their 128 checks and 26 mutants are subtracted from the whole-tree
+claim rather than reported as failures. A Linux install cannot run them at all, and no
+number of local re-reads changes that.
 
-Key vectors verified:
-- `benchmarks/backend_free_check.py`: **49/49 checks, 15/15 mutants** — all 27 `flash` submodules import with MLX blocked, and the `--backend-free` lane refuses two named rows instead of calling them failures ✓
-- `benchmarks/documented_commands_check.py`: **8/8 commands resolve**, **5/5 mutants caught** ✓
-- `benchmarks/portable_paths_check.py`: **15/15 checks**, **7/7 mutants caught** — no host paths leaked ✓
-- `benchmarks/ts_perception_check.py`: **47/47 checks**, **13/13 mutants** — TypeScript graph support ✓
-- `benchmarks/ts_patch_check.py`: **52/52 checks**, **15/15 mutants** — TS symbol patches ✓
-- `benchmarks/session_check.py`: **81/81 checks**, **26/26 mutants** — prose chat mode ✓
-- `benchmarks/patch_landing_check.py`: **65/65 checks**, **28/28 mutants** — verified edit landing ✓
+`flash power` and `flash.sandbox` are the two rows this release fixed at the reading:
+the memory size now comes from `sysctl hw.memsize`, then `/proc/meminfo`, then POSIX
+`sysconf` (and the reading names which source answered), and the sandbox vector asks its
+nine Seatbelt claims in two arms so 34 prints on a box that ships no Seatbelt. Before
+that fix the same two rows printed `21/22` and nothing at all on ubuntu.
 
-### Live Run (First Green Chat Turn)
-Witnessed on the author's demo task (`benchmarks/results/session_pty_r715g_20260929.log`):
+## Measured on macOS (the real macos-14 runner)
+
+The `battery` job of the same run, 27m35s, was that job's first execution ever. Its
+`flash selftest --all` step printed **36 `OK`, no `BAD`, 1 row refused by name**:
+
 ```
-[turn 1] routed=small tier=big solved=True attempts=3 (13.5s) patches=1 refused=0 whole=0 outside=0
-[R-3.2] wrote money.py (+4 -1 lines)
-[turn 2] routed=small tier=small solved=True attempts=1 (5.7s) patches=1 refused=0 whole=0 outside=0
-[R-3.2] wrote money.py (+2 -0 lines)
-[session] turns=2 solved=2 written=2 seconds=19.2 last_rc=0
-rc=0 ORACLE GREEN
+REFUSED benchmarks/checkpoint_resume_check.py    machine — the §34.1 governor will not offer tournament width >= 2 on this machine
+     └─ AssertionError: the tournament arm needs the governor's width >= 2 and this machine offers 1 (free memory 6.0GB < 6.9GB needed): put it on AC, let it
+checks 1394  oracle 20  §6 total 1414  mutants 172
 ```
 
-Token residency re-measured: cold load 2.0–2.1s, free after delete 0.65–0.74s.
+1429 − 35 = 1394: the refused row's own 35 checks, subtracted by the rule that gates it.
+This machine's power state triggered the refusal, not the code, and the run declared
+itself `NOT a §6 re-read` rather than quietly totalling. The step's lines are kept in the
+tree at `benchmarks/results/ci_battery_macos_37227171133_20261005.log` (runner paths
+removed) because that job's artifact step found nothing to upload.
+
+## Measured on the author's Mac (the whole §6, 37 lines)
+
+Read on this Mac against commit `a135891` — the tree one commit before this release's
+changes — in `battery_reread_r716f_20261004.log` (25 min wall):
+
+```
+checks 1429  oracle 20  §6 total 1449  mutants 172
+matches SPEC §6 as written: 1429 + 20 = 1449 green, offline (+ 172 mutants)
+```
+
+37 `OK`, no `BAD`, rc 0. The `--backend-free` lane on that same tree, back to back, 23
+min (`battery_backendfree_lane_r716f_20261004.log`): `checks 1301  oracle 20  §6 total
+1321  mutants 146`, 35 `OK` plus the same two rows refused by name. Budget that, not a
+couple of minutes: **the offline battery costs ~25 min plain and ~23 min in the lane** on
+this machine, and CI's three jobs cost 31m49s / 31m57s / 27m35s.
+
+Named vectors, from the same prints:
+
+- `flash.patches --selftest` 94/94, `flash.debug --selftest` 55/55, `flash.graph
+  --selftest` 44/44 (+ 12 mutants), `flash.ambient --selftest` 61/61 (+ 6 mutants)
+- `benchmarks/ts_perception_check.py` 47/47 (+ 13 mutants),
+  `benchmarks/ts_patch_check.py` 52/52 (+ 15 mutants) — the second language
+- `benchmarks/patch_landing_check.py` 65/65 (+ 28 mutants) — a verified edit reaching disk
+- `benchmarks/session_check.py` 81/81 (+ 26 mutants) — the chat answering in prose
+- `benchmarks/portable_paths_check.py` 15/15 (+ 7 mutants),
+  `benchmarks/documented_commands_check.py` 8/8 (+ 5 mutants) — no host path in a
+  published record, and every `flash` command a document cites exists in the parser
+
+## Live run witnessed here (real weights, not a selftest)
+
+`benchmarks/results/session_pty_r715g_20260929.log` — a real pseudo-terminal, three typed
+turns, each typed only after the previous verdict reached the screen:
+
+```
+[t+  0.06s] flash session on <demo tree> against the oracle <demo tree>/t.py — one ask per line, …
+[t+ 20.78s] [turn 1] routed=small tier=big solved=True attempts=3 (13.5s) patches=1 refused=0 whole=0 outside=0
+[t+ 20.99s] [R-3.2] wrote money.py (+4 -1 lines)
+[t+ 28.95s] [turn 2] routed=small tier=small solved=True attempts=1 (5.7s) patches=1 refused=0 whole=0 outside=0
+```
+
+Child exit code 0 after 29.4s. This is the demo task, not a benchmark suite; the
+before/after claim about the loop's own value lives in SPEC's cross-tool panel, which is
+measured against the same served weights behind a token-counting proxy.
+
+## Download shapes, measured (dated, on the v0.0.1-era tree)
+
+`benchmarks/r75_sdist_battery_check.py` built one sdist and ran the whole battery against
+it twice, 2026-09-28. The packaging has not moved since; the code has, so these are the
+*shapes*, not this release's totals:
+
+- **shape A** — `pip install flash_coder-0.0.1.tar.gz`: `33/35` lines green in 13 min 22
+  s, rc 1, with `checks 1119  oracle 20  §6 total 1139  mutants 85`. The two red lines
+  are the TypeScript vectors refusing for want of the `ts` grammar, which is exactly what
+  a plain install should do.
+- **shape B** — after `pip install '…[ts]'`: `35/35` green in 13 min 14 s, rc 0,
+  `checks 1210  oracle 20  §6 total 1230  mutants 111`.
+- A wheel is package-only by design, so `flash selftest --all` from an installed wheel
+  exits 2 and says the verification surface did not come with it; `flash doctor` exits 1
+  and names the absent `benchmarks/`. Clone the repo (or unpack the sdist) to run the
+  battery.
+
+## Pre-publish sweep (this pass, printed 2026-10-05)
+
+`python benchmarks/publish_secret_scan.py` — working tree, every blob ever committed, and
+filename shapes:
+
+```
+publish sweep — 431 files in the working tree (1 of them not yet tracked) and 999 historical blobs, 7 credential families + filename shapes
+  matches accepted by name: 2   unlisted: 0
+  planted-secret proof: 8/8 families bite
+OK  no unlisted credential shape in the 431 files a push sends or in any of the 999 blobs ever committed, and 8/8 families proved they can bite.
+```
+
+Two matches accepted **by name**, each with the reason the scan prints: a literal
+`proxy-no-auth` string handed to a local token-counting server that authenticates nobody,
+and a base64 run inside an npm `sha512-…==` integrity digest. Every credential pattern is
+planted in the repo's own test fixtures so the scan has to bite — 8/8 families did — which
+is what makes the 0 findings a measurement instead of a blind spot. `host-path` identity
+appears 2083 times, and stays: those are documented policy lines, gated by
+`portable_paths_check.py` (15/15 + 7/7) so no published record under `benchmarks/results/`
+carries one.
 
 ---
 
-## Honesty Panel (What This Page Refuses to Print)
+## What this release does NOT claim
 
-### Open Gaps
-These are not blockers; they're honest bookings of what hasn't been measured here:
+Booked open, with the reason it is open. None of these are closed by rewording a gate.
 
-| Item | Status | Reason |
-|------|--------|--------|
-| **Live real-weights prose chat transcript** | OPEN | Offline sweep passes (81/81 + 26/26), but hasn't been witnessed running against actual weights. The README documents this explicitly. |
-| **Cursor / Copilot comparison** | OPEN | Neither tool is headless-capable on this machine, both generate in cloud under paid plans. R-7.13 booked as negative. |
-| **Linux / Windows installation** | GATED | MLX is Apple Silicon only. `pyproject.toml` marks the platform constraint, and the `--backend-free` lane measures that shape: every module imports and 35 of 37 battery rows answer, with the two that reach the backend refusing by name rather than failing. What has still never happened is a full install run on a non-macOS machine. Documented in SPEC R-7.5 and R-7.16. |
-| **macOS CI battery job** | GATED | `ci.yml`'s `battery` job has never executed — the run that exposed the training-seam bug was `needs: static`-skipped by the red static job. Its first green on a real macos-14 runner is the proof, not this page. |
-| **Trained adapter vs frozen harness** | MEASURED NEGATIVE | R-6.4 trained arm 16/20 where base is 18/20. Booked as negative result in SPEC §5. Shuffled control 19/20 beat the trained arm. |
-| **Debug feedback gain (R-4.3)** | MEASURED NEGATIVE | 27/30 traceback vs 25/30 --debug. No measurable delta; --debug stays off by default. |
+| Item | Status | Why |
+|---|---|---|
+| A CI run printing the whole 37-line §6 re-read | OPEN | A hosted macos runner is not allowed to be cool enough to offer tournament width ≥ 2, and that row's precondition is a fact about the box. The local §6 print above is the whole-tree claim; CI's prints are per-lane. |
+| The two backend-bound rows measured *passing* on Linux | Impossible in that lane | A Linux install has no backend to load; the lane names them as refused. |
+| Prose chat transcript against real weights, beyond the demo task | OPEN | 81/81 + 26/26 offline, and one pseudo-terminal demo; no wider live transcript. |
+| Linux/Windows **generation** | GATED, not claimed | MLX is Apple Silicon only; everything except generation installs and runs there. A PC port is a model-layer port plus a full re-measure. |
+| Trained adapter vs frozen harness (R-6.4) | MEASURED NEGATIVE | 16/20 trained vs 18/20 base on the frozen suite; the shuffled control at 19/20 beat it. Training work is deferred by the maintainer. |
+| `--debug` feedback gain (R-4.3) | MEASURED NEGATIVE | 27/30 traceback vs 25/30 `--debug`; no measurable delta, so `--debug` stays off by default. |
+| Cursor / Copilot cloud arms (R-7.13) | OPEN | Neither is headless-capable here and both bill a paid account; the comparison would not be like-for-like. |
+| 16 GB co-residency, watts/task, 24 h chaos, 10-developer week | OPEN | Needs hardware, sudo, hours and people this box does not have. |
 
-### Not Measured, But Intentional
-- No benchmark PNGs (fabricated dashboard set reverted in commit `69a4d2d`)
-- No "will N hours move the stat" claims (bounded scenarios from committed artifacts only)
-- No vendor figures pasted into tables
-
----
-
-## What Changed Since v0.0.1 (tagged 2026-09-28)
-
-**R-7.16** — the first CI run on a real Linux runner found a bug a Mac cannot see, and
-the release now carries the machinery that says so honestly:
-- **The training seam went offline for real.** `flash.train`'s slice-args checks were
-  argued against the *installed* `mlx-lm`; the library's 29 defaults are now recorded in
-  the module (proven `== mlx_lm.lora.CONFIG_DEFAULTS` on mlx-lm 0.31.3) and
-  `mlx_lora_defaults()` names which source it read. **36/36 checks in both lanes.**
-- **A lane that refuses instead of lying.** `--backend-free` prints a `REFUSED` line per
-  backend-bound row carrying the sentence that row died with, subtracts that row's own
-  counts, and exits 0 under a `NOT a §6 re-read` banner. Gated five ways: **49/49 checks,
-  15/15 mutants** — including the gate the ubuntu runner bought, which feeds the
-  installer both probe outcomes and demands each print its own blocker word.
-- **CI's tokenizer pre-warm.** Four scheduled nightlies died on a cold cache, not a failing
-  test; `ci.yml`'s macos `battery` job now caches and pre-warms the tokenizer's 7 files
-  (11M, no weights) and asserts `battery_reread --quick grammar` in isolation. The same
-  two steps for `nightly.yml` are written and deliberately held out of this release, so
-  the nightly's own failures stay open.
-
-The R-7.15h/g/f/e/c/b arc shipped in the same window:
-- **R-7.15h**: `flash session` answers in prose when no `--test` provided — it became a chat, not only a scorer. **81/81 checks, 26/26 mutants** offline.
-- **R-7.15c**: Patch arm can create whole new files (`# edit: newfile.py :: *`) or single symbols (`+Name`). **94/94 patches selftest, 65/65 patch landing, 28/28 mutants**.
-- **R-7.15g**: VERIFY grades patched copy when oracle names its own tree. Precedence line fixes bootstrap shadowing. **28/28 harness selftest**.
-- **R-7.15f**: The chat sees the project it's asked to patch (2129 → 2893 characters, both files included). All eight attempts addressed target module (zero refusals).
-- **R-7.15e**: Oracle-addressed patch refused before address resolution. One shared key function guards both patch gate and write-back gate. **71/71 patches, 53/53 landing**.
-- **R-7.15b**: Patch arm creates symbols (`# edit: file :: +Symbol`). Position extractor owns insertion point, two blank lines at top level. **63/63 patches, 52/52 ts_patch, 24/24 mutants**.
-- **R-7.15 clause 7**: Session reads turns as generator (one per line), prints `you>` marker, accepts answer before next keystroke. Pseudo-terminal driver `benchmarks/session_pty_demo.py` confirms **t+0.06s banner, t+2.15s prompt, t+19.22s verdict, t+19.43s next keystroke**.
-
-Total moved to **1,426 + 20 = 1,446** (§6 checks + oracle) and **171 mutants** on the
-37-line tree, then to **1,427 + 20 = 1,447** and **172 mutants** when the first ubuntu
-runner moved the gate that checked it, and to **1,429 + 20 = 1,449** on the same 172
-mutants when the third CI round moved a row that had nothing to do with a model:
-`flash power` read its memory size from one macOS-only source (22 → 24), and
-`flash.sandbox`'s vector asserted a jail only macOS ships (34 held at 34 by giving nine
-claims a second arm). Both now print the same fraction on the Mac and on the runner.
-
----
+No benchmark images (a fabricated dashboard set was reverted), no vendor figures pasted
+into a table, no projected number presented as measured.
 
 ## Dependencies
 
-- Python ≥ 3.11 (system python must be 3.11+, Homebrew/pyenv/uv OK)
-- MLX backends (Apple Silicon only): `mlx-lm>=0.31`, `mlx-vlm>=0.3` (optional, for vision tasks)
-- Tree-sitter TypeScript (optional): `tree-sitter`, `tree-sitter-typescript` — adds 44–55ms build time for 21 `.tsx/.ts` files
+- Python ≥ 3.11
+- MLX backends (Apple Silicon only): `mlx-lm>=0.31`, `mlx-vlm>=0.3` (optional, for vision)
+- TypeScript grammar (optional): `pip install -e .[ts]` — `tree-sitter`,
+  `tree-sitter-typescript`
+- `[dev]` pulls `pyflakes`, `pytest`, `build` **and** the `ts` grammar, because the
+  battery's two TypeScript rows are in the default run
 
-Install with:
-```bash
-pip install -e .                    # core + MLX on macOS
-pip install -e .[ts]                # + TypeScript grammar
-pip install -e .[dev]               # + dev tools (pyflakes, pytest, build, etc.)
-```
-
----
-
-## Known Issues
-
-None tracked. The three Dependabot CI-action bumps (PRs #3, #2, #1 —
-`actions/checkout` 4→7, `actions/cache` 4→6, `actions/upload-artifact` 4→7) were merged
-2026-10-03 and touch only the two workflow files; none of them changes a measured figure.
-
-Two things are open by their nature rather than by oversight: the live real-weights prose
-chat transcript above, and CI's macOS `battery` job, whose first green run has not happened
-yet. Both are measured rather than asserted in SPEC R-7.16.
-
----
-
-## License
-
-MIT License. See LICENSE file.
-
----
-
-**Notes on methodology**: Every number here comes from an executable witness file. If you see a figure that looks like it was typed, check `benchmarks/dashboard_data.py`'s WITNESS constant — if it's not sourced from a dated log printed by the driver, it shouldn't be on this page.
-
-This release follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format. Changes since v0.0.1 are also documented in CHANGELOG.md with full git-traceable history.
+MIT. See `LICENSE`. `SPEC.md` records which of its own gates measured NO, and
+`CHANGELOG.md` traces every claim here to the run that printed it.

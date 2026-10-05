@@ -8,6 +8,43 @@ versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-10-05 — the version moved; the tag has not been created
+
+**What the bump is.** `0.0.1` → `0.1.0` is one fact kept in four places, so they moved
+in this one commit: `flash/__init__.py`'s `__version__` (the only source `pyproject.toml`
+reads — it declares `dynamic = ["version"]`), the landing page's `VERSION` constant in
+`site/src/lib/site.ts`, the install line the page renders in
+`site/src/data/transcripts.json`, and these notes. The transcript was regenerated from a
+live `flash doctor` rather than edited, which is why it now carries `flash 0.1.0`
+because that is what the command printed. The `flash 0.0.1` occurrences in SPEC's R-7.5
+measurements, in the `[0.0.1]` section below, in TODO's closed boxes and in every witness
+under `benchmarks/results/` are **not** touched: each is a dated print of the tree that
+made it, and relabelling one would make a measurement false. `v0.0.1` still points at
+`6a0868b` and still will not be moved.
+
+**What the release carries.** Everything in this section — the R-7.16 CI rounds, the two
+platform-dialect rows fixed at the reading, the refused-row lane, the R-7.15h/g/f/e/c/b
+session arc, the TypeScript second language, the sdist/install-shape measurements. Its
+§6 totals are `checks 1429  oracle 20  §6 total 1449  mutants 172` over 37 vectors, read
+from the print and not from this file, and the `--backend-free` lane a Linux install
+gets prints `checks 1301  oracle 20  §6 total 1321  mutants 146` with its two backend
+rows refused by name.
+
+**What is proved, per platform.** CI is green on `37227171133`: `static (3.11)` 31m49s
+and `static (3.12)` 31m57s on ubuntu both run the lane (`backend_free_check` **49/49 +
+15/15**, then `battery_reread --backend-free`), and the macos-14 `battery` job — which
+had never executed before that run — came back in 27m35s with **36** `OK`, no `BAD`, and
+**1** row refused by name (`benchmarks/checkpoint_resume_check.py`, the §34.1 governor
+offering tournament width 1 where the arm needs ≥ 2), printing
+`checks 1394  oracle 20  §6 total 1414  mutants 172` under `NOT a §6 re-read`. That is
+1429 − 35, the refused row's own 35 checks subtracted by the rule that gates it, and its
+lines are kept in-tree as
+`benchmarks/results/ci_battery_macos_37227171133_20261005.log`. Two things are still
+open by nature, not by oversight: no CI run has printed the whole 37-line §6 re-read,
+because a hosted runner is not allowed to be cool enough for that row's precondition, and
+neither the tag nor any publication has happened — tagging `v0.1.0` is the user's call
+and has not been made.
+
 ### Added
 - **R-7.16: `--backend-free` now refuses the rows it genuinely cannot run, and says
   which cause killed them.** With `mlx`, `mlx_lm` and `mlx_vlm` unimportable in every
@@ -963,8 +1000,20 @@ versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   (`benchmarks/results/battery_reread_r716f_20261004.log`) and the lane **35** with the
   same two rows named `REFUSED`
   (`benchmarks/results/battery_backendfree_lane_r716f_20261004.log`), both lanes printing
-  `power 24/24` and `sandbox 34/34`. What this still does not buy is the
-  macos `battery` job, which `needs: static` has never let run.
+  `power 24/24` and `sandbox 34/34`. The next push bought the macos `battery` job:
+  run `37227171133` is green on all three jobs (`static (3.11)` 31m49s, `static (3.12)`
+  31m57s, `battery` on macos-14 in 27m35s), and that job's `flash selftest --all`
+  printed **36** `OK`, no `BAD` and **1** row refused by name —
+  `benchmarks/checkpoint_resume_check.py`, `machine — the §34.1 governor will not offer
+  tournament width >= 2 on this machine`, `this machine offers 1 (free memory 6.0GB <
+  6.9GB needed)` — on `checks 1394  oracle 20  §6 total 1414  mutants 172` under `NOT a
+  §6 re-read`. 1429 − 35 = 1394, that row's own 35 checks, so the runner's number is a
+  machine-shaped refusal, not a shortfall. Both rows fixed here answered on the runner:
+  `power 24/24`, `sandbox 34/34`
+  (`benchmarks/results/ci_battery_macos_37227171133_20261005.log`). What that run still
+  does not buy is a whole 37-line §6 re-read on a hosted runner — the runner is not
+  allowed to be cool enough to offer tournament width, which is a fact about the box,
+  not about this tree.
 - **R-7.9** `python -m flash.train --dry-run` writes nothing, on both of its
   branches. `--suite-from-dataset` was dispatched above the branch that honoured the
   flag, so a command typed to *avoid* touching the tree rewrote the tracked

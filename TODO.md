@@ -2007,10 +2007,19 @@ here rather than folded into P6's confidence work.
             (`battery_backendfree_lane_r716f_20261004.log`, 00:21:08 → 00:44:03), with
             `portable_paths_check` 15/15 and `documented_commands_check` 8/8 + 5/5 after
             the site data moved (`doc_gates_r716f_20261005.log`).
-      - [ ] [L] **Not closed here:** `ci.yml`'s `battery` job has still never executed —
-            `needs: static` skipped it on the run above — and the two refused rows have
-            never been measured *passing* on a Linux install, because a Linux install
-            cannot run them at all.
+      - [ ] [L] **Not closed here:** no CI run has yet printed the whole 37-line §6
+            re-read. The `battery` job itself has now executed — run `37227171133` is
+            green on all three jobs (`static (3.11)` 31m49s, `static (3.12)` 31m57s,
+            `battery` on macos-14 in 27m35s) and its `flash selftest --all` printed
+            **36** `OK`, no `BAD`, **1** row refused by name
+            (`benchmarks/checkpoint_resume_check.py`: the §34.1 governor offered width 1
+            where the tournament arm needs ≥ 2, `free memory 6.0GB < 6.9GB needed`) on
+            `checks 1394  oracle 20  §6 total 1414  mutants 172` under `NOT a §6
+            re-read` — 1429 − 35, that row's own 35 checks, in
+            `benchmarks/results/ci_battery_macos_37227171133_20261005.log`. A hosted
+            runner is not allowed to be cool enough to satisfy that precondition. And
+            the two refused rows have still never been measured *passing* on a Linux
+            install, because a Linux install cannot run them at all.
 - [ ] [V] [L] R-7.3 voice: real-microphone arm, VAD barge-in, ≥ 90% command
       recognition over 50 utterances.
 - [ ] [V] [L] M17 feel test: ≥ 7 of 10 developers keep it after a week.
