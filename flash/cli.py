@@ -13,7 +13,7 @@ import sys
 from pathlib import Path
 
 import flash
-from flash.backend import NoBackend
+from flash.backend import NoBackend, NoFeature
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_MODEL = "mlx-community/Qwen2.5-Coder-7B-Instruct-4bit"
@@ -1340,22 +1340,38 @@ def build_parser() -> argparse.ArgumentParser:
                     help="print the package version and exit")
     sub = ap.add_subparsers(dest="cmd", required=True)
 
-    p = sub.add_parser("decide", help="one typed decision, one forward pass")
+    # R-7.17d: one parent parser for `--backend`, attached to every command that
+    # makes a model answer. A parent rather than a line per subcommand because the
+    # property that matters is that NO generating command can be added without it,
+    # and because `--backend auto` must mean the same thing in all of them. The
+    # default is `auto`, never a named library: a run that silently used a
+    # different backend than the one a published number came from is a wrong
+    # measurement, so the choice is printed in the trace and in `flash doctor`.
+    gen = argparse.ArgumentParser(add_help=False)
+    gen.add_argument("--backend", choices=("auto", "mlx", "llama.cpp"),
+                     default="auto",
+                     help="which model library answers: `mlx` (Apple Silicon; the "
+                          "backend every number in this repo was measured on), "
+                          "`llama.cpp` (a local GGUF — the route for Linux, Windows "
+                          "and any non-Apple box), or `auto` = the first that "
+                          "imports, MLX preferred")
+
+    p = sub.add_parser("decide", parents=[gen], help="one typed decision, one forward pass")
     p.add_argument("context")
     p.add_argument("--options", nargs="+", required=True)
     p.add_argument("--model", default=DEFAULT_MODEL)
     p.set_defaults(fn=cmd_decide)
 
-    p = sub.add_parser("decide-batch", help="run the built-in routing demo")
+    p = sub.add_parser("decide-batch", parents=[gen], help="run the built-in routing demo")
     p.add_argument("--model", default=DEFAULT_MODEL)
     p.set_defaults(fn=cmd_decide_batch)
 
-    p = sub.add_parser("route-test", help="route m0+m2 tasks small-vs-big vs known labels")
+    p = sub.add_parser("route-test", parents=[gen], help="route m0+m2 tasks small-vs-big vs known labels")
     p.add_argument("--model", default=DEFAULT_MODEL)
     p.add_argument("--max-chars", type=int, default=4000)
     p.set_defaults(fn=cmd_route_test)
 
-    p = sub.add_parser("solve-all", help="ACT->VERIFY->retry loop over all tasks")
+    p = sub.add_parser("solve-all", parents=[gen], help="ACT->VERIFY->retry loop over all tasks")
     p.add_argument("--model", default=DEFAULT_MODEL)
     p.add_argument("--attempts", type=int, default=3)
     p.add_argument("--max-tasks", type=int, default=20)
@@ -1366,12 +1382,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--max-chars", type=int, default=4000)
     p.set_defaults(fn=cmd_solve_all)
 
-    p = sub.add_parser("escalate-test", help="small->big hot-swap escalation demo")
+    p = sub.add_parser("escalate-test", parents=[gen], help="small->big hot-swap escalation demo")
     p.add_argument("--small", default=DEFAULT_MODEL)
     p.add_argument("--big", default="mlx-community/Qwen3-30B-A3B-Instruct-2507-4bit")
     p.set_defaults(fn=cmd_escalate_test)
 
-    p = sub.add_parser("router-fit", help="M3: fit learned router on the ledger (leave-one-out report)")
+    p = sub.add_parser("router-fit", parents=[gen], help="M3: fit learned router on the ledger (leave-one-out report)")
     p.add_argument("--small", default="mlx-community/Qwen2.5-Coder-7B-Instruct-4bit")
     p.set_defaults(fn=cmd_router_fit)
 
@@ -1381,7 +1397,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(fn=cmd_ledger)
 
 
-    p = sub.add_parser("run", help="full policy on one task: PERCEIVE->ROUTE->small->ESC")
+    p = sub.add_parser("run", parents=[gen], help="full policy on one task: PERCEIVE->ROUTE->small->ESC")
     p.add_argument("prompt")
     p.add_argument("--test", required=True, help="file with asserts verifying the solution")
     p.add_argument("--context", help="repo path whose skeleton is injected (M2)")
@@ -1438,7 +1454,7 @@ def build_parser() -> argparse.ArgumentParser:
                         "run can be re-fed to a model")
     p.set_defaults(fn=cmd_run)
 
-    p = sub.add_parser("session", help="many turns against one repo — scored by "
+    p = sub.add_parser("session", parents=[gen], help="many turns against one repo — scored by "
                                        "an oracle, or a chat that answers in "
                                        "prose; every turn ends in an answer")
     p.add_argument("--test", default=None,
@@ -1485,7 +1501,7 @@ def build_parser() -> argparse.ArgumentParser:
                    help="§33.6: store the exact prompts and outputs of every turn")
     p.set_defaults(fn=cmd_session)
 
-    p = sub.add_parser("run-suite", help="full policy over a suite (cost report)")
+    p = sub.add_parser("run-suite", parents=[gen], help="full policy over a suite (cost report)")
     p.add_argument("--small", default=DEFAULT_MODEL)
     p.add_argument("--big", default="mlx-community/Qwen3-30B-A3B-Instruct-2507-4bit")
     p.add_argument("--tasks", default=None, help="jsonl path (default: m0 suite)")
@@ -1534,7 +1550,7 @@ def build_parser() -> argparse.ArgumentParser:
                    help="§33.6: store exact prompts/outputs too, for re-feeding")
     p.set_defaults(fn=cmd_run_suite)
 
-    p = sub.add_parser("resume", help="§33.7: continue an interrupted suite from its "
+    p = sub.add_parser("resume", parents=[gen], help="§33.7: continue an interrupted suite from its "
                                       "trace snapshot (parameters come from the session)")
     p.add_argument("session", nargs="?", default=None, help="trace session id "
                        "(default: the newest interrupted run-suite session)")
@@ -1578,7 +1594,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--max-tasks", type=int, default=999)
     p.set_defaults(fn=cmd_run_vis_suite)
 
-    p = sub.add_parser("solve", help="solve one ad-hoc task (M2: --context injects repo skeleton)")
+    p = sub.add_parser("solve", parents=[gen], help="solve one ad-hoc task (M2: --context injects repo skeleton)")
     p.add_argument("prompt")
     p.add_argument("--test", help="file with asserts verifying the solution")
     p.add_argument("--context", help="repo path whose skeleton is injected into the prompt")
@@ -1643,7 +1659,7 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("lsp-selftest", help="§33.1: deterministic perception checks")
     p.set_defaults(fn=cmd_lsp_selftest)
 
-    p = sub.add_parser("learn", help="§34.3: gated, resumable background learning "
+    p = sub.add_parser("learn", parents=[gen], help="§34.3: gated, resumable background learning "
                                      "(router refit; --lora for weights)")
     p.add_argument("--small", default=DEFAULT_MODEL)
     p.add_argument("--budget", type=float, default=900.0,
@@ -1734,6 +1750,14 @@ def main() -> int:
             ap.error(f"unrecognized arguments: {' '.join(extra)}")
         args.rest = [*args.rest, *extra]
     try:
+        # R-7.17d: `--backend` is applied at dispatch, in front of the command, so
+        # a flag naming a library this box cannot run is refused before a model
+        # loads, a trace opens or a token is spent. `auto` resolves NOTHING here —
+        # the first model call chooses, which is what keeps `flash doctor` and the
+        # whole offline battery answerable on a box with no backend at all.
+        from flash import backend
+        if getattr(args, "backend", "auto") != "auto":
+            backend.use(args.backend)
         return args.fn(args)
     except NoBackend as e:
         # One catch, at the dispatch, so no command can be added that forgets the
@@ -1750,6 +1774,17 @@ def main() -> int:
         if trace.active():
             trace.close_session(solved=False, refused="no generation backend")
         print(str(e), file=sys.stderr)
+        return 2
+    except NoFeature as e:
+        # The backend answered; it just cannot enforce the thing this command was
+        # asked to do. Said and stopped, because a run that quietly dropped a
+        # contract would print the same trace keys as one that kept it. The session
+        # is closed the same way a refusal closes it, so `flash trace show` cannot
+        # read an interrupted-but-resumable run out of a turn that never started.
+        from flash import trace
+        if trace.active():
+            trace.close_session(solved=False, refused="backend cannot do this")
+        print(f"flash: {e}", file=sys.stderr)
         return 2
 
 

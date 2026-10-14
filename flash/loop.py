@@ -114,29 +114,27 @@ def _generate(model, tokenizer, messages: list[dict], max_tokens: int,
               task_id: str = "", attempt: int = 0,
               contract=None) -> str:
     from flash import backend
-    backend.require("mlx_lm", "mlx_lm.sample_utils")
-    from mlx_lm import generate
-    from mlx_lm.sample_utils import make_sampler
     from flash import checkpoint
-    prompt = tokenizer.apply_chat_template(messages, tokenize=False,
-                                           add_generation_prompt=True)
+    # R-7.17d: every library call below belongs to the backend that loaded this
+    # pair. `backend.require` moved with them — it is now the first line inside the
+    # MLX methods rather than the first line here, so an MLX run refuses exactly as
+    # it always did and a llama.cpp run is never asked for MLX at all.
+    be = backend.owner(model)
+    prompt = be.format(tokenizer, messages)
     # attempt 1 greedy (deterministic); retries sample — otherwise feedback
     # retries produce the IDENTICAL wrong code (discovered live on M5, App. A)
-    sampler = make_sampler(temp=temp) if temp > 0 else None
+    sampler = be.sampler(temp)
     if temp > 0 and seed is not None:
         # Per-attempt RNG seed (live find, run7 mw3/mw4): unseeded temp>0
         # retries came back byte-identical to attempt 1, so the feedback loop
         # burned attempts re-sampling the same wrong code. Seeding by attempt
         # index makes each retry draw from a different stream.
-        import mlx.core as mx
-        mx.random.seed(seed)
+        be.seed(seed)
     # R-4.2: a contract turns the output protocol into a per-step token mask.
     # Never combine with a draft model — speculative decoding rejects tokens
-    # the DFA has already consumed (flash.grammar docstring).
-    guard = None
-    if contract is not None:
-        from flash.grammar import ConstrainedSampler
-        guard = ConstrainedSampler(contract, tokenizer)
+    # the DFA has already consumed (flash.grammar docstring). A backend with no
+    # per-step hook refuses the mask by name rather than generating without it.
+    guard = be.guard(contract, tokenizer)
     # R-5.3: this is the one place a dead run's work comes back. `resume` folds
     # whatever the killed process had already decoded into the prompt, so the
     # continuation is conditioned on that text and never re-decodes it; the ids
@@ -155,35 +153,30 @@ def _generate(model, tokenizer, messages: list[dict], max_tokens: int,
     span = checkpoint.active(task_id, attempt) is not None
     t0 = time.perf_counter()
     # A checkpointed span streams, because a recovery that only writes its
-    # checkpoint when the answer is finished has nothing to recover. Unarmed,
-    # this stays on mlx's `generate` — which is a loop over `stream_generate`
-    # concatenating `response.text` (mlx_lm/generate.py), so the two paths
-    # cannot disagree on bytes; only the armed run pays the per-token hook.
+    # checkpoint when the answer is finished has nothing to recover. Unarmed, this
+    # stays on the backend's one-shot call — for MLX that is `mlx_lm.generate`,
+    # which is a loop over `stream_generate` concatenating `response.text`
+    # (mlx_lm/generate.py), so the two paths cannot disagree on bytes; only the
+    # armed run pays the per-token hook.
     if not span or max_tokens == 0:
-        out = (generate(model, tokenizer, prompt=prompt, max_tokens=max_tokens,
-                        verbose=False, sampler=sampler,
-                        logits_processors=[guard] if guard else None)
-               if max_tokens else "")
+        gen = be.generate(model, tokenizer, prompt, max_tokens, sampler, guard)
     else:
-        from mlx_lm import stream_generate
-        out = ""
-        for r in stream_generate(model, tokenizer, prompt=prompt,
-                                 max_tokens=max_tokens, sampler=sampler,
-                                 logits_processors=[guard] if guard else None):
-            out += r.text
-            checkpoint.note(r.token, r.text, t0)
+        text = ""
+        for tok_id, piece in be.stream(model, tokenizer, prompt, max_tokens,
+                                       sampler, guard):
+            text += piece
+            checkpoint.note(tok_id, piece, t0)
+        gen = be.result(text, guard)
     if span:
         checkpoint.fold(task_id, attempt)
-    if guard is not None:
-        out = out + guard.finish()     # deterministic repair of a cut block
-    out = carried + out
+    out = carried + gen.text
     trace.event("generate", task_id=task_id or None, attempt=attempt, temp=temp,
                 max_tokens=max_tokens, ms=round((time.perf_counter() - t0) * 1000),
                 prompt_tokens=trace.n_tokens(tokenizer, prompt),
                 completion_tokens=trace.n_tokens(tokenizer, out),
-                constrained=guard is not None,
-                mask_steps=guard.steps if guard else None,
-                mask_breaches=guard.illegal_picks if guard else None,
+                constrained=gen.constrained,
+                mask_steps=gen.mask_steps,
+                mask_breaches=gen.mask_breaches,
                 resumed_tokens=resumed or None,
                 checkpointed=span or None,
                 prompt=prompt if trace.CAPTURE else None,
@@ -692,9 +685,7 @@ def solve_with_escalation(small_repo: str, big_repo: str, task: dict,
     *when* to escalate instead of a fixed attempt count.
     """
     from flash import backend
-    backend.require("mlx.core", "mlx_lm")
-    import mlx.core as mx
-    from mlx_lm import load
+    be = backend.selected()
 
     model, tok = load_model(small_repo)
     r_small = solve(model, tok, task, max_attempts=small_attempts,
@@ -702,13 +693,13 @@ def solve_with_escalation(small_repo: str, big_repo: str, task: dict,
     if r_small.solved:
         return r_small, "small"
     del model, tok
-    mx.clear_cache()                     # hot-swap: free before loading big
+    be.idle()                          # hot-swap: free before loading big
 
-    model, tok = load(big_repo)
+    model, tok = be.load_model(big_repo)
     r_big = solve(model, tok, task, max_attempts=big_attempts,
                   max_tokens=max_tokens)
     del model, tok
-    mx.clear_cache()
+    be.idle()
     r_big.attempts = r_small.attempts + r_big.attempts   # full audit trail
     r_big.seconds = round(r_small.seconds + r_big.seconds, 1)
     return r_big, ("big" if r_big.solved else "failed")
@@ -744,18 +735,16 @@ def adapter_path(name: str | None = None) -> str | None:
 
 
 def load_model(repo: str, adapter: str | None = None):
-    """mlx load for one tier, with that tier's adapter on top when it has one.
+    """One tier on the backend this process chose, adapter on top when it has one.
 
     Only the small tier is ever adapter-carrying: these weights were fit on the
     small model's own verified outcomes, and a 7B's LoRA over the 30B brain is a
     different claim from the one R-6.4 makes.
     """
     from flash import backend
-    backend.require("mlx.core", "mlx_lm")
-    from mlx_lm import load
 
     ad = adapter_path(adapter)
-    return load(repo, adapter_path=ad) if ad else load(repo)
+    return backend.selected().load_model(repo, ad)
 
 
 def model_label(repo: str, adapter: str | None = None) -> str:
@@ -879,9 +868,12 @@ def solve_routed(small_repo: str, big_repo: str, task: dict, root,
     tier or the verdict: the offer is for a human, or for a later policy.
     """
     from flash import backend
-    backend.require("mlx.core", "mlx_lm")
-    import mlx.core as mx
-    from mlx_lm import load
+    # R-7.17d: this is the one place a routed run chooses a library, and it chooses
+    # before any tokenizer work — a box with no backend at all gets `flash`'s
+    # sentence here rather than a failure three generations deep. `be` then serves
+    # every hot-swap below, so a llama.cpp run frees its own context between tiers
+    # instead of asking MLX to clear a cache it never filled.
+    be = backend.selected()
     from flash import ledger, power
     from flash.route import route_task, tier_name
 
@@ -917,7 +909,7 @@ def solve_routed(small_repo: str, big_repo: str, task: dict, root,
         r = solve_chat(model, tok, task, max_attempts=small_attempts,
                        max_tokens=max_tokens)
         del model, tok
-        mx.clear_cache()
+        be.idle()
         tier = "small" if r.solved else "failed"
         with_conf(r)
         ledger.record({**entry, "chat": True,
@@ -945,6 +937,16 @@ def solve_routed(small_repo: str, big_repo: str, task: dict, root,
     route_p = None
     route_why = None
     router = _load_router()
+    if router is not None and not be.supports.get("embed"):
+        # The learned router scores an MLX hidden state, and a backend without
+        # `embed` has none to give. That goes in the SAME `route_why` field a
+        # dimension mismatch already uses, so a reader of the ledger sees a named
+        # reason the learned score is absent rather than a number that went missing;
+        # the decision fabric's `routed` above stands on its own, as it did before
+        # the router existed.
+        route_why = (f"{be.name}: the learned router scores MLX hidden states and "
+                     "this backend exposes none — routed on the decision fabric")
+        router = None
     if router is not None:
         from flash.learn import bundle_labels, embed_text, probe_pool, route_score
         fit_repo, _ = bundle_labels(router)
@@ -989,8 +991,8 @@ def solve_routed(small_repo: str, big_repo: str, task: dict, root,
                         tier="big", why=big_why)
         else:
             del model, tok
-            mx.clear_cache()
-            model, tok = load(big_repo)
+            be.idle()
+            model, tok = be.load_model(big_repo)
             # Multi-file outputs are larger and riskier; give big-direct the same
             # repair budget a reactive path would still have left (mw4 needed a
             # 3rd attempt: syntax fixed on 2, one-char semantic bug on 3).
@@ -998,7 +1000,7 @@ def solve_routed(small_repo: str, big_repo: str, task: dict, root,
             r = solve(model, tok, task, big_attempts + extra, max_tokens,
                       stage="big")
             del model, tok
-            mx.clear_cache()
+            be.idle()
             tier = "big" if r.solved else "failed"
             if not r.solved:                 # diagnose big-direct failures too
                 entry["fail_output"] = fail_output(r)
@@ -1041,21 +1043,21 @@ def solve_routed(small_repo: str, big_repo: str, task: dict, root,
                        "solved": False, "attempts": r_small.n_attempts,
                        "seconds": r_small.seconds})
         del model, tok
-        mx.clear_cache()
+        be.idle()
         return r_small, "shed", routed
     entry["fail_output"] = fail_output(r_small)   # feature: WHY small failed
     del model, tok
-    mx.clear_cache()                         # hot-swap: free before big loads
+    be.idle()                            # hot-swap: free before big loads
 
     trace.event("escalation", task_id=task["id"], denied=False, tier="big",
                 reason=f"small failed after {r_small.n_attempts} attempt(s)")
-    model, tok = load(big_repo)
+    model, tok = be.load_model(big_repo)
     # stage="big" is not decoration: the frame identity is (task, arm, stage,
     # attempt), and a big tier that labels itself small both clobbers the small
     # tier's frame and makes the `resumed == "big"` skip above unreachable.
     r_big = solve(model, tok, task, big_attempts, max_tokens, stage="big")
     del model, tok
-    mx.clear_cache()
+    be.idle()
     r_big.attempts = r_small.attempts + r_big.attempts   # full audit trail
     r_big.seconds = round(r_small.seconds + r_big.seconds, 1)
     tier = "big" if r_big.solved else "failed"

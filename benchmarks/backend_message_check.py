@@ -407,16 +407,18 @@ def run_gates() -> None:
 #: (label, [(path, old, new)]) — each restores a plausible-looking way to ship
 #: the original defect.
 MUTANTS = {
-    "guard_removed": ("the routed solver imports mlx with no probe in front of "
-                      "it — the shipped defect, restored",
-                      [("flash/loop.py",
-                        '    backend.require("mlx.core", "mlx_lm")\n'
-                        '    import mlx.core as mx\n'
-                        '    from mlx_lm import load\n'
-                        '    from flash import ledger, power',
-                        '    import mlx.core as mx\n'
-                        '    from mlx_lm import load\n'
-                        '    from flash import ledger, power')]),
+    "guard_removed": ("the load site imports mlx with no probe in front of it — "
+                      "the shipped defect, restored one notch lower now that the "
+                      "probe lives in the seam: `selected()` stops asking the box "
+                      "what it can run, and the MLX loader goes back to a bare "
+                      "`from mlx_lm import load`",
+                      [("flash/backend.py",
+                        '    if _FORCED:\n        return REGISTRY[_FORCED]\n',
+                        '    return REGISTRY["mlx"]\n'),
+                       ("flash/backend.py",
+                        '        require("mlx.core", "mlx_lm")\n'
+                        '        from mlx_lm import load as _load\n',
+                        '        from mlx_lm import load as _load\n')]),
     "catch_removed": ("main() catches the wrong exception, so the user sees a "
                       "stack trace again",
                       [("flash/cli.py", "    except NoBackend as e:",
