@@ -425,6 +425,7 @@ def session_copy(**knob):
         rows: list[list] = []
         last_ask = ""
         in_flight = 0
+        killed = 0
         interrupted = False
 
         def run_turn(prompt: str) -> None:
@@ -529,13 +530,15 @@ def session_copy(**knob):
         except KeyboardInterrupt:
             interrupted = True
             if in_flight:
+                killed = in_flight
                 print(f"\nsession: turn {in_flight} was interrupted — it is not "
                       "counted and nothing was verified")
                 ran -= 1
         if not ran:
             if interrupted:
-                print("session: interrupted at the prompt — no turn was asked, "
-                      "so nothing was verified")
+                if not killed:
+                    print("session: interrupted at the prompt — no turn was "
+                          "asked, so nothing was verified")
                 trace.close_session(solved=False, turns=0, interrupted=True)
                 return 130
             print("session: no turns on stdin — nothing was asked, so nothing "

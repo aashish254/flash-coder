@@ -539,6 +539,10 @@ def cmd_session(args) -> int:
     last_ask: str = ""
     # The turn a Ctrl-C would find mid-flight, and therefore must not count.
     in_flight: int = 0
+    # Which turn the signal killed, so the report below can tell "interrupted at
+    # the prompt" from "interrupted during the only turn" instead of claiming no
+    # ask was ever made.
+    killed: int = 0
     interrupted = False
 
     def run_turn(prompt: str) -> None:
@@ -639,13 +643,17 @@ def cmd_session(args) -> int:
         # conversation has no suite to resume.
         interrupted = True
         if in_flight:
+            killed = in_flight
             print(f"\nsession: turn {in_flight} was interrupted — it is not "
                   "counted and nothing was verified")
             ran -= 1
     if not ran:
         if interrupted:
-            print("session: interrupted at the prompt — no turn was asked, so "
-                  "nothing was verified")
+            # A killed first turn is not "no turn was asked": the ask reached the
+            # program and the sentence above already said what happened to it.
+            if not killed:
+                print("session: interrupted at the prompt — no turn was asked, "
+                      "so nothing was verified")
             trace.close_session(solved=False, turns=0, interrupted=True)
             return 130
         # Nothing was ever asked, so nothing was ever generated: a session that

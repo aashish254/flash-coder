@@ -535,6 +535,12 @@ def run_gates() -> None:
        ifirst["rc"] == 130 and "[session]" not in ifirst["out"]
        and last(ifirst["records"], "session_end").get("turns") == 0,
        ifirst["out"][-160:])
+    ck("…and it does not then contradict itself: the ask reached the program and "
+       "was killed, so a second sentence claiming no turn was asked would rewrite "
+       "what the reader just watched",
+       "turn 1 was interrupted" in ifirst["out"]
+       and "no turn was asked" not in ifirst["out"],
+       ifirst["out"][-160:])
 
     # ---------------------------------------------------------- the mirror & blast
     text = (BDIR / "session_check.py").read_text()
@@ -646,6 +652,11 @@ MUTANTS = {
                                          "verified nothing is reported as a turn",
                                          [("flash/cli.py",
                                            "            ran -= 1\n", "")]),
+    "interrupt_denies_the_ask": ("a killed first turn is reported as a session "
+                                 "nobody typed into — the second sentence "
+                                 "contradicts the one above it",
+                                 [("flash/cli.py", "            if not killed:",
+                                   "            if True:")]),
     "copy_drops_the_liveness_line": ("the shipped command moves and the parity "
                                      "copy does not, so `agree()` starts "
                                      "greenlighting an older session",
