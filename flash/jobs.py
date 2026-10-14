@@ -179,6 +179,8 @@ def run_fit(small_repo: str, budget_s: float = BUDGET_S, chunk: int = CHUNK,
 
     own_embed = embed_fn is None
     if own_embed:
+        from flash import backend
+        backend.require("mlx.core", "mlx_lm")
         from mlx_lm import load
         import mlx.core as mx
         model, tok = load(small_repo)

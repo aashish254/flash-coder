@@ -159,6 +159,18 @@ def backend() -> dict:
     return out
 
 
+def backend_line(be: dict) -> str:
+    """The one sentence the backend answer makes.
+
+    Shared by this report and by every refusal `flash.backend` prints, because a
+    user told to "check `flash doctor`" should read the same words there. Two
+    copies of this string is two chances for them to disagree.
+    """
+    return ("MLX backend: " + (f"mlx {be['mlx']}, mlx_lm {be['mlx_lm']}"
+                               if be["has_backend"]
+                               else f"NOT available — {be['error']}"))
+
+
 def model_cache() -> dict:
     """Which §22 candidates are already on disk, so a download is not a surprise."""
     hub = Path(os.environ.get("HF_HOME")
@@ -248,10 +260,7 @@ def verdict(a: dict) -> list[tuple[str, bool | None, str]]:
          "verification surface beside the package: benchmarks/"
          + (f" present, {sh['tasks']} task corpora" if sh["has_benchmarks"]
             else " ABSENT")),
-        ("backend", be["has_backend"],
-         "MLX backend: " + (f"mlx {be['mlx']}, mlx_lm {be['mlx_lm']}"
-                            if be["has_backend"]
-                            else f"NOT available — {be['error']}")),
+        ("backend", be["has_backend"], backend_line(be)),
         ("machine", py_ok,
          f"python {ma['python']} · {ma['platform']}/{ma['machine']} · {ma['os']}"
          + ("" if py_ok else f" — this project needs {'.'.join(map(str, PY_FLOOR))}+")),

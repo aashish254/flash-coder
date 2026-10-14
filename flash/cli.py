@@ -13,6 +13,7 @@ import sys
 from pathlib import Path
 
 import flash
+from flash.backend import NoBackend
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_MODEL = "mlx-community/Qwen2.5-Coder-7B-Instruct-4bit"
@@ -37,7 +38,7 @@ CATEGORIES = ["bugfix", "feature", "refactor", "docs"]
 
 
 def cmd_decide(args) -> int:
-    from mlx_lm import load
+    from flash.backend import load
     from flash.decide import decide
 
     model, tok = load(args.model)
@@ -49,7 +50,7 @@ def cmd_decide(args) -> int:
 
 
 def cmd_decide_batch(args) -> int:
-    from mlx_lm import load
+    from flash.backend import load
     from flash.decide import decide
 
     model, tok = load(args.model)
@@ -106,7 +107,7 @@ def cmd_ledger(args) -> int:
 
 def cmd_route_test(args) -> int:
     """Route m0+m2 tasks small-vs-big, scored against hardware-proven labels."""
-    from mlx_lm import load
+    from flash.backend import load
     from flash.context import digest
     from flash.harness import load_tasks
     from flash.route import route_task, tier_name
@@ -136,7 +137,7 @@ def cmd_route_test(args) -> int:
 
 
 def cmd_solve_all(args) -> int:
-    from mlx_lm import load
+    from flash.backend import load
     from flash.harness import load_tasks
     from flash.loop import solve
 
@@ -943,7 +944,7 @@ def cmd_run_vis_suite(args) -> int:
 
 def cmd_solve(args) -> int:
     """Solve one ad-hoc task, optionally with repo context injected (M2)."""
-    from mlx_lm import load
+    from flash.backend import load
     from flash.loop import solve
 
     prompt = args.prompt
@@ -1566,7 +1567,24 @@ def main() -> int:
         if not hasattr(args, "rest"):
             ap.error(f"unrecognized arguments: {' '.join(extra)}")
         args.rest = [*args.rest, *extra]
-    return args.fn(args)
+    try:
+        return args.fn(args)
+    except NoBackend as e:
+        # One catch, at the dispatch, so no command can be added that forgets the
+        # refusal. The traceback this replaces is what a Linux user actually hit:
+        # `flash session` dying inside flash.loop's import of mlx.core, on a box
+        # where README promises a sentence naming MLX instead (SPEC R-7.7).
+        #
+        # The session is closed here rather than left open, because §33.7 reads an
+        # unclosed trace as a suite to RESUME: a refusal that left `session_start`
+        # with no `session_end` would advertise a run that never started. The
+        # record says `refused`, so `flash trace show` cannot mistake it for a
+        # turn that was attempted and failed.
+        from flash import trace
+        if trace.active():
+            trace.close_session(solved=False, refused="no generation backend")
+        print(str(e), file=sys.stderr)
+        return 2
 
 
 if __name__ == "__main__":

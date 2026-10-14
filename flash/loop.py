@@ -113,6 +113,8 @@ def _generate(model, tokenizer, messages: list[dict], max_tokens: int,
               temp: float = 0.0, seed: int | None = None,
               task_id: str = "", attempt: int = 0,
               contract=None) -> str:
+    from flash import backend
+    backend.require("mlx_lm", "mlx_lm.sample_utils")
     from mlx_lm import generate
     from mlx_lm.sample_utils import make_sampler
     from flash import checkpoint
@@ -689,6 +691,8 @@ def solve_with_escalation(small_repo: str, big_repo: str, task: dict,
     serialized, we never hold both. Later (§32 D2) a decision model picks
     *when* to escalate instead of a fixed attempt count.
     """
+    from flash import backend
+    backend.require("mlx.core", "mlx_lm")
     import mlx.core as mx
     from mlx_lm import load
 
@@ -746,6 +750,8 @@ def load_model(repo: str, adapter: str | None = None):
     small model's own verified outcomes, and a 7B's LoRA over the 30B brain is a
     different claim from the one R-6.4 makes.
     """
+    from flash import backend
+    backend.require("mlx.core", "mlx_lm")
     from mlx_lm import load
 
     ad = adapter_path(adapter)
@@ -872,6 +878,8 @@ def solve_routed(small_repo: str, big_repo: str, task: dict, root,
     you actually verify" is the same question either way. It never changes the
     tier or the verdict: the offer is for a human, or for a later policy.
     """
+    from flash import backend
+    backend.require("mlx.core", "mlx_lm")
     import mlx.core as mx
     from mlx_lm import load
     from flash import ledger, power
