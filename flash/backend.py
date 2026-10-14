@@ -738,7 +738,8 @@ def selected() -> Backend:
     backend to have tried, "MLX is not installable here" is only half of what the
     user needs to read.
     """
-    return REGISTRY["mlx"]
+    if _FORCED:
+        return REGISTRY[_FORCED]
     misses = []
     for key in ORDER:
         be = REGISTRY[key]
