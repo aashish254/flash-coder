@@ -371,6 +371,98 @@ def _read_turns(stream, limit: int = 0, prompt: str = ""):
             return
 
 
+def _working_line(args, turn: int, use_oracle: bool) -> str:
+    """What a session prints when a turn STARTS, while the turn is still working.
+
+    A turn is a model load, a generation and an oracle run — a minute or more on
+    this box — and the `[turn N]` verdict only exists after all three, so it can
+    only ever report the past. Without a line at the point the wait begins the
+    terminal shows a cursor and nothing else, which reads as hung exactly where
+    the process is most alive.
+
+    It is deliberately not shaped like a verdict: no `tier=`, no `solved=`, and
+    not prefixed `[turn `. The verdict is the only line that may claim the oracle
+    passed, and `benchmarks/session_pty_demo.py` types the next ask on seeing
+    `solved=` in the terminal — a promise wearing that shape would drive itself.
+    """
+    cap = f"/{args.turns}" if args.turns else ""
+    esc = ", big tier on failure" if args.allow_big != "never" else ""
+    if use_oracle:
+        return (f"[working] turn {turn}{cap} — generating: small tier first, "
+                f"up to {args.attempts} attempt(s) per tier{esc}, "
+                f"grading against {args.test}")
+    return (f"[working] turn {turn}{cap} — generating: small tier first, "
+            f"up to {args.attempts} attempt(s) per tier{esc}, "
+            "no oracle (chat mode), answering in prose")
+
+
+#: The in-session commands (R-7.17b). A line starting with `/` is one of these,
+#: so `/help` is how a keyboard user finds out what the other three are.
+SESSION_COMMANDS = ("/help", "/quit", "/save", "/retry")
+
+
+def _session_help(use_oracle: bool) -> str:
+    """"/help": the four commands and what a turn is, in the session's own words.
+
+    The mode sentence is here rather than only in the banner because the banner
+    scrolls away under the first answer; a reader mid-session who has forgotten
+    whether anything is being verified can ask again.
+    """
+    return "\n".join([
+        "session commands — a line starting with `/` is a command, not an ask:",
+        "  /help          this list",
+        "  /quit          end the session (same as `quit`, `exit`, `q` or Ctrl-D)",
+        "  /save <file>   write every ask and answer so far to <file>",
+        "  /retry         ask the last turn again: after a failed one, or a "
+        "mis-typed one",
+        "",
+        ("  each turn is graded against the oracle named by --test; a turn that "
+         "fails prints\n  the oracle's own words under `oracle|`, and the tier "
+         "that answered is on the\n  `[turn N]` line."
+         if use_oracle else
+         "  no oracle is loaded (chat mode): answers are prose, new files are "
+         "written,\n  and nothing is verified.")])
+
+
+def _save_transcript(name: str, rows: list, args, use_oracle: bool) -> None:
+    """/save <file>: the conversation, not the trace.
+
+    The trace is already on disk (§33.6) and is a JSONL a person does not read;
+    what they want out of a session is the asks and the answers, which is what
+    lands here. The oracle is refused by path, not by name — a session's `/save`
+    over its own `--test` would silently change what later turns are graded
+    against, which is the one write R-3.2 exists to forbid.
+    """
+    if not name:
+        print("session: /save wants a file — `/save notes.md` writes every ask "
+              "and answer so far")
+        return
+    if not rows:
+        print("session: /save has nothing to write yet — no turn has answered")
+        return
+    target = Path(name).expanduser()
+    if use_oracle:
+        try:
+            if target.resolve() == Path(args.test).resolve():
+                print(f"session: /save refuses to write over the oracle "
+                      f"{args.test} — the session grades every turn against it")
+                return
+        except OSError:                       # unresolvable path: let the write
+            pass                              # attempt report it in its own words
+    body = [f"# flash session on {args.context}",
+            (f"oracle: {args.test}" if use_oracle
+             else "chat mode: no oracle, nothing verified"),
+            f"{len(rows)} turn(s)", ""]
+    for i, ask, answer in rows:
+        body += [f"## turn {i}", "", f"you> {ask}", "", answer.strip(), ""]
+    try:
+        target.write_text("\n".join(body) + "\n")
+    except OSError as e:
+        print(f"session: /save wrote nothing — {e}")
+        return
+    print(f"session: saved {len(rows)} turn(s) to {target}")
+
+
 def cmd_session(args) -> int:
     """Many turns against one repo and one oracle (R-7.15), or chat mode.
 
@@ -431,15 +523,26 @@ def cmd_session(args) -> int:
     if use_oracle:
         print(f"flash session on {args.context} against the oracle {args.test} — "
               "one ask per line, and each answer arrives before you type the next. "
-              "`quit` or Ctrl-D ends it.")
+              "`quit` or Ctrl-D ends it; `/help` lists `/help`, `/quit`, `/save` "
+              "and `/retry`.")
     else:
         print(f"flash chat session on {args.context} — free-form questions, "
-              "code creation, no verification. `quit` or Ctrl-D ends it.")
+              "code creation, no verification. `quit` or Ctrl-D ends it; `/help` "
+              "lists `/help`, `/quit`, `/save` and `/retry`.")
     solved_n = written_n = ran = 0
     seconds = 0.0
     rc = 2
-    for prompt in _read_turns(sys.stdin, args.turns,
-                              PROMPT if tty else ""):
+    # One list of what actually happened: `/save` writes it, `/retry` re-asks the
+    # last entry, and the Ctrl-C report counts it. Kept separate from the counters
+    # so a command line cannot make a turn that never ran look like one did.
+    rows: list[list] = []
+    last_ask: str = ""
+    # The turn a Ctrl-C would find mid-flight, and therefore must not count.
+    in_flight: int = 0
+    interrupted = False
+
+    def run_turn(prompt: str) -> None:
+        nonlocal ran, solved_n, written_n, seconds, rc, last_ask, in_flight
         ran += 1
         i = ran
         task = {"id": f"turn{i}", "prompt": prompt, "test": test,
@@ -452,6 +555,16 @@ def cmd_session(args) -> int:
         # Recomputed from the workspace this turn just read off the disk, so the
         # loop refuses the oracle with the same key `land` protects it with.
         task["test_path"] = _oracle_key(args, task)
+        # Printed and flushed BEFORE the work starts. A turn is not instant: the
+        # model loads, generates, and the oracle grades, which is a minute or more
+        # on this box. Without a line on the terminal at the point the wait
+        # begins, a session looks hung exactly where it is most alive — and the
+        # `[turn N]` verdict only arrives once the whole turn is over, so it can
+        # only ever report the past. `flush=True` is the other half of this: a
+        # buffered stdout would hold the sentence back until the buffer filled,
+        # which is the same hang with a different cause.
+        in_flight = i
+        print(_working_line(args, i, use_oracle), flush=True)
         r, tier, routed = solve_routed(args.small, args.big, task, ROOT,
                                        small_attempts=args.attempts,
                                        big_attempts=args.attempts,
@@ -490,7 +603,51 @@ def cmd_session(args) -> int:
         if r.solved:
             solved_n += 1
         seconds += r.seconds
+        # Only now is the turn a fact: it answered, it was graded, it landed or
+        # refused to. `/save` and `/retry` deal in finished turns and nothing else.
+        rows.append([i, prompt, answer])
+        last_ask = prompt
+        in_flight = 0
+
+    try:
+        for prompt in _read_turns(sys.stdin, args.turns,
+                                  PROMPT if tty else ""):
+            if prompt.startswith("/"):
+                name, _, rest = prompt[1:].partition(" ")
+                if name == "quit":
+                    break
+                if name == "help":
+                    print(_session_help(use_oracle))
+                elif name == "save":
+                    _save_transcript(rest.strip(), rows, args, use_oracle)
+                elif name == "retry":
+                    if not last_ask:
+                        print("session: /retry has nothing to retry — no turn "
+                              "has answered yet")
+                    else:
+                        run_turn(last_ask)
+                else:
+                    print(f"session: unknown command `/{name}` — `/help` lists "
+                          "the four")
+                continue
+            run_turn(prompt)
+    except KeyboardInterrupt:
+        # Ctrl-C is a normal way to leave a session, and the turn it interrupted
+        # is not a turn: nothing was graded and the write-back never ran. The
+        # trace still closes here rather than being left open, because §33.7
+        # reads an unclosed session as a suite to RESUME — and a hand-typed
+        # conversation has no suite to resume.
+        interrupted = True
+        if in_flight:
+            print(f"\nsession: turn {in_flight} was interrupted — it is not "
+                  "counted and nothing was verified")
+            ran -= 1
     if not ran:
+        if interrupted:
+            print("session: interrupted at the prompt — no turn was asked, so "
+                  "nothing was verified")
+            trace.close_session(solved=False, turns=0, interrupted=True)
+            return 130
         # Nothing was ever asked, so nothing was ever generated: a session that
         # exits 0 here would be a green run with no verify step behind it.
         print("session: no turns on stdin — nothing was asked, so nothing "
@@ -501,8 +658,9 @@ def cmd_session(args) -> int:
           f"seconds={round(seconds, 1)} last_rc={rc}")
     print(f"[trace] replay this session:  flash trace show {sid}")
     trace.close_session(solved=(rc == 0), turns=ran, solved_turns=solved_n,
-                        written_turns=written_n, seconds=round(seconds, 1))
-    return rc
+                        written_turns=written_n, seconds=round(seconds, 1),
+                        **({"interrupted": True} if interrupted else {}))
+    return 130 if interrupted else rc
 
 
 SUITE_PARAMS = ("small", "big", "tasks", "with_context", "attempts", "max_tasks",

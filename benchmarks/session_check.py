@@ -409,10 +409,12 @@ def session_copy(**knob):
         if use_oracle:
             print(f"flash session on {args.context} against the oracle "
                   f"{args.test} — one ask per line, and each answer arrives "
-                  "before you type the next. `quit` or Ctrl-D ends it.")
+                  "before you type the next. `quit` or Ctrl-D ends it; `/help` "
+                  "lists `/help`, `/quit`, `/save` and `/retry`.")
         elif k["chat_mode"]:
             print(f"flash chat session on {args.context} — free-form questions, "
-                  "code creation, no verification. `quit` or Ctrl-D ends it.")
+                  "code creation, no verification. `quit` or Ctrl-D ends it; "
+                  "`/help` lists `/help`, `/quit`, `/save` and `/retry`.")
         # `interleaved=False` is the defect the author hit: drain stdin, then
         # run. Same turns, same counts, same sentences — and not a chat.
         stream = asks() if k["interleaved"] else iter(list(asks()))
@@ -420,7 +422,13 @@ def session_copy(**knob):
         solved_n = written_n = ran = 0
         seconds = 0.0
         rcs: list[int] = []
-        for prompt in stream:
+        rows: list[list] = []
+        last_ask = ""
+        in_flight = 0
+        interrupted = False
+
+        def run_turn(prompt: str) -> None:
+            nonlocal ran, solved_n, written_n, seconds, last_ask, in_flight
             ran += 1
             i = ran
             task = {"id": f"turn{i}", "prompt": prompt, "test": test,
@@ -433,6 +441,11 @@ def session_copy(**knob):
             # knob that drops it changes only what the arm is told.
             task["test_path"] = (cli._oracle_key(args, task)
                                  if k["oracle_key"] else "")
+            # The turn-start liveness line, same sentence and same position as the
+            # shipped command's — `agree()` compares printed lines, so a copy that
+            # dropped it would be the drift, not the bug.
+            in_flight = i
+            print(cli._working_line(args, i, use_oracle), flush=True)
             r, tier, routed = solve_routed(args.small, args.big, task, cli.ROOT,
                                            small_attempts=args.attempts,
                                            big_attempts=args.attempts,
@@ -485,7 +498,46 @@ def session_copy(**knob):
                 solved_n += 1
             seconds = (seconds + r.seconds) if k["sum_seconds"] else r.seconds
             rcs.append(rc)
+            rows.append([i, prompt, answer])
+            last_ask = prompt
+            in_flight = 0
+
+        try:
+            for prompt in stream:
+                # R-7.17b's commands. `/quit` breaks here rather than through the
+                # `quit_ends` knob in `asks()`: that knob is the bare-word mutant,
+                # and the slash form is a separate clause of the command.
+                if prompt.startswith("/"):
+                    name, _, rest = prompt[1:].partition(" ")
+                    if name == "quit":
+                        break
+                    if name == "help":
+                        print(cli._session_help(use_oracle))
+                    elif name == "save":
+                        cli._save_transcript(rest.strip(), rows, args, use_oracle)
+                    elif name == "retry":
+                        if not last_ask:
+                            print("session: /retry has nothing to retry — no "
+                                  "turn has answered yet")
+                        else:
+                            run_turn(last_ask)
+                    else:
+                        print(f"session: unknown command `/{name}` — `/help` "
+                              "lists the four")
+                    continue
+                run_turn(prompt)
+        except KeyboardInterrupt:
+            interrupted = True
+            if in_flight:
+                print(f"\nsession: turn {in_flight} was interrupted — it is not "
+                      "counted and nothing was verified")
+                ran -= 1
         if not ran:
+            if interrupted:
+                print("session: interrupted at the prompt — no turn was asked, "
+                      "so nothing was verified")
+                trace.close_session(solved=False, turns=0, interrupted=True)
+                return 130
             print("session: no turns on stdin — nothing was asked, so nothing "
                   "was verified")
             trace.close_session(solved=False, turns=0)
@@ -496,8 +548,9 @@ def session_copy(**knob):
         print(f"[trace] replay this session:  flash trace show {sid}")
         trace.close_session(solved=(rc == 0), turns=ran,
                             solved_turns=solved_n, written_turns=written_n,
-                            seconds=round(seconds, 1))
-        return rc
+                            seconds=round(seconds, 1),
+                            **({"interrupted": True} if interrupted else {}))
+        return 130 if interrupted else rc
     return cmd
 
 
