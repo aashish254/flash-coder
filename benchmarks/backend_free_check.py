@@ -557,10 +557,21 @@ def run_gates() -> None:
                "except Exception as e:\n"
                "    print('OTHER:' + type(e).__name__ + ':' + str(e)[:100])\n",
                env=env)
+    # R-7.17d moved the sentence this row demands. `decide()` used to raise its own
+    # "needs MLX for its forward pass"; it now raises the seam's shared refusal,
+    # which names whichever backend is missing rather than the one Apple Silicon
+    # happens to have. Both failure modes this check exists for stay caught — a raw
+    # `ModuleNotFoundError` out of somebody else's import, and a refusal that names
+    # nothing — and demanding the literal "MLX" would be the wrong word to require
+    # on the Linux box R-7.17 exists for.
     ck("...and the CALL that needs the backend is the one that says so, as a "
-       "RuntimeError naming MLX rather than a ModuleNotFoundError or a tokenizer "
-       "crash — a caller can print that sentence to a user",
-       "RUNTIMEERROR:" in proc.stdout and "MLX" in proc.stdout,
+       "RuntimeError carrying the shared refusal with the missing library named in "
+       "it, rather than a ModuleNotFoundError or a tokenizer crash — a caller can "
+       "print that sentence to a user",
+       "RUNTIMEERROR:" in proc.stdout
+       and "no generation backend" in proc.stdout
+       and "what is missing" in proc.stdout
+       and "mlx" in proc.stdout,
        f"rc={proc.returncode} out={proc.stdout[-200:]} err={proc.stderr[-120:]}")
 
     # ------------------------------------------- R-7.10: a selftest that cannot

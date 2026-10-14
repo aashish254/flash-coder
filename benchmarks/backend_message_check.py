@@ -452,17 +452,25 @@ MUTANTS = {
 
 
 def _apply(patches):
-    saved = []
+    """Patch every file this mutant touches, and return what to write back.
+
+    Keyed by PATH, first text wins: a mutant with two patches on one file reads
+    that file a second time AFTER the first patch landed, so saving per patch
+    would restore the mid-mutant copy and leave the other half of the mutation in
+    the tree — which is exactly how `selected()` ended up returning MLX
+    unconditionally in a committed tree.
+    """
+    saved: dict[Path, str] = {}
     for rel, old, new in patches:
         p = ROOT / rel
         text = p.read_text()
         if text.count(old) != 1:
-            for rp, rt in saved:
+            for rp, rt in saved.items():
                 rp.write_text(rt)
             raise AssertionError(f"mutant anchor is not unique in {rel}")
-        saved.append((p, text))
+        saved.setdefault(p, text)
         p.write_text(text.replace(old, new))
-    return saved
+    return list(saved.items())
 
 
 def mutate(one: str | None = None) -> int:
