@@ -1,0 +1,2 @@
+{"ts": 1791974533.548, "seq": 0, "type": "session_start", "label": "session", "cmd": "session", "params": {"context": "/tmp/flash-chat-demo", "test": "/tmp/flash-chat-demo/t.py", "small": "mlx-community/Qwen2.5-Coder-7B-Instruct-4bit", "big": "mlx-community/Qwen3-30B-A3B-Instruct-2507-4bit", "allow_big": "auto", "adapter": null, "edit": true, "apply": true, "tournament": 1, "hints": ["source", "graph"], "confidence": false, "turns": 0, "chat": false}}
+{"ts": 1791974536.791, "seq": 1, "type": "session_end", "solved": false, "turns": 0, "interrupted": true}
