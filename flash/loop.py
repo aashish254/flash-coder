@@ -172,6 +172,7 @@ def _generate(model, tokenizer, messages: list[dict], max_tokens: int,
     out = carried + gen.text
     trace.event("generate", task_id=task_id or None, attempt=attempt, temp=temp,
                 max_tokens=max_tokens, ms=round((time.perf_counter() - t0) * 1000),
+                backend=be.name,
                 prompt_tokens=trace.n_tokens(tokenizer, prompt),
                 completion_tokens=trace.n_tokens(tokenizer, out),
                 constrained=gen.constrained,

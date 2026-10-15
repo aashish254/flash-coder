@@ -53,9 +53,34 @@ rather than what the process remembered, and the oracle named by `--test` is
 protected on every turn of the session, not only the first patch set. It is
 protected by name: a turn that addresses `t.py` is refused as *the oracle this run
 scores against* before the arm looks at the address, so the sentence never
-complains about a line number in the one file the session must not edit. The session
-prints one verdict line per turn and one `[session] turns=… solved=… written=…
-seconds=… last_rc=…` report at EOF, and exits with the last turn's code.
+complains about a line number in the one file the session must not edit.
+
+What it prints, in the order a reader sees it: one `[working] turn N …` line
+**before** the turn starts work (which tier answers first, how many attempts, what
+it is graded against), one `[turn N] routed=… tier=… solved=… attempts=…` verdict
+after the oracle answers, one `[session] turns=… solved=… written=… seconds=…
+last_rc=…` report at EOF, then the session's bill, and it exits with the last
+turn's code. The promise line and the verdict are deliberately different shapes: a
+running 7B takes tens of seconds, and the line before the work is what tells a
+slow turn apart from a hung one.
+
+The bill (`[cost] …`, plus one indented row per turn) is the same numbers the trace
+already holds — the token counts and `ms` of each generation, the oracle runs, and
+the escalations — so it says what the session cost, which library answered each
+turn, and which tier ended up answering it. It is written into the trace as a
+`session_cost` record before the session closes, so `flash trace show <id>`
+afterwards agrees with what was on screen. A turn Ctrl-C killed is billed (its
+tokens were spent) but not counted, and the line says so; a session that generated
+nothing prints no bill at all.
+
+Four lines starting with `/` are commands, not prompts: `/help` lists them, `/quit`
+leaves (the ask typed after it never runs), `/save notes.md` writes the asks and
+the answers so far to a file, and `/retry` asks the previous question again. None
+of them charges a turn except `/retry`, and `/save` refuses to write over the
+session's own oracle. Ctrl-C is a normal way to leave: the interrupted turn is
+announced, never verdicted, the summary prints, the trace still closes, and the
+exit code is 130 — the code a shell gives SIGINT, so a script cannot read an
+interrupted session as a completed one.
 
 On a keyboard it prints `you> ` before every read and a one-line banner before the
 first, which is the difference between a session that looks like a chat and one that

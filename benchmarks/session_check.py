@@ -338,6 +338,7 @@ def session_copy(**knob):
     k.update(knob)
 
     def cmd(args) -> int:
+        import time
         from flash.loop import solve_routed
         from flash.patches import land, workspace_from_dir
 
@@ -423,6 +424,8 @@ def session_copy(**knob):
         seconds = 0.0
         rcs: list[int] = []
         rows: list[list] = []
+        turns: list[dict] = []
+        started = time.monotonic()
         last_ask = ""
         in_flight = 0
         killed = 0
@@ -500,6 +503,8 @@ def session_copy(**knob):
             seconds = (seconds + r.seconds) if k["sum_seconds"] else r.seconds
             rcs.append(rc)
             rows.append([i, prompt, answer])
+            turns.append({"i": i, "tier": tier, "routed": routed,
+                          "seconds": round(r.seconds, 1)})
             last_ask = prompt
             in_flight = 0
 
@@ -539,6 +544,9 @@ def session_copy(**knob):
                 if not killed:
                     print("session: interrupted at the prompt — no turn was "
                           "asked, so nothing was verified")
+                for line in cli._session_cost(sid, turns,
+                                              time.monotonic() - started):
+                    print(line)
                 trace.close_session(solved=False, turns=0, interrupted=True)
                 return 130
             print("session: no turns on stdin — nothing was asked, so nothing "
@@ -548,6 +556,8 @@ def session_copy(**knob):
         rc = rcs[0] if not k["last_rc"] else rcs[-1]
         print(f"[session] turns={ran} solved={solved_n} "
               f"written={written_n} seconds={round(seconds, 1)} last_rc={rc}")
+        for line in cli._session_cost(sid, turns, time.monotonic() - started):
+            print(line)
         print(f"[trace] replay this session:  flash trace show {sid}")
         trace.close_session(solved=(rc == 0), turns=ran,
                             solved_turns=solved_n, written_turns=written_n,

@@ -463,6 +463,77 @@ def _save_transcript(name: str, rows: list, args, use_oracle: bool) -> None:
     print(f"session: saved {len(rows)} turn(s) to {target}")
 
 
+def _session_cost(sid: str, turns: list, wall: float) -> list[str]:
+    """What this session spent, read off its own trace rather than from memory.
+
+    The number a person uses to decide whether to run this again has to survive the
+    process: every figure below comes from the records `flash trace show <sid>` will
+    render after the terminal is closed, so the printed line and the stored one are
+    one measurement rather than two claims. A generation whose tokenizer counted
+    nothing is reported as `uncounted` instead of folded into the total as a zero —
+    `tokens=0` over four answered turns is a report nobody can act on.
+
+    Returns the lines to print (and writes the same numbers as a `session_cost`
+    event, before the session closes, so the trace carries the session's own bill).
+    """
+    from flash import trace
+    recs = trace.read(sid)
+    gens = [r for r in recs if r.get("type") == "generate"]
+    if not gens:
+        return []
+    s = trace.summarize(sid)
+    uncounted = sum(1 for r in gens if r.get("prompt_tokens") is None
+                    and r.get("completion_tokens") is None)
+    esc = [r for r in recs if r.get("type") == "escalation"]
+    took = sum(1 for r in esc if r.get("denied") is False)
+    denied = sum(1 for r in esc if r.get("denied") is True)
+    # The trace keys a turn by the task id cmd_session gave it (`turnN`), so the
+    # per-turn spend is read the same way the loop wrote it, not guessed from order.
+    tok: dict[str, int] = {}
+    backs: dict[str, list[str]] = {}
+    for r in gens:
+        tid = r.get("task_id") or ""
+        tok[tid] = tok.get(tid, 0) + (r.get("prompt_tokens") or 0) \
+            + (r.get("completion_tokens") or 0)
+        name = r.get("backend")
+        if name and name not in backs.setdefault(tid, []):
+            backs[tid].append(name)
+    all_backs = sorted({n for v in backs.values() for n in v})
+    tokens = s["prompt_tokens"] + s["completion_tokens"]
+    # A turn Ctrl-C killed spent its generation and never became a counted turn, so
+    # the per-turn rows cannot add up to the header total. Saying which part of the
+    # money that is beats printing a total that looks like a mistake in the rows.
+    attributed = sum(tok.get(f"turn{t['i']}", 0) for t in turns)
+    head = (f"[cost] turns={len(turns)} "
+            f"backend={'/'.join(all_backs) or 'uncounted'} "
+            f"wall={round(wall, 1)}s generating={s['gen_s']}s "
+            f"verifying={s['verify_s']}s tokens={tokens} "
+            f"(prompt={s['prompt_tokens']} completion={s['completion_tokens']}) "
+            f"escalations={took}")
+    if denied:
+        head += f" escalations_denied={denied}"
+    if uncounted:
+        head += f" uncounted={uncounted}/{len(gens)} generations"
+    if attributed != tokens:
+        head += f" ({tokens - attributed} not on a counted turn)"
+    out = [head]
+    for t in turns:
+        key = f"turn{t['i']}"
+        out.append(f"       turn {t['i']}: "
+                   f"{'/'.join(backs.get(key) or ['uncounted'])} "
+                   f"routed={t['routed']} tier={t['tier']} "
+                   f"{tok.get(key, 0)} tok {t['seconds']}s"
+                   + (" escalated" if t["tier"] == "big" and t["routed"] == "small"
+                      else ""))
+    trace.event("session_cost", turns=len(turns),
+                backend="/".join(all_backs) or None, wall_s=round(wall, 1),
+                generating_s=s["gen_s"], verifying_s=s["verify_s"],
+                tokens_in=s["prompt_tokens"], tokens_out=s["completion_tokens"],
+                uncounted=uncounted or None, escalations=took,
+                escalations_denied=denied or None)
+    return out
+
+
 def cmd_session(args) -> int:
     """Many turns against one repo and one oracle (R-7.15), or chat mode.
 
@@ -476,6 +547,7 @@ def cmd_session(args) -> int:
     verification step. Every turn is accepted as long as it parses (if Python).
     """
     import sys
+    import time
     from flash import trace
     import flash.loop as loop
     from flash.loop import solve_routed
@@ -532,6 +604,12 @@ def cmd_session(args) -> int:
     solved_n = written_n = ran = 0
     seconds = 0.0
     rc = 2
+    # The session's own clock, for the cost report: the sum of the turns' seconds is
+    # model time, and the wall is what the person waited, which includes the time
+    # they spent reading the answers. Both are reported because they answer
+    # different questions, and neither is derivable from the other.
+    started = time.monotonic()
+    turns: list[dict] = []
     # One list of what actually happened: `/save` writes it, `/retry` re-asks the
     # last entry, and the Ctrl-C report counts it. Kept separate from the counters
     # so a command line cannot make a turn that never ran look like one did.
@@ -610,6 +688,8 @@ def cmd_session(args) -> int:
         # Only now is the turn a fact: it answered, it was graded, it landed or
         # refused to. `/save` and `/retry` deal in finished turns and nothing else.
         rows.append([i, prompt, answer])
+        turns.append({"i": i, "tier": tier, "routed": routed,
+                      "seconds": round(r.seconds, 1)})
         last_ask = prompt
         in_flight = 0
 
@@ -654,6 +734,11 @@ def cmd_session(args) -> int:
             if not killed:
                 print("session: interrupted at the prompt — no turn was asked, "
                       "so nothing was verified")
+            # The turn was not counted; the tokens it spent were still spent, and
+            # a person deciding whether to re-run cares about that bill even when
+            # nothing was verified. Empty when the signal landed at the prompt.
+            for line in _session_cost(sid, turns, time.monotonic() - started):
+                print(line)
             trace.close_session(solved=False, turns=0, interrupted=True)
             return 130
         # Nothing was ever asked, so nothing was ever generated: a session that
@@ -664,6 +749,8 @@ def cmd_session(args) -> int:
         return 2
     print(f"[session] turns={ran} solved={solved_n} written={written_n} "
           f"seconds={round(seconds, 1)} last_rc={rc}")
+    for line in _session_cost(sid, turns, time.monotonic() - started):
+        print(line)
     print(f"[trace] replay this session:  flash trace show {sid}")
     trace.close_session(solved=(rc == 0), turns=ran, solved_turns=solved_n,
                         written_turns=written_n, seconds=round(seconds, 1),
