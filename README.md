@@ -56,18 +56,26 @@ Two things about this repo are load-bearing, and both are visible in the files:
 
 ## Requirements
 
-- **Anything that generates text needs Apple Silicon.** The model layer is MLX
-  (`mlx-lm`, `mlx-vlm`), and `pyproject.toml` marks it by platform rather than
-  letting a Linux install fail to resolve.
+- **Generating text needs a backend, and there are two of them.** On Apple Silicon
+  that is MLX (`mlx-lm`, `mlx-vlm`), which `pyproject.toml` marks by platform rather
+  than letting a Linux install fail to resolve. Anywhere else the same loop can run
+  on llama.cpp: `pip install 'flash-coder[local]'` (a source build — see the extra's
+  comment), `flash models pull fast`, then `--backend llama.cpp --small fast`
+  (SPEC R-7.17d, R-7.18). **What that does not buy:** not one token has been
+  generated through llama.cpp in this repository, so the GGUF tiers' quality and
+  tokens-per-second are OPEN, and `docs/models.md` keeps them in an open box instead
+  of quoting a vendor's number.
 - **Everything else is pure Python 3.11+**: symbol perception, the AST knowledge
   graph, the harness and its GOT/WANT oracle, trace/replay, the outcome ledger, the
   power governor, the sandbox and the whole offline battery. With MLX blocked in a
-  child process, **27 of the 27** submodules of `flash` still import, and the one
+  child process, **29 of the 29** submodules of `flash` still import (re-measured
+  2026-10-15), and the one
   thing that raises is the call that needs a forward pass — with a message naming
   MLX instead of a stack trace (SPEC R-7.7, gated by
   `benchmarks/backend_free_check.py`). The denominator of that fraction is however
   many modules `flash/` has, so it printed 26 until the second language's module
-  joined it and re-printed **27/27** on 2026-09-28; the gate asserts numerator ==
+  joined it and re-printed **27/27** on 2026-09-28, and 29 now that `flash/backend.py`
+  and `flash/models.py` have joined the package; the gate asserts numerator ==
   denominator, never a fixed number.
 - **What is NOT claimed:** that a Linux or Windows machine has installed this. The
   install shapes that HAVE been run are a fresh clone's editable install, a wheel in
@@ -87,7 +95,7 @@ Two things about this repo are load-bearing, and both are visible in the files:
 ```bash
 python3.11 -m venv .venv
 .venv/bin/pip install -e .[dev]                    # `flash` lands in .venv/bin
-.venv/bin/python -m flash.cli doctor               # nine answers about THIS install
+.venv/bin/python -m flash.cli doctor               # eleven answers about THIS install
 .venv/bin/python -m flash.cli selftest --all       # the offline battery, no models
 ```
 
@@ -145,24 +153,37 @@ need weights first.
 # 5. code with it: this is the scored chat. Run it and it waits for you at `you> `.
 # Type one request, press Enter, read the answer, type the next — turn 2 edits
 # what turn 1 wrote, because every turn re-reads your files from disk. `quit`,
-# `exit`, `q` or Ctrl-D ends it. Nothing lands without --apply, and the oracle
-# you passed with --test is never a file it may edit. Drop --test and the same
-# command is a prose chat that answers "hi" and can create whole new files (R-7.15h).
+# `exit`, `q` or Ctrl-D ends it, and `/help` `/quit` `/save <file>` `/retry` are
+# four lines about the session rather than requests to the model. Nothing lands
+# without --apply, and the oracle you passed with --test is never a file it may
+# edit. Drop --test and the same command is a prose chat that answers "hi" and
+# can create whole new files (R-7.15h).
 .venv/bin/python -m flash.cli session --context . --test t.py --apply
 # or drive it from a script, which is the same code path one line at a time:
 printf 'zero-pad the cents\nadd a bulk discount\n' |
   .venv/bin/python -m flash.cli session --context . --test t.py --apply
 ```
 
-A turn prints its own verdict, the oracle's own words under `oracle|` when a turn
-fails, and then one of the same three landing sentences `run` prints
+Every turn announces itself first — `[working] turn N …` names the tier that answers
+first, the attempts and the oracle, flushed to the terminal before the generation
+starts, because a 40-second turn and a hung process otherwise look identical
+(R-7.17b). Then the turn prints its own verdict, the oracle's own words under `oracle|`
+when a turn fails, and one of the same three landing sentences `run` prints
 (`[R-3.2] wrote … (+a -b lines)` / `NOT APPLIED` / `REFUSED: …`). The session closes
-with one line a script can parse, and exits with the **last** turn's code. Verbatim
+with one line a script can parse and then its bill — `[cost] turns=… backend=…
+wall=…s generating=…s verifying=…s tokens=… (prompt=… completion=…) escalations=…`
+plus one row per turn naming the library that answered it, the route, the tier and
+what it spent, all of it read off the trace and written back into it as a
+`session_cost` record (R-7.19) — and it exits with the **last** turn's code. Ctrl-C is
+a normal way to leave: the turn it killed is announced, never verdicted, billed but not
+counted, and the session exits 130. Verbatim
 from a real terminal — a pseudo-tty driven by `python benchmarks/session_pty_demo.py`,
 so the `you> ` lines below are the keyboard path and not a here-doc — on a one-function
 money module whose asserts require a zero-padded cent field and a minus sign in front of
 the dollar
-([`benchmarks/results/session_pty_r715g_20260929.log`](benchmarks/results/session_pty_r715g_20260929.log)):
+([`benchmarks/results/session_pty_r715g_20260929.log`](benchmarks/results/session_pty_r715g_20260929.log),
+captured on 2026-09-29, three weeks before the `[working]` line and the bill were
+added, so neither appears below):
 
 ```text
 flash session on /tmp/flash-chat-demo against the oracle /tmp/flash-chat-demo/t.py — one ask per line, and each answer arrives before you type the next. `quit` or Ctrl-D ends it.
@@ -398,7 +419,7 @@ Vision is benchmarked once the text brain is picked (PLAN §M1–M2).
 # down, and a warm laptop is not a failing test.
 .venv/bin/python benchmarks/battery_reread.py       # 15 min measured 2026-09-27
 .venv/bin/python -m flash.cli selftest --all        # the same thing, by name
-.venv/bin/python -m flash.cli doctor                # nine answers about THIS install
+.venv/bin/python -m flash.cli doctor                # eleven answers about THIS install
 .venv/bin/python -m flash.cli --version             # flash <__version__>, no stale copy
 # `--backend-free` re-runs the battery with `mlx`, `mlx_lm` and `mlx_vlm` blocked in
 # every child, and refuses to print a total until it has PROVED the block bites. Two
@@ -553,11 +574,11 @@ Vision is benchmarked once the text brain is picked (PLAN §M1–M2).
 .venv/bin/python benchmarks/portable_paths_check.py          # 15 checks + 7 mutants
 
 # "Is what I just installed the thing the README describes?" One command answers it, and
-# the answer is gated rather than narrated: `flash doctor` walks nine lines across six
+# the answer is gated rather than narrated: `flash doctor` walks eleven lines across six
 # sections (install shape, backend, machine, cache, tools, what to verify) and its exit
 # code follows its own page — a synthetic broken install in a temp tree must print `no`
-# on exactly 5 of 9 and rc 1. R-7.7's half: with `mlx`, `mlx_lm` and `mlx_vlm` blocked in
-# a CHILD process, all 26 submodules of `flash` still import and the only thing that
+# on exactly 5 of them and rc 1. R-7.7's half: with `mlx`, `mlx_lm` and `mlx_vlm` blocked in
+# a CHILD process, all 29 submodules of `flash` still import and the only thing that
 # raises is the call that needs a forward pass. The sweep is enumerated, not named, and
 # its mutant plants a real backend-importing submodule on disk to prove it. R-7.10's half:
 # the six selftests that read `benchmarks/` beside the package are run against a synthetic
