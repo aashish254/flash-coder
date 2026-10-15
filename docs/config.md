@@ -7,7 +7,7 @@ path can come from the environment is the model cache, which it prints
 resolved rather than asking about.
 
 So this page has three sections: the flags that change behaviour per run, the
-directories the tool writes to, and the two environment variables it honours.
+directories the tool writes to, and the environment variables it honours.
 
 ## Per-run flags
 
@@ -21,6 +21,7 @@ they appear in its loop:
 | `--test FILE` | the verifier. Required. The run's success is `python FILE` exiting 0 — nothing about configuration is trusted beyond this file. |
 | `--context PATH` | the repository whose symbol skeleton is injected into PERCEIVE. Omit it and the agent answers from the prompt alone. |
 | `--small REPO` / `--big REPO` | the two model tiers. Defaults are the §22 matrix names in `docs/models.md`; passing them is how you A/B a candidate without editing code. |
+| `--backend auto\|mlx\|llama.cpp` | which model library answers (R-7.17d). `auto`, the default, takes the first that imports with MLX preferred; a named one is *enforced*, because a published number and a run quietly served by different backends is a wrong measurement rather than a faster one. On a box with neither it refuses in one sentence naming both routes. |
 | `--attempts N` | generations per tier before escalating. |
 | `--allow-big auto\|always\|never` | escalation policy against the power governor. `auto` obeys the machine (see below), `always` is the benchmark override, `never` is single-track. |
 | `--constrain` | mask every decode step to the task's output contract, so a malformed answer is structurally impossible (R-4.2). |
@@ -62,6 +63,17 @@ looks like a hang: a running 7B takes seconds, and a cursor with no marker next 
 gives no way to tell those apart. A pipe gets no marker at all — `printf 'ask\n' |
 flash session …` is a driver, and a driver's captured text has to stay parseable.
 
+### `flash models` — the three verbs that own the GGUF cache
+
+`--backend llama.cpp` needs a file, and `flash models` is the only thing in the
+package that fetches one (R-7.18). `flash models --help` is the authority:
+
+| verb | what it does |
+| --- | --- |
+| `flash models pull fast` | downloads the pinned GGUF into `~/.cache/flash/gguf`, resumably, and registers it as a tier only after the SHA256 matched the pin. It prints the byte count and asks first; without a terminal to ask, it refuses unless you pass `--yes`. `--force` discards a partial and starts at byte 0, `--quiet` drops the per-chunk line. The tier is `fast` or `brain`. |
+| `flash models list` | what the cache holds, read from file sizes and the manifest — it never opens a weight, which is why it is fast and why it cannot tell you the bytes are right. |
+| `flash models verify fast` | the only command that re-hashes, so it reads the whole file. A mismatch drops the tier from the manifest and leaves the bytes for a human, because flash is not owed an opinion about a file it did not put there. With no tier named it re-hashes every pulled one. |
+
 ## What the machine decides for you
 
 `flash power` prints the governor's verdict, and it is the only part of the
@@ -82,8 +94,8 @@ Python itself is a floor, not a preference: `flash/doctor.py`'s `PY_FLOOR` is
 
 ## Where state is written
 
-Four directories under `benchmarks/results/` in the checkout, plus one in your
-home:
+Four directories under `benchmarks/results/` in the checkout, plus the caches in
+your home:
 
 | path | holds | written by |
 | --- | --- | --- |
@@ -104,13 +116,28 @@ back to keyword ranking and says that it fell back.
 
 ## Environment variables
 
-Two, both for the model cache, both read through the Hugging Face downloader
-rather than by this package:
+Four the package reads and one that only appears in a test — `grep -rn "environ"
+flash/*.py` finds exactly these names and nothing else, which is the measured version
+of "there is no config file":
 
-- `HF_HOME` (or `HUB_HOME`) — where the 4-bit weights live. `flash doctor`'s
-  `cache` line prints the resolved path and how many of the four §22
-  candidates are present there, so a stray `HF_HOME` is visible instead of
-  looking like a re-download.
+- `HF_HOME` — where the MLX weights live. The one cache path `flash` resolves itself
+  (`flash/doctor.py`'s `cache` line prints it resolved, with how many of the four §22
+  candidates are there), so a stray `HF_HOME` is visible instead of looking like a
+  re-download. **One asymmetry worth knowing:** `huggingface_hub` also honours
+  `HUB_HOME`, and `flash` does not — a cache configured through `HUB_HOME` alone
+  reads to doctor as empty.
+- `FLASH_GGUF_DIR` — where the GGUF weights live, for `--backend llama.cpp`.
+  Default `~/.cache/flash/gguf`; `flash models` and `flash doctor`'s GGUF line both
+  print the resolved path, and this is the variable to set when the volume that
+  holds your home directory cannot fit 4.68 GB.
+- `FLASH_HF_ENDPOINT` — the host `flash models pull` downloads from. The default is
+  Hugging Face itself; it exists because the download is the one outbound request
+  this feature makes, and a mirror or an air-gapped box needs to be able to answer
+  it. `benchmarks/models_pull_check.py` runs the whole vector against a local server
+  through this variable, which is how the gate is offline.
+- `FLASH_GGUF_N_CTX` — the context window llama.cpp is handed, default 8192. It is
+  memory, not style: the KV cache is what makes a 4.68 GB file cost more than
+  4.68 GB of RAM.
 - `TMPDIR` — not read for configuration; `flash/sandbox.py`'s own selftest asserts a
   sandboxed child sees the temp directory it was given, which is why the variable
   appears in that module's tests.
@@ -120,15 +147,33 @@ reproduce, never read as user configuration.
 
 ## Optional installs
 
-`pyproject.toml` carries four extras, and each one's absence is a message
+`pyproject.toml` carries six extras, and each one's absence is a message
 rather than a crash:
 
 ```bash
-pip install -e .[dev]   # pyflakes + build + the ts extra: what CI runs and what you run to check your own work
-pip install .[vlm]      # mlx-vlm: `flash run-vis-suite`, screenshots through a VLM
-pip install .[web]      # transformers + torch: bge embeddings for `flash web` ranking
-pip install .[ts]       # tree-sitter + its TypeScript grammar: `flash graph --lang ts`
+pip install -e .[dev]    # pyflakes + build + the ts extra: what CI runs and what you run to check your own work
+pip install .[mac]       # mlx-lm, Apple Silicon only — the name flash's own remedy line prints
+pip install .[vlm]       # mlx-vlm: `flash run-vis-suite`, screenshots through a VLM
+pip install .[web]       # transformers + torch: bge embeddings for `flash web` ranking
+pip install .[ts]        # tree-sitter + its TypeScript grammar: `flash graph --lang ts`
+pip install .[local]     # llama-cpp-python: `--backend llama.cpp`, the non-MLX route
 ```
+
+`[local]` is the one that costs something to install: measured on PyPI (2026-10-15),
+`llama-cpp-python` 0.3.36 is one sdist and no wheel for any platform, so the install
+compiles llama.cpp with whatever toolchain the box has. That is a thing a person
+chooses, which is why it is an extra and why it is NOT in `dev` — CI would pay that
+compile on every job. It carries no platform marker for the same measured reason: the
+package itself restricts nothing but `requires-python >=3.8`.
+
+`[mac]` is a name, not a new install. `mlx-lm` stays a marked *dependency* (it is what
+makes `pip install .` on Apple Silicon the shape every published §6 number came from,
+and moving it would silently turn a Mac install into one that cannot generate), so
+`[mac]` resolves to the same thing there and to nothing elsewhere. It exists because
+`flash/backend.py`'s Apple-Silicon remedy line tells you to type it — and until
+`benchmarks/backend_message_check.py` started sweeping every `flash-coder[…]` name the
+package prints against the declared extras, that extra did not exist, which pip answers
+with "Does not provide the extra".
 
 `dev` pulls `ts` in deliberately. Two of the §6 battery's 37 lines are the
 TypeScript vectors, and one documented install command has to be enough to print
@@ -149,6 +194,8 @@ Python pass and the counted blind spot; 2 more gate what the grammar refuses to
 guess, an unparseable file and a broken one's neighbours).
 
 MLX itself is not an extra — it is a marked dependency
-(`sys_platform == 'darwin' and platform_machine == 'arm64'`), and with it
-blocked every one of the package's 27 modules still imports, which
-`benchmarks/backend_free_check.py` measures rather than asserts.
+(`sys_platform == 'darwin' and platform_machine == 'arm64'`; `[mac]` above is only the
+name the remedy line prints), and with it
+blocked every one of the package's 29 modules still imports, which
+`benchmarks/backend_free_check.py` measures rather than asserts (re-read 2026-10-15 as
+`SWEEP 29/29`, up from 27 when `flash/backend.py` and `flash/models.py` joined).

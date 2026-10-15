@@ -1706,6 +1706,14 @@ def build_parser() -> argparse.ArgumentParser:
     _ambient.add_flags(p)
     p.set_defaults(fn=_ambient.dispatch)
 
+    p = sub.add_parser("models", help="R-7.18: the GGUF weights for "
+                                      "--backend llama.cpp — pull one tier "
+                                      "(resumably, SHA256-verified), list what "
+                                      "the cache holds, verify a file's bytes")
+    from flash import models as _models      # verbs defined once, in flash/models.py
+    _models.add_flags(p)
+    p.set_defaults(fn=_models.dispatch)
+
     p = sub.add_parser("doctor", help="R-7.6: which half of this project is "
                                       "installed here, and what it can verify "
                                       "(reads the running interpreter, never a doc)")

@@ -384,7 +384,9 @@ def run_gates() -> None:
        f"pyproject={floor.groups() if floor else 'not found'}")
     broken = doctor.report(answers(wheel, has_backend=False, tools_ok=False))
     ck("a broken install's report says no to exactly its own failures — "
-       f"{broken.count('[no ]')} of 9 answers, computed per line, not one banner "
+       f"{broken.count('[no ]')} of "
+       f"{len(doctor.verdict(answers(wheel, has_backend=False, tools_ok=False)))} "
+       "answers, computed per line, not one banner "
        "over the whole page",
        broken.count("[no ]") == 5, broken[-220:])
 

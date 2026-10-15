@@ -34,7 +34,14 @@ So this vector does for the entry points what the sweep does for imports:
   tells you to run doctor and then paraphrases it is two sources for one fact;
 - requires the remedy line to be the one THIS platform can act on, and runs
   `remedy()` under each of the three platform names, since the Linux and Windows
-  branches are ones this box can never take by itself;
+  branches are ones this box can never take by itself. Since R-7.18 the non-Apple
+  branches have a second half to print: `pip install 'flash-coder[local]'` and
+  `flash models pull`, because "no install line fixes this box" was only true while
+  MLX was the only thing that could answer;
+- requires every `flash-coder[extra]` name the package prints to be an extra
+  `pyproject.toml` declares, sweeping the names out of `flash/*.py` rather than
+  keeping a list here — which is how `[mac]`, printed by `remedy()` since R-7.17,
+  was found undeclared;
 - requires that no `cmd_*` in `flash/cli.py` imports a model library of its own,
   read off the AST — the seam is the only door, which is the property that lets a
   command be added without remembering the guard;
@@ -49,11 +56,13 @@ dies before its first turn would otherwise leave a `session_start` with no
 `session_end` in the tracked trace store, which §33.7 reads as an interrupted
 suite to resume forever.
 
-The mutants are the point of the file: the probe deleted from the routed solver
-(the shipped defect, restored), the dispatch catch pointed at the wrong
-exception, a command going back to `from mlx_lm import load`, a diagnosis with no
-remedy, a doctor line hardcoded instead of read, and a Linux box told to `pip
-install` MLX are each green without this gate.
+The mutants are the point of the file: `selected()`'s probe deleted so the MLX loader
+is a bare `from mlx_lm import load` again (the shipped defect, one notch lower now
+that the probe lives in the seam), the dispatch catch pointed at the wrong exception,
+a command going back to `from mlx_lm import load`, a diagnosis with no remedy, a
+doctor line hardcoded instead of read, a Linux box told to `pip install` MLX, and a
+remedy that prints an extra `pyproject.toml` never declared. Each of those seven is
+green without this gate.
 
     python benchmarks/backend_message_check.py             # gates + mutants
     python benchmarks/backend_message_check.py --mutant NAME
@@ -66,6 +75,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import tomllib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -226,6 +236,27 @@ def direct_model_imports() -> list[str]:
     return sorted(out)
 
 
+def printed_extras() -> list[str]:
+    """Every `flash-coder[extra]` name the shipping code can print, swept from the
+    package rather than typed into this file.
+
+    A hand-written list would be a second copy of the thing it checks, and the bug it
+    exists for — a remedy that names an extra nobody declared, which pip answers with
+    "Does not provide the extra" — is precisely the bug a hand-written list cannot
+    see, because the list would be wrong in the same direction.
+    """
+    return sorted({m for p in sorted((ROOT / "flash").glob("*.py"))
+                   for m in re.findall(r"flash-coder\[(\w+)\]",
+                                       p.read_text(errors="ignore"))})
+
+
+def declared_extras() -> set[str]:
+    """The keys of `pyproject.toml`'s `[project.optional-dependencies]` — the table
+    `pip install …` actually answers from."""
+    with open(ROOT / "pyproject.toml", "rb") as f:
+        return set(tomllib.load(f)["project"]["optional-dependencies"])
+
+
 def remedy_by_platform(env: dict) -> dict:
     """`backend.remedy()` as each of three platforms, from one child process."""
     src = (f"import sys\nsys.path.insert(0, {str(ROOT)!r})\n"
@@ -353,16 +384,33 @@ def run_gates() -> None:
     # `backend_free_check` imports `flash.cli`, which imports `flash.backend`, so
     # this process already holds the module and a mutant written to disk would
     # never be read. The child loads the file as it stands.
+    printed, declared = printed_extras(), declared_extras()
     by_platform = remedy_by_platform(env)
-    ck("remedy() answers for the three platforms separately: only Apple Silicon "
-       "is handed an install line, and Linux and Windows are told no install "
-       "line fixes this box",
+    ck("remedy() answers for the three platforms separately: only Apple Silicon is "
+       "handed the MLX install line, and Linux and Windows are told MLX cannot be "
+       "installed there — and since R-7.18 they are ALSO handed the route that does "
+       "work, because 'no install line fixes this box' became false the day the "
+       "seam grew a second backend, and a refusal that names only the closed door is "
+       "a dead end a reader cannot walk out of",
        len(by_platform) == 3
        and "flash-coder[mac]" in by_platform.get("darwin", "")
        and all("flash-coder[mac]" not in by_platform.get(p, "")
                and "does not build outside" in by_platform.get(p, "")
+               and "flash-coder[local]" in by_platform.get(p, "")
+               and "flash models pull" in by_platform.get(p, "")
+               and "--backend llama.cpp" in by_platform.get(p, "")
                for p in ("linux", "win32")),
        " | ".join(f"{p}: {by_platform[p][:44]}" for p in sorted(by_platform)))
+
+    ck("every `flash-coder[extra]` name the shipping code prints is an extra "
+       "pyproject.toml actually declares — a remedy line that names an extra nobody "
+       "wrote is worse than no remedy, because the reader types it and pip refuses. "
+       "The names are swept out of every module that prints one rather than kept in "
+       "a hand-written list, and the sweep refuses to be green because it collected "
+       "nothing: `[mac]` and `[local]` must both show up",
+       sorted(set(printed) - declared) == []
+       and {"mac", "local"} <= set(printed),
+       f"printed {sorted(printed)} declared {sorted(declared)}")
 
     dar = platform.system() == "Darwin"
     body = text["session"]
@@ -448,6 +496,14 @@ MUTANTS = {
                                            "    from flash.backend import load",
                                            "def cmd_decide(args) -> int:\n"
                                            "    from mlx_lm import load")]),
+    "remedy_names_an_undeclared_extra": ("the Apple-Silicon remedy tells the reader "
+                                         "to install an extra that is not in "
+                                         "pyproject.toml — which is the state this "
+                                         "repo shipped in, with `[mac]` printed by "
+                                         "`remedy()` and only `[local]` declared",
+                                         [("pyproject.toml",
+                                           'mac = ["mlx-lm',
+                                           'mack = ["mlx-lm')]),
 }
 
 
@@ -474,6 +530,12 @@ def _apply(patches):
 
 
 def mutate(one: str | None = None) -> int:
+    # Every file any mutant touches, captured before the first patch: a run that
+    # ends with a mutation still in the checkout is a run whose fractions describe
+    # code nobody can re-read. `guard_removed` is a TWO-patch mutant, which is the
+    # shape that left half a mutation in a committed tree before (`62d547f`).
+    pristine = {(ROOT / rel): (ROOT / rel).read_bytes()
+                for _, patches in MUTANTS.values() for rel, _, _ in patches}
     ran = failed = 0
     for name in ([one] if one else sorted(MUTANTS)):
         label, patches = MUTANTS[name]
@@ -484,11 +546,14 @@ def mutate(one: str | None = None) -> int:
         finally:
             for p, text in saved:
                 p.write_text(text)
+        left = [str(p.relative_to(ROOT)) for p, b in pristine.items()
+                if p.read_bytes() != b]
         bad = [l for l, ok, _ in CHECKS if not ok]
         ran += 1
-        print(f"  {'ok  ' if bad else 'FAIL'} MUTATION: {label} -> "
-              f"{len(bad)} check(s) fail" + (f"  {bad[0]}" if bad else ""))
-        failed += not bad
+        print(f"  {'ok  ' if bad and not left else 'FAIL'} MUTATION: {label} -> "
+              f"{len(bad)} check(s) fail" + (f"  {bad[0]}" if bad else "")
+              + (f"  MUTANT LEFT IN TREE: {left}" if left else ""))
+        failed += not bad or bool(left)
     print(f"\nbackend-message mutants: {ran - failed}/{ran} gates defeated by "
           "exactly their checks")
     return failed

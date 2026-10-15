@@ -41,6 +41,20 @@ dependencies = [
 dynamic = ["version"]
 
 [project.optional-dependencies]
+# The name `flash/backend.py`'s Apple-Silicon remedy prints, and the name
+# `benchmarks/backend_message_check.py` gates as a literal. It exists so that the
+# sentence a user is told to type installs something: with only `[local]` on this
+# page, a Mac user reading `pip install 'flash-coder[mac]'` would get
+# "Does not provide the extra 'mac'".
+# WHAT IT DELIBERATELY DOES NOT DO is move `mlx-lm` out of `dependencies`. Measured
+# reason, not taste: `mlx-lm` is already platform-marked there, so a Linux install
+# never resolves it and `[mac]` on a non-Mac is a documented no-op; and every
+# published §6 number on this Mac — plus CI's and the nightly's live arm, both of
+# which run `pip install -e .[dev]` — comes from an install that got MLX from the
+# hard dependency. Moving it here would make `pip install .` a Mac install that
+# cannot generate, which is a different product than the one README's quickstart
+# promises and would re-open R-7.5's four measured install shapes.
+mac = ["mlx-lm>=0.31; sys_platform == 'darwin' and platform_machine == 'arm64'"]
 # `flash run-vis-suite` reads screenshots through a VLM; the rest of the tool runs
 # without it and says so rather than crashing on import.
 vlm = ["mlx-vlm>=0.7; sys_platform == 'darwin' and platform_machine == 'arm64'"]
@@ -53,6 +67,21 @@ web = ["transformers>=4.44", "torch>=2.4"]
 # tree-sitter-typescript 0.23.2, the pair `benchmarks/ts_perception_check.py` was
 # run green against (47/47 + 13/13 mutants).
 ts = ["tree-sitter>=0.25", "tree-sitter-typescript>=0.23"]
+# R-7.18: the non-MLX route. `pip install 'flash-coder[local]'`, then
+# `flash models pull fast`, then any generating command with `--backend llama.cpp`.
+# It is an EXTRA and never a dependency, and what decides that is a measurement of
+# the download itself (`https://pypi.org/pypi/llama-cpp-python/json`, 2026-10-15):
+# version 0.3.36 is **one file, an sdist, and no wheel for any platform** — so
+# installing it runs a C++ compile with whatever toolchain the box happens to have,
+# which is a thing a person chooses, not a thing `pip install .` does to them. That
+# is also why it is NOT in `dev`: CI would pay that compile on every job, on the Mac
+# that runs §6 included. And why there is no platform marker on the line: the
+# package itself carries none (`requires-python >=3.8`, one tarball for
+# Linux/macOS/Windows), so a marker here would be a claim about a platform the
+# measured file does not restrict. `flash doctor` reports which of the two routes
+# this box can actually take, and `benchmarks/backend_seam_check.py` gates the
+# backend itself offline, because NO llama.cpp generation has been run here.
+local = ["llama-cpp-python>=0.3.36"]
 # What CI and a contributor run: the offline battery needs no model, and
 # pyflakes is a gate rather than a suggestion (`python -m pyflakes flash/*.py
 # benchmarks/*.py` must print nothing). It carries the `ts` extra on purpose: two of

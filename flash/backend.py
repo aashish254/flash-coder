@@ -87,16 +87,24 @@ def remedy() -> str:
     """What to type, for the platform actually running.
 
     Two answers because there are two different problems. On Apple Silicon MLX is
-    installable and simply absent, so the remedy is an install line. Anywhere else
-    no MLX wheel exists at all, and saying `pip install` something would be a
-    promise this project cannot keep.
+    installable and simply absent, so the remedy is an install line. Anywhere else no
+    MLX wheel exists at all — but since R-7.18 that is no longer the end of the
+    sentence, because there is a second backend to install. The old text said "no
+    install line fixes this box", which was true when MLX was the only thing that
+    could answer and is a lie about llama.cpp; so the non-Apple branch now prints the
+    route that works and names the one thing it costs (a C++ compile, since the
+    measured PyPI release is an sdist with no wheels).
     """
     if sys.platform == "darwin":
         return ("pip install 'flash-coder[mac]'          "
                 "(in a checkout: pip install -e '.[mac]')")
-    return ("MLX does not build outside Apple Silicon, so no install line fixes "
-            "this box. The offline half — the whole verification battery, the "
-            "graph, the oracle loop's grading — runs anyway")
+    return ("MLX does not build outside Apple Silicon, so no install line fixes THAT "
+            "route. The route that does work here: pip install 'flash-coder[local]' "
+            "(it compiles llama.cpp, so it needs a C++ toolchain), then `flash "
+            "models pull fast`, then any generating command with `--backend "
+            "llama.cpp --small fast`. Until then the offline half — the whole "
+            "verification battery, the graph, the oracle loop's grading — runs "
+            "anyway")
 
 
 def doctor_line() -> str:
@@ -206,8 +214,14 @@ class Backend:
         raise NotImplementedError
 
     def profile(self) -> dict:
-        """Identity and capabilities, for `flash doctor` and the turn report."""
-        return {"backend": self.name, "available": self.available()[0],
+        """Identity and capabilities, for `flash doctor` and the turn report.
+
+        `why` is carried because a report that lists only what works cannot answer
+        the question a Linux user is asking, which is what this box COULD run if it
+        installed something — and which of the two candidates is the one to install.
+        """
+        ok, why = self.available()
+        return {"backend": self.name, "available": ok, "why": why or None,
                 "supports": dict(self.supports)}
 
     def load_model(self, ref: str, adapter: str | None = None):

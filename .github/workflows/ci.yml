@@ -63,9 +63,13 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      # The marker on mlx-lm is the whole cross-platform story: on Linux it is
+      # The marker on mlx-lm is the cross-platform half of the story: on Linux it is
       # not installed, so this step failing would mean `pip install .` is broken
-      # for every non-Mac user.
+      # for every non-Mac user. The other half is `[local]` (llama-cpp-python), and
+      # it is deliberately NOT installed here: as measured on 2026-10-15 its 0.3.36
+      # release is one sdist and zero wheels, so every job would compile llama.cpp
+      # from source, and not one §6 line depends on a llama.cpp answer — no
+      # generation has ever run through it in this repository.
       - name: Install (no MLX on this platform)
         run: |
           python -m pip install --upgrade pip
