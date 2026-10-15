@@ -60,9 +60,13 @@ on the §6 page moved.
   `--backend auto|mlx|llama.cpp` where a named backend is *enforced* rather than
   preferred, and `flash.NoBackend` / `flash.NoFeature` raised at the call. Capabilities
   are measured on this box, not asserted: mlx has all five (`constrain`, `probe`,
-  `adapter`, `stream`, `embed`), llama.cpp reports `stream` and `probe` only. Vector
-  `benchmarks/backend_seam_check.py`: **33/33 + 6/6**, with `mlx`, `mlx_lm` and
-  `mlx_vlm` blocked at the interpreter in a child process.
+  `adapter`, `stream`, `embed`), llama.cpp reports `stream` and `probe` only —
+  a claim the installed library corrected the same day (see *Corrected* below), so
+  it now reports `stream` alone, with `constrain`, `probe`, `adapter`, `embed` and
+  `ids` all False and the reason beside each. Vector
+  `benchmarks/backend_seam_check.py`: **41/41 + 11/11** (33/33 + 6/6 until the real
+  library refused three calls its stand-ins had been agreeing with), with `mlx`,
+  `mlx_lm` and `mlx_vlm` blocked at the interpreter in a child process.
 - **R-7.18 (weights): `flash models pull|list|verify`.** The GGUF tiers get a
   downloader that can only succeed honestly: `.part` + HTTP `Range` resume, a
   whole-file SHA256 including the bytes from before the resume, a size pin checked
@@ -74,9 +78,12 @@ on the §6 page moved.
   the Hugging Face tree API: fast `bartowski/Qwen2.5-Coder-7B-Instruct-GGUF` /
   `Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf` / 4,683,074,336 B, brain
   `lmstudio-community/Qwen3-Coder-30B-A3B-Instruct-GGUF` /
-  `Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf` / 18,632,186,176 B. **No weights were
-  downloaded to make any claim in this section**: every check runs against a local
-  HTTP fixture. `flash doctor` reports the GGUF cache beside the MLX one, and
+  `Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf` / 18,632,186,176 B. Every check in that
+  gate runs against a local HTTP fixture and no network; the one real transfer is the
+  measurement, not the gate — on 2026-10-15 `flash models pull fast` moved the pinned
+  4,683,074,336 bytes in 848.78 s with the streamed SHA256 equal to the pin, and
+  `flash models verify fast` re-hashed the whole file off disk in 1.59 s.
+  `flash doctor` reports the GGUF cache beside the MLX one, and
   `pip install 'flash-coder[local]'` (llama-cpp-python) is an extra, never a hard
   dependency. Vector `benchmarks/models_pull_check.py`: **53/53 + 9/9**.
 - **R-7.19 (cost): the session says what it spent.** A session used to end with a
@@ -146,8 +153,56 @@ on the §6 page moved.
   measured them and the sentence that says why they are re-read rather than copied
   forward. Every superseded number stayed on the page with its date, as the file's own
   precedent does.
+- **Three defects that only the real library could see, and the claim they made
+  false.** Every one of them was invisible to `benchmarks/backend_seam_check.py`'s
+  stand-in, because a stub written to match the code under test can only certify the
+  code matching itself. Installed against the real llama-cpp-python 0.3.36:
+  - **The install itself.** `pip install 'flash-coder[local]'` failed to build, because
+    llama-cpp-python ships one sdist and no wheels and its build asks for `cmake`, which
+    this box did not have. `pip install cmake ninja` first is the workaround; the blocker
+    is named in `docs/models.md` rather than smoothed over.
+  - **`Llama.tokenize()` has no `add_special` keyword** — the real signature is
+    `(text: bytes, add_bos: bool = True, special: bool = False)`, measured off the
+    installed library. The shim passed `add_special=`, so every token *count* raised
+    `TypeError`. The first real session proved it from the artifact rather than the
+    traceback: it printed the answer, `Mars`, and then billed itself
+    `tokens=0 (prompt=0 completion=0) uncounted=1/1 generations` — a turn that had
+    really spent 83 tokens reported as nothing. `trace.n_tokens` catches, which is why
+    the run survived and why R-7.19's "never fold an uncounted turn into a zero" rule
+    is the thing that made the bug audible at all. The same call shape on
+    `flash.decide`'s label path has no handler, and pre-fix the probe arm died there.
+  - **Asking for log-probabilities on the shipped load raises.** The library's own
+    message is `ValueError: logprobs is not supported for models created with
+    logits_all=False`, and `load_model` leaves `logits_all` at that default, so
+    `Backend.probe` — which `flash.decide` calls — could not have worked on a GGUF.
+    Turning `logits_all` on would allocate a `(n_ctx, n_vocab)` float32 buffer,
+    ≈ **5.0 GB** at 8192 × 152,064, on a 32 GB box already holding the weight. The fix
+    is the honest one: `supports["probe"]` is False and the refusal is a sentence, and
+    it was run for real — `flash decide … --backend llama.cpp --model fast` on the
+    installed library gets past the label tokens, then exits **rc 2** printing the
+    refusal with both remedies in it. `flash run` on a GGUF is unaffected because it
+    routes on the decision fabric and never asks.
+  - **Stream chunks carry text but no token id.** Measured directly: the first two
+    chunks of that same answer were `(None, 'M')`, `(None, 'ars')`. `checkpoint.note`
+    does `f.ids.append(int(token_id))`, so an armed GGUF run dies at the first chunk —
+    which is the arithmetic of the measured shape against that line rather than an
+    observed crash, because the fix removes the path. `supports["ids"]` is now False and
+    `loop._generate` falls back to the one-shot call for such a backend. The declared
+    cost, in writing: a killed span cannot be resumed token-exact, so `--resume`
+    restarts that task rather than continuing inside it.
 
 ### Fixed
+- **A GGUF run answered and then mis-stated what it cost.** Generation through
+  `LlamaCppBackend` worked; what was wrong is everything downstream of the answer, and
+  the three mismatches with the real library's signature and arithmetic — under
+  *Corrected* — are why. Fixed, one real session turn on the pulled fast tier answered
+  `Mars` and printed
+  `[cost] … backend=llama.cpp … tokens=83 (prompt=81 completion=2)`: 1.55 s to load the
+  4.68 GB weight, 0.92 s generating that turn, and 19.8 tokens/s on a separate 128-token
+  greedy run — where the same session before the fix had printed `uncounted=1/1` for a
+  turn that spent 83 tokens. `flash decide` on the same weights now ends in one sentence
+  naming the missing capability at rc 2 instead of a `TypeError` from the tokenizer. No
+  API key was present in the environment for any of it.
 - **The nightly was red for fifteen nights for a file it never downloaded.** Every
   scheduled run failed at *Offline battery first* on
   `flash.grammar --selftest want 47/47 got ['24/25']`: the mask checks load the fast
@@ -159,19 +214,24 @@ on the §6 page moved.
   weights, before the battery.
 
 ### Not claimed here
-- No token has ever been generated through llama.cpp in this repository. The seam,
-  the downloader and the `[local]` extra are gated; the *answer quality* behind them
-  is not measured, and `docs/models.md` says so in those words.
+- Generation through llama.cpp has now happened here — one session turn and one
+  128-token run, all numbers above — but **quality is still unmeasured**. Nothing here
+  compares a Q4_K_M GGUF answer to the 4-bit MLX tier on any task, and the tokens that
+  a real turn emitted were counted, not graded. `docs/models.md` says so in those words.
+  `flash doctor`'s llama.cpp profile also still reports `verified: false`, because
+  `doctor` decodes nothing; that flag means "this command has never run a forward pass",
+  not "this route has never run".
 - `[local]` is deliberately absent from `dev`, and from CI: llama-cpp-python 0.3.36 is
   one sdist and zero wheels (re-checked against the PyPI JSON API 2026-10-15), so every
   job would compile llama.cpp to prove nothing §6 depends on.
 - CI still has never printed the whole 37-line §6 re-read, and the nightly's live half
   (run-suite + the hint audit) has never executed anywhere, so its green is unmeasured.
 - The landing site's data has not been regenerated for R-7.17d/R-7.18/R-7.19.
-- The bill has never been printed by a live turn. Its arithmetic, its clauses and its
-  trace record are gated against the records a real turn leaves; the token counts in
-  those gates are the stand-in's, not a model's, and no figure anywhere in this section
-  is money — flash counts tokens and has never seen a provider bill.
+- The bill has now been printed by a live turn: the `[cost]` line quoted under *Fixed*
+  came out of the real llama.cpp session above, and that session's `session_cost` record
+  is the witness committed with it. What is unchanged is the rest of the sentence — the
+  token counts inside the gates are still the stand-in's, and **no figure anywhere in
+  this section is money**; flash counts tokens and has never seen a provider bill.
 
 ## [0.1.0] - 2026-10-05 — the version moved; the tag has not been created
 

@@ -80,7 +80,12 @@ ts = ["tree-sitter>=0.25", "tree-sitter-typescript>=0.23"]
 # Linux/macOS/Windows), so a marker here would be a claim about a platform the
 # measured file does not restrict. `flash doctor` reports which of the two routes
 # this box can actually take, and `benchmarks/backend_seam_check.py` gates the
-# backend itself offline, because NO llama.cpp generation has been run here.
+# backend offline against a stand-in. Measured 2026-10-15: the compile is real (this
+# box had no `cmake`, and `pip install cmake ninja` in a throwaway venv is what
+# built 0.3.36), and one session turn plus one 128-token greedy run through
+# `LlamaCppBackend` answered on the pinned `fast` GGUF — see `docs/models.md` for
+# the token counts, and for the three argument-shape defects the installed library
+# exposed that the stand-in had been certifying.
 local = ["llama-cpp-python>=0.3.36"]
 # What CI and a contributor run: the offline battery needs no model, and
 # pyflakes is a gate rather than a suggestion (`python -m pyflakes flash/*.py

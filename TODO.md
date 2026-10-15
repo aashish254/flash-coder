@@ -2060,12 +2060,16 @@ here rather than folded into P6's confidence work.
             did not drive the driver (verdict t+24.13s, next ask typed t+24.33s).
             Logs `session_pty{,_interrupt,_interrupt_generating}_20261014.log`.
       - [x] [V] **R-7.17d the seam.** `flash/backend.py`: a two-entry `REGISTRY`
-            (`mlx`, `llama.cpp`), `report()` profiling each with its `why` and five
-            capability flags measured on the box (mlx all True; llama.cpp `stream` and
-            `probe` only), `--backend auto|mlx|llama.cpp` enforced rather than
+            (`mlx`, `llama.cpp`), `report()` profiling each with its `why` and its
+            capability flags measured on the box (mlx all True; llama.cpp `stream`
+            only — `constrain`, `probe`, `adapter`, `embed` and `ids` False, of which
+            `probe` and `ids` were read off the installed library on 2026-10-15
+            rather than designed), `--backend auto|mlx|llama.cpp` enforced rather than
             preferred at dispatch, `NoFeature` refusing a capability by name instead of
-            silently dropping it. `benchmarks/backend_seam_check.py` **33/33 + 6/6**
-            with `mlx`/`mlx_lm`/`mlx_vlm` blocked at the interpreter.
+            silently dropping it. `benchmarks/backend_seam_check.py` **41/41 + 11/11**
+            with `mlx`/`mlx_lm`/`mlx_vlm` blocked at the interpreter (it printed
+            33/33 + 6/6 until the real library refused three calls the stand-ins had
+            been agreeing with).
       - [x] [V] **R-7.18 the weights.** `flash models pull|list|verify`: `.part` +
             `Range` resume, whole-file SHA256 over the resumed bytes, `Content-Length`
             vs the size pin checked before the first write, a free-disk gate before the
@@ -2074,8 +2078,11 @@ here rather than folded into P6's confidence work.
             `[local]` extra and never a hard dependency; the pins are re-read
             2026-10-15 from the Hugging Face tree API (fast 4,683,074,336 B, brain
             18,632,186,176 B). `benchmarks/models_pull_check.py` **53/53 + 9/9**, every
-            transfer against a local HTTP fixture — no weights were downloaded for any
-            claim in this box.
+            transfer in that gate against a local HTTP fixture. The one real transfer
+            is not in the gate: `flash models pull fast` ran here on 2026-10-15 and
+            moved the pinned 4,683,074,336 bytes in 848.78 s with the streamed SHA256
+            equal to the pin, and `flash models verify fast` re-hashed the whole file
+            in 1.59 s.
       - [x] [V] **R-7.19 the bill.** A session ended and said nothing about what it
             cost: the tokens were already in the trace, unread. `cmd_session` now
             prints a `[cost]` header (turns, backend, wall, model seconds, verifying
@@ -2125,12 +2132,26 @@ here rather than folded into P6's confidence work.
             disk, and the killed run left half a mutant in an *untracked* file — so both
             harnesses now compare the bytes of everything they touch and print
             `MUTANT LEFT IN TREE`.
-      - [ ] [V] [L] **Not closed here.** No token has ever been generated through
-            llama.cpp in this repository: the seam, the downloader and `[local]` are
-            gated, the answer quality behind them is not measured. `[local]` is
-            deliberately out of `dev` and out of CI — llama-cpp-python 0.3.36 is one
-            sdist and zero wheels (re-checked against the PyPI JSON API 2026-10-15), so
-            every job would compile llama.cpp to prove nothing §6 depends on.
+      - [x] [V] **Closed by measurement 2026-10-15 — the box this file kept open.** No
+            token had ever been generated through llama.cpp in this repository. It has
+            been: llama-cpp-python 0.3.36 built from source in a throwaway virtual
+            environment (the blocker is `cmake`, which this box did not have; `pip
+            install cmake ninja` inside that environment is what let the build run),
+            `flash models pull fast` moving the pinned 4,683,074,336 bytes in 848.78 s
+            with the streamed SHA256 equal to the pin, and a session turn on those
+            weights answering in prose — 1.55 s to load at n_ctx 8192, 81 prompt and 2
+            completion tokens counted, 0.92 s generating, 19.8 tokens/s over a
+            128-token greedy answer, no API key in the path, and `flash decide` on those
+            weights ending in the `probe` refusal at rc 2 rather than a `TypeError`. The
+            measurement is what found the three stand-in-hidden defects R-7.17d's box
+            counts.
+      - [ ] [V] [L] **Still not closed here.** How a Q4_K_M GGUF scores against the
+            4-bit MLX tier on any suite in this repo — one prose turn on one Mac is not
+            a quality comparison, and no tokens-per-second number here is quoted as one.
+            `[local]` is deliberately out of `dev` and out of CI — llama-cpp-python
+            0.3.36 is one sdist and zero wheels for this interpreter (re-checked against
+            the PyPI JSON API 2026-10-15), so every job would compile llama.cpp to prove
+            nothing §6 depends on.
 - [ ] [V] [L] R-7.3 voice: real-microphone arm, VAD barge-in, ≥ 90% command
       recognition over 50 utterances.
 - [ ] [V] [L] M17 feel test: ≥ 7 of 10 developers keep it after a week.

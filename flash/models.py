@@ -1,4 +1,4 @@
-"""R-7.18: `flash models pull` — the weights for the backend this repo cannot test.
+"""R-7.18: `flash models pull` — the weights behind the second backend, pinned.
 
 `--backend llama.cpp` needs a GGUF file on disk. Before this file there was no way
 to get one that `flash` owned: `gguf_path()` could only resolve a path a user had
@@ -38,21 +38,31 @@ Two deliberate limits, said out loud rather than papered over:
   names their own bytes has outvoted the table, and this module does not delete
   what it was never asked to fetch.
 
-NOT MEASURED ON THIS BOX, AND NOT CLAIMED: no GGUF has ever been downloaded here —
-the smaller of these two files is 4.7 GB and the connection is metered, so `pull`
-has never moved a real weight. What is measured is the client:
-`benchmarks/models_pull_check.py` drives it against local HTTP servers that speak
-`Range` (clean pull, resume, verified hash, manifest), ignore `Range` (the fallback
-that restarts instead of appending onto a prefix it cannot trust), answer 416 (the
-complete-but-unregistered case), stop mid-stream (the `.part` that resumes), and
-serve bytes which do not match the pin (the refusal that deletes). That proves the
-download logic; it does not prove a CDN's behaviour or that the pinned file still
-exists tomorrow. Which is also why `_stream` never appends to a response that was
-not a 206: Hugging Face redirects `resolve/main` to an LFS CDN, and whether that
-redirect preserves a `Range` header is somebody else's implementation detail — a
-200 answer is handled by starting over, so the assumption cannot corrupt a file.
+MEASURED ON THIS BOX — 2026-10-15, and the numbers are the command's own. `flash
+models pull fast` moved 4,683,074,336 bytes in 848.78 s at a steady 5.2-5.5 MB/s,
+the streamed SHA256 equalled the pin, and the file landed in the cache registered.
+`flash models verify fast` then re-hashed all 4.68 GB off disk in 1.59 s — which is
+what separates this module's two words: `list` and `doctor` read a `stat`, only
+`verify` reads bytes. A generation followed through `--backend llama.cpp` on those
+weights (the measured run is in `LlamaCppBackend`'s docstring), so the pull is no
+longer the end of the road it was written against. What is STILL unproven is the
+CDN and the interrupted real download: `benchmarks/models_pull_check.py` drives the
+client against local HTTP servers that speak `Range` (clean pull, resume, verified
+hash, manifest), ignore `Range` (the fallback that restarts instead of appending
+onto a prefix it cannot trust), answer 416 (the complete-but-unregistered case),
+stop mid-stream (the `.part` that resumes), and serve bytes which do not match the
+pin (the refusal that deletes) — that proves the download logic, and the real pull
+above went through without needing any of the recovery arms. Which is also why
+`_stream` never appends to a response that was not a 206: Hugging Face redirects
+`resolve/main` to an LFS CDN, and whether that redirect preserves a `Range` header
+is somebody else's implementation detail — a 200 answer is handled by starting
+over, so the assumption cannot corrupt a file. And a pin is a claim about a file on
+somebody else's server, so the one number that is not re-derived here — that the
+pinned bytes are the same bytes tomorrow — stays OPEN and is what `verify` is for.
+
 The same honesty is in `flash doctor`: the llama.cpp backend's profile still says
-`verified: false`, and the GGUF line reports state, never a token decoded.
+`verified: false`, and the GGUF line reports state, never a token decoded, because
+neither command decodes a token.
 """
 from __future__ import annotations
 

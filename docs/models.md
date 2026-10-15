@@ -1,7 +1,8 @@
 # Models
 
 Everything measured here was measured on one machine — an Apple-silicon Mac with
-32 GB of memory, macOS 27.0, Python 3.11.15 — on 2026-09-27. Numbers that came
+32 GB of memory, macOS 27.0, Python 3.11.15 — on 2026-09-27, and the GGUF route was
+measured on the same box on 2026-10-15. Numbers that came
 from a command are labelled with it; numbers that came from a web page are
 labelled as fetched, with the date.
 
@@ -65,14 +66,69 @@ verified; a mismatch deletes the download and leaves the manifest alone. `FLASH_
 moves the cache, `FLASH_HF_ENDPOINT` moves the host, `FLASH_GGUF_N_CTX` sets the
 context llama.cpp is given (default 8192).
 
-**What this page is NOT claiming.** No llama.cpp generation has been run in this
-repository. The gate that covers this feature
+**What this page is NOT claiming.** The arithmetic inside llama.cpp, the quality of
+a Q4_K_M quantisation against the 4-bit MLX tier, and any number comparing the two
+routes on an oracle suite are measured NOWHERE here — one turn on one Mac is not a
+benchmark, and this page would rather leave that box open than borrow a vendor's
+number. What IS measured, on 2026-10-15, is in the next section: a real pull of the
+pinned bytes, a real hash check, and a real generation through `LlamaCppBackend` on
+CPU. The gate that covers the download
 (`python benchmarks/models_pull_check.py`, **53/53 checks and 9/9 mutants** as
 printed on 2026-10-15) drives the real downloader against local
 `http.server` fixtures and no network, because the pins above are 4.68 GB and
-18.63 GB and a test that fetched them would be a bill rather than a proof. So the
-arithmetic inside llama.cpp, the quality of a Q4_K_M quantisation against the 4-bit
-MLX tier, and any number comparing the two routes are measured NOWHERE here.
+18.63 GB and a test that fetched them would be a bill rather than a proof.
+
+## The GGUF route, run for real (2026-10-15)
+
+| What ran | What it printed |
+| --- | --- |
+| `flash models pull fast` | 4,683,074,336 bytes in **848.78 s** (14 m 9 s), 5.2-5.5 MB/s, streamed SHA256 `1664fccab734674a…` equal to the pin, manifest entry written after the match |
+| `flash models verify fast` | re-hashed the whole 4.68 GB in **1.59 s** and said the same thing |
+| `flash session --backend llama.cpp --small fast` | answered one prose question (`Mars`), `turns=1 solved=1`, **81 prompt + 2 completion tokens counted**, 0.92 s generating, 2.5 s wall, 9.29 GB peak RSS |
+| one 128-token greedy completion, same weights | **19.8 tokens/s** (128 tokens in 6.45 s) on CPU — 41.75 s of user time against 9.06 s of real time, which is what a multi-core CPU build looks like |
+| `Llama(...)` load | **1.55 s** at `n_ctx 8192`, vocab 152,064, `n_gpu_layers` left at the library's documented default of 0 |
+| `flash decide … --backend llama.cpp --model fast` | **rc 2**, one sentence naming the missing capability and the two ways around it — the `probe` refusal below, printed by the real CLI rather than a fixture |
+
+No API key and no token was involved in any line above: `flash models pull` sends a
+`User-Agent` and a `Range` header to a public repository, and the weights were
+already on disk by the time anything generated. The 4.68 GB is what the metered
+connection paid once; a re-run of `pull` on a registered file does nothing.
+
+Three things that run measured found, and each is now a check with a mutant in
+`benchmarks/backend_seam_check.py` (**41/41 checks, 11/11 mutants** as printed on
+2026-10-15) rather than a fixed line nobody could see the need for:
+
+- `Llama.tokenize` takes `add_bos`/`special`, not `add_special`. Observed on the real
+  library: `TypeError: Llama.tokenize() got an unexpected keyword argument
+  'add_special'` out of every token count — and the answer still arrived, because the
+  count is not on the generation path. So the first real session printed `Mars` and
+  then billed itself `tokens=0 (prompt=0 completion=0) uncounted=1/1 generations`:
+  a turn that had spent 83 tokens reported as nothing. What made that visible rather
+  than silently free is R-7.19's own rule — `trace.n_tokens` catches, returns `None`,
+  and the report refuses to fold a `None` into the total as a zero. `add_bos` also
+  DEFAULTS to True, so the count flash prints is the count of the string it was given,
+  not that plus a BOS it invented.
+- `probe` is False on this backend. `logprobs` on a model built without
+  `logits_all` — the library's default, and what flash's own load line leaves it at
+  — raises `ValueError`, and the buffer is `(n_ctx x vocab)` float32, about 5.0 GB
+  at 8192 x 152,064. Refusing on that is what a user sees, and it was run for real on
+  the installed library: `flash decide … --backend llama.cpp --model fast` exits **rc
+  2** with one sentence and no traceback — *"llama.cpp: this backend loads a GGUF
+  without `logits_all`, so llama-cpp-python returns no distribution to route on — and
+  turning it on costs an (n_ctx x vocab) buffer, about 5.0 GB at this backend's
+  8192-token context. Route with --backend mlx, or pin the tier (--tier small / --tier
+  big) so nothing has to be routed."* `flash run` on a GGUF never needs it, because the
+  decision fabric routes without a forward pass and the learned router already reports
+  `embed: False`.
+- `ids` is False on this backend. Observed: the real completion stream yields text
+  with no id — the first two chunks of that same answer were `(None, 'M')`,
+  `(None, 'ars')`. `flash.checkpoint.note` does `f.ids.append(int(token_id))` on what
+  a stream hands it, so an armed GGUF run dies at the first decoded token; that death
+  is the arithmetic of the measured chunk shape against the line above, and this box
+  has not run it, because the fix removes the path rather than proving it crashed. An
+  armed GGUF run now takes the one-shot call: it answers and is graded, and **`--resume`
+  restarts that task rather than continuing inside it** — the recovery granularity is
+  per task, not per token, and that is the limit this route ships with.
 
 **Licenses of these two mirrors, as fetched 2026-10-15.** The `bartowski` card
 states `apache-2.0`; the `lmstudio-community` card states **nothing** — its front
@@ -122,9 +178,10 @@ is a seam with two implementations, and the oracle loop, the tournament, the led
 the governor and the confidence table none of them know which one replied. That is a
 statement about the code, gated by `python benchmarks/backend_seam_check.py` (**R-7.17d**) with the
 backend blocked at the interpreter, and by `python benchmarks/models_pull_check.py`
-(**R-7.18**) for the download half. It is NOT a measured llama.cpp run: no generation has happened
-through that route in this repository, so what the GGUF tiers buy in quality and in
-tokens per second is open, and the page above says so rather than borrowing a number.
+(**R-7.18**) for the download half. The seam claim stands on those gates; the
+llama.cpp claim stands on the measured run above, and the two are different claims —
+what stays open is the GGUF route's *quality* against the MLX tiers, which no number
+on this page quotes.
 
 Importing is the weaker claim, and since **R-7.16** the battery stops making the
 stronger one falsely: with `--backend-free` the whole §6 tree measures **35 of 37**
@@ -162,8 +219,9 @@ What that means in practice on a non-Mac:
   `run`, `run-suite`, `session`, `decide`, `ambient`) — `pip install
   'flash-coder[local]'`, then `flash models pull fast`, then `--backend llama.cpp`.
   `vision` stays MLX-only: it goes through `mlx-vlm`, which the seam has no second
-  implementation of, and llama.cpp reports `embed: False` and `constrain: False` —
-  the capability table is what refuses, not a string comparison on a name;
+  implementation of, and llama.cpp reports `embed: False`, `constrain: False`,
+  `probe: False` and `ids: False` — measured refusals, each with the reason beside it,
+  and the capability table is what refuses, not a string comparison on a name;
 - does not work with nothing installed: generation, and it says so in one sentence
   naming both routes instead of a traceback.
 
@@ -192,6 +250,7 @@ command in this repo, both are gated by
 | transformers | 5.17.0 |
 | torch | 2.14.0 |
 | requests | 2.34.2 |
+| llama-cpp-python | 0.3.36 (the GGUF section above only; built from source here — the wheel it ships does not cover this interpreter, and the build needs `cmake`) |
 
 A dependency bump is not cosmetic in this project: `mlx-lm` decides what a
 greedy attempt emits, `python-lsp-server` decides what PERCEIVE resolves, and

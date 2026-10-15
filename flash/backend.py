@@ -528,11 +528,15 @@ class _GgufTokenizer:
         # `inspect.signature(Llama.tokenize)` on llama-cpp-python 0.3.36 is
         # `(text: bytes, add_bos: bool = True, special: bool = False)`. There is no
         # `add_special` keyword, so calling with one raised `TypeError` out of every
-        # token count `flash.trace.n_tokens` takes and out of
-        # `flash.decide._label_token_ids` — which is a routed GGUF run dying before
-        # it decoded a token. `add_bos` is the real knob and it DEFAULTS TO True, so
-        # the loop's `add_special_tokens=False` has to be said out loud: flash counts
-        # and compares prompt strings, and a BOS the caller did not ask for would make
+        # token count. Observed twice on the real library: `flash.trace.n_tokens` takes
+        # that path inside a `try`, so a session answered `Mars` and billed itself
+        # `uncounted=1/1 generations` instead of 81+2 tokens; and the same shape is what
+        # `flash.decide._label_token_ids` calls with no handler at all — the pre-fix
+        # probe run showed `TypeError` coming out of that path, and the fixed code gets
+        # past the labels to the refusal `probe` raises below. `add_bos` is the real
+        # knob and it DEFAULTS TO True, so the loop's `add_special_tokens=False` has to
+        # be said out loud: flash counts and compares prompt strings, and a BOS the
+        # caller did not ask for would make
         # every count one token too high. `special=True` is what lets a chat template's
         # own markers tokenize as single tokens instead of as literal text.
         return list(self._m.ll.tokenize(text.encode("utf-8"),
@@ -581,11 +585,15 @@ class LlamaCppBackend(Backend):
     Driving the real library found three defects that this class's own fixtures had
     been hiding, and each one is now a check in `backend_seam_check.py` with the
     library's real argument names: `Llama.tokenize` takes `add_bos`, not
-    `add_special`, so every token count raised `TypeError` and a routed GGUF run died
-    before decoding; a `logprobs` request on a model built without `logits_all`
-    raises `ValueError`, so `probe` was a capability this backend does not have; and
-    its stream chunks carry no token id, which is what an armed checkpoint appends
-    with `int()`. What stays unproven is the library's arithmetic — one Mac, one
+    `add_special`, so every token COUNT raised `TypeError` — the answer still arrived
+    while the bill for it read `uncounted=1/1 generations`, because the count is not on
+    the generation path and `trace.n_tokens` turns a raising tokenizer into `None`
+    rather than a zero; a `logprobs` request on a model built without `logits_all`
+    raises `ValueError`, so `probe` was a capability this backend does not have, and on
+    the installed library `flash decide --backend llama.cpp` answers that by printing
+    the refusal below and exiting 2; and its stream chunks carry no token id — measured
+    as `(None, 'M'), (None, 'ars')` — which is what an armed checkpoint appends with
+    `int()`. What stays unproven is the library's arithmetic — one Mac, one
     pinned file, one quantisation is a fact about that pair, and `profile()` below
     keeps `verified: false` because `flash doctor` decodes nothing and so cannot
     earn that word.

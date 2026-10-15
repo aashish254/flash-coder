@@ -61,10 +61,14 @@ Two things about this repo are load-bearing, and both are visible in the files:
   than letting a Linux install fail to resolve. Anywhere else the same loop can run
   on llama.cpp: `pip install 'flash-coder[local]'` (a source build — see the extra's
   comment), `flash models pull fast`, then `--backend llama.cpp --small fast`
-  (SPEC R-7.17d, R-7.18). **What that does not buy:** not one token has been
-  generated through llama.cpp in this repository, so the GGUF tiers' quality and
-  tokens-per-second are OPEN, and `docs/models.md` keeps them in an open box instead
-  of quoting a vendor's number.
+  (SPEC R-7.17d, R-7.18). **Measured here, 2026-10-15:** that pull moved the pinned
+  4,683,074,336 bytes in 848.78 s and its streamed SHA256 equalled the pin, and a
+  session turn through the real library on that file answered in prose — 1.55 s to
+  load at n_ctx 8192, 81 prompt and 2 completion tokens counted, 19.8 tokens/s for a
+  128-token greedy answer on CPU. **What that does not buy:** how those GGUF tiers
+  *score* against the MLX tiers on the oracle suites, so the quality comparison stays
+  OPEN and `docs/models.md` keeps it in an open box instead of quoting a vendor's
+  number.
 - **Everything else is pure Python 3.11+**: symbol perception, the AST knowledge
   graph, the harness and its GOT/WANT oracle, trace/replay, the outcome ledger, the
   power governor, the sandbox and the whole offline battery. With MLX blocked in a

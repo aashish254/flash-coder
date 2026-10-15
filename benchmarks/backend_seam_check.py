@@ -32,12 +32,14 @@ written to match `flash/backend.py`, and a stub that agrees with its own code
 cannot disagree with it:
 
   * `Llama.tokenize` takes `add_bos`/`special`, not `add_special`, so every llama.cpp
-    token count raised `TypeError` and a routed GGUF run died before decoding;
+    token count raised `TypeError` — the answer still printed while the session billed
+    itself `uncounted=1/1`, because `trace.n_tokens` catches, and the uncaught copy of
+    that call shape is on `decide`'s label path;
   * asking for log-probs on a model built with `logits_all=False` (the library's own
     default, and what `load_model` leaves it at) raises `ValueError`, so the declared
     `probe: True` was a capability this backend does not have;
-  * its stream chunks carry no token id, so `checkpoint.note(None, …)` would kill an
-    armed `run-suite` at the first token.
+  * its stream chunks carry `(None, text)` — measured — and `checkpoint.note` appends
+    `int(token_id)` to that, which is an armed `run-suite` dying at the first token.
 
 Each of those is now a check below, with the stand-in recording the real library's
 argument names rather than this file's guesses, and each has a mutant. The measured

@@ -2254,24 +2254,44 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   `--backend` flag that was parsed and then ignored, with `auto` choosing MLX by
   import order. `flash/backend.py` is now the seam: a two-entry `REGISTRY`
   (`mlx`, `llama.cpp`), one `report()` that profiles each with its `why` string and
-  five capability flags, and `--backend` applied at dispatch in front of the command.
+  its capability flags (`constrain`, `probe`, `adapter`, `stream`, `embed`, and since
+  the 2026-10-15 measurement `ids`), and `--backend` applied at dispatch in front of
+  the command.
   Measured on this box: `mlx` reports all five flags True; `llama.cpp` reports
-  `constrain: False, probe: True, adapter: False, stream: True, embed: False` with
-  `why = "import llama_cpp: ModuleNotFoundError: No module named 'llama_cpp'"` — that
-  string is the module's own answer about THIS install, not a claim about llama.cpp.
-  Those flags, not a string comparison on a name, are what refuses the vision route
+  `constrain: False, probe: False, adapter: False, stream: True, embed: False,
+  ids: False` with `why = "import llama_cpp: ModuleNotFoundError: No module named
+  'llama_cpp'"` — that string is the module's own answer about THIS install, not a
+  claim about llama.cpp. The two refusals that were not there when this box was
+  closed were read off the installed library on 2026-10-15, after it refused calls
+  this file had declared: `probe` because `logprobs` on a model built without
+  `logits_all` raises and the buffer is `(n_ctx x vocab)` float32 (about 5.0 GB at
+  this backend's 8192 x 152,064), and `ids` because its stream chunks carry no token
+  id, which an armed checkpoint appends with `int()`. Those flags, not a string
+  comparison on a name, are what refuses the vision route
   (`flash.vision`, whose suite is `flash run-vis-suite`) on a GGUF backend.
   **Vector:** `python benchmarks/backend_seam_check.py` prints `backend-seam checks:
-  33/33 passed` and `backend-seam mutants: 6/6` (re-measured 2026-10-15), with MLX
-  blocked at the interpreter, so the loop proves it is not calling a library it cannot
-  see. **What it does not buy:** no generation has ever run through llama.cpp in this
-  repository — not once, not on any machine — so the quality and tokens-per-second of
-  the GGUF route are OPEN and `docs/models.md` says so instead of borrowing a vendor
-  number. All four R-7.17 vectors are deliberately NOT §6 `BATTERY` rows: the headline
+  41/41 passed` and `backend-seam mutants: 11/11` (re-measured 2026-10-15; it printed
+  33/33 and 6/6 earlier the same day, and the eight checks and five mutants added are
+  the three measured defects below plus their arms — a stand-in that guessed
+  `add_special`, a probe that had no logits buffer, and a stream with no id to
+  checkpoint), with MLX blocked at the interpreter, so the loop proves it is not
+  calling a library it cannot
+  see. **What it does not buy:** the GGUF route's *quality* against the MLX tiers is
+  OPEN and `docs/models.md` says so instead of borrowing a vendor number. What is no
+  longer open, and was the reason this box stayed half-closed: llama.cpp HAS generated
+  through this class here — llama-cpp-python 0.3.36 built from source in a throwaway
+  virtual environment (the blocker is `cmake`, absent on this box, and
+  `pip install cmake ninja` into that environment is what made the build possible),
+  the pinned `fast` GGUF pulled, and one session turn answered in prose with 81
+  prompt and 2 completion tokens counted and 19.8 tokens/s for a 128-token greedy
+  answer on CPU. The `probe` refusal is measured there too: `flash decide … --backend
+  llama.cpp --model fast` gets past the label tokens on the real tokenizer and exits
+  **rc 2** printing the one sentence above, not a traceback. All four R-7.17 vectors
+  are deliberately NOT §6 `BATTERY` rows: the headline
   totals are the sum of closed rows, so a vector that grows cannot move a published
   number.
-- **R-7.18 (CLOSED 2026-10-15 for the downloader; the route it feeds stays OPEN)**
-  **`flash models pull <tier>`: the weights for the backend this repo cannot test.**
+- **R-7.18 (CLOSED 2026-10-15, for the downloader AND for one real weight)**
+  **`flash models pull <tier>`: the weights behind the second backend, pinned.**
   R-7.17d gives `--small fast` a second implementation, and it cannot load a file the
   user does not have. So `flash/models.py` owns four things: a `TIERS` table that pins
   one GGUF per tier by repo, filename, byte count and SHA256; a resume (`Range`/206
@@ -2317,9 +2337,16 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   4,683,074,336 and 18,632,186,176 and both SHA256s match what `flash/models.py`
   carries and what `docs/models.md` prints, which `models_pull_check`'s parity arm
   re-reads from both files on every run.
-  **What remains OPEN is the model, not the downloader:** no llama.cpp generation run,
-  no measured quality or tokens/second on either tier, and no real weight has ever been
-  fetched by this repository's code.
+  **What remains OPEN is the model, not the downloader.** Measured 2026-10-15, on
+  this box: `flash models pull fast` moved the pinned 4,683,074,336 bytes in 848.78 s
+  (5.2-5.5 MB/s, 14 m 9 s on a connection capped at 50 GB/day), the streamed SHA256
+  equalled the pin, and `flash models verify fast` re-hashed the whole file off disk
+  in 1.59 s — the two words this module keeps apart, `pulled` and `verified`, are now
+  both earned by the same command that published only the first. `--small fast` then
+  loaded those weights and generated (R-7.17d's box carries the token counts). Still
+  open: how a Q4_K_M GGUF scores against the 4-bit MLX tier on any of this repo's
+  suites, and whether the pinned bytes are still the bytes upstream serves tomorrow —
+  which is exactly what `verify` exists to answer.
 - **R-7.19 (CLOSED 2026-10-15)** **A session ended without saying what it cost.**
   Whether to run the same conversation again is a money question, and the answer was
   sitting in the trace where nobody reads it: `flash run` prints one verdict per task,
@@ -2370,10 +2397,15 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   here is the one that proves the copy bills at all, comparing the block line for line
   with only `wall=` folded, since two processes cannot share a clock. The same reason
   keeps a volatile number out of the §6 row's compared text.
-  **Not claimed:** no money figure anywhere (tokens, not dollars); no token count from a
-  real model in this pass — the arithmetic, the clauses and the storage are what is
-  gated, and the numbers are the stand-in's; and the session's bill has never been
-  printed by a live turn on either backend.
+  **Not claimed:** no money figure anywhere (tokens, not dollars). The last clause this
+  box carried when it closed was false the day the GGUF route was driven for real: the
+  session's bill HAS now been printed by a live turn — `backend=llama.cpp`, 81 prompt
+  and 2 completion tokens counted by the installed library's own tokenizer, with the
+  printed `[cost]` line and the stored `session_cost` record coming from the same run and
+  both committed as witnesses. The numbers inside `session_ux_check.py` stay the
+  stand-in's. What has still not happened here is a live session turn on the **MLX**
+  backend printing its bill: the only two `session_cost` records in this repository's
+  traces both name `llama.cpp`.
 - **R-7.3 (OPEN)** Hands-free control (voice) at the measured spike latency:
   command-to-ack ~4.8s. Vector: real-microphone arm of the spike with VAD
   barge-in, ≥ 90% command recognition over 50 utterances.
