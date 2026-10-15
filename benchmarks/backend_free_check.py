@@ -239,6 +239,19 @@ def pkg_only_sweep():
     return _SWEEP["result"]
 
 
+def death(text: str) -> str:
+    """The failing check's OWN line, rather than the tail of the run.
+
+    A module selftest ends with its fraction, so the last ninety characters of any
+    death are always the same sentence: `N/M checks passed`, which names the module
+    and not the check. CI paid for that on a runner that lost one checkpoint check
+    and could only say `checkpoint, rc 1` — the label that would have said which
+    claim broke was in the output and thrown away."""
+    hits = [line.strip() for line in text.splitlines()
+            if line.strip().startswith("FAIL")]
+    return " || ".join(h[:170] for h in hits[:3]) or text.strip()[-90:]
+
+
 def _shim_dir() -> Path:
     """The directory holding the shipped `--backend-free` shim, built once per
     process, read from the file the battery uses rather than a copy this vector
@@ -659,14 +672,14 @@ def run_gates() -> None:
        "deterministic and a wall-clock budget is not",
        not untabled,
        "untabled data-dependents: "
-       + str([(m, died[m][0], died[m][1].strip()[-90:]) for m in untabled]))
+       + str([(m, died[m][0], death(died[m][1])) for m in untabled]))
     ck("...and a failure that survives the data coming back is one of the three "
        f"named machine-state vectors ({', '.join(sorted(MACHINE_STATE))}), never a "
        "silently-skipped module: the sweep is allowed to be honest about a loaded "
        "box, and the price is that the list is checked in both directions",
        not state,
        "new unexplained failures: "
-       + str([(m, died[m][0], died[m][1].strip()[-90:]) for m in state]))
+       + str([(m, died[m][0], death(died[m][1])) for m in state]))
 
     # ----------------------------- R-7.16: the same copy, with the backend blocked.
     # `mlx-lm` sits behind a platform marker in `pyproject.toml`, so every Linux and
@@ -686,7 +699,7 @@ def run_gates() -> None:
        f"the one that can ({len(backend_deaths)} deaths)",
        len(shimmed) == len(swept) and len(swept) >= 16 and not backend_deaths,
        "selftests that need a backend: "
-       + str([(m, shimmed[m][0], shimmed[m][1].strip()[-90:])
+       + str([(m, shimmed[m][0], death(shimmed[m][1]))
               for m in backend_deaths]))
     backend_control = run("-c", "import mlx_lm.lora", env=shim_env())
     ck("...and the block is live in the interpreter that arm used: `import "
