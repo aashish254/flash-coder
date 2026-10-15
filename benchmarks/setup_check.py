@@ -567,3 +567,7 @@ def main(argv: list) -> int:
     if bad:
         return 1
     return 1 if mutate() else 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv[1:]))

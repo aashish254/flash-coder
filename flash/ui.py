@@ -173,7 +173,12 @@ class Session:
         """
         if self._model is None:
             from flash import cli
-            ref = cli.DEFAULT_MODEL if backend.selected() == "mlx" else "fast"
+            # `selected()` hands back a Backend, not its name, and the two backends
+            # take different shapes for `ref`: a tier word for a GGUF, a repo id for
+            # MLX. `flash setup` resolves the same pair; the page must not carry a
+            # second, different answer about what to load.
+            ref = ("fast" if backend.selected().name == "llama.cpp"
+                   else cli.DEFAULT_MODEL)
             self._model, self._tokenizer = backend.load(ref)
         return self._model, self._tokenizer
 
@@ -343,15 +348,22 @@ def _diff(before: str, after: str, path: str) -> list[str]:
 
 
 # ---------------------------------------------------------------- the jobs
-def _job(sess: Session, work) -> str:
+def _job(sess: Session, work, kind: str) -> str:
     """Run `work` on a thread and hand back an id the page polls.
 
     A turn is a minute of model time and a pull is an afternoon of bytes. A request
     that holds the socket open for either would look like a hung server, which is
-    the exact first-run failure this project keeps having to fix.
+    the exact first-run failure this project keeps having to fix — and a second
+    reason the turn is a job: `NoBackend` raised inside a request handler dies in
+    the socket, so the browser gets no answer and the terminal gets a stack frame.
+    On a thread, the same exception becomes the job's sentence.
+
+    `kind` is in the payload because the page has to know which panel a finished
+    job belongs to: a weight's verification sentence is not a verdict about the
+    user's asserts.
     """
     jid = uuid.uuid4().hex[:8]
-    job = {"state": "running", "lines": ["started"], "result": None}
+    job = {"state": "running", "kind": kind, "lines": ["started"], "result": None}
     sess.jobs[jid] = job
 
     def go():
@@ -455,6 +467,7 @@ button:disabled{opacity:.4;cursor:not-allowed}
 </section>
 <section><h2>Models</h2>
   <div id=models></div>
+  <pre id=job class=muted></pre>
 </section>
 </main>
 <script>
@@ -494,14 +507,20 @@ function paint(){
   if(!S.available&&!S.demo)put(m,'nothing can answer yet: install a model library (`pip install flash-coder[local]` for llama.cpp) or run `flash setup`','p').className='muted';
 }
 async function post(u,body){const r=await fetch(u,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body||{})});
-  const j=await r.json();if(j.job)watch(j.job);el('note').textContent=j.ok?'':(j.err||'');refresh();return j;}
+  const j=await r.json();if(j.job){watch(j.job);return j;}
+  el('note').textContent=j.ok?'':(j.err||'');refresh();return j;}
 function watch(id){jobs[id]=true;poll(id);}
 async function poll(id){const j=await(await fetch('/api/job?id='+id)).json();
+  el('job').textContent=(j.lines||[]).slice(-12).join('\n');
   if(j.state==='running'){setTimeout(()=>poll(id),400);return;}
-  delete jobs[id];if(j.result&&j.result.text)el('verify').textContent=j.result.text;refresh();}
+  delete jobs[id];
+  const end=(j.result&&(j.result.err||j.result.text))||'';
+  if(j.kind==='turn'){el('send').disabled=false;el('note').textContent=j.state==='failed'?end:'';}
+  else if(end)el('job').textContent+='\n'+end;
+  refresh();}
 el('send').onclick=async()=>{const q=el('ask').value.trim();if(!q)return;el('ask').value='';
   el('send').disabled=true;el('note').textContent='thinking — a turn is a minute of model time';
-  await post('/api/turn',{prompt:q});el('send').disabled=false;el('note').textContent='';};
+  await post('/api/turn',{prompt:q});};
 el('runverify').onclick=async()=>{const j=await post('/api/verify',{test:el('test').value});
   el('verify').textContent=j.text||(j.err||'');};
 refresh();
@@ -533,10 +552,14 @@ class Handler(BaseHTTPRequestHandler):
         if self.path == "/api/turn":
             if not body.get("prompt", "").strip():
                 return self._json({"ok": False, "err": "flash ui: an empty ask"})
-            row = self.session.run_turn(body["prompt"].strip())
-            self._log(f"turn {row['i']}: {row['verdict']}")
-            return self._json({"ok": row["ok"], "turn": row,
-                               "err": "" if row["ok"] else row["err"]})
+            prompt = body["prompt"].strip()
+
+            def work(job, p=prompt):
+                row = self.session.run_turn(p)
+                self._log(f"turn {row['i']}: {row['verdict']}")
+                return row
+            return self._json({"ok": True,
+                               "job": _job(self.session, work, "turn")})
         if self.path in ("/api/apply", "/api/reject"):
             r = (self.session.apply(body.get("path", ""))
                  if self.path.endswith("apply")
@@ -560,14 +583,20 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json({"ok": False,
                                    "err": f"flash ui: no tier named `{tier}` is "
                                           f"pinned. Pinned: {', '.join(models.TIERS)}"})
-            jid = _job(self.session, lambda job, t=tier: self._pull(job, t))
+            jid = _job(self.session, lambda job, t=tier: self._pull(job, t),
+                       "pull")
             return self._json({"ok": True, "job": jid})
         self._json({"ok": False, "err": f"flash ui: no route {self.path}"}, 404)
 
     def _pull(self, job, tier: str) -> dict:
         """The download, on `flash models`'s own code path, bar lines into the job."""
         t = models.tier(tier)
-        rc = models.fetch(t, yes=True, progress=True, out=_Bar(job))
+        # One sink for both halves of the pull's output: the plan and the progress
+        # line arrive in the same list, in the order a terminal would have shown
+        # them. `models.fetch` writes its bar to stderr by default, and a page that
+        # showed only the plan would be a screenshot of a download, not one.
+        sink = _Bar(job)
+        rc = models.fetch(t, yes=True, progress=True, out=sink, bar=sink)
         ok, line = models.verify(tier)
         return {"ok": rc == 0 and ok, "rc": rc, "text": line, "verified": ok}
 
@@ -655,10 +684,16 @@ def dispatch(a) -> int:
               "--context is ignored on that run")
     srv, sess = make_server(a.context, a.port, a.test, a.demo_backend)
     url = f"http://127.0.0.1:{srv.server_address[1]}/"
-    print(f"flash ui — {sess.turns} turns, four panels, nothing leaves this machine")
-    print(f"  open {url}")
-    print(f"  project: {sess.context}")
-    print("  Ctrl-C stops it")
+    # Flushed, all four lines. `serve_forever()` below never returns until Ctrl-C,
+    # so when stdout is a pipe rather than a terminal these are the only bytes that
+    # would ever arrive — and a command that opens a server and prints nothing is
+    # indistinguishable from one that failed to start.
+    for line in (f"flash ui — {sess.turns} turns, four panels, nothing leaves this "
+                 "machine",
+                 f"  open {url}",
+                 f"  project: {sess.context}",
+                 "  Ctrl-C stops it"):
+        print(line, flush=True)
     try:
         srv.serve_forever()
     except KeyboardInterrupt:

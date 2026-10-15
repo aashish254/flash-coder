@@ -270,13 +270,19 @@ def _progress(done: int, total: int, t0: float) -> str:
             f"{_human(done)} / {_human(total)}  {rate / 1000 ** 2:6.1f} MB/s")
 
 
-def _stream(t: Tier, progress: bool = True) -> str:
+def _stream(t: Tier, progress: bool = True, bar=None) -> str:
     """Fetch what is missing and return the SHA256 of the whole `.part`.
 
     A host that ignores `Range` answers 200 with the entire body. Writing that body
     onto an existing prefix would corrupt the file while looking like a successful
     resume, so the response code decides the open mode: 206 appends, anything else
     truncates and re-hashes from byte 0.
+
+    `bar` is where the progress line is written: stderr by default, so a piped
+    `flash models pull` still parses its plan off stdout, and whatever a caller
+    hands in otherwise. `flash ui` passes the job object its page polls — the panel
+    shows this bar, not a copy of it, which is the only reason one download
+    implementation stays honest across two surfaces.
     """
     part = part_path(t)
     start = part.stat().st_size if part.is_file() else 0
@@ -299,9 +305,10 @@ def _stream(t: Tier, progress: bool = True) -> str:
         _hash_prefix(part, h, start)
     done = start
     t0 = time.time()
+    sink = sys.stderr if bar is None else bar
     with open(part, "ab" if start else "wb") as f:
         if progress:
-            sys.stderr.write(_progress(done, t.size, t0))
+            sink.write(_progress(done, t.size, t0))
         while True:
             b = resp.read(CHUNK)
             if not b:
@@ -310,11 +317,11 @@ def _stream(t: Tier, progress: bool = True) -> str:
             h.update(b)
             done += len(b)
             if progress:
-                sys.stderr.write(_progress(done, t.size, t0))
+                sink.write(_progress(done, t.size, t0))
         f.flush()
         os.fsync(f.fileno())
     if progress:
-        sys.stderr.write("\n")
+        sink.write("\n")
     if done != t.size:
         # A short body is the interrupted case, not a failed one: the bytes are
         # good as far as they go, so the `.part` stays and the claim does not.
@@ -325,9 +332,14 @@ def _stream(t: Tier, progress: bool = True) -> str:
 
 
 def fetch(t: Tier, yes: bool = False, force: bool = False,
-          progress: bool = True, out=None) -> int:
+          progress: bool = True, out=None, bar=None) -> int:
     """Download one tier into the cache, resumably, and register it only if the
-    hash matched. Returns the exit code the CLI prints."""
+    hash matched. Returns the exit code the CLI prints.
+
+    `bar` is the stream the progress line goes to — stderr when nobody passes one,
+    and the UI's job object when `flash ui` pulls. The plan text always goes to
+    `out`, so the two surfaces differ only in where each line lands.
+    """
     out = out or sys.stdout
     p = plan(t)
     d = cache()
@@ -365,7 +377,7 @@ def fetch(t: Tier, yes: bool = False, force: bool = False,
             print_(out, "flash: not pulled. Nothing was downloaded.")
             return 1
     try:
-        got = _stream(t, progress=progress)
+        got = _stream(t, progress=progress, bar=bar)
     except PullError as e:
         print_(out, f"flash: {e}")
         return 1
