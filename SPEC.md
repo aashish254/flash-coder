@@ -2068,6 +2068,18 @@ Statuses: **SHIPPED** (built + vector run), **PARTIAL**, **OPEN**.
   written for `nightly.yml` and are deliberately **not in this commit** — the nightly
   workflow stays untouched until its own pass, so those four scheduled failures are
   still open and named here rather than claimed fixed.
+  **That pass is 2026-10-15.** The nightly had by then failed **15 of its 15**
+  scheduled runs, latest `38704438849`, and every one of them died in *Offline battery
+  first* on the same two lines above — the cold cache, never a different row. Its
+  pre-flight said the cause outright (`model cache
+  /Users/runner/.cache/huggingface/hub: 0 repo(s), 0 of 4 §22 candidates present`,
+  three lines before `[yes] the offline battery runs here`), and the cache it declares
+  would only be filled by the live step that the gate blocks, so the battery was
+  asking a runner for a file that runner could only get *after* the battery passed. The
+  two CI steps, same cache key, are now in `nightly.yml` before *Offline battery
+  first*. What is measured: the cold-cache arm reproduced here, and §6's `47/47` on the
+  warm one. What is NOT measured: the nightly's own green — that needs the owner's
+  push, then the next 03:17 run, and its live half has never executed anywhere.
 
   **The confirming re-read.** Both lanes ran on the final tree, sequentially, on AC
   at 80%. The plain lane printed 37 `OK` lines, no `BAD` line and rc 0 with

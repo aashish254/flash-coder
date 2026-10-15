@@ -125,6 +125,15 @@ labelled `needs-battery-run`, and why the battery is a CI gate:
 `flash selftest --all` is a thin wrapper on
 `python benchmarks/battery_reread.py` — the same lines, the same printed totals,
 and the same rc-2 refusal when the battery file is not beside the package — so the
-gate a bot has to pass is the gate a human can run. **Gated here, not measured
-there:** neither workflow has executed, because no remote is configured, so "the CI
-runs the battery" describes a file in this repo rather than a green check mark.
+gate a bot has to pass is the gate a human can run. **Both workflows now execute:**
+the remote is configured, and `CI` on main at `850af44` (run `37349276866`,
+2026-10-05) came back with all three jobs green — `static (3.12)`, `static (3.11)`
+and the macos-14 `battery` job, which is the run that prints §6 on someone else's
+Mac. **What that page could not say until 2026-10-15:** `Nightly live check` had
+failed all **15 of its 15** scheduled runs (Oct 1–15), every one of them in
+*Offline battery first* on the same two BAD lines, because a fresh macos runner has
+an empty HF cache (`Cache not found for input keys: hf-macOS-qwen2.5-coder-7b-4bit-v1, hf-macOS-`)
+and `flash.grammar --selftest`'s mask checks read the fast tier's tokenizer from it
+— so the gate asked the runner for a file only the step *behind* it downloads. The
+CI job already pre-warmed those 7 files; the nightly now carries the same two steps,
+with its green witness still pending the next scheduled run.

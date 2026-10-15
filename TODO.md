@@ -1914,8 +1914,17 @@ here rather than folded into P6's confidence work.
             pre-warms the tokenizer's 7 files (11M, no weights) and asserts
             `battery_reread --quick grammar` in isolation; verified here against a
             throwaway HOME, where `flash.grammar --selftest` then printed **47/47** rc 0.
-            The two identical steps for `nightly.yml` are written but held out of this
-            release — that workflow is not touched, so the nightly's failures stay OPEN.
+            The two identical steps for `nightly.yml` were written but held out of that
+            release — that workflow was not touched, so the nightly's failures stayed
+            OPEN. **They are carried over now** (2026-10-15, branch `ux-gapfill`): the
+            nightly had by then failed **15 of 15** scheduled runs, latest
+            `38704438849`, each one dying in *Offline battery first* with
+            `flash.grammar --selftest want 47/47 got ['24/25']` on `Cache not found for
+            input keys: hf-macOS-qwen2.5-coder-7b-4bit-v1, hf-macOS-`, and the same tree
+            reproduces that line here with `python -m flash.grammar --selftest` under
+            `HOME=/tmp/nohome`, while printing **47/47** on the real cache — a cold cache
+            reported as a failing test, not a regression. Not yet measured: the
+            nightly's own green, which needs the owner's push and the next 03:17 run.
       - [x] **§6 whole-tree re-read and the docs pass.** `CLAIM` moves to
             `{"checks": 1426, "oracle": 20, "mutants": 171}` (`1420 + 2` the blocked-sweep
             arm and its control, `+ 4` the lane's gates; `167 + 1 + 3` mutants) — the hand
