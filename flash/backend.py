@@ -34,10 +34,11 @@ because the mask is a logits processor and llama-cpp-python's sampler takes no
 per-step hook. That is declared in `profile()["supports"]` and refused in words
 (`NoFeature`) rather than by a silent fallback — a run that quietly stopped
 applying a contract the user asked for would be a measurement error, not a port.
-The router's one-token forward pass is a `probe`, which both classes implement,
-but the llama.cpp one has never decoded a token on this machine (see
-`LlamaCppBackend`), so a routed GGUF run is wired and unproven, and this file
-says so in the same voice as `flash doctor`. Training and the learned router's
+The router's one-token forward pass is a `probe`, which MLX implements; on
+llama.cpp it REFUSES, because the installed library returns no distribution for a
+model built without its logits buffer and the buffer costs about 5.0 GB at this
+backend's context — the measured reasons are in `LlamaCppBackend.supports`, and a
+GGUF run pins a tier instead of routing. Training and the learned router's
 embedding stay MLX-only (`adapter`, `embed`) because a LoRA is an MLX concept.
 
 Nothing at module scope imports a third-party model library. That is a hard rule,
@@ -50,9 +51,12 @@ What gates this file: `benchmarks/backend_message_check.py` runs every generatin
 CLI command under the shipped `--backend-free` shim and requires the sentence,
 the exit code and the remedy; `benchmarks/backend_free_check.py` keeps the import
 half; `benchmarks/backend_seam_check.py` runs a whole oracle-scored turn with MLX
-BLOCKED at the interpreter and a stand-in backend serving it, which is the only
-way to prove the five consumers above are actually backend-agnostic on a Mac that
-cannot install llama-cpp-python.
+BLOCKED at the interpreter and a stand-in backend serving it, which is the way to
+prove the five consumers above are actually backend-agnostic without a second
+library in the interpreter that answers. Its llama.cpp arm drives the shipping
+class against a stand-in `llama_cpp` whose argument names were read off the
+installed library — after the installed library rejected a name this file had
+guessed, which is the lesson that arm now carries.
 """
 from __future__ import annotations
 
@@ -520,10 +524,20 @@ class _GgufTokenizer:
         return self._m.path
 
     def encode(self, text: str, add_special_tokens: bool = False, **ignored) -> list[int]:
-        # llama.cpp tokenizes bytes; `add_special_tokens` is not this API's concept
-        # (a GGUF's BOS policy is baked into the file), so the loop's default of
-        # False is also what happens here whatever the caller says.
-        return list(self._m.ll.tokenize(text.encode("utf-8"), add_special=False))
+        # MEASURED against the installed library, not against this file's own guess:
+        # `inspect.signature(Llama.tokenize)` on llama-cpp-python 0.3.36 is
+        # `(text: bytes, add_bos: bool = True, special: bool = False)`. There is no
+        # `add_special` keyword, so calling with one raised `TypeError` out of every
+        # token count `flash.trace.n_tokens` takes and out of
+        # `flash.decide._label_token_ids` — which is a routed GGUF run dying before
+        # it decoded a token. `add_bos` is the real knob and it DEFAULTS TO True, so
+        # the loop's `add_special_tokens=False` has to be said out loud: flash counts
+        # and compares prompt strings, and a BOS the caller did not ask for would make
+        # every count one token too high. `special=True` is what lets a chat template's
+        # own markers tokenize as single tokens instead of as literal text.
+        return list(self._m.ll.tokenize(text.encode("utf-8"),
+                                        add_bos=bool(add_special_tokens),
+                                        special=True))
 
     def decode(self, ids: list[int], skip_special_tokens: bool = False) -> str:
         raw = self._m.ll.detokenize(list(ids))
@@ -553,26 +567,43 @@ class LlamaCppBackend(Backend):
     loop, the ledger and the power governor addressing the same two tiers they
     always did.
 
-    UNVERIFIED HERE, ON PURPOSE, AND SAID OUT LOUD: this box is Apple Silicon,
-    `llama-cpp-python` ships no wheel for it (it is a source build against the
-    llama.cpp C++ tree) and there is no GGUF on disk, so not one token has been
-    decoded through this class on this machine. `benchmarks/backend_seam_check.py`
-    therefore drives it against a stand-in `llama_cpp` module that implements the
-    documented call surface, which proves the CLASS is wired to the loop and
-    nothing more: the arithmetic inside llama.cpp, the chat template it renders,
-    and the token ids it reports are only ever measured on a machine that can
-    install the library and pull a GGUF. `flash doctor` prints this backend's
-    profile with that state in it, so a reader cannot mistake the seam's proof for
-    the backend's proof.
+    MEASURED HERE, AND WHAT WAS FOUND — 2026-10-15. The paragraph this one replaced
+    said not one token had been decoded through this class on this machine. That is
+    no longer true: `flash models pull fast` moved the pinned 4.68 GB GGUF, and a
+    `flash session --backend llama.cpp` turn on it answered in prose — 1.55 s to
+    load the weights at n_ctx 8192, 81 prompt tokens and 2 completion tokens
+    counted by the tokenizer above, 0.92 s of generation, and no API key anywhere in
+    the path. llama-cpp-python itself ships no wheel for this interpreter, so it was
+    built from source in a throwaway virtual environment (the blocker is `cmake`,
+    which this box did not have either, and `pip install cmake ninja` inside that
+    environment is what made the build possible).
+
+    Driving the real library found three defects that this class's own fixtures had
+    been hiding, and each one is now a check in `backend_seam_check.py` with the
+    library's real argument names: `Llama.tokenize` takes `add_bos`, not
+    `add_special`, so every token count raised `TypeError` and a routed GGUF run died
+    before decoding; a `logprobs` request on a model built without `logits_all`
+    raises `ValueError`, so `probe` was a capability this backend does not have; and
+    its stream chunks carry no token id, which is what an armed checkpoint appends
+    with `int()`. What stays unproven is the library's arithmetic — one Mac, one
+    pinned file, one quantisation is a fact about that pair, and `profile()` below
+    keeps `verified: false` because `flash doctor` decodes nothing and so cannot
+    earn that word.
     """
 
     name = "llama.cpp"
-    #: `probe` is True because llama-cpp-python returns the logits a prefill
-    #: produced; `constrain` is False because its sampler takes no per-step DFA
-    #: hook, so R-4.2's mask cannot be enforced here and says so. `embed` is False
-    #: because the learned router's PCA basis was fit on MLX hidden states.
-    supports = {"constrain": False, "probe": True, "adapter": False,
-                "stream": True, "embed": False}
+    #: MEASURED on the installed library (0.3.36) rather than declared from this
+    #: file's own design: `constrain` is False because llama-cpp-python's sampler
+    #: takes no per-step DFA hook; `probe` is False because the only way to ask it
+    #: for a distribution is `logprobs=…`, which raises
+    #: `ValueError: logprobs is not supported for models created with
+    #: logits_all=False`, and turning `logits_all` on allocates an
+    #: `(n_ctx, n_vocab)` float32 buffer — ~5.0 GB at this file's 8192-token context
+    #: and a 152,064-token vocab, which flash will not pay to route a question;
+    #: `ids` is False because its stream chunks carry no token id without that same
+    #: buffer, and `flash.checkpoint.note` counts on an int.
+    supports = {"constrain": False, "probe": False, "adapter": False,
+                "stream": True, "embed": False, "ids": False}
 
     #: The context the GGUF is loaded with. flash's prompts are the whole repo
     #: skeleton plus an oracle file, so the llama.cpp default of 512 truncates the
@@ -666,7 +697,24 @@ class LlamaCppBackend(Backend):
         that is not in the top-k is read as NEG_INF rather than 0.0, because
         `max(raw)` downstream would otherwise pick the label llama.cpp least
         wanted to say.
+
+        The guard above the arithmetic is MEASURED, not defensive: on the shipped
+        load (`Llama(model_path, n_ctx, verbose)`, which leaves `logits_all` at the
+        library's own False) any `logprobs=…` request raises
+        `ValueError: logprobs is not supported for models created with
+        logits_all=False`, and `logits_all=True` allocates an
+        `(n_ctx, n_vocab)` float32 buffer — ~5.0 GB at 8192 x 152,064 — which is a
+        price flash does not pay to route a question. A GGUF run therefore refuses
+        by name; the arithmetic below stays live for a load that does ask for the
+        buffer, and `benchmarks/backend_seam_check.py` covers both arms.
         """
+        if not getattr(model.ll, "_logits_all", False):
+            raise NoFeature(
+                "llama.cpp: this backend loads a GGUF without `logits_all`, so "
+                "llama-cpp-python returns no distribution to route on — and turning "
+                "it on costs an (n_ctx x vocab) buffer, about 5.0 GB at this "
+                "backend's 8192-token context. Route with --backend mlx, or pin the "
+                "tier (--tier small / --tier big) so nothing has to be routed.")
         NEG_INF = -1e30
         out = model.handle(prompt, max_tokens=1, temperature=0.0, logprobs=26,
                            echo=False)

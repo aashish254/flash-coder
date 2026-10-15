@@ -158,7 +158,16 @@ def _generate(model, tokenizer, messages: list[dict], max_tokens: int,
     # which is a loop over `stream_generate` concatenating `response.text`
     # (mlx_lm/generate.py), so the two paths cannot disagree on bytes; only the
     # armed run pays the per-token hook.
-    if not span or max_tokens == 0:
+    #
+    # `is False` and not `not …`: a backend that simply does not declare the
+    # capability keeps streaming, which is what every measured MLX and stub arm in
+    # `BATTERY` does. llama.cpp declares it False because it cannot deliver the id
+    # — measured on the installed library, its stream chunks carry no token ids
+    # unless the model was created with `logits_all=True`, and `checkpoint.note`
+    # counts on an int. So an armed GGUF run takes the one-shot call: it answers and
+    # is graded, and a `--resume` restarts that task instead of continuing inside it.
+    streamable = be.supports.get("ids") is not False
+    if not span or max_tokens == 0 or not streamable:
         gen = be.generate(model, tokenizer, prompt, max_tokens, sampler, guard)
     else:
         text = ""

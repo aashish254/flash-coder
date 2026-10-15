@@ -8,15 +8,6 @@ proves the thing PHASE B claims, which is that a second backend can carry a whol
 oracle-scored turn — that the loop, the tournament, the ledger, the power governor
 and the confidence table never learn which library answered.
 
-That claim cannot be proven on this Mac by installing llama-cpp-python: it ships no
-wheel for cp311/arm64 (measured: `pip install --only-binary=:all: llama-cpp-python`
--> "No matching distribution found"), and a source build against the llama.cpp C++
-tree is not something to start on a 32GB box that is running the §6 battery. No
-GGUF was pulled either, against the 50GB/day cap. So the proof is built the only
-way that is honest here: MLX is blocked at the interpreter with the same
-`--backend-free` shim the battery's own arms use, and the turn is served by a
-stand-in `Backend` registered into the seam.
-
 Two things make that more than a mock:
 
   * **the oracle is real.** `flash run` materialises the answer into a temp
@@ -31,11 +22,35 @@ Two things make that more than a mock:
     refusal to apply `--constrain`, the tier resolution and the log-prob read are
     executed, not described.
 
-What this file therefore claims, exactly: THE WIRING is proven. What llama.cpp
-computes inside `Llama(...)`, the chat template a real GGUF carries, and the token
-ids it reports are NOT measured here and stay OPEN for a box that can install the
-library and pull a file. `LlamaCppBackend`'s own docstring says the same, so a
-reader of the code meets the limit before a reader of the site does.
+MEASURED, AND WHAT THAT DID TO THIS FILE — 2026-10-15. The paragraph this one
+replaced said llama-cpp-python could not be installed here and no GGUF would ever
+be pulled, so the real surface could not be probed. Both turned out to be possible
+(a source build in a throwaway virtual environment; `flash models pull fast` moved
+the pinned 4.68 GB), and driving the shipping class against the REAL library found
+three defects this file's stand-ins had been hiding — because each stand-in was
+written to match `flash/backend.py`, and a stub that agrees with its own code
+cannot disagree with it:
+
+  * `Llama.tokenize` takes `add_bos`/`special`, not `add_special`, so every llama.cpp
+    token count raised `TypeError` and a routed GGUF run died before decoding;
+  * asking for log-probs on a model built with `logits_all=False` (the library's own
+    default, and what `load_model` leaves it at) raises `ValueError`, so the declared
+    `probe: True` was a capability this backend does not have;
+  * its stream chunks carry no token id, so `checkpoint.note(None, …)` would kill an
+    armed `run-suite` at the first token.
+
+Each of those is now a check below, with the stand-in recording the real library's
+argument names rather than this file's guesses, and each has a mutant. The measured
+numbers themselves — load time, tokens, throughput, the pull — are in
+`docs/models.md` and SPEC's R-7.18/R-7.19 boxes, not here; a gate that re-runs them
+would need a 4.68 GB weight and a compiled llama.cpp on every box that reads §6.
+
+What this file therefore claims, exactly: THE WIRING is proven, and the call shapes
+it drives are the installed library's. What llama.cpp computes inside `Llama(...)`
+is still not this file's evidence — one real generation on one Mac with one pinned
+GGUF is a fact about that pair, and the arms below are what keeps the class honest
+about it. `LlamaCppBackend`'s own docstring says the same, so a reader of the code
+meets the limit before a reader of the site does.
 
 Not a §6 battery row. `benchmarks/battery_reread.py`'s `BATTERY` is a closed list
 and its `CLAIM` (checks 1429, oracle 20, mutants 172) is the published total; a
@@ -352,18 +367,41 @@ except Exception as e:
     blocked = type(e).__name__
 
 CALLS = []
+LOADS = []
 
 
 class _Llama:
-    """llama-cpp-python's documented surface, and nothing behind it.
+    """llama-cpp-python 0.3.36's documented surface, and nothing behind it.
 
     The chat template is the shape a real GGUF carries — a loop over `messages` —
     because `apply_chat_template` renders whatever the FILE says, which is the
     whole reason this backend refuses to hand-write a role layout.
+
+    Every argument name below was read off the INSTALLED library, not guessed from
+    `flash/backend.py`, and each one is recorded and asserted:
+
+      * `tokenize(text: bytes, add_bos: bool = True, special: bool = False)` — there
+        is no `add_special` keyword. The stand-in used to spell it that way, which
+        matched this repo's code rather than the library, and that is how a wrong
+        call survived: the stand-in answered, the real `Llama` raised
+        `TypeError: Llama.tokenize() got an unexpected keyword argument 'add_special'`.
+      * `__init__(…, logits_all=False)` and `self._logits_all` — the library's own
+        default, which is what flash's load line leaves it at, and which is why a
+        `logprobs=…` request raises `ValueError` rather than routing.
+      * a streaming chunk from the completion API carries `text` and NO token id —
+        measured as `(None, piece)` through `LlamaCppBackend.stream`, which is the
+        reason `supports["ids"]` is False and the checkpointed path must not be
+        asked to `int(None)`.
     """
 
-    def __init__(self, model_path, n_ctx=512, verbose=True, **kw):
+    def __init__(self, model_path, n_ctx=512, verbose=True, logits_all=False,
+                 draft_model=None, **kw):
+        LOADS.append({"model_path": model_path, "n_ctx": n_ctx,
+                      "logits_all": logits_all, "kw": sorted(kw)})
         self.model_path, self.n_ctx = model_path, n_ctx
+        # llama.py:351 — the buffer is on unless a draft model forces it
+        self._logits_all = logits_all if draft_model is None else True
+        self.tokenize_args = []
         self.metadata = {"tokenizer.chat_template":
                          "{% for message in messages %}{{ message['content'] }}"
                          "{% endfor %}"}
@@ -373,16 +411,22 @@ class _Llama:
         CALLS.append({"prompt": prompt[:24], "max_tokens": max_tokens,
                       "temperature": temperature, "stream": stream,
                       "logprobs": logprobs, "seed": seed, "echo": echo})
+        # the library's own refusal, read at llama.py:1365 and hit live on 2026-10-15
+        if logprobs is not None and self._logits_all is False:
+            raise ValueError("logprobs is not supported for models created with "
+                             "logits_all=False")
         if stream:
             return self._stream()
         return {"choices": [{"text": "ANSWER",
                              "logprobs": {"top_logprobs": [{" C": -0.2}]}}]}
 
     def _stream(self):
-        for piece, tid in (("AN", 10), ("SW", 11)):
-            yield {"choices": [{"text": piece, "logprobs": {"tokens": [tid]}}]}
+        for piece in ("AN", "SW"):
+            yield {"choices": [{"text": piece}]}
 
-    def tokenize(self, text, add_special=False):
+    def tokenize(self, text, add_bos=True, special=False):
+        self.tokenize_args.append({"add_bos": add_bos, "special": special,
+                                   "bytes": isinstance(text, bytes)})
         return [65 + b for b in text[:8]]
 
     def detokenize(self, ids):
@@ -415,15 +459,44 @@ out["n_ctx"] = model.ll.n_ctx
 out["profile"] = be.profile()
 out["format"] = be.format(tok, [{"role": "user", "content": "hi"}])
 out["encode"] = tok.encode("abcd", add_special_tokens=False)
+out["tokenize_args"] = list(model.ll.tokenize_args)
+from flash import decide
+try:
+    out["label_ids"] = decide._label_token_ids(tok, 3)
+except Exception as e:                                          # noqa: BLE001
+    out["label_ids"] = f"{type(e).__name__}: {e}"
 g = be.generate(model, tok, "PROMPT", 8, be.sampler(0.7), None)
 out["generate"] = [g.text, g.constrained, CALLS[-1]]
 be.seed(11)
 be.generate(model, tok, "PROMPT", 8, None, None)
 out["seeded"] = CALLS[-1]["seed"]
 out["stream"] = list(be.stream(model, tok, "PROMPT", 8, None, None))
+out["load_args"] = dict(LOADS[-1])
+out["caps"] = {"mlx": dict(backend.MLXBackend.supports),
+               "cpp": dict(be.supports)}
+
+# The router's probe on THE SHIPPED LOAD — `Llama(model_path, n_ctx, verbose)`,
+# which leaves `logits_all` at the library's own False — refuses. Measured live on
+# 2026-10-15: llama-cpp-python raised `ValueError: logprobs is not supported for
+# models created with logits_all=False`, and the fix is a 5.0 GB (n_ctx x vocab)
+# buffer at this backend's 8192 x 152,064, which flash will not pay to route a
+# question. So the refusal is the shipped behaviour and must say why.
+try:
+    be.probe(model, tok, "PROMPT", [3, 4])
+    out["probe_refused"] = "returned"
+except backend.NoFeature as e:
+    out["probe_refused"] = "NoFeature:" + str(e)[:330]
+except BaseException as e:                                      # noqa: BLE001
+    out["probe_refused"] = type(e).__name__ + ": " + str(e)[:80]
+
+# ...and the arithmetic under that guard stays under test. This handle is built the
+# way a caller that DID ask for the buffer would build one — `flash`'s own load line
+# above does not, which is what `load_args` proves.
 # label id 3 is in the table (" C"), label id 4 is not: the missing one must not
 # read as 0.0, or `max(raw)` lets the least-likely option win the route.
+model.ll = _Llama(str(f), n_ctx=be.n_ctx, verbose=False, logits_all=True)
 out["probe"] = be.probe(model, tok, "PROMPT", [3, 4])
+out["probe_call"] = CALLS[-1]
 
 try:
     be.guard(object(), tok)
@@ -489,6 +562,124 @@ print("SEAMJSON " + json.dumps(out))
 
 def arm_cpp(env: dict) -> dict:
     return run_child(_CHILD_CPP.replace("__ROOT__", str(ROOT)), env)
+
+
+# ------------------------------------------------- arm D: the armed checkpoint
+#
+# `supports["ids"] = False` is only a claim until the one place that reads it is
+# driven: `loop._generate`'s choice between `generate` and `stream`. Both arms run
+# in one child because the pair is the check — a guard that turned OFF streaming for
+# everything would pass an `ids: False` arm alone, and the MLX-shaped arm is the one
+# that says the measured streaming checkpoint is still the path for a backend that
+# can deliver an id.
+_CHILD_D = r'''
+import json, sys, tempfile
+from pathlib import Path
+sys.path.insert(0, "__ROOT__")
+
+blocked = ""
+try:
+    import mlx.core                                        # noqa: F401
+    blocked = "IMPORTED"
+except Exception as e:
+    blocked = type(e).__name__
+
+from flash import backend, checkpoint, loop, trace
+
+CALLS = []
+
+
+class _M:
+    def __init__(self, be):
+        self._flash_backend = be
+
+
+class _T:
+    def encode(self, text, *a, **k):
+        return list(range(max(1, len(text) // 4)))
+
+
+class Stub(backend.Backend):
+    """A backend whose stream does, or does not, carry a token id.
+
+    `no_ids` declares `supports["ids"] = False` the way `LlamaCppBackend` does; the
+    pieces it yields are the measured llama.cpp chunk shape (text, no id). The other
+    arm yields real ints and declares nothing, which is MLX's shape and every
+    stub arm `BATTERY` measures.
+    """
+
+    def __init__(self, tag, no_ids):
+        self.name = "stub-" + tag
+        self.supports = {"constrain": False, "probe": True, "adapter": False,
+                         "stream": True, "embed": False}
+        if no_ids:
+            self.supports["ids"] = False
+        self.no_ids = no_ids
+
+    def available(self):
+        return True, ""
+
+    def load_model(self, ref, adapter=None):
+        return _M(self), _T()
+
+    def format(self, tokenizer, messages):
+        return messages[-1]["content"]
+
+    def generate(self, model, tokenizer, prompt, max_tokens, sampler, guard):
+        CALLS.append("generate")
+        return backend.Generation(text="ONE-SHOT")
+
+    def stream(self, model, tokenizer, prompt, max_tokens, sampler, guard):
+        CALLS.append("stream")
+        for i, piece in enumerate(("ONE", "-SHOT"), start=1):
+            yield (None if self.no_ids else i), piece
+
+    def probe(self, model, tokenizer, prompt, ids):
+        return [0.0, -9.0]
+
+    def idle(self):
+        pass
+
+
+def one(tag, no_ids):
+    CALLS.clear()
+    checkpoint.disarm()
+    trace.DIR = Path(tempfile.mkdtemp(prefix="flash-seam-armed-"))
+    tsid = trace.open_session("seam-" + tag)
+    be = Stub(tag, no_ids)
+    backend.REGISTRY[be.name] = be
+    backend.use(be.name)
+    # the exact arming `flash run-suite` does (cli.py arms the session, the loop
+    # opens the frame per attempt), so `span` is True inside `_generate`
+    checkpoint.arm("seam-" + tag)
+    model, tok = be.load_model("tier:fast")
+    checkpoint.begin("t-" + tag, "edits", "small", 0, max_tokens=8)
+    err = None
+    text = None
+    try:
+        text = loop._generate(model, tok, [{"role": "user", "content": "P"}],
+                              8, task_id="t-" + tag, attempt=0)
+    except BaseException as e:                                   # noqa: BLE001
+        err = type(e).__name__ + ": " + str(e)[:90]
+    fr = checkpoint.current()
+    return {"calls": list(CALLS), "text": text, "err": err,
+            "ids": list(fr.ids) if fr else None,
+            "answer": fr.answer if fr else None,
+            "carried": fr.carried if fr else None,
+            "frame_on_disk": checkpoint.path_for("seam-" + tag).is_file(),
+            "events": [ev.get("checkpointed") for ev in trace.read(tsid)
+                       if ev.get("type") == "generate"]}
+
+
+out = {"blocked": blocked,
+       "cpp": one("cpp", True),
+       "mlx": one("mlx", False)}
+print("SEAMJSON " + json.dumps(out))
+'''
+
+
+def arm_armed(env: dict) -> dict:
+    return run_child(_CHILD_D.replace("__ROOT__", str(ROOT)), env)
 
 
 # ------------------------------------------------------------------ the gates
@@ -606,6 +797,27 @@ def run_gates() -> None:
        "measurement, not a cheap one",
        c.get("format") == "hi", str(c.get("format")))
 
+    ck("`_GgufTokenizer.encode` speaks the library's REAL tokenize surface: the "
+       "keyword is `add_bos`, llama-cpp-python 0.3.36 defaults it to True, so a BOS "
+       "flash never asked for is refused, special tokens are read as tokens, and "
+       "what reaches the library is BYTES. This stand-in used to spell the keyword "
+       "`add_special` — matching this repo's code rather than the installed "
+       "library — and so it hid a `TypeError: Llama.tokenize() got an unexpected "
+       "keyword argument 'add_special'` that every real llama.cpp run hits",
+       c.get("encode") == [162, 163, 164, 165]
+       and c.get("tokenize_args") == [{"add_bos": False, "special": True,
+                                       "bytes": True}],
+       f"encode={c.get('encode')} args={c.get('tokenize_args')}")
+
+    ck("...and the ROUTER gets its label ids out of the same tokenizer instead of "
+       "dying on the way: `flash.decide._label_token_ids` is the line a routed GGUF "
+       "run runs before it samples anything, and under the wrong keyword a routed "
+       "run crashed here rather than generating",
+       isinstance(c.get("label_ids"), list)
+       and len(c.get("label_ids")) == 3
+       and all(isinstance(i, int) for i in c.get("label_ids", [])),
+       str(c.get("label_ids"))[:160])
+
     ck("a generation through the real class returns the text and passes the loop's "
        "own knobs (max_tokens, the temperature the sampler made, no seed until one "
        "is set)",
@@ -615,16 +827,55 @@ def run_gates() -> None:
        and c.get("seeded") == 11,
        str(c.get("generate"))[:220])
 
-    ck("streaming yields (token_id, piece) pairs, which is the only shape a "
-       "checkpointed span can write its recovery from",
-       c.get("stream") == [[10, "AN"], [11, "SW"]], str(c.get("stream")))
+    ck("streaming through the real class yields (None, piece) — llama-cpp-python's "
+       "completion chunks carry no token id on this call shape, measured on the "
+       "installed library — and `flash.checkpoint.note` does `int(token_id)`, so an "
+       "armed span that streamed here would die at its FIRST token. This pair is the "
+       "evidence behind `supports[\"ids\"] = False`, not a decoration under it",
+       c.get("stream") == [[None, "AN"], [None, "SW"]], str(c.get("stream")))
 
-    ck("the router's probe reads the label ids out of the top-logprob table, and a "
-       "label that is NOT in it scores below one that is — a missing label read as "
-       "0.0 would let the least-likely option win the route",
+    ck("the capability table says what the library refused: `probe` False, `ids` "
+       "False, `constrain` False — while MLX declares neither refusal, so every "
+       "measured MLX and stub arm keeps the streaming checkpoint path it was scored "
+       "on. The loop's guard asks `is not False` for exactly that reason",
+       c.get("caps", {}).get("cpp", {}).get("probe") is False
+       and c["caps"]["cpp"].get("ids") is False
+       and c["caps"]["cpp"].get("constrain") is False
+       and c["caps"]["mlx"].get("probe") is True
+       and "ids" not in c["caps"]["mlx"],
+       str(c.get("caps")))
+
+    ck("`flash` asks for the buffer it refuses to pay for: the load line passes only "
+       "model_path, n_ctx and verbose, leaving `logits_all` at the library's own "
+       "False — so the probe refusal below is the shipped behaviour rather than a "
+       "limit this file invented for its own test",
+       c.get("load_args", {}).get("logits_all") is False
+       and "logits_all" not in c.get("load_args", {}).get("kw", [])
+       and c.get("load_args", {}).get("n_ctx") == 8192,
+       str(c.get("load_args")))
+
+    ck("the router's probe on that load REFUSES BY NAME, with the reason and the "
+       "alternative in the sentence: no distribution exists without an "
+       "(n_ctx x vocab) buffer of about 5.0 GB here, so a GGUF run is told to route "
+       "with --backend mlx or pin the tier rather than dying on a ValueError three "
+       "calls into the run",
+       str(c.get("probe_refused", "")).startswith("NoFeature:")
+       and "llama.cpp:" in c.get("probe_refused", "")
+       and "logits_all" in c.get("probe_refused", "")
+       and "5.0 GB" in c.get("probe_refused", "")
+       and "--tier" in c.get("probe_refused", ""),
+       str(c.get("probe_refused"))[:220])
+
+    ck("...and the arithmetic under that guard is still real, on a handle built WITH "
+       "the buffer: the probe reads the label ids out of the top-logprob table it "
+       "was handed, in ONE generated token, and a label that is NOT in it scores "
+       "below one that is — a missing label read as 0.0 would let the least-likely "
+       "option win the route",
        len(c.get("probe", [])) == 2 and c["probe"][0] > c["probe"][1]
-       and c["probe"][1] < -1e29,
-       str(c.get("probe")))
+       and c["probe"][1] < -1e29 and c["probe"][0] == -0.2
+       and c.get("probe_call", {}).get("max_tokens") == 1
+       and c.get("probe_call", {}).get("logprobs") == 26,
+       f"probe={c.get('probe')} call={c.get('probe_call')}")
 
     ck("--constrain on a backend with no per-step logits hook refuses BY NAME "
        "instead of generating without the contract the run asked for",
@@ -674,8 +925,39 @@ def run_gates() -> None:
        "is what this box COULD run",
        [p["backend"] for p in c.get("report", [])] == ["mlx", "llama.cpp"]
        and all(p["available"] is False for p in c.get("report", []))
-       and c["report"][1]["supports"]["constrain"] is False,
+       and c["report"][1]["supports"]["constrain"] is False
+       and c["report"][1]["supports"]["probe"] is False
+       and c["report"][1]["supports"]["ids"] is False,
        str(c.get("report"))[:260])
+
+    d = arm_armed(env)
+    cpp, mlx = d.get("cpp", {}), d.get("mlx", {})
+
+    ck("an armed checkpoint span on a backend that declares `ids: False` takes the "
+       "ONE-SHOT call and never streams. On the installed library a streamed chunk "
+       "carries no id and `flash.checkpoint.note` does `int(token_id)`, so the "
+       "un-guarded line was a TypeError at the FIRST decoded token of every "
+       "checkpointed `flash run-suite --backend llama.cpp` — a crash no fixture "
+       "could see, because the fixture handed an id back",
+       d.get("blocked") != "IMPORTED" and cpp.get("err") is None
+       and cpp.get("calls") == ["generate"] and cpp.get("text") == "ONE-SHOT",
+       str({k: cpp.get(k) for k in ("blocked", "calls", "text", "err")}))
+
+    ck("...and the guarded run still answers and still writes its frame, so the "
+       "guard is a path change and not a refusal. What it gives up is the "
+       "token-by-token span, which is the declared limit of this backend: `--resume` "
+       "restarts that task instead of continuing inside it",
+       cpp.get("ids") == [] and cpp.get("frame_on_disk") is True
+       and cpp.get("events") == [True],
+       str({k: cpp.get(k) for k in ("ids", "frame_on_disk", "events")}))
+
+    ck("...and the same guard leaves a backend that CAN deliver an id on the "
+       "streaming path it was measured on: the MLX-shaped arm streams, notes both "
+       "token ids and folds them into its checkpoint. Without this arm the guard "
+       "would pass by turning streaming off for everybody",
+       mlx.get("calls") == ["stream"] and mlx.get("ids") == [1, 2]
+       and mlx.get("answer") == "ONE-SHOT" and mlx.get("carried") == 2,
+       str({k: mlx.get(k) for k in ("calls", "ids", "answer", "carried", "err")}))
 
 
 
@@ -726,6 +1008,61 @@ MUTANTS = {
                                   "        raise NoBackend(message(f\"{key}: "
                                   "{why}\"))\n",
                                   "    ok, why = REGISTRY[key].available(), \"\"\n")]),
+    "gguf_tokenize_guessed_keyword": ("the GGUF tokenizer asks the library for a "
+                                      "keyword it does not take — the defect a "
+                                      "stand-in written to match this file could not "
+                                      "see, and which turned every llama.cpp token "
+                                      "count into `uncounted` and every routed GGUF "
+                                      "run into a crash",
+                                      [("flash/backend.py",
+                                        "add_bos=bool(add_special_tokens),\n"
+                                        + " " * 40 + "special=True))\n",
+                                        "add_special=False))\n")]),
+    "probe_guard_removed": ("the router's probe asks a model built without the logits "
+                            "buffer for a distribution — the shipped load goes back to "
+                            "raising the library's own ValueError out of a run that "
+                            "should have been told to pin a tier",
+                            [("flash/backend.py",
+                              "        if not getattr(model.ll, \"_logits_all\", "
+                              "False):\n",
+                              "        if False:\n")]),
+    "supports_reclaims_the_measured_refusals": ("the capability table claims a probe "
+                                               "and streamed ids again, which is a "
+                                               "declaration the installed library "
+                                               "contradicts — and doctor prints it to "
+                                               "the Linux user deciding what to "
+                                               "install",
+                                               [("flash/backend.py",
+                                                 "    supports = {\"constrain\": "
+                                                 "False, \"probe\": False, "
+                                                 "\"adapter\": False,\n"
+                                                 "                \"stream\": True, "
+                                                 "\"embed\": False, \"ids\": "
+                                                 "False}\n",
+                                                 "    supports = {\"constrain\": "
+                                                 "False, \"probe\": True, "
+                                                 "\"adapter\": False,\n"
+                                                 "                \"stream\": True, "
+                                                 "\"embed\": False}\n")]),
+    "armed_span_streams_without_ids": ("the loop streams whatever the backend gives, "
+                                       "so an armed GGUF run calls `int(None)` in "
+                                       "`checkpoint.note` and dies at the first token "
+                                       "— which is the behaviour this repo shipped "
+                                       "before the library was measured",
+                                       [("flash/loop.py",
+                                         "    streamable = be.supports.get(\"ids\") "
+                                         "is not False\n",
+                                         "    streamable = True\n")]),
+    "streaming_off_for_everybody": ("the guard asks for an `ids` key instead of "
+                                    "asking that it not be False, so MLX and every "
+                                    "measured stub stop streaming: an armed run "
+                                    "recovers nothing between tokens because nothing "
+                                    "is written per token any more",
+                                    [("flash/loop.py",
+                                      "    streamable = be.supports.get(\"ids\") "
+                                      "is not False\n",
+                                      "    streamable = be.supports.get(\"ids\") "
+                                      "is True\n")]),
 }
 
 
