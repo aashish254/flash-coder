@@ -18,6 +18,15 @@ from flash.backend import NoBackend, NoFeature
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_MODEL = "mlx-community/Qwen2.5-Coder-7B-Instruct-4bit"
 
+#: The verbs `flash --help` shows a stranger. The product definition is that a
+#: person who has never seen this repo gets from an install to a chat about their
+#: own code in five minutes, and these six commands are the whole of that path —
+#: `setup` once, then `chat`, `run` or `verify`, with `ui` for the same chat in a
+#: page and `models` when the weights are the question. Everything else is
+#: machinery: still parseable, still documented, not on the first screen.
+#: See `build_parser(advanced=…)`.
+PRODUCT = ("setup", "chat", "run", "verify", "ui", "models")
+
 # Tiny routing eval: (task_text, expected_category) — grows into the real
 # router training set from loop traces (PLAN §27, §32.4).
 ROUTING_DEMO = [
@@ -1415,9 +1424,136 @@ def cmd_doctor(args) -> int:
     return doctor.dispatch(args)
 
 
-def build_parser() -> argparse.ArgumentParser:
-    """Every command in one object, so a check can parse without dispatching."""
-    ap = argparse.ArgumentParser(prog="flash", description="Flash Coder CLI (M1)")
+def _session_flags(p, *, context_required: bool = True,
+                   with_test: bool = True) -> None:
+    """Every flag the turn loop takes, defined in one place.
+
+    `flash session` is the machinery name and `flash chat` is the product name for
+    the same loop; twenty flags written twice are twenty things that can disagree
+    about what a turn does. The two real differences between the commands are the
+    oracle and the default project, and both are said here rather than hidden in
+    the caller: `chat` gets no `--test` flag at all, so a user cannot pass one and
+    watch it be ignored, and `chat`'s `--context` defaults to the folder they are
+    standing in.
+    """
+    if with_test:
+        p.add_argument("--test", default=None,
+                       help="the oracle: a file with asserts that verify each turn "
+                            "(read once — a turn cannot rewrite it, see R-3.2 c3; "
+                            "omit for chat mode, which answers in prose and writes "
+                            "new files with no verify step, see R-7.15h)")
+    p.add_argument("--context", required=context_required,
+                   default=None if context_required else ".",
+                   help="the project each turn patches, and the directory the "
+                        "workspace is re-read from at the start of every turn"
+                        if context_required else
+                        "the project to talk about (default: this folder)")
+    p.add_argument("--turns", type=int, default=0, metavar="N",
+                   help="stop after N turns (0 = until EOF or `quit`)")
+    p.add_argument("--apply", action="store_true",
+                   help="R-3.2 clause 3: write each turn's oracle-passing patch "
+                        "set to --context; without it every turn prints NOT "
+                        "APPLIED and changes nothing")
+    # The knobs no turn needs, grouped rather than deleted: they are how a run is
+    # reproduced, and a stranger typing `flash chat --help` should not have to read
+    # fourteen lines to find the two that matter.
+    tuning = p.add_argument_group("tuning — a first chat needs none of these")
+    tuning.add_argument("--small", default=DEFAULT_MODEL)
+    tuning.add_argument("--big",
+                        default="mlx-community/Qwen3-30B-A3B-Instruct-2507-4bit")
+    tuning.add_argument("--attempts", type=int, default=2,
+                        help="per tier, per turn")
+    tuning.add_argument("--max-tokens", type=int, default=1024)
+    tuning.add_argument("--allow-big", choices=("auto", "always", "never"),
+                        default="auto",
+                        help="escalation vs the §34.1 power governor, same as `run` "
+                             "(a shed turn says so rather than pretending)")
+    tuning.add_argument("--tournament", type=int, default=1, metavar="K",
+                        help="R-3.3: k oracle-scored candidates per turn, clamped to "
+                             "the governor's width (1 = off)")
+    tuning.add_argument("--confidence", action=argparse.BooleanOptionalAction,
+                        default=False,
+                        help="R-2.3: print the evidence table after each turn's "
+                             "verdict")
+    tuning.add_argument("--adapter", default=None, metavar="DIR",
+                        help="R-6.4: LoRA directory over the SMALL tier, as in `run`")
+    tuning.add_argument("--constrain", action="store_true",
+                        help="R-4.2: mask each turn's decode to the output contract")
+    tuning.add_argument("--debug", action="store_true",
+                        help="R-4.3: trace a failed turn and feed the digest to its "
+                             "retry")
+    tuning.add_argument("--no-source-hint", action="store_true",
+                        help="R-1.1b: withhold the LSP source block from retry "
+                             "feedback")
+    tuning.add_argument("--no-graph-hint", action="store_true",
+                        help="R-1.1b: withhold the graph's dependents block")
+    tuning.add_argument("--trace-full", action="store_true",
+                        help="§33.6: store the exact prompts and outputs of every "
+                             "turn")
+
+
+def cmd_chat(args) -> int:
+    """`flash chat` — the turn loop with the grading taken out.
+
+    Two differences from `flash session`, and both are the product: the project
+    defaults to the folder you are standing in, and there is no oracle. A prose
+    answer against no oracle is what `flash.loop.solve_chat` was built for
+    (R-7.15h); forcing `--test` off here is what stops `flash chat` from silently
+    becoming a scored run the user did not ask for.
+    """
+    args.test = None
+    return cmd_session(args)
+
+
+def cmd_verify(args) -> int:
+    """`flash verify` — the two halves of "is this healthy", in one sentence each.
+
+    The doctor half says what this install IS; the battery half re-runs every
+    published claim against it without loading a model. The battery is the slow
+    half and it is named as such before it starts, because a stranger watching a
+    forty-minute silence conclude that the tool hung is a worse first-run than a
+    wait they agreed to.
+    """
+    rc = cmd_doctor(args)
+    if rc not in (0, 1):
+        return rc
+    if args.no_battery:
+        print("verify: the doctor half ran and the offline battery was skipped "
+              "(`--no-battery`). Run `flash verify` without the flag to re-check "
+              "every published claim.")
+        return rc
+    print("verify: doctor answered above. Now SPEC §6's offline battery — no "
+          "model loads, and it takes tens of minutes on a small machine. "
+          "`flash verify --no-battery` is the fast half.")
+    ns = argparse.Namespace(all=True, backend_free=args.backend_free, quick=[])
+    return cmd_selftest(ns) or rc
+
+
+class _ProductHelp(argparse.HelpFormatter):
+    """A help listing that drops a subcommand whose help is SUPPRESS.
+
+    argparse filters SUPPRESS for its own options but not for the pseudo-actions it
+    builds under a subparser: a hidden verb prints the sentinel text `==SUPPRESS==`
+    instead of disappearing, so filtering only in `command()` would have replaced
+    thirty machinery lines with thirty lines of the parser's internals. This is the
+    other half, and it is the only place the rule lives.
+    """
+
+    def _iter_indented_subactions(self, action):
+        for sub in super()._iter_indented_subactions(action):
+            if sub.help is not argparse.SUPPRESS:
+                yield sub
+
+
+def build_parser(advanced: bool = False) -> argparse.ArgumentParser:
+    """Every command in one object, so a check can parse without dispatching.
+
+    `advanced=False` is what a first-time user sees; `advanced=True`, behind
+    `flash --advanced`, lists the machinery verbs too. The commands themselves are
+    identical either way — the flag changes the listing, never the parser.
+    """
+    ap = argparse.ArgumentParser(prog="flash", description="Flash Coder CLI (M1)",
+                                 formatter_class=_ProductHelp)
     # R-7.6. Read from the package rather than a literal, because a second copy
     # of the version string is a second thing that can be wrong: `benchmarks/
     # backend_free_check.py` parses this flag's output and requires it to equal
@@ -1425,6 +1561,9 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--version", action="version",
                     version=f"flash {flash.__version__}",
                     help="print the package version and exit")
+    ap.add_argument("--advanced", action="store_true",
+                    help="list every command, including the machinery a normal "
+                         "run never needs")
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     # R-7.17d: one parent parser for `--backend`, attached to every command that
@@ -1443,22 +1582,40 @@ def build_parser() -> argparse.ArgumentParser:
                           "and any non-Apple box), or `auto` = the first that "
                           "imports, MLX preferred")
 
-    p = sub.add_parser("decide", parents=[gen], help="one typed decision, one forward pass")
+    # PHASE 2: the first screen is the product. Every verb below still parses and
+    # still keeps its exact flags — hiding a listing entry does not remove a
+    # command — because `benchmarks/*`, SPEC's numbered requirements and the §6
+    # battery all call these verbs by name, and a user who has read the docs must be
+    # able to run what they read. What changes is that a stranger typing
+    # `flash --help` sees six lines instead of thirty, and `flash --advanced` sees
+    # all of them.
+    #
+    # The decision is made at creation and cannot be made afterwards: argparse
+    # filters SUPPRESS while it builds the listing item, so setting a subcommand's
+    # help later does not hide the row — it prints the sentinel.
+    add_parser = sub.add_parser
+
+    def command(name: str, **kw):
+        if not advanced and name not in PRODUCT:
+            kw["help"] = argparse.SUPPRESS
+        return add_parser(name, **kw)
+
+    p = command("decide", parents=[gen], help="one typed decision, one forward pass")
     p.add_argument("context")
     p.add_argument("--options", nargs="+", required=True)
     p.add_argument("--model", default=DEFAULT_MODEL)
     p.set_defaults(fn=cmd_decide)
 
-    p = sub.add_parser("decide-batch", parents=[gen], help="run the built-in routing demo")
+    p = command("decide-batch", parents=[gen], help="run the built-in routing demo")
     p.add_argument("--model", default=DEFAULT_MODEL)
     p.set_defaults(fn=cmd_decide_batch)
 
-    p = sub.add_parser("route-test", parents=[gen], help="route m0+m2 tasks small-vs-big vs known labels")
+    p = command("route-test", parents=[gen], help="route m0+m2 tasks small-vs-big vs known labels")
     p.add_argument("--model", default=DEFAULT_MODEL)
     p.add_argument("--max-chars", type=int, default=4000)
     p.set_defaults(fn=cmd_route_test)
 
-    p = sub.add_parser("solve-all", parents=[gen], help="ACT->VERIFY->retry loop over all tasks")
+    p = command("solve-all", parents=[gen], help="ACT->VERIFY->retry loop over all tasks")
     p.add_argument("--model", default=DEFAULT_MODEL)
     p.add_argument("--attempts", type=int, default=3)
     p.add_argument("--max-tasks", type=int, default=20)
@@ -1469,22 +1626,34 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--max-chars", type=int, default=4000)
     p.set_defaults(fn=cmd_solve_all)
 
-    p = sub.add_parser("escalate-test", parents=[gen], help="small->big hot-swap escalation demo")
+    p = command("escalate-test", parents=[gen], help="small->big hot-swap escalation demo")
     p.add_argument("--small", default=DEFAULT_MODEL)
     p.add_argument("--big", default="mlx-community/Qwen3-30B-A3B-Instruct-2507-4bit")
     p.set_defaults(fn=cmd_escalate_test)
 
-    p = sub.add_parser("router-fit", parents=[gen], help="M3: fit learned router on the ledger (leave-one-out report)")
+    p = command("router-fit", parents=[gen], help="M3: fit learned router on the ledger (leave-one-out report)")
     p.add_argument("--small", default="mlx-community/Qwen2.5-Coder-7B-Instruct-4bit")
     p.set_defaults(fn=cmd_router_fit)
 
 
-    p = sub.add_parser("ledger", help="M3: outcome ledger summary (router training data)")
+    p = command("ledger", help="M3: outcome ledger summary (router training data)")
     p.add_argument("--tail", type=int, default=10)
     p.set_defaults(fn=cmd_ledger)
 
 
-    p = sub.add_parser("run", parents=[gen], help="full policy on one task: PERCEIVE->ROUTE->small->ESC")
+    p = command("run", parents=[gen],
+                help="one task, scored against your own test file, with the "
+                     "change written back only if it passed",
+                description="Give it one job and the file that proves it: "
+                            "the agent writes the change, your asserts grade "
+                            "it, and it retries until they pass.\n"
+                            "Nothing lands in your project unless you add "
+                            "`--apply`; until then the answer is printed and "
+                            "the run says NOT APPLIED.",
+                epilog="example:\n"
+                       '  flash run "add a retry with backoff to '
+                       'send_email" --test test_notifier.py --context . '
+                       '--edit --apply')
     p.add_argument("prompt")
     p.add_argument("--test", required=True, help="file with asserts verifying the solution")
     p.add_argument("--context", help="repo path whose skeleton is injected (M2)")
@@ -1541,54 +1710,29 @@ def build_parser() -> argparse.ArgumentParser:
                         "run can be re-fed to a model")
     p.set_defaults(fn=cmd_run)
 
-    p = sub.add_parser("session", parents=[gen], help="many turns against one repo — scored by "
-                                       "an oracle, or a chat that answers in "
-                                       "prose; every turn ends in an answer")
-    p.add_argument("--test", default=None,
-                   help="the oracle: a file with asserts that verify each turn "
-                        "(read once — a turn cannot rewrite it, see R-3.2 c3; "
-                        "omit for chat mode, which answers in prose and writes "
-                        "new files with no verify step, see R-7.15h)")
-    p.add_argument("--context", required=True,
-                   help="the project each turn patches, and the directory the "
-                        "workspace is re-read from at the start of every turn")
-    p.add_argument("--turns", type=int, default=0, metavar="N",
-                   help="stop after N turns (0 = until EOF or `quit`)")
-    p.add_argument("--apply", action="store_true",
-                   help="R-3.2 clause 3: write each turn's oracle-passing patch "
-                        "set to --context; without it every turn prints NOT "
-                        "APPLIED and changes nothing")
-    p.add_argument("--small", default=DEFAULT_MODEL)
-    p.add_argument("--big", default="mlx-community/Qwen3-30B-A3B-Instruct-2507-4bit")
-    p.add_argument("--attempts", type=int, default=2, help="per tier, per turn")
-    p.add_argument("--max-tokens", type=int, default=1024)
-    p.add_argument("--allow-big", choices=("auto", "always", "never"),
-                   default="auto",
-                   help="escalation vs the §34.1 power governor, same as `run` "
-                        "(a shed turn says so rather than pretending)")
-    p.add_argument("--tournament", type=int, default=1, metavar="K",
-                   help="R-3.3: k oracle-scored candidates per turn, clamped to "
-                        "the governor's width (1 = off)")
-    p.add_argument("--confidence", action=argparse.BooleanOptionalAction,
-                   default=False,
-                   help="R-2.3: print the evidence table after each turn's "
-                        "verdict")
-    p.add_argument("--adapter", default=None, metavar="DIR",
-                   help="R-6.4: LoRA directory over the SMALL tier, as in `run`")
-    p.add_argument("--constrain", action="store_true",
-                   help="R-4.2: mask each turn's decode to the output contract")
-    p.add_argument("--debug", action="store_true",
-                   help="R-4.3: trace a failed turn and feed the digest to its "
-                        "retry")
-    p.add_argument("--no-source-hint", action="store_true",
-                   help="R-1.1b: withhold the LSP source block from retry feedback")
-    p.add_argument("--no-graph-hint", action="store_true",
-                   help="R-1.1b: withhold the graph's dependents block")
-    p.add_argument("--trace-full", action="store_true",
-                   help="§33.6: store the exact prompts and outputs of every turn")
+    p = command("session", parents=[gen],
+                help="many turns against one repo, scored by an oracle — "
+                     "the machinery name for the loop `flash chat` runs")
+    _session_flags(p)
     p.set_defaults(fn=cmd_session)
 
-    p = sub.add_parser("run-suite", parents=[gen], help="full policy over a suite (cost report)")
+    p = command("chat", parents=[gen],
+                help="ask about the code in this folder and get an answer "
+                     "in prose; say apply and the change lands",
+                description="Chat with the agent about your own code: "
+                            "describe what you want, it answers in prose and "
+                            "proposes the file changes.\n"
+                            "Nothing is written until you say apply, and "
+                            "every turn ends with a line saying whether the "
+                            "turn did what it claimed.",
+                epilog="example:\n"
+                       "  flash chat\n"
+                       "  you> add a retry with backoff to send_email in "
+                       "notifier.py\n")
+    _session_flags(p, context_required=False, with_test=False)
+    p.set_defaults(fn=cmd_chat)
+
+    p = command("run-suite", parents=[gen], help="full policy over a suite (cost report)")
     p.add_argument("--small", default=DEFAULT_MODEL)
     p.add_argument("--big", default="mlx-community/Qwen3-30B-A3B-Instruct-2507-4bit")
     p.add_argument("--tasks", default=None, help="jsonl path (default: m0 suite)")
@@ -1637,8 +1781,8 @@ def build_parser() -> argparse.ArgumentParser:
                    help="§33.6: store exact prompts/outputs too, for re-feeding")
     p.set_defaults(fn=cmd_run_suite)
 
-    p = sub.add_parser("resume", parents=[gen], help="§33.7: continue an interrupted suite from its "
-                                      "trace snapshot (parameters come from the session)")
+    p = command("resume", parents=[gen], help="§33.7: continue an interrupted suite from its "
+                               "trace snapshot (parameters come from the session)")
     p.add_argument("session", nargs="?", default=None, help="trace session id "
                        "(default: the newest interrupted run-suite session)")
     p.add_argument("--small", default=None)
@@ -1666,14 +1810,14 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--trace-full", action="store_true")
     p.set_defaults(fn=cmd_resume)
 
-    p = sub.add_parser("trace", help="§33.6: list recorded sessions or replay one")
+    p = command("trace", help="§33.6: list recorded sessions or replay one")
     p.add_argument("show", nargs="?", default=None, help="session id to replay")
     p.add_argument("--task", default=None, help="only this task's decisions")
     p.add_argument("--full", action="store_true", help="include stored prompts/outputs")
     p.add_argument("--selftest", action="store_true", help="offline deterministic checks")
     p.set_defaults(fn=cmd_trace)
 
-    p = sub.add_parser("run-vis-suite", help="M0b: screenshot->HTML suite via VLM")
+    p = command("run-vis-suite", help="M0b: screenshot->HTML suite via VLM")
     p.add_argument("--tasks", default="benchmarks/tasks/vis_tasks.jsonl")
     p.add_argument("--vlm", default="mlx-community/Qwen3-VL-4B-Instruct-4bit")
     p.add_argument("--attempts", type=int, default=2)
@@ -1681,7 +1825,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--max-tasks", type=int, default=999)
     p.set_defaults(fn=cmd_run_vis_suite)
 
-    p = sub.add_parser("solve", parents=[gen], help="solve one ad-hoc task (M2: --context injects repo skeleton)")
+    p = command("solve", parents=[gen], help="solve one ad-hoc task (M2: --context injects repo skeleton)")
     p.add_argument("prompt")
     p.add_argument("--test", help="file with asserts verifying the solution")
     p.add_argument("--context", help="repo path whose skeleton is injected into the prompt")
@@ -1696,13 +1840,13 @@ def build_parser() -> argparse.ArgumentParser:
                    help="docs from cache only (§33.9)")
     p.set_defaults(fn=cmd_solve)
 
-    p = sub.add_parser("context", help="token-budgeted project skeleton (M2 PERCEIVE)")
+    p = command("context", help="token-budgeted project skeleton (M2 PERCEIVE)")
     p.add_argument("--path", default=".")
     p.add_argument("--max-chars", type=int, default=4000)
     p.set_defaults(fn=cmd_context)
 
-    p = sub.add_parser("web", help="Phase-4: fetch+cache+bge-rank doc excerpts "
-                                   "(offline-degrading, §33.9)")
+    p = command("web", help="Phase-4: fetch+cache+bge-rank doc excerpts "
+                            "(offline-degrading, §33.9)")
     p.add_argument("query", nargs="?", default="")
     p.add_argument("--urls", default="", help="comma-separated doc URLs")
     p.add_argument("--budget", type=int, default=2500,
@@ -1714,40 +1858,40 @@ def build_parser() -> argparse.ArgumentParser:
                    help="offline deterministic checks, exit 0/1")
     p.set_defaults(fn=cmd_web)
 
-    p = sub.add_parser("perceive", help="LSP static check of one file")
+    p = command("perceive", help="LSP static check of one file")
     p.add_argument("file")
     p.set_defaults(fn=cmd_perceive)
 
-    p = sub.add_parser("find", help="§33.1: where is a symbol defined?")
+    p = command("find", help="§33.1: where is a symbol defined?")
     p.add_argument("name")
     p.add_argument("--path", default=".")
     p.add_argument("--ast", action="store_true", help="skip the language server")
     p.set_defaults(fn=cmd_find)
 
-    p = sub.add_parser("refs", help="§33.1: every site that mentions a symbol")
+    p = command("refs", help="§33.1: every site that mentions a symbol")
     p.add_argument("name")
     p.add_argument("--path", default=".")
     p.add_argument("--ast", action="store_true", help="skip the language server")
     p.set_defaults(fn=cmd_refs)
 
-    p = sub.add_parser("symbols", help="§33.1: symbol outline of a file (LSP) or tree (AST)")
+    p = command("symbols", help="§33.1: symbol outline of a file (LSP) or tree (AST)")
     p.add_argument("name", nargs="?", default=None, help="file to outline")
     p.add_argument("--path", default=".")
     p.add_argument("--file", default=None, help="alias for the positional file")
     p.set_defaults(fn=cmd_symbols)
 
     from flash import graph as _graph      # R-1.3/PLAN §28: flags defined once
-    p = sub.add_parser("graph", help="§28/R-1.3: knowledge-graph blast radius — "
-                                   "which symbols a change reaches, each with the "
-                                   "call/import edge that proves it, under 200ms")
+    p = command("graph", help="§28/R-1.3: knowledge-graph blast radius — "
+                            "which symbols a change reaches, each with the "
+                            "call/import edge that proves it, under 200ms")
     _graph.add_flags(p)
     p.set_defaults(fn=_graph.dispatch)
 
-    p = sub.add_parser("lsp-selftest", help="§33.1: deterministic perception checks")
+    p = command("lsp-selftest", help="§33.1: deterministic perception checks")
     p.set_defaults(fn=cmd_lsp_selftest)
 
-    p = sub.add_parser("learn", parents=[gen], help="§34.3: gated, resumable background learning "
-                                     "(router refit; --lora for weights)")
+    p = command("learn", parents=[gen], help="§34.3: gated, resumable background learning "
+                              "(router refit; --lora for weights)")
     p.add_argument("--small", default=DEFAULT_MODEL)
     p.add_argument("--budget", type=float, default=900.0,
                    help="wall-clock cap per invocation; the rest resumes next idle window")
@@ -1775,41 +1919,89 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--selftest", action="store_true")
     p.set_defaults(fn=cmd_learn)
 
-    p = sub.add_parser("power", help="§34.1: system profile + what the machine may load")
+    p = command("power", help="§34.1: system profile + what the machine may load")
     p.add_argument("--need", type=float, default=4.4, help="GB the caller wants to load")
     p.add_argument("--json", action="store_true", help="machine-readable state + caps")
     p.add_argument("--selftest", action="store_true", help="deterministic decision table")
     p.set_defaults(fn=cmd_power)
 
-    p = sub.add_parser("bench", help="wrap benchmarks/m0_bakeoff.py")
+    p = command("bench", help="wrap benchmarks/m0_bakeoff.py")
     p.add_argument("bench_args", nargs=argparse.REMAINDER)
     p.set_defaults(fn=cmd_bench)
 
-    p = sub.add_parser("ambient", help="§33.5/R-7.2: idle-window DRAFTS only — lint, "
-                                   "suite-premise and doc-drift fixes prepared in a "
-                                   "git worktree, verified by the check that found "
-                                   "them, never merged and never pushed")
+    p = command("ambient", help="§33.5/R-7.2: idle-window DRAFTS only — lint, "
+                            "suite-premise and doc-drift fixes prepared in a "
+                            "git worktree, verified by the check that found "
+                            "them, never merged and never pushed")
     from flash import ambient as _ambient      # flags defined once, in flash/ambient.py
     _ambient.add_flags(p)
     p.set_defaults(fn=_ambient.dispatch)
 
-    p = sub.add_parser("models", help="R-7.18: the GGUF weights for "
-                                      "--backend llama.cpp — pull one tier "
-                                      "(resumably, SHA256-verified), list what "
-                                      "the cache holds, verify a file's bytes")
+    p = command("models", help="the weights on this machine — fetch a tier, list "
+                               "the cache, check a file against the pin",
+                description="R-7.18: the GGUF weights `--backend llama.cpp` loads, "
+                            "one pinned tier per file. `pull` resumes where it "
+                            "stopped and checks the SHA256, `list` says what is "
+                            "here, `verify` re-reads the bytes rather than trusting "
+                            "the download.")
     from flash import models as _models      # verbs defined once, in flash/models.py
     _models.add_flags(p)
     p.set_defaults(fn=_models.dispatch)
 
-    p = sub.add_parser("doctor", help="R-7.6: which half of this project is "
-                                      "installed here, and what it can verify "
-                                      "(reads the running interpreter, never a doc)")
+    p = command("setup", parents=[gen],
+                help="the first command to run: check this machine, get the "
+                     "weights, prove one answer comes out",
+                description="Five steps, printed as five: what this machine "
+                            "is, the weights coming down, the bytes checked "
+                            "against the pin,\none real turn answering, and "
+                            "what you can now do. Run it once, before "
+                            "`flash chat`.",
+                epilog="example:\n  flash setup")
+    from flash import setup as _setup      # flags defined once, in flash/setup.py
+    _setup.add_flags(p)
+    p.set_defaults(fn=_setup.dispatch)
+
+    p = command("verify", parents=[gen],
+                help="is this install and this project healthy — the doctor "
+                     "and the whole offline battery, in one call",
+                description="Two halves, in one sentence each: what this "
+                            "install is and can do, then every published "
+                            "claim re-run against it.\n"
+                            "The second half loads no model but takes tens "
+                            "of minutes; `--no-battery` is the fast half.",
+                epilog="example:\n  flash verify --no-battery")
+    from flash import doctor as _doctor   # the same flag table `flash doctor` uses
+    _doctor.add_flags(p)
+    p.add_argument("--no-battery", action="store_true",
+                   help="only the doctor half — the offline battery is the slow one")
+    p.add_argument("--backend-free", action="store_true",
+                   help="with the battery: block every `mlx` import in the child "
+                        "processes, so 'the battery needs no model' is a run "
+                        "rather than a sentence")
+    p.set_defaults(fn=cmd_verify)
+
+    p = command("ui", parents=[gen],
+                help="the same chat in a page on this machine — chat, the "
+                     "diff it proposes, the oracle's verdict, the weights",
+                description="Four panels, one local web page: ask, read the "
+                            "diff, press Apply per file to write it, and see "
+                            "what your asserts say.\n"
+                            "Nothing is written until you press Apply, and "
+                            "the server only ever listens on 127.0.0.1.",
+                epilog="example:\n  flash ui")
+    from flash import ui as _ui            # flags defined once, in flash/ui.py
+    _ui.add_flags(p)
+    p.set_defaults(fn=_ui.dispatch)
+
+    p = command("doctor", help="R-7.6: which half of this project is "
+                               "installed here, and what it can verify "
+                               "(reads the running interpreter, never a doc)")
     from flash import doctor as _doctor        # flags defined once, in flash/doctor.py
     _doctor.add_flags(p)
     p.set_defaults(fn=cmd_doctor)
 
-    p = sub.add_parser("selftest", help="R-7.6: re-run the published claims "
-                                        "against this install")
+    p = command("selftest", help="R-7.6: re-run the published claims "
+                                 "against this install")
     p.add_argument("--all", action="store_true",
                    help="run SPEC §6's offline battery and print its totals")
     p.add_argument("--backend-free", action="store_true",
@@ -1824,17 +2016,34 @@ def build_parser() -> argparse.ArgumentParser:
     # The module-owned vectors, reachable as commands because the docs name them
     # that way. See `_module_forward`.
     for name in ("debug", "jobs", "train"):
-        p = sub.add_parser(name, help=f"forward to `python -m flash.{name}` "
-                                      "(that module's parser owns the flags)")
+        p = command(name,
+                    help=f"forward to `python -m flash.{name}` "
+                         "(that module's parser owns the flags)")
         p.add_argument("rest", nargs=argparse.REMAINDER)
         p.set_defaults(fn=_module_forward(name))
+
+    # The other half of the same filter: the usage line prints `choices`, which no
+    # amount of help-suppression touches, so the first screen names the six.
+    if not advanced:
+        sub.metavar = "{" + ",".join(PRODUCT) + "}"
 
     return ap
 
 
 def main() -> int:
-    ap = build_parser()
-    args, extra = ap.parse_known_args(sys.argv[1:])
+    argv = list(sys.argv[1:])
+    # `--advanced` is read BEFORE the parse, because the listing it changes is
+    # printed DURING the parse: a flag cannot affect the help of the parser that is
+    # in the middle of printing it. argparse still consumes it normally after this.
+    ap = build_parser(advanced="--advanced" in argv)
+    if "--advanced" in argv and not [t for t in argv if t != "--advanced"]:
+        ap.print_help()
+        return 0
+    return _dispatch(ap, argv)
+
+
+def _dispatch(ap: argparse.ArgumentParser, argv: list) -> int:
+    args, extra = ap.parse_known_args(argv)
     if extra:
         # Two shapes. A forwarding command (`flash bench`, `flash debug`) has a
         # REMAINDER slot, and argparse hands it only the tokens that do not look
