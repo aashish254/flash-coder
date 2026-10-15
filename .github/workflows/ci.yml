@@ -68,8 +68,11 @@ jobs:
       # for every non-Mac user. The other half is `[local]` (llama-cpp-python), and
       # it is deliberately NOT installed here: as measured on 2026-10-15 its 0.3.36
       # release is one sdist and zero wheels, so every job would compile llama.cpp
-      # from source, and not one §6 line depends on a llama.cpp answer — no
-      # generation has ever run through it in this repository.
+      # from source, and not one §6 line depends on a llama.cpp answer. What that
+      # sentence used to add — "no generation has ever run through it in this
+      # repository" — stopped being true the same day: one real GGUF pull and one
+      # session turn happened here, off CI, on a box that paid the compile and the
+      # 4.68 GB (docs/models.md). A nightly job is not that box.
       - name: Install (no MLX on this platform)
         run: |
           python -m pip install --upgrade pip

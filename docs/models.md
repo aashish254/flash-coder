@@ -173,6 +173,40 @@ to fail at import — `flash.decide` and `flash.route` through it — until SPEC
 **R-7.7** moved the backend import inside `decide()`; before that fix the sweep read
 **24 of 26**, which is the number two documents cited differently from a third.
 
+**How the marker was proved, and how the obvious proof fails (2026-10-15).** The
+sentence above is a statement about the built artifact, so it was read off the built
+artifact: every `Requires-Dist` line in `dist/flash_coder-0.1.0-py3-none-any.whl`'s own
+`METADATA`, evaluated with `packaging` 26.3's reference marker implementation against
+synthetic environments —
+
+| Environment the metadata was asked about | What a core install resolves | `[local]` reachable | `[mac]` / `[vlm]` reachable | `[dev]` / `[ts]` / `[web]` reachable |
+| --- | --- | --- | --- | --- |
+| darwin + arm64 (this Mac) | numpy, python-lsp-server, requests, **mlx-lm** | yes | yes | yes |
+| manylinux + x86_64 | numpy, python-lsp-server, requests | yes | no | yes |
+| manylinux + aarch64 | numpy, python-lsp-server, requests | yes | no | yes |
+| win32 + AMD64 | numpy, python-lsp-server, requests | yes | no | yes |
+| win32 + ARM64 | numpy, python-lsp-server, requests | yes | no | yes |
+
+`mlx-lm` is reachable on exactly one of the five rows, `llama-cpp-python` on all five,
+and `[dev]`/`[ts]`/`[web]` on all five — which is what the `pyproject.toml` lines claim,
+including the one that says `[mac]` on a non-Mac is a documented no-op.
+
+What does NOT prove it, and looked for a minute like it disproved the whole section:
+`pip download --only-binary=:all: --platform manylinux2014_x86_64 --python-version 3.11
+dist/flash_coder-0.1.0-py3-none-any.whl` run on this Mac. pip took `--platform` as a
+*wheel-tag* filter while still evaluating requirement markers against the RUNNING
+interpreter, so it printed `Collecting mlx-lm>=0.31 (from flash-coder==0.1.0)` and died
+with `ResolutionImpossible` on `mlx-lm 0.32.0 depends on mlx>=0.32.2; platform_system
+== "Darwin"` — `mlx` having no Linux wheel at all. Same outcome for `win_amd64`, where
+it went further and walked the whole mlx-lm subtree (transformers, sentencepiece,
+protobuf). That is the probe's artifact, not the package's: no marker was ever
+consulted for the fake platform. The proof on a real Linux box already runs and already
+passes — CI's `static` job is `ubuntu-latest`, and its *Install (no MLX on this
+platform)* step is a plain `pip install -e .[dev]`; it passed on both matrix arms
+(3.11 in 28m31s, 3.12 in 31m4s) in run `37478889583`, 2026-10-15. A Linux install that
+reached `mlx-lm` could not complete that step, because the next line it would have to
+resolve is a package with no Linux wheel.
+
 Since **R-7.17d** MLX is not the only thing that can answer the loop: `flash/backend.py`
 is a seam with two implementations, and the oracle loop, the tournament, the ledger,
 the governor and the confidence table none of them know which one replied. That is a

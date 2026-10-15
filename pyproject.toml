@@ -25,17 +25,23 @@ dependencies = [
   "requests>=2.31",
   # MLX is Apple Silicon only, and it is marked rather than assumed. What is
   # MEASURED is the import half, on Apple Silicon with the backend blocked in a child
-  # process: every submodule of `flash` still imports (26 of 26) and a generation
+  # process: every submodule of `flash` still imports (29 of 29 as re-measured
+  # 2026-10-15; `flash/backend.py` and `flash/models.py` joined since the 26 this
+  # comment used to carry) and a generation
   # call is the thing that says MLX is missing. `flash.decide` used to break that at
   # `import mlx.core` (and `flash.route` through it); its forward pass now imports
   # MLX inside the call that needs it (SPEC R-7.7). The claim is gated rather than
   # narrated: `benchmarks/backend_free_check.py` sweeps the package under the blocker
   # and requires the call to explain itself, and `flash doctor` reports which half of
-  # the project a machine is holding. What is NOT measured here is a Linux or Windows
-  # machine actually installing this file. SPEC R-7.5 closed on the four shapes this
-  # box can produce — fresh clone, wheel, editable clone, unpacked sdist, all on Apple
-  # Silicon — so this marker is not an open box any more, but it is still a dependency
-  # resolver's statement rather than a test report from someone else's platform.
+  # the project a machine is holding. The other half of this marker's story is no
+  # longer only an inference from the marker either: CI's `static` job is
+  # `ubuntu-latest`, and its `pip install -e .[dev]` followed by
+  # `benchmarks/battery_reread.py --backend-free` IS a Linux machine installing and
+  # running this file — so what is still unmeasured is narrower than "a non-Mac
+  # install": a Windows install, and any non-Mac box GENERATING, since the llama.cpp
+  # route has been driven only on this Mac. `docs/models.md` carries the marker table
+  # read off the built wheel's own metadata, and the pip `--platform` probe that looks
+  # like it disproves the whole thing but does not consult the marker at all.
   "mlx-lm>=0.31; sys_platform == 'darwin' and platform_machine == 'arm64'",
 ]
 dynamic = ["version"]

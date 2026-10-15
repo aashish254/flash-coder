@@ -153,6 +153,28 @@ on the §6 page moved.
   measured them and the sentence that says why they are re-read rather than copied
   forward. Every superseded number stayed on the page with its date, as the file's own
   precedent does.
+- **The obvious cross-platform install test does not test the marker at all.** Asked to
+  prove that a Linux or Windows resolve never reaches `mlx-lm`, this box ran
+  `pip download --only-binary=:all: --platform manylinux2014_x86_64 --python-version
+  3.11 dist/flash_coder-0.1.0-py3-none-any.whl` and got the *opposite* answer: pip
+  printed `Collecting mlx-lm>=0.31 (from flash-coder==0.1.0)` and died with
+  `ResolutionImpossible`, because it treats `--platform` as a wheel-tag filter while
+  evaluating requirement markers against the RUNNING interpreter — this Mac, where the
+  marker is True. The same command for `win_amd64` walked the entire mlx-lm subtree.
+  Neither says anything about a Linux install; the proof is the metadata read with
+  `packaging` 26.3's reference marker implementation against five synthetic
+  environments (`docs/models.md` carries the table: `mlx-lm` reachable on darwin+arm64
+  only, `llama-cpp-python` and `[dev]`/`[ts]`/`[web]` on all five), plus the install
+  that a real Linux box actually performs — CI's `ubuntu-latest` `static` job, whose
+  `pip install -e .[dev]` step passed on both matrix arms in run `37478889583`
+  (2026-10-15). A Linux resolve that reached `mlx-lm` could not finish that step: the
+  next requirement it would have to satisfy is `mlx`, which has no Linux wheel.
+  The same reading found one comment that had fallen behind the tree: `pyproject.toml`
+  still carried `26 of 26` for the blocked-import sweep (it is **29 of 29** as
+  re-measured 2026-10-15) and still said a non-Mac install was unmeasured, when CI has
+  been doing that install, and running `battery_reread.py --backend-free` on it, since
+  the `static` job existed. The narrowed claim is in that comment now: what is
+  unmeasured is a **Windows** install, and any non-Mac box **generating**.
 - **Three defects that only the real library could see, and the claim they made
   false.** Every one of them was invisible to `benchmarks/backend_seam_check.py`'s
   stand-in, because a stub written to match the code under test can only certify the
