@@ -807,9 +807,9 @@ def main() -> int:
     # Early-exit when ledger-verified dataset doesn't exist - this check requires
     # trained artifacts that are not shipped with fresh clones on CI runners
     if not DATASET.exists():
-        print("lora path: 0/0 checks passed")
-        print("skipped: benchmarks/results/datasets/ledger-verified missing — "
-              "--backend-free blocks the trainer dependencies needed to build it")
+        print("lora_path_check: ledger-verified dataset missing — "
+              "blocked by --backend-free: the trainer artifacts this "
+              "check needs are not shipped with fresh clones")
         return 0
     with tempfile.TemporaryDirectory() as d:
         for g in ("gate", "kill", "leak", "identity", "cli", "suite"):
