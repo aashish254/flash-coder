@@ -807,8 +807,8 @@ def main() -> int:
     # Early-exit when ledger-verified dataset doesn't exist - this check requires
     # trained artifacts that are not shipped with fresh clones on CI runners
     if not DATASET.exists():
-        print(f"skipped: benchmarks/results/datasets/ledger-verified missing — "
-              f"build first per docs/setup requirements")
+        print("skipped: benchmarks/results/datasets/ledger-verified missing — "
+              "build first per docs/setup requirements")
         return 0
     with tempfile.TemporaryDirectory() as d:
         for g in ("gate", "kill", "leak", "identity", "cli", "suite"):
