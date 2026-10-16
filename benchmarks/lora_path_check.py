@@ -778,6 +778,14 @@ MUTATIONS = (
 
 
 def run_group(name: str, mods: dict, tmp: Path, jobs_mut=None, train_mut=None):
+    # Graceful early-exit when ledger-verified dataset doesn't exist
+    if not DATASET.exists():
+        return [("SKIPPED: ledger-verified dataset missing", True, 
+                 f"Run 'python benchmarks/battery_reread.py --data' to build "
+                 f"benchmarks/results/datasets/ledger-verified first, per "
+                 f"docs/setup requirements. This check requires trained artifacts "
+                 f"that are not shipped with a fresh clone.")]
+    
     if name == "gate":
         return group_gate(mods["jobs"], tmp)
     if name == "kill":
