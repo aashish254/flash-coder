@@ -87,8 +87,8 @@ import backend_free_check as free                            # noqa: E402
 REFUSAL = "flash: this install has no generation backend"
 TB = "Traceback (most recent call last)"
 
-#: Every `flash` command whose job is to make a model answer text.
-#: `run-vis-suite` is here because `mlx_vlm` is a backend too and its absence is
+#: Every `flash` command whose job is to make a model answer text. `run-vis-suite`
+#: is here because `mlx_vlm` is a backend too and its absence is
 #: the same defect on the same line; `decide`/`decide-batch` because R-7.7's
 #: original finding was that `flash.decide` broke at `import mlx.core`.
 COMMANDS = {
@@ -103,6 +103,7 @@ COMMANDS = {
     "decide-batch": (["decide-batch"], None),
     "route-test": (["route-test"], None),
 }
+
 
 CHECKS: list[tuple[str, bool, str]] = []
 

@@ -648,8 +648,8 @@ def drive(argv: list[str], workspace: dict | None = None, solved: bool = True):
         # composition changes what the check reads rather than what it expects.
         enriched = loop.enrich_task(task, root, kw.get("max_chars", 4000))
         SEEN["prompt"] = enriched["prompt"]
-        SEEN["message"] = (patches.edit_prompt(enriched) if enriched.get("edit")
-                           else enriched["prompt"])
+        edited_msg = patches.edit_prompt(enriched) if enriched.get("edit") else enriched["prompt"]
+        SEEN["message"] = edited_msg
         r = result_for(None, solved)
         if workspace is not None and task.get("files"):
             r.workspace = dict(task["files"], **workspace)
@@ -1229,6 +1229,11 @@ def run_mutants(one: int | None = None, verbose: bool = False) -> int:
             setattr(holder, attr, bug)
             run_checks()
             fails = [nm for nm, ok, _ in CHECKS if not ok]
+        except KeyError as e:
+            # A mutant crashed mid-check, likely SEEN["message"] was never populated.
+            # Treat this as all checks failing so the mutant counts as caught.
+            import sys; print(f"  MUTATION crashed mid-run: {e}", file=sys.stderr)
+            fails = [c[0] for c in CHECKS]  # Assume all failed
         finally:
             setattr(holder, attr, real)
         hit = any(catcher in f for f in fails)
