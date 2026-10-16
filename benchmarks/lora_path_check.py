@@ -778,14 +778,6 @@ MUTATIONS = (
 
 
 def run_group(name: str, mods: dict, tmp: Path, jobs_mut=None, train_mut=None):
-    # Graceful early-exit when ledger-verified dataset doesn't exist
-    if not DATASET.exists():
-        return [("SKIPPED: ledger-verified dataset missing", True, 
-                 f"Run 'python benchmarks/battery_reread.py --data' to build "
-                 f"benchmarks/results/datasets/ledger-verified first, per "
-                 f"docs/setup requirements. This check requires trained artifacts "
-                 f"that are not shipped with a fresh clone.")]
-    
     if name == "gate":
         return group_gate(mods["jobs"], tmp)
     if name == "kill":
@@ -812,6 +804,12 @@ def mutant(tmp: Path, tag: str, rel: str, anchor: str, repl: str) -> Path:
 def main() -> int:
     mods = {"jobs": jobs, "train": tr, "loop": loop, "cli": cli}
     results: list = []
+    # Early-exit when ledger-verified dataset doesn't exist - this check requires
+    # trained artifacts that are not shipped with fresh clones on CI runners
+    if not DATASET.exists():
+        print(f"skipped: benchmarks/results/datasets/ledger-verified missing — "
+              f"build first per docs/setup requirements")
+        return 0
     with tempfile.TemporaryDirectory() as d:
         for g in ("gate", "kill", "leak", "identity", "cli", "suite"):
             results += run_group(g, mods, Path(d) / g)
