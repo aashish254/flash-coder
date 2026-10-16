@@ -157,6 +157,9 @@ CLAIM = {"checks": 1429, "oracle": 20, "mutants": 172}
 # cool, and a busy laptop is not allowed to be quiet.
 REFUSAL = {
     "backend": {
+        "benchmarks/lora_path_check.py":
+            "requires benchmarks/results/datasets/ledger-verified which must be built "
+            "first per docs/setup requirements",
         "flash.grammar --selftest":
             "the mask section loads the fast tier's tokenizer through "
             "`mlx_lm.tokenizer_utils` and the overhead section builds `mx` arrays",
