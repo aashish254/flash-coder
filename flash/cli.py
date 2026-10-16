@@ -1943,7 +1943,10 @@ def build_parser(advanced: bool = False) -> argparse.ArgumentParser:
                             "one pinned tier per file. `pull` resumes where it "
                             "stopped and checks the SHA256, `list` says what is "
                             "here, `verify` re-reads the bytes rather than trusting "
-                            "the download.")
+                            "the download.",
+                epilog="example:\n  flash models list — and `flash models pull fast` "
+                       "when it says nothing is here; the pull asks first, because "
+                       "4.68 GB on a metered line is a decision.")
     from flash import models as _models      # verbs defined once, in flash/models.py
     _models.add_flags(p)
     p.set_defaults(fn=_models.dispatch)

@@ -45,6 +45,7 @@ its number is the number the user gets.
 from __future__ import annotations
 
 import io
+import json
 import os
 import shutil
 import subprocess
@@ -381,6 +382,19 @@ def arms_no_backend(tmp: Path) -> None:
        "flash doctor" in out or "offline" in out, out[-200:])
 
 
+def _tier_on_disk(cache: Path, tier: str) -> bool:
+    """Does THIS cache hold the pinned tier?
+
+    The manifest is a claim and the file is the fact, so both are required — the
+    same rule `flash models list` applies to a registered-but-short weight.
+    """
+    try:
+        name = str(json.loads((cache / backend.MANIFEST).read_text())[tier])
+    except Exception:                                     # noqa: BLE001
+        return False
+    return (cache / name).is_file()
+
+
 def arms_live(tmp: Path) -> None:
     """The command a user types, on this machine, with this machine's weights.
 
@@ -389,8 +403,9 @@ def arms_live(tmp: Path) -> None:
     thing. Costs one model load, and that is the cost the first run has anyway.
     """
     can = any(p["available"] for p in backend.report())
+    live = tmp / "live"
     rc, out = child(["setup", "--skip-pull", "--tier", "fast"],
-                    {"FLASH_GGUF_DIR": str(tmp / "live")})
+                    {"FLASH_GGUF_DIR": str(live)})
     if can:
         ck("the live happy path: `flash setup --skip-pull` on a machine that CAN "
            "answer runs one real turn and prints the words it got and the seconds "
@@ -398,10 +413,16 @@ def arms_live(tmp: Path) -> None:
            "types, so the number on this line is the number they get",
            rc == 0 and "one real turn answers" in out and "answered in" in out
            and "Traceback" not in out, f"rc={rc} {out[-300:]}")
+        # Read the manifest from the cache the CHILD was given, not from this
+        # process's `backend.GGUF_DIR`. The gate runs on the machine's real cache,
+        # which on a box that has pulled `fast` says the tier is there while the
+        # run under test was pointed at an empty directory — and a check that
+        # compares a child's output to the parent's disk is a check about the gate,
+        # not about the command.
         ck("and step 5 lists the verbs WITHOUT inventing weights: the `weights:` "
            "line appears exactly when the pinned tier is on disk, which is what "
            "`--skip-pull` on a cache of its own cannot be",
-           ("weights: tier" in out) == (backend.manifest().get("fast") is not None),
+           ("weights: tier" in out) == (_tier_on_disk(live, "fast")),
            out[-200:])
     else:
         ck("this box answers nothing, so the live arm is the no-backend arm: setup "
