@@ -159,19 +159,47 @@ def backend() -> dict:
     return out
 
 
+def backend_line(be: dict) -> str:
+    """The one sentence the backend answer makes.
+
+    Shared by this report and by every refusal `flash.backend` prints, because a
+    user told to "check `flash doctor`" should read the same words there. Two
+    copies of this string is two chances for them to disagree.
+    """
+    return ("MLX backend: " + (f"mlx {be['mlx']}, mlx_lm {be['mlx_lm']}"
+                               if be["has_backend"]
+                               else f"NOT available — {be['error']}"))
+
+
 def model_cache() -> dict:
     """Which §22 candidates are already on disk, so a download is not a surprise."""
     hub = Path(os.environ.get("HF_HOME")
                or str(Path.home() / ".cache" / "huggingface" / "hub"))
+    gg = gguf_cache()
     if not hub.is_dir():
         return {"dir": str(hub), "present": False, "models": [],
-                "matrix_have": [], "matrix_missing": list(MATRIX)}
+                "matrix_have": [], "matrix_missing": list(MATRIX), "gguf": gg}
     names = sorted(p.name.replace("models--", "").replace("--", "/")
                    for p in hub.glob("models--*"))
     have = [m for m in MATRIX if any(m.lower() in n.lower() for n in names)]
     return {"dir": str(hub), "present": True, "models": names,
             "matrix_have": have, "matrix_missing": [m for m in MATRIX
-                                                    if m not in have]}
+                                                    if m not in have],
+            "gguf": gg}
+
+
+def gguf_cache() -> dict:
+    """What the llama.cpp half has on disk, read without hashing a weight.
+
+    The sentence comes from `flash.models`, which is the module that wrote the
+    manifest and therefore the only one allowed to say what `pulled` means — a
+    report that paraphrases the module it reports on is how this repo has twice
+    shipped a stale number.
+    """
+    from flash import models
+    st = models.status()
+    st["line"] = models.gguf_line(st)
+    return st
 
 
 def vector_tools() -> dict:
@@ -217,8 +245,17 @@ def machine() -> dict:
 
 
 def answers() -> dict:
+    from flash import backend as seam
+    be = backend()
+    # The seam's own answer, asked here rather than inside `backend()`, and asked
+    # of `report()` rather than re-probed: a Linux box with `llama-cpp-python` and
+    # no MLX CAN generate, and a report that only ever looked for MLX would tell it
+    # it cannot. `backend()` stays MLX-shaped because its line is the sentence the
+    # refusals quote; this adds the second half, not a replacement.
+    be["profiles"] = seam.report()
+    be["can_generate"] = any(p["available"] for p in be["profiles"])
     return {"version": flash.__version__, "shape": install_shape(),
-            "backend": backend(), "cache": model_cache(),
+            "backend": be, "cache": model_cache(),
             "tools": vector_tools(), "machine": machine()}
 
 
@@ -236,9 +273,21 @@ def _py_at_least(v: str, floor: tuple[int, int]) -> bool:
 def verdict(a: dict) -> list[tuple[str, bool | None, str]]:
     """(section, ok, line). `None` marks an answer that is neither good nor bad —
     a fact about the machine the reader has to weigh, like a model nobody
-    downloaded yet, or a governor this platform cannot read."""
+    downloaded yet, or a governor this platform cannot read.
+
+    `be.get(...)` twice, rather than `be[...]`: `benchmarks/backend_free_check.py`
+    feeds this function a synthetic install whose `backend` dict predates the seam
+    and the GGUF cache, and a report that KeyErrors on a fixture is a report that
+    cannot be gated.
+    """
     sh, be, ca, to, ma = (a["shape"], a["backend"], a["cache"], a["tools"],
                           a["machine"])
+    # Which half of R-7.17 is true HERE: MLX is one way to generate and a local
+    # GGUF is the other, so `has_backend` (MLX alone) cannot be the answer the
+    # `verify` section gives on a box whose only library is llama.cpp.
+    can = be.get("can_generate", be["has_backend"])
+    profs = be.get("profiles") or []
+    gg = ca.get("gguf")
     py_ok = _py_at_least(ma["python"], PY_FLOOR)
     out: list[tuple[str, bool | None, str]] = [
         ("install", True,
@@ -248,23 +297,39 @@ def verdict(a: dict) -> list[tuple[str, bool | None, str]]:
          "verification surface beside the package: benchmarks/"
          + (f" present, {sh['tasks']} task corpora" if sh["has_benchmarks"]
             else " ABSENT")),
-        ("backend", be["has_backend"],
-         "MLX backend: " + (f"mlx {be['mlx']}, mlx_lm {be['mlx_lm']}"
-                            if be["has_backend"]
-                            else f"NOT available — {be['error']}")),
-        ("machine", py_ok,
-         f"python {ma['python']} · {ma['platform']}/{ma['machine']} · {ma['os']}"
-         + ("" if py_ok else f" — this project needs {'.'.join(map(str, PY_FLOOR))}+")),
-        ("machine", None if ma["may_load"] is None else True,
-         "what this box may load: "
-         + (ma["may_load"] or f"unmeasurable here — {ma['why']}")),
-        ("cache", None, f"model cache {ca['dir']}: {len(ca['models'])} repo(s), "
-                        f"{len(ca['matrix_have'])} of {len(MATRIX)} §22 "
-                        f"candidates present"),
+        ("backend", be["has_backend"], backend_line(be)),
     ]
+    if profs:
+        # Both, available or not: the question a Linux user asks is what this box
+        # COULD run if it installed something, and a report that lists only what
+        # already works cannot answer it. `flash doctor --json` carries each
+        # profile's `supports` — the capability refusals in `flash backend`-facing
+        # code are where those flags are enforced, not here.
+        out.append(("backend", None,
+                    "every backend the seam knows about, here: "
+                    + " · ".join(
+                        f"{p['backend']}: "
+                        + ("can run" if p["available"]
+                           else f"cannot ({p.get('why') or p.get('error')})")
+                        for p in profs)))
+    out.append(("machine", py_ok,
+                f"python {ma['python']} · {ma['platform']}/{ma['machine']} · {ma['os']}"
+                + ("" if py_ok else f" — this project needs {'.'.join(map(str, PY_FLOOR))}+")))
+    out.append(("machine", None if ma["may_load"] is None else True,
+                "what this box may load: "
+                + (ma["may_load"] or f"unmeasurable here — {ma['why']}")))
+    out.append(("cache", None, f"model cache {ca['dir']}: {len(ca['models'])} repo(s), "
+                               f"{len(ca['matrix_have'])} of {len(MATRIX)} §22 "
+                               f"candidates present"))
     if ca["matrix_missing"]:
         out.append(("cache", None, "  not downloaded: "
                     + ", ".join(ca["matrix_missing"][:4])))
+    if gg:
+        # The other half of the tier table: the GGUF files `flash models pull`
+        # owns. Never a `no` — a Mac running MLX needs none of this — but always
+        # the module's own sentence, so `list`, `doctor` and the pull cannot
+        # disagree about what `pulled` means.
+        out.append(("cache", None, gg["line"]))
     missing = [k for k, v in to.items() if not v]
     out.append(("tools", has_vector_tools(a),
                 "offline-surface imports: "
@@ -277,12 +342,16 @@ def verdict(a: dict) -> list[tuple[str, bool | None, str]]:
                    else "CANNOT run from this install — no benchmarks/ beside the "
                        "package. Clone the repo, or unpack the sdist (which ships "
                        "it), then run it there")))
-    out.append(("verify", be["has_backend"],
+    out.append(("verify", can,
                 "generation "
-                + ("runs here: `flash power`, then `flash run <task>`"
-                   if be["has_backend"]
-                   else "CANNOT run here. Every other half of this project still "
-                        "does — including the whole offline battery")))
+                + ("runs here: `flash power`, then `flash run <task>`" if can
+                   else "CANNOT run here — no backend imports, so both the MLX and "
+                        "the GGUF route are closed. Every other half of this "
+                        "project still does, including the whole offline battery. "
+                        "The route that needs no MLX: `pip install "
+                        "'flash-coder[local]` (or llama-cpp-python), then "
+                        "`flash models pull fast`, then `flash run … --backend "
+                        "llama.cpp --small fast`")))
     return out
 
 

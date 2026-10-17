@@ -24,6 +24,8 @@ class VisionResult:
 
 
 def load_vlm(repo: str):
+    from flash import backend
+    backend.require("mlx_vlm")
     from mlx_vlm import load
     return load(repo)
 
@@ -31,6 +33,8 @@ def load_vlm(repo: str):
 def generate_with_image(model, processor, image_paths, prompt: str,
                         max_tokens: int = 1024, temp: float = 0.0,
                         seed: int | None = None) -> str:
+    from flash import backend
+    backend.require("mlx_vlm", "mlx_vlm.prompt_utils")
     from mlx_vlm import generate
     from mlx_vlm.prompt_utils import apply_chat_template
     if isinstance(image_paths, str):
