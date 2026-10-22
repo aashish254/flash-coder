@@ -13,9 +13,19 @@ import sys
 from pathlib import Path
 
 import flash
+from flash.backend import NoBackend, NoFeature
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_MODEL = "mlx-community/Qwen2.5-Coder-7B-Instruct-4bit"
+
+#: The verbs `flash --help` shows a stranger. The product definition is that a
+#: person who has never seen this repo gets from an install to a chat about their
+#: own code in five minutes, and these six commands are the whole of that path —
+#: `setup` once, then `chat`, `run` or `verify`, with `ui` for the same chat in a
+#: page and `models` when the weights are the question. Everything else is
+#: machinery: still parseable, still documented, not on the first screen.
+#: See `build_parser(advanced=…)`.
+PRODUCT = ("setup", "chat", "run", "verify", "ui", "models")
 
 # Tiny routing eval: (task_text, expected_category) — grows into the real
 # router training set from loop traces (PLAN §27, §32.4).
@@ -37,7 +47,7 @@ CATEGORIES = ["bugfix", "feature", "refactor", "docs"]
 
 
 def cmd_decide(args) -> int:
-    from mlx_lm import load
+    from flash.backend import load
     from flash.decide import decide
 
     model, tok = load(args.model)
@@ -49,7 +59,7 @@ def cmd_decide(args) -> int:
 
 
 def cmd_decide_batch(args) -> int:
-    from mlx_lm import load
+    from flash.backend import load
     from flash.decide import decide
 
     model, tok = load(args.model)
@@ -106,7 +116,7 @@ def cmd_ledger(args) -> int:
 
 def cmd_route_test(args) -> int:
     """Route m0+m2 tasks small-vs-big, scored against hardware-proven labels."""
-    from mlx_lm import load
+    from flash.backend import load
     from flash.context import digest
     from flash.harness import load_tasks
     from flash.route import route_task, tier_name
@@ -136,7 +146,7 @@ def cmd_route_test(args) -> int:
 
 
 def cmd_solve_all(args) -> int:
-    from mlx_lm import load
+    from flash.backend import load
     from flash.harness import load_tasks
     from flash.loop import solve
 
@@ -370,6 +380,169 @@ def _read_turns(stream, limit: int = 0, prompt: str = ""):
             return
 
 
+def _working_line(args, turn: int, use_oracle: bool) -> str:
+    """What a session prints when a turn STARTS, while the turn is still working.
+
+    A turn is a model load, a generation and an oracle run — a minute or more on
+    this box — and the `[turn N]` verdict only exists after all three, so it can
+    only ever report the past. Without a line at the point the wait begins the
+    terminal shows a cursor and nothing else, which reads as hung exactly where
+    the process is most alive.
+
+    It is deliberately not shaped like a verdict: no `tier=`, no `solved=`, and
+    not prefixed `[turn `. The verdict is the only line that may claim the oracle
+    passed, and `benchmarks/session_pty_demo.py` types the next ask on seeing
+    `solved=` in the terminal — a promise wearing that shape would drive itself.
+    """
+    cap = f"/{args.turns}" if args.turns else ""
+    esc = ", big tier on failure" if args.allow_big != "never" else ""
+    if use_oracle:
+        return (f"[working] turn {turn}{cap} — generating: small tier first, "
+                f"up to {args.attempts} attempt(s) per tier{esc}, "
+                f"grading against {args.test}")
+    return (f"[working] turn {turn}{cap} — generating: small tier first, "
+            f"up to {args.attempts} attempt(s) per tier{esc}, "
+            "no oracle (chat mode), answering in prose")
+
+
+#: The in-session commands (R-7.17b). A line starting with `/` is one of these,
+#: so `/help` is how a keyboard user finds out what the other three are.
+SESSION_COMMANDS = ("/help", "/quit", "/save", "/retry")
+
+
+def _session_help(use_oracle: bool) -> str:
+    """"/help": the four commands and what a turn is, in the session's own words.
+
+    The mode sentence is here rather than only in the banner because the banner
+    scrolls away under the first answer; a reader mid-session who has forgotten
+    whether anything is being verified can ask again.
+    """
+    return "\n".join([
+        "session commands — a line starting with `/` is a command, not an ask:",
+        "  /help          this list",
+        "  /quit          end the session (same as `quit`, `exit`, `q` or Ctrl-D)",
+        "  /save <file>   write every ask and answer so far to <file>",
+        "  /retry         ask the last turn again: after a failed one, or a "
+        "mis-typed one",
+        "",
+        ("  each turn is graded against the oracle named by --test; a turn that "
+         "fails prints\n  the oracle's own words under `oracle|`, and the tier "
+         "that answered is on the\n  `[turn N]` line."
+         if use_oracle else
+         "  no oracle is loaded (chat mode): answers are prose, new files are "
+         "written,\n  and nothing is verified.")])
+
+
+def _save_transcript(name: str, rows: list, args, use_oracle: bool) -> None:
+    """/save <file>: the conversation, not the trace.
+
+    The trace is already on disk (§33.6) and is a JSONL a person does not read;
+    what they want out of a session is the asks and the answers, which is what
+    lands here. The oracle is refused by path, not by name — a session's `/save`
+    over its own `--test` would silently change what later turns are graded
+    against, which is the one write R-3.2 exists to forbid.
+    """
+    if not name:
+        print("session: /save wants a file — `/save notes.md` writes every ask "
+              "and answer so far")
+        return
+    if not rows:
+        print("session: /save has nothing to write yet — no turn has answered")
+        return
+    target = Path(name).expanduser()
+    if use_oracle:
+        try:
+            if target.resolve() == Path(args.test).resolve():
+                print(f"session: /save refuses to write over the oracle "
+                      f"{args.test} — the session grades every turn against it")
+                return
+        except OSError:                       # unresolvable path: let the write
+            pass                              # attempt report it in its own words
+    body = [f"# flash session on {args.context}",
+            (f"oracle: {args.test}" if use_oracle
+             else "chat mode: no oracle, nothing verified"),
+            f"{len(rows)} turn(s)", ""]
+    for i, ask, answer in rows:
+        body += [f"## turn {i}", "", f"you> {ask}", "", answer.strip(), ""]
+    try:
+        target.write_text("\n".join(body) + "\n")
+    except OSError as e:
+        print(f"session: /save wrote nothing — {e}")
+        return
+    print(f"session: saved {len(rows)} turn(s) to {target}")
+
+
+def _session_cost(sid: str, turns: list, wall: float) -> list[str]:
+    """What this session spent, read off its own trace rather than from memory.
+
+    The number a person uses to decide whether to run this again has to survive the
+    process: every figure below comes from the records `flash trace show <sid>` will
+    render after the terminal is closed, so the printed line and the stored one are
+    one measurement rather than two claims. A generation whose tokenizer counted
+    nothing is reported as `uncounted` instead of folded into the total as a zero —
+    `tokens=0` over four answered turns is a report nobody can act on.
+
+    Returns the lines to print (and writes the same numbers as a `session_cost`
+    event, before the session closes, so the trace carries the session's own bill).
+    """
+    from flash import trace
+    recs = trace.read(sid)
+    gens = [r for r in recs if r.get("type") == "generate"]
+    if not gens:
+        return []
+    s = trace.summarize(sid)
+    uncounted = sum(1 for r in gens if r.get("prompt_tokens") is None
+                    and r.get("completion_tokens") is None)
+    esc = [r for r in recs if r.get("type") == "escalation"]
+    took = sum(1 for r in esc if r.get("denied") is False)
+    denied = sum(1 for r in esc if r.get("denied") is True)
+    # The trace keys a turn by the task id cmd_session gave it (`turnN`), so the
+    # per-turn spend is read the same way the loop wrote it, not guessed from order.
+    tok: dict[str, int] = {}
+    backs: dict[str, list[str]] = {}
+    for r in gens:
+        tid = r.get("task_id") or ""
+        tok[tid] = tok.get(tid, 0) + (r.get("prompt_tokens") or 0) \
+            + (r.get("completion_tokens") or 0)
+        name = r.get("backend")
+        if name and name not in backs.setdefault(tid, []):
+            backs[tid].append(name)
+    all_backs = sorted({n for v in backs.values() for n in v})
+    tokens = s["prompt_tokens"] + s["completion_tokens"]
+    # A turn Ctrl-C killed spent its generation and never became a counted turn, so
+    # the per-turn rows cannot add up to the header total. Saying which part of the
+    # money that is beats printing a total that looks like a mistake in the rows.
+    attributed = sum(tok.get(f"turn{t['i']}", 0) for t in turns)
+    head = (f"[cost] turns={len(turns)} "
+            f"backend={'/'.join(all_backs) or 'uncounted'} "
+            f"wall={round(wall, 1)}s generating={s['gen_s']}s "
+            f"verifying={s['verify_s']}s tokens={tokens} "
+            f"(prompt={s['prompt_tokens']} completion={s['completion_tokens']}) "
+            f"escalations={took}")
+    if denied:
+        head += f" escalations_denied={denied}"
+    if uncounted:
+        head += f" uncounted={uncounted}/{len(gens)} generations"
+    if attributed != tokens:
+        head += f" ({tokens - attributed} not on a counted turn)"
+    out = [head]
+    for t in turns:
+        key = f"turn{t['i']}"
+        out.append(f"       turn {t['i']}: "
+                   f"{'/'.join(backs.get(key) or ['uncounted'])} "
+                   f"routed={t['routed']} tier={t['tier']} "
+                   f"{tok.get(key, 0)} tok {t['seconds']}s"
+                   + (" escalated" if t["tier"] == "big" and t["routed"] == "small"
+                      else ""))
+    trace.event("session_cost", turns=len(turns),
+                backend="/".join(all_backs) or None, wall_s=round(wall, 1),
+                generating_s=s["gen_s"], verifying_s=s["verify_s"],
+                tokens_in=s["prompt_tokens"], tokens_out=s["completion_tokens"],
+                uncounted=uncounted or None, escalations=took,
+                escalations_denied=denied or None)
+    return out
+
+
 def cmd_session(args) -> int:
     """Many turns against one repo and one oracle (R-7.15), or chat mode.
 
@@ -383,6 +556,7 @@ def cmd_session(args) -> int:
     verification step. Every turn is accepted as long as it parses (if Python).
     """
     import sys
+    import time
     from flash import trace
     import flash.loop as loop
     from flash.loop import solve_routed
@@ -430,15 +604,36 @@ def cmd_session(args) -> int:
     if use_oracle:
         print(f"flash session on {args.context} against the oracle {args.test} — "
               "one ask per line, and each answer arrives before you type the next. "
-              "`quit` or Ctrl-D ends it.")
+              "`quit` or Ctrl-D ends it; `/help` lists `/help`, `/quit`, `/save` "
+              "and `/retry`.")
     else:
         print(f"flash chat session on {args.context} — free-form questions, "
-              "code creation, no verification. `quit` or Ctrl-D ends it.")
+              "code creation, no verification. `quit` or Ctrl-D ends it; `/help` "
+              "lists `/help`, `/quit`, `/save` and `/retry`.")
     solved_n = written_n = ran = 0
     seconds = 0.0
     rc = 2
-    for prompt in _read_turns(sys.stdin, args.turns,
-                              PROMPT if tty else ""):
+    # The session's own clock, for the cost report: the sum of the turns' seconds is
+    # model time, and the wall is what the person waited, which includes the time
+    # they spent reading the answers. Both are reported because they answer
+    # different questions, and neither is derivable from the other.
+    started = time.monotonic()
+    turns: list[dict] = []
+    # One list of what actually happened: `/save` writes it, `/retry` re-asks the
+    # last entry, and the Ctrl-C report counts it. Kept separate from the counters
+    # so a command line cannot make a turn that never ran look like one did.
+    rows: list[list] = []
+    last_ask: str = ""
+    # The turn a Ctrl-C would find mid-flight, and therefore must not count.
+    in_flight: int = 0
+    # Which turn the signal killed, so the report below can tell "interrupted at
+    # the prompt" from "interrupted during the only turn" instead of claiming no
+    # ask was ever made.
+    killed: int = 0
+    interrupted = False
+
+    def run_turn(prompt: str) -> None:
+        nonlocal ran, solved_n, written_n, seconds, rc, last_ask, in_flight
         ran += 1
         i = ran
         task = {"id": f"turn{i}", "prompt": prompt, "test": test,
@@ -451,6 +646,16 @@ def cmd_session(args) -> int:
         # Recomputed from the workspace this turn just read off the disk, so the
         # loop refuses the oracle with the same key `land` protects it with.
         task["test_path"] = _oracle_key(args, task)
+        # Printed and flushed BEFORE the work starts. A turn is not instant: the
+        # model loads, generates, and the oracle grades, which is a minute or more
+        # on this box. Without a line on the terminal at the point the wait
+        # begins, a session looks hung exactly where it is most alive — and the
+        # `[turn N]` verdict only arrives once the whole turn is over, so it can
+        # only ever report the past. `flush=True` is the other half of this: a
+        # buffered stdout would hold the sentence back until the buffer filled,
+        # which is the same hang with a different cause.
+        in_flight = i
+        print(_working_line(args, i, use_oracle), flush=True)
         r, tier, routed = solve_routed(args.small, args.big, task, ROOT,
                                        small_attempts=args.attempts,
                                        big_attempts=args.attempts,
@@ -489,7 +694,62 @@ def cmd_session(args) -> int:
         if r.solved:
             solved_n += 1
         seconds += r.seconds
+        # Only now is the turn a fact: it answered, it was graded, it landed or
+        # refused to. `/save` and `/retry` deal in finished turns and nothing else.
+        rows.append([i, prompt, answer])
+        turns.append({"i": i, "tier": tier, "routed": routed,
+                      "seconds": round(r.seconds, 1)})
+        last_ask = prompt
+        in_flight = 0
+
+    try:
+        for prompt in _read_turns(sys.stdin, args.turns,
+                                  PROMPT if tty else ""):
+            if prompt.startswith("/"):
+                name, _, rest = prompt[1:].partition(" ")
+                if name == "quit":
+                    break
+                if name == "help":
+                    print(_session_help(use_oracle))
+                elif name == "save":
+                    _save_transcript(rest.strip(), rows, args, use_oracle)
+                elif name == "retry":
+                    if not last_ask:
+                        print("session: /retry has nothing to retry — no turn "
+                              "has answered yet")
+                    else:
+                        run_turn(last_ask)
+                else:
+                    print(f"session: unknown command `/{name}` — `/help` lists "
+                          "the four")
+                continue
+            run_turn(prompt)
+    except KeyboardInterrupt:
+        # Ctrl-C is a normal way to leave a session, and the turn it interrupted
+        # is not a turn: nothing was graded and the write-back never ran. The
+        # trace still closes here rather than being left open, because §33.7
+        # reads an unclosed session as a suite to RESUME — and a hand-typed
+        # conversation has no suite to resume.
+        interrupted = True
+        if in_flight:
+            killed = in_flight
+            print(f"\nsession: turn {in_flight} was interrupted — it is not "
+                  "counted and nothing was verified")
+            ran -= 1
     if not ran:
+        if interrupted:
+            # A killed first turn is not "no turn was asked": the ask reached the
+            # program and the sentence above already said what happened to it.
+            if not killed:
+                print("session: interrupted at the prompt — no turn was asked, "
+                      "so nothing was verified")
+            # The turn was not counted; the tokens it spent were still spent, and
+            # a person deciding whether to re-run cares about that bill even when
+            # nothing was verified. Empty when the signal landed at the prompt.
+            for line in _session_cost(sid, turns, time.monotonic() - started):
+                print(line)
+            trace.close_session(solved=False, turns=0, interrupted=True)
+            return 130
         # Nothing was ever asked, so nothing was ever generated: a session that
         # exits 0 here would be a green run with no verify step behind it.
         print("session: no turns on stdin — nothing was asked, so nothing "
@@ -498,10 +758,13 @@ def cmd_session(args) -> int:
         return 2
     print(f"[session] turns={ran} solved={solved_n} written={written_n} "
           f"seconds={round(seconds, 1)} last_rc={rc}")
+    for line in _session_cost(sid, turns, time.monotonic() - started):
+        print(line)
     print(f"[trace] replay this session:  flash trace show {sid}")
     trace.close_session(solved=(rc == 0), turns=ran, solved_turns=solved_n,
-                        written_turns=written_n, seconds=round(seconds, 1))
-    return rc
+                        written_turns=written_n, seconds=round(seconds, 1),
+                        **({"interrupted": True} if interrupted else {}))
+    return 130 if interrupted else rc
 
 
 SUITE_PARAMS = ("small", "big", "tasks", "with_context", "attempts", "max_tasks",
@@ -943,7 +1206,7 @@ def cmd_run_vis_suite(args) -> int:
 
 def cmd_solve(args) -> int:
     """Solve one ad-hoc task, optionally with repo context injected (M2)."""
-    from mlx_lm import load
+    from flash.backend import load
     from flash.loop import solve
 
     prompt = args.prompt
@@ -1161,9 +1424,136 @@ def cmd_doctor(args) -> int:
     return doctor.dispatch(args)
 
 
-def build_parser() -> argparse.ArgumentParser:
-    """Every command in one object, so a check can parse without dispatching."""
-    ap = argparse.ArgumentParser(prog="flash", description="Flash Coder CLI (M1)")
+def _session_flags(p, *, context_required: bool = True,
+                   with_test: bool = True) -> None:
+    """Every flag the turn loop takes, defined in one place.
+
+    `flash session` is the machinery name and `flash chat` is the product name for
+    the same loop; twenty flags written twice are twenty things that can disagree
+    about what a turn does. The two real differences between the commands are the
+    oracle and the default project, and both are said here rather than hidden in
+    the caller: `chat` gets no `--test` flag at all, so a user cannot pass one and
+    watch it be ignored, and `chat`'s `--context` defaults to the folder they are
+    standing in.
+    """
+    if with_test:
+        p.add_argument("--test", default=None,
+                       help="the oracle: a file with asserts that verify each turn "
+                            "(read once — a turn cannot rewrite it, see R-3.2 c3; "
+                            "omit for chat mode, which answers in prose and writes "
+                            "new files with no verify step, see R-7.15h)")
+    p.add_argument("--context", required=context_required,
+                   default=None if context_required else ".",
+                   help="the project each turn patches, and the directory the "
+                        "workspace is re-read from at the start of every turn"
+                        if context_required else
+                        "the project to talk about (default: this folder)")
+    p.add_argument("--turns", type=int, default=0, metavar="N",
+                   help="stop after N turns (0 = until EOF or `quit`)")
+    p.add_argument("--apply", action="store_true",
+                   help="R-3.2 clause 3: write each turn's oracle-passing patch "
+                        "set to --context; without it every turn prints NOT "
+                        "APPLIED and changes nothing")
+    # The knobs no turn needs, grouped rather than deleted: they are how a run is
+    # reproduced, and a stranger typing `flash chat --help` should not have to read
+    # fourteen lines to find the two that matter.
+    tuning = p.add_argument_group("tuning — a first chat needs none of these")
+    tuning.add_argument("--small", default=DEFAULT_MODEL)
+    tuning.add_argument("--big",
+                        default="mlx-community/Qwen3-30B-A3B-Instruct-2507-4bit")
+    tuning.add_argument("--attempts", type=int, default=2,
+                        help="per tier, per turn")
+    tuning.add_argument("--max-tokens", type=int, default=1024)
+    tuning.add_argument("--allow-big", choices=("auto", "always", "never"),
+                        default="auto",
+                        help="escalation vs the §34.1 power governor, same as `run` "
+                             "(a shed turn says so rather than pretending)")
+    tuning.add_argument("--tournament", type=int, default=1, metavar="K",
+                        help="R-3.3: k oracle-scored candidates per turn, clamped to "
+                             "the governor's width (1 = off)")
+    tuning.add_argument("--confidence", action=argparse.BooleanOptionalAction,
+                        default=False,
+                        help="R-2.3: print the evidence table after each turn's "
+                             "verdict")
+    tuning.add_argument("--adapter", default=None, metavar="DIR",
+                        help="R-6.4: LoRA directory over the SMALL tier, as in `run`")
+    tuning.add_argument("--constrain", action="store_true",
+                        help="R-4.2: mask each turn's decode to the output contract")
+    tuning.add_argument("--debug", action="store_true",
+                        help="R-4.3: trace a failed turn and feed the digest to its "
+                             "retry")
+    tuning.add_argument("--no-source-hint", action="store_true",
+                        help="R-1.1b: withhold the LSP source block from retry "
+                             "feedback")
+    tuning.add_argument("--no-graph-hint", action="store_true",
+                        help="R-1.1b: withhold the graph's dependents block")
+    tuning.add_argument("--trace-full", action="store_true",
+                        help="§33.6: store the exact prompts and outputs of every "
+                             "turn")
+
+
+def cmd_chat(args) -> int:
+    """`flash chat` — the turn loop with the grading taken out.
+
+    Two differences from `flash session`, and both are the product: the project
+    defaults to the folder you are standing in, and there is no oracle. A prose
+    answer against no oracle is what `flash.loop.solve_chat` was built for
+    (R-7.15h); forcing `--test` off here is what stops `flash chat` from silently
+    becoming a scored run the user did not ask for.
+    """
+    args.test = None
+    return cmd_session(args)
+
+
+def cmd_verify(args) -> int:
+    """`flash verify` — the two halves of "is this healthy", in one sentence each.
+
+    The doctor half says what this install IS; the battery half re-runs every
+    published claim against it without loading a model. The battery is the slow
+    half and it is named as such before it starts, because a stranger watching a
+    forty-minute silence conclude that the tool hung is a worse first-run than a
+    wait they agreed to.
+    """
+    rc = cmd_doctor(args)
+    if rc not in (0, 1):
+        return rc
+    if args.no_battery:
+        print("verify: the doctor half ran and the offline battery was skipped "
+              "(`--no-battery`). Run `flash verify` without the flag to re-check "
+              "every published claim.")
+        return rc
+    print("verify: doctor answered above. Now SPEC §6's offline battery — no "
+          "model loads, and it takes tens of minutes on a small machine. "
+          "`flash verify --no-battery` is the fast half.")
+    ns = argparse.Namespace(all=True, backend_free=args.backend_free, quick=[])
+    return cmd_selftest(ns) or rc
+
+
+class _ProductHelp(argparse.HelpFormatter):
+    """A help listing that drops a subcommand whose help is SUPPRESS.
+
+    argparse filters SUPPRESS for its own options but not for the pseudo-actions it
+    builds under a subparser: a hidden verb prints the sentinel text `==SUPPRESS==`
+    instead of disappearing, so filtering only in `command()` would have replaced
+    thirty machinery lines with thirty lines of the parser's internals. This is the
+    other half, and it is the only place the rule lives.
+    """
+
+    def _iter_indented_subactions(self, action):
+        for sub in super()._iter_indented_subactions(action):
+            if sub.help is not argparse.SUPPRESS:
+                yield sub
+
+
+def build_parser(advanced: bool = False) -> argparse.ArgumentParser:
+    """Every command in one object, so a check can parse without dispatching.
+
+    `advanced=False` is what a first-time user sees; `advanced=True`, behind
+    `flash --advanced`, lists the machinery verbs too. The commands themselves are
+    identical either way — the flag changes the listing, never the parser.
+    """
+    ap = argparse.ArgumentParser(prog="flash", description="Flash Coder CLI (M1)",
+                                 formatter_class=_ProductHelp)
     # R-7.6. Read from the package rather than a literal, because a second copy
     # of the version string is a second thing that can be wrong: `benchmarks/
     # backend_free_check.py` parses this flag's output and requires it to equal
@@ -1171,24 +1561,61 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--version", action="version",
                     version=f"flash {flash.__version__}",
                     help="print the package version and exit")
+    ap.add_argument("--advanced", action="store_true",
+                    help="list every command, including the machinery a normal "
+                         "run never needs")
     sub = ap.add_subparsers(dest="cmd", required=True)
 
-    p = sub.add_parser("decide", help="one typed decision, one forward pass")
+    # R-7.17d: one parent parser for `--backend`, attached to every command that
+    # makes a model answer. A parent rather than a line per subcommand because the
+    # property that matters is that NO generating command can be added without it,
+    # and because `--backend auto` must mean the same thing in all of them. The
+    # default is `auto`, never a named library: a run that silently used a
+    # different backend than the one a published number came from is a wrong
+    # measurement, so the choice is printed in the trace and in `flash doctor`.
+    gen = argparse.ArgumentParser(add_help=False)
+    gen.add_argument("--backend", choices=("auto", "mlx", "llama.cpp"),
+                     default="auto",
+                     help="which model library answers: `mlx` (Apple Silicon; the "
+                          "backend every number in this repo was measured on), "
+                          "`llama.cpp` (a local GGUF — the route for Linux, Windows "
+                          "and any non-Apple box), or `auto` = the first that "
+                          "imports, MLX preferred")
+
+    # PHASE 2: the first screen is the product. Every verb below still parses and
+    # still keeps its exact flags — hiding a listing entry does not remove a
+    # command — because `benchmarks/*`, SPEC's numbered requirements and the §6
+    # battery all call these verbs by name, and a user who has read the docs must be
+    # able to run what they read. What changes is that a stranger typing
+    # `flash --help` sees six lines instead of thirty, and `flash --advanced` sees
+    # all of them.
+    #
+    # The decision is made at creation and cannot be made afterwards: argparse
+    # filters SUPPRESS while it builds the listing item, so setting a subcommand's
+    # help later does not hide the row — it prints the sentinel.
+    add_parser = sub.add_parser
+
+    def command(name: str, **kw):
+        if not advanced and name not in PRODUCT:
+            kw["help"] = argparse.SUPPRESS
+        return add_parser(name, **kw)
+
+    p = command("decide", parents=[gen], help="one typed decision, one forward pass")
     p.add_argument("context")
     p.add_argument("--options", nargs="+", required=True)
     p.add_argument("--model", default=DEFAULT_MODEL)
     p.set_defaults(fn=cmd_decide)
 
-    p = sub.add_parser("decide-batch", help="run the built-in routing demo")
+    p = command("decide-batch", parents=[gen], help="run the built-in routing demo")
     p.add_argument("--model", default=DEFAULT_MODEL)
     p.set_defaults(fn=cmd_decide_batch)
 
-    p = sub.add_parser("route-test", help="route m0+m2 tasks small-vs-big vs known labels")
+    p = command("route-test", parents=[gen], help="route m0+m2 tasks small-vs-big vs known labels")
     p.add_argument("--model", default=DEFAULT_MODEL)
     p.add_argument("--max-chars", type=int, default=4000)
     p.set_defaults(fn=cmd_route_test)
 
-    p = sub.add_parser("solve-all", help="ACT->VERIFY->retry loop over all tasks")
+    p = command("solve-all", parents=[gen], help="ACT->VERIFY->retry loop over all tasks")
     p.add_argument("--model", default=DEFAULT_MODEL)
     p.add_argument("--attempts", type=int, default=3)
     p.add_argument("--max-tasks", type=int, default=20)
@@ -1199,22 +1626,34 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--max-chars", type=int, default=4000)
     p.set_defaults(fn=cmd_solve_all)
 
-    p = sub.add_parser("escalate-test", help="small->big hot-swap escalation demo")
+    p = command("escalate-test", parents=[gen], help="small->big hot-swap escalation demo")
     p.add_argument("--small", default=DEFAULT_MODEL)
     p.add_argument("--big", default="mlx-community/Qwen3-30B-A3B-Instruct-2507-4bit")
     p.set_defaults(fn=cmd_escalate_test)
 
-    p = sub.add_parser("router-fit", help="M3: fit learned router on the ledger (leave-one-out report)")
+    p = command("router-fit", parents=[gen], help="M3: fit learned router on the ledger (leave-one-out report)")
     p.add_argument("--small", default="mlx-community/Qwen2.5-Coder-7B-Instruct-4bit")
     p.set_defaults(fn=cmd_router_fit)
 
 
-    p = sub.add_parser("ledger", help="M3: outcome ledger summary (router training data)")
+    p = command("ledger", help="M3: outcome ledger summary (router training data)")
     p.add_argument("--tail", type=int, default=10)
     p.set_defaults(fn=cmd_ledger)
 
 
-    p = sub.add_parser("run", help="full policy on one task: PERCEIVE->ROUTE->small->ESC")
+    p = command("run", parents=[gen],
+                help="one task, scored against your own test file, with the "
+                     "change written back only if it passed",
+                description="Give it one job and the file that proves it: "
+                            "the agent writes the change, your asserts grade "
+                            "it, and it retries until they pass.\n"
+                            "Nothing lands in your project unless you add "
+                            "`--apply`; until then the answer is printed and "
+                            "the run says NOT APPLIED.",
+                epilog="example:\n"
+                       '  flash run "add a retry with backoff to '
+                       'send_email" --test test_notifier.py --context . '
+                       '--edit --apply')
     p.add_argument("prompt")
     p.add_argument("--test", required=True, help="file with asserts verifying the solution")
     p.add_argument("--context", help="repo path whose skeleton is injected (M2)")
@@ -1271,54 +1710,29 @@ def build_parser() -> argparse.ArgumentParser:
                         "run can be re-fed to a model")
     p.set_defaults(fn=cmd_run)
 
-    p = sub.add_parser("session", help="many turns against one repo — scored by "
-                                       "an oracle, or a chat that answers in "
-                                       "prose; every turn ends in an answer")
-    p.add_argument("--test", default=None,
-                   help="the oracle: a file with asserts that verify each turn "
-                        "(read once — a turn cannot rewrite it, see R-3.2 c3; "
-                        "omit for chat mode, which answers in prose and writes "
-                        "new files with no verify step, see R-7.15h)")
-    p.add_argument("--context", required=True,
-                   help="the project each turn patches, and the directory the "
-                        "workspace is re-read from at the start of every turn")
-    p.add_argument("--turns", type=int, default=0, metavar="N",
-                   help="stop after N turns (0 = until EOF or `quit`)")
-    p.add_argument("--apply", action="store_true",
-                   help="R-3.2 clause 3: write each turn's oracle-passing patch "
-                        "set to --context; without it every turn prints NOT "
-                        "APPLIED and changes nothing")
-    p.add_argument("--small", default=DEFAULT_MODEL)
-    p.add_argument("--big", default="mlx-community/Qwen3-30B-A3B-Instruct-2507-4bit")
-    p.add_argument("--attempts", type=int, default=2, help="per tier, per turn")
-    p.add_argument("--max-tokens", type=int, default=1024)
-    p.add_argument("--allow-big", choices=("auto", "always", "never"),
-                   default="auto",
-                   help="escalation vs the §34.1 power governor, same as `run` "
-                        "(a shed turn says so rather than pretending)")
-    p.add_argument("--tournament", type=int, default=1, metavar="K",
-                   help="R-3.3: k oracle-scored candidates per turn, clamped to "
-                        "the governor's width (1 = off)")
-    p.add_argument("--confidence", action=argparse.BooleanOptionalAction,
-                   default=False,
-                   help="R-2.3: print the evidence table after each turn's "
-                        "verdict")
-    p.add_argument("--adapter", default=None, metavar="DIR",
-                   help="R-6.4: LoRA directory over the SMALL tier, as in `run`")
-    p.add_argument("--constrain", action="store_true",
-                   help="R-4.2: mask each turn's decode to the output contract")
-    p.add_argument("--debug", action="store_true",
-                   help="R-4.3: trace a failed turn and feed the digest to its "
-                        "retry")
-    p.add_argument("--no-source-hint", action="store_true",
-                   help="R-1.1b: withhold the LSP source block from retry feedback")
-    p.add_argument("--no-graph-hint", action="store_true",
-                   help="R-1.1b: withhold the graph's dependents block")
-    p.add_argument("--trace-full", action="store_true",
-                   help="§33.6: store the exact prompts and outputs of every turn")
+    p = command("session", parents=[gen],
+                help="many turns against one repo, scored by an oracle — "
+                     "the machinery name for the loop `flash chat` runs")
+    _session_flags(p)
     p.set_defaults(fn=cmd_session)
 
-    p = sub.add_parser("run-suite", help="full policy over a suite (cost report)")
+    p = command("chat", parents=[gen],
+                help="ask about the code in this folder and get an answer "
+                     "in prose; say apply and the change lands",
+                description="Chat with the agent about your own code: "
+                            "describe what you want, it answers in prose and "
+                            "proposes the file changes.\n"
+                            "Nothing is written until you say apply, and "
+                            "every turn ends with a line saying whether the "
+                            "turn did what it claimed.",
+                epilog="example:\n"
+                       "  flash chat\n"
+                       "  you> add a retry with backoff to send_email in "
+                       "notifier.py\n")
+    _session_flags(p, context_required=False, with_test=False)
+    p.set_defaults(fn=cmd_chat)
+
+    p = command("run-suite", parents=[gen], help="full policy over a suite (cost report)")
     p.add_argument("--small", default=DEFAULT_MODEL)
     p.add_argument("--big", default="mlx-community/Qwen3-30B-A3B-Instruct-2507-4bit")
     p.add_argument("--tasks", default=None, help="jsonl path (default: m0 suite)")
@@ -1367,8 +1781,8 @@ def build_parser() -> argparse.ArgumentParser:
                    help="§33.6: store exact prompts/outputs too, for re-feeding")
     p.set_defaults(fn=cmd_run_suite)
 
-    p = sub.add_parser("resume", help="§33.7: continue an interrupted suite from its "
-                                      "trace snapshot (parameters come from the session)")
+    p = command("resume", parents=[gen], help="§33.7: continue an interrupted suite from its "
+                               "trace snapshot (parameters come from the session)")
     p.add_argument("session", nargs="?", default=None, help="trace session id "
                        "(default: the newest interrupted run-suite session)")
     p.add_argument("--small", default=None)
@@ -1396,14 +1810,14 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--trace-full", action="store_true")
     p.set_defaults(fn=cmd_resume)
 
-    p = sub.add_parser("trace", help="§33.6: list recorded sessions or replay one")
+    p = command("trace", help="§33.6: list recorded sessions or replay one")
     p.add_argument("show", nargs="?", default=None, help="session id to replay")
     p.add_argument("--task", default=None, help="only this task's decisions")
     p.add_argument("--full", action="store_true", help="include stored prompts/outputs")
     p.add_argument("--selftest", action="store_true", help="offline deterministic checks")
     p.set_defaults(fn=cmd_trace)
 
-    p = sub.add_parser("run-vis-suite", help="M0b: screenshot->HTML suite via VLM")
+    p = command("run-vis-suite", help="M0b: screenshot->HTML suite via VLM")
     p.add_argument("--tasks", default="benchmarks/tasks/vis_tasks.jsonl")
     p.add_argument("--vlm", default="mlx-community/Qwen3-VL-4B-Instruct-4bit")
     p.add_argument("--attempts", type=int, default=2)
@@ -1411,7 +1825,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--max-tasks", type=int, default=999)
     p.set_defaults(fn=cmd_run_vis_suite)
 
-    p = sub.add_parser("solve", help="solve one ad-hoc task (M2: --context injects repo skeleton)")
+    p = command("solve", parents=[gen], help="solve one ad-hoc task (M2: --context injects repo skeleton)")
     p.add_argument("prompt")
     p.add_argument("--test", help="file with asserts verifying the solution")
     p.add_argument("--context", help="repo path whose skeleton is injected into the prompt")
@@ -1426,13 +1840,13 @@ def build_parser() -> argparse.ArgumentParser:
                    help="docs from cache only (§33.9)")
     p.set_defaults(fn=cmd_solve)
 
-    p = sub.add_parser("context", help="token-budgeted project skeleton (M2 PERCEIVE)")
+    p = command("context", help="token-budgeted project skeleton (M2 PERCEIVE)")
     p.add_argument("--path", default=".")
     p.add_argument("--max-chars", type=int, default=4000)
     p.set_defaults(fn=cmd_context)
 
-    p = sub.add_parser("web", help="Phase-4: fetch+cache+bge-rank doc excerpts "
-                                   "(offline-degrading, §33.9)")
+    p = command("web", help="Phase-4: fetch+cache+bge-rank doc excerpts "
+                            "(offline-degrading, §33.9)")
     p.add_argument("query", nargs="?", default="")
     p.add_argument("--urls", default="", help="comma-separated doc URLs")
     p.add_argument("--budget", type=int, default=2500,
@@ -1444,40 +1858,40 @@ def build_parser() -> argparse.ArgumentParser:
                    help="offline deterministic checks, exit 0/1")
     p.set_defaults(fn=cmd_web)
 
-    p = sub.add_parser("perceive", help="LSP static check of one file")
+    p = command("perceive", help="LSP static check of one file")
     p.add_argument("file")
     p.set_defaults(fn=cmd_perceive)
 
-    p = sub.add_parser("find", help="§33.1: where is a symbol defined?")
+    p = command("find", help="§33.1: where is a symbol defined?")
     p.add_argument("name")
     p.add_argument("--path", default=".")
     p.add_argument("--ast", action="store_true", help="skip the language server")
     p.set_defaults(fn=cmd_find)
 
-    p = sub.add_parser("refs", help="§33.1: every site that mentions a symbol")
+    p = command("refs", help="§33.1: every site that mentions a symbol")
     p.add_argument("name")
     p.add_argument("--path", default=".")
     p.add_argument("--ast", action="store_true", help="skip the language server")
     p.set_defaults(fn=cmd_refs)
 
-    p = sub.add_parser("symbols", help="§33.1: symbol outline of a file (LSP) or tree (AST)")
+    p = command("symbols", help="§33.1: symbol outline of a file (LSP) or tree (AST)")
     p.add_argument("name", nargs="?", default=None, help="file to outline")
     p.add_argument("--path", default=".")
     p.add_argument("--file", default=None, help="alias for the positional file")
     p.set_defaults(fn=cmd_symbols)
 
     from flash import graph as _graph      # R-1.3/PLAN §28: flags defined once
-    p = sub.add_parser("graph", help="§28/R-1.3: knowledge-graph blast radius — "
-                                   "which symbols a change reaches, each with the "
-                                   "call/import edge that proves it, under 200ms")
+    p = command("graph", help="§28/R-1.3: knowledge-graph blast radius — "
+                            "which symbols a change reaches, each with the "
+                            "call/import edge that proves it, under 200ms")
     _graph.add_flags(p)
     p.set_defaults(fn=_graph.dispatch)
 
-    p = sub.add_parser("lsp-selftest", help="§33.1: deterministic perception checks")
+    p = command("lsp-selftest", help="§33.1: deterministic perception checks")
     p.set_defaults(fn=cmd_lsp_selftest)
 
-    p = sub.add_parser("learn", help="§34.3: gated, resumable background learning "
-                                     "(router refit; --lora for weights)")
+    p = command("learn", parents=[gen], help="§34.3: gated, resumable background learning "
+                              "(router refit; --lora for weights)")
     p.add_argument("--small", default=DEFAULT_MODEL)
     p.add_argument("--budget", type=float, default=900.0,
                    help="wall-clock cap per invocation; the rest resumes next idle window")
@@ -1505,33 +1919,92 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--selftest", action="store_true")
     p.set_defaults(fn=cmd_learn)
 
-    p = sub.add_parser("power", help="§34.1: system profile + what the machine may load")
+    p = command("power", help="§34.1: system profile + what the machine may load")
     p.add_argument("--need", type=float, default=4.4, help="GB the caller wants to load")
     p.add_argument("--json", action="store_true", help="machine-readable state + caps")
     p.add_argument("--selftest", action="store_true", help="deterministic decision table")
     p.set_defaults(fn=cmd_power)
 
-    p = sub.add_parser("bench", help="wrap benchmarks/m0_bakeoff.py")
+    p = command("bench", help="wrap benchmarks/m0_bakeoff.py")
     p.add_argument("bench_args", nargs=argparse.REMAINDER)
     p.set_defaults(fn=cmd_bench)
 
-    p = sub.add_parser("ambient", help="§33.5/R-7.2: idle-window DRAFTS only — lint, "
-                                   "suite-premise and doc-drift fixes prepared in a "
-                                   "git worktree, verified by the check that found "
-                                   "them, never merged and never pushed")
+    p = command("ambient", help="§33.5/R-7.2: idle-window DRAFTS only — lint, "
+                            "suite-premise and doc-drift fixes prepared in a "
+                            "git worktree, verified by the check that found "
+                            "them, never merged and never pushed")
     from flash import ambient as _ambient      # flags defined once, in flash/ambient.py
     _ambient.add_flags(p)
     p.set_defaults(fn=_ambient.dispatch)
 
-    p = sub.add_parser("doctor", help="R-7.6: which half of this project is "
-                                      "installed here, and what it can verify "
-                                      "(reads the running interpreter, never a doc)")
+    p = command("models", help="the weights on this machine — fetch a tier, list "
+                               "the cache, check a file against the pin",
+                description="R-7.18: the GGUF weights `--backend llama.cpp` loads, "
+                            "one pinned tier per file. `pull` resumes where it "
+                            "stopped and checks the SHA256, `list` says what is "
+                            "here, `verify` re-reads the bytes rather than trusting "
+                            "the download.",
+                epilog="example:\n  flash models list — and `flash models pull fast` "
+                       "when it says nothing is here; the pull asks first, because "
+                       "4.68 GB on a metered line is a decision.")
+    from flash import models as _models      # verbs defined once, in flash/models.py
+    _models.add_flags(p)
+    p.set_defaults(fn=_models.dispatch)
+
+    p = command("setup", parents=[gen],
+                help="the first command to run: check this machine, get the "
+                     "weights, prove one answer comes out",
+                description="Five steps, printed as five: what this machine "
+                            "is, the weights coming down, the bytes checked "
+                            "against the pin,\none real turn answering, and "
+                            "what you can now do. Run it once, before "
+                            "`flash chat`.",
+                epilog="example:\n  flash setup")
+    from flash import setup as _setup      # flags defined once, in flash/setup.py
+    _setup.add_flags(p)
+    p.set_defaults(fn=_setup.dispatch)
+
+    p = command("verify", parents=[gen],
+                help="is this install and this project healthy — the doctor "
+                     "and the whole offline battery, in one call",
+                description="Two halves, in one sentence each: what this "
+                            "install is and can do, then every published "
+                            "claim re-run against it.\n"
+                            "The second half loads no model but takes tens "
+                            "of minutes; `--no-battery` is the fast half.",
+                epilog="example:\n  flash verify --no-battery")
+    from flash import doctor as _doctor   # the same flag table `flash doctor` uses
+    _doctor.add_flags(p)
+    p.add_argument("--no-battery", action="store_true",
+                   help="only the doctor half — the offline battery is the slow one")
+    p.add_argument("--backend-free", action="store_true",
+                   help="with the battery: block every `mlx` import in the child "
+                        "processes, so 'the battery needs no model' is a run "
+                        "rather than a sentence")
+    p.set_defaults(fn=cmd_verify)
+
+    p = command("ui", parents=[gen],
+                help="the same chat in a page on this machine — chat, the "
+                     "diff it proposes, the oracle's verdict, the weights",
+                description="Four panels, one local web page: ask, read the "
+                            "diff, press Apply per file to write it, and see "
+                            "what your asserts say.\n"
+                            "Nothing is written until you press Apply, and "
+                            "the server only ever listens on 127.0.0.1.",
+                epilog="example:\n  flash ui")
+    from flash import ui as _ui            # flags defined once, in flash/ui.py
+    _ui.add_flags(p)
+    p.set_defaults(fn=_ui.dispatch)
+
+    p = command("doctor", help="R-7.6: which half of this project is "
+                               "installed here, and what it can verify "
+                               "(reads the running interpreter, never a doc)")
     from flash import doctor as _doctor        # flags defined once, in flash/doctor.py
     _doctor.add_flags(p)
     p.set_defaults(fn=cmd_doctor)
 
-    p = sub.add_parser("selftest", help="R-7.6: re-run the published claims "
-                                        "against this install")
+    p = command("selftest", help="R-7.6: re-run the published claims "
+                                 "against this install")
     p.add_argument("--all", action="store_true",
                    help="run SPEC §6's offline battery and print its totals")
     p.add_argument("--backend-free", action="store_true",
@@ -1546,17 +2019,34 @@ def build_parser() -> argparse.ArgumentParser:
     # The module-owned vectors, reachable as commands because the docs name them
     # that way. See `_module_forward`.
     for name in ("debug", "jobs", "train"):
-        p = sub.add_parser(name, help=f"forward to `python -m flash.{name}` "
-                                      "(that module's parser owns the flags)")
+        p = command(name,
+                    help=f"forward to `python -m flash.{name}` "
+                         "(that module's parser owns the flags)")
         p.add_argument("rest", nargs=argparse.REMAINDER)
         p.set_defaults(fn=_module_forward(name))
+
+    # The other half of the same filter: the usage line prints `choices`, which no
+    # amount of help-suppression touches, so the first screen names the six.
+    if not advanced:
+        sub.metavar = "{" + ",".join(PRODUCT) + "}"
 
     return ap
 
 
 def main() -> int:
-    ap = build_parser()
-    args, extra = ap.parse_known_args(sys.argv[1:])
+    argv = list(sys.argv[1:])
+    # `--advanced` is read BEFORE the parse, because the listing it changes is
+    # printed DURING the parse: a flag cannot affect the help of the parser that is
+    # in the middle of printing it. argparse still consumes it normally after this.
+    ap = build_parser(advanced="--advanced" in argv)
+    if "--advanced" in argv and not [t for t in argv if t != "--advanced"]:
+        ap.print_help()
+        return 0
+    return _dispatch(ap, argv)
+
+
+def _dispatch(ap: argparse.ArgumentParser, argv: list) -> int:
+    args, extra = ap.parse_known_args(argv)
     if extra:
         # Two shapes. A forwarding command (`flash bench`, `flash debug`) has a
         # REMAINDER slot, and argparse hands it only the tokens that do not look
@@ -1566,7 +2056,43 @@ def main() -> int:
         if not hasattr(args, "rest"):
             ap.error(f"unrecognized arguments: {' '.join(extra)}")
         args.rest = [*args.rest, *extra]
-    return args.fn(args)
+    try:
+        # R-7.17d: `--backend` is applied at dispatch, in front of the command, so
+        # a flag naming a library this box cannot run is refused before a model
+        # loads, a trace opens or a token is spent. `auto` resolves NOTHING here —
+        # the first model call chooses, which is what keeps `flash doctor` and the
+        # whole offline battery answerable on a box with no backend at all.
+        from flash import backend
+        if getattr(args, "backend", "auto") != "auto":
+            backend.use(args.backend)
+        return args.fn(args)
+    except NoBackend as e:
+        # One catch, at the dispatch, so no command can be added that forgets the
+        # refusal. The traceback this replaces is what a Linux user actually hit:
+        # `flash session` dying inside flash.loop's import of mlx.core, on a box
+        # where README promises a sentence naming MLX instead (SPEC R-7.7).
+        #
+        # The session is closed here rather than left open, because §33.7 reads an
+        # unclosed trace as a suite to RESUME: a refusal that left `session_start`
+        # with no `session_end` would advertise a run that never started. The
+        # record says `refused`, so `flash trace show` cannot mistake it for a
+        # turn that was attempted and failed.
+        from flash import trace
+        if trace.active():
+            trace.close_session(solved=False, refused="no generation backend")
+        print(str(e), file=sys.stderr)
+        return 2
+    except NoFeature as e:
+        # The backend answered; it just cannot enforce the thing this command was
+        # asked to do. Said and stopped, because a run that quietly dropped a
+        # contract would print the same trace keys as one that kept it. The session
+        # is closed the same way a refusal closes it, so `flash trace show` cannot
+        # read an interrupted-but-resumable run out of a turn that never started.
+        from flash import trace
+        if trace.active():
+            trace.close_session(solved=False, refused="backend cannot do this")
+        print(f"flash: {e}", file=sys.stderr)
+        return 2
 
 
 if __name__ == "__main__":

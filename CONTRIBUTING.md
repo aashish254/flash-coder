@@ -40,7 +40,7 @@ would close it.
 git clone https://github.com/aashish254/flash-coder && cd flash-coder
 python3.11 -m venv .venv && source .venv/bin/activate
 pip install -e .[dev]       # `flash` on PATH + pyflakes + build + the ts grammar; plain `python -m flash.cli` also works
-flash doctor                # nine answers about this install, and its rc follows them
+flash doctor                # eleven answers about this install, and its rc follows them
 flash selftest --all        # the offline battery: no models, no network
 ```
 
@@ -85,17 +85,24 @@ with it: below 25% charge the power governor forces tournament width 1, so
 `flash power` is deliberately the step before the model download: the fast tier
 needs about 4 GB of RAM-resident weights and Apple Silicon, and a machine that
 can't hold it should hear that from a 20 ms check rather than from a crash
-8 minutes into a download. `flash doctor` prints the same machine line and four
-more beside it.
+8 minutes into a download. `flash doctor` prints the same machine line and ten
+more beside it (eleven answer lines across six sections, measured 2026-10-15).
 
 On Linux or Windows everything except generation installs and runs: PERCEIVE,
 the AST graph, the harness, trace/replay and the whole offline battery are pure
-Python. The model layer is `mlx`, and `flash run` says so rather than pretending.
-Measured with `mlx` blocked, module by module in a child process — the sweep's
+Python. The model layer used to be `mlx` alone and `flash run` said so rather than
+pretending; as of R-7.17d it is a seam with two libraries behind it (`mlx` and
+`llama.cpp`), so `pip install 'flash-coder[local]'` plus `flash models pull fast`
+gives a Linux box a backend that is not MLX. Measured with `mlx` blocked, module by
+module in a child process — the sweep's
 denominator is however many modules `flash/` has, so it read 24 of 26 before the
 R-7.7 fix, 26 of 26 until the second language's module joined it, and
-**27 of the 27 submodules of `flash` import** as re-measured on 2026-09-28 — and the one thing that fails is the
-call that needs a forward pass, which raises a `RuntimeError` naming MLX. Before
+**27 of the 27 submodules of `flash` import** as re-measured on 2026-09-28, and
+**29 of 29 as re-measured on 2026-10-15** now that `flash/backend.py` and
+`flash/models.py` have joined the package — and the one thing that fails is the
+call that needs a forward pass, which raises `flash.NoBackend` naming the missing
+library and the line that installs it (a `RuntimeError` naming MLX before the seam).
+Before
 that fix the count was **24 of 26** — `flash.decide` at its top-level
 `import mlx.core`, and `flash.route` through it — and nothing noticed for as long
 as the package shipped, because `flash.cli` imports both lazily.
@@ -114,6 +121,14 @@ as the package shipped, because `flash.cli` imports both lazily.
   package rather than one function: it sweeps every submodule in a child process
   under an import blocker, and its mutant writes a real file onto disk, because
   `sys.modules` in this process is not what the clause is about.
+  `benchmarks/models_pull_check.py` is the one to read for two things: a check that
+  patches an *untracked* file (so `git checkout --` is not your restore path), and a
+  vector whose gates call the module in-process — which means every mutant has to
+  `importlib.reload` it, or all nine mutations die silently behind 53 green checks.
+  `benchmarks/backend_message_check.py` is the one to read for a claim about a
+  *sentence*: it asserts on the exact words a user sees, and one of its mutants
+  removes an extra from `pyproject.toml` to catch a remedy line that tells you to
+  install something the package does not declare.
 - Run the checks the CI will run, locally, and paste the printed lines into the
   PR:
 

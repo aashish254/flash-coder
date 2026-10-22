@@ -8,6 +8,253 @@ versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+**What this section is.** The work that makes the download-and-run promise real for
+someone who is not on Apple Silicon, plus the fifteen-night red that had to be
+explained before anything else moved. Nothing here publishes: no PyPI, no TestPyPI,
+no tag moved, and the §6 headline totals do not move either — the four gate files
+added on this branch (`backend_message_check`, `backend_seam_check`,
+`session_ux_check`, `models_pull_check`) live *outside* `BATTERY`, so
+`checks 1429  oracle 20  §6 total 1449
+mutants 172` over 37 vectors is printed by the same 37 rows it was before. That is
+by construction, not by luck: a new vector that joined the battery would have to
+come with a `CLAIM` change, and the acceptance line for this pass is that no number
+on the §6 page moved.
+
+### Added
+- **R-7.17 (message): a missing backend refuses in one sentence.** Before this, the
+  promise SPEC R-7.7 and the README both make to a Linux user — a sentence naming
+  MLX — was not kept: `flash session` printed a `ModuleNotFoundError` traceback from
+  `flash/loop.py:875`. Nine in-function `import mlx.core` / `from mlx_lm import load`
+  statements were nine tracebacks waiting on a platform where MLX cannot exist. Now
+  `flash.backend.require()` raises `NoBackend` whose text is the whole answer — the
+  import that failed, `flash doctor`'s own backend sentence read from `doctor` so the
+  message and the report cannot disagree, and a remedy chosen per platform — and
+  `main()` catches it once at the dispatch, so a command added later cannot forget to
+  handle it; a refusal also closes its trace session, because §33.7 reads an unclosed
+  trace as a suite to RESUME. Vector `benchmarks/backend_message_check.py`:
+  **19/19 checks + 7/7 mutants** (`backend-message checks: 19/19 passed`), and
+  `benchmarks/backend_free_check.py`'s sweep proves the import-blocking shim bites in
+  the child before any message is credited.
+- **R-7.17b/c (UX): the session says what it is doing.** A turn prints `[working]`
+  when it starts, so a 40-second turn is not a hung terminal; the session takes
+  `/help`, `/quit`, `/save <file>` and `/retry`; Ctrl-C abandons the current turn and
+  keeps the session, and a second one exits cleanly. A killed *first* turn no longer
+  claims no turn was asked. Vector `benchmarks/session_ux_check.py`: **34/34 +
+  12/12**, and the live evidence is `benchmarks/session_pty_demo.py --interrupt`
+  driving a real controlling terminal (TIOCSCTTY, own session, so `\x03` arrives as a
+  SIGINT rather than sitting in the input buffer) with three logs kept:
+  `session_pty_20261014.log`, `session_pty_interrupt_20261014.log` (interrupted 3s
+  after the turn's own `[working]` line reached the terminal, so the signal lands
+  inside the wait and not at a prompt — killed inside the weight load, trace
+  `20261014-162713-session-e7ff`, child rc 130) and
+  `session_pty_interrupt_generating_20261014.log` (interrupted at 20s, inside the
+  work: route, generate, patch, generate, patch and an escalation already recorded,
+  no verdict line, no traceback on the terminal, rc 130, the seeded file still the
+  bytes it started with, and `flash trace show` reporting the session closed rather
+  than resumable). The third arm is two unbroken turns on the same build, which is
+  the witness that the new line did not drive the driver: turn 1's `[working]` prints
+  at t+0.07s, its verdict at t+24.13s, and turn 2 is typed only after that at
+  t+24.33s.
+- **R-7.17d (seam): `flash/backend.py`.** The loop stopped knowing which library
+  answered: one `Backend` interface, an MLX implementation and a llama.cpp one,
+  `--backend auto|mlx|llama.cpp` where a named backend is *enforced* rather than
+  preferred, and `flash.NoBackend` / `flash.NoFeature` raised at the call. Capabilities
+  are measured on this box, not asserted: mlx has all five (`constrain`, `probe`,
+  `adapter`, `stream`, `embed`), llama.cpp reports `stream` and `probe` only —
+  a claim the installed library corrected the same day (see *Corrected* below), so
+  it now reports `stream` alone, with `constrain`, `probe`, `adapter`, `embed` and
+  `ids` all False and the reason beside each. Vector
+  `benchmarks/backend_seam_check.py`: **41/41 + 11/11** (33/33 + 6/6 until the real
+  library refused three calls its stand-ins had been agreeing with), with `mlx`,
+  `mlx_lm` and `mlx_vlm` blocked at the interpreter in a child process.
+- **R-7.18 (weights): `flash models pull|list|verify`.** The GGUF tiers get a
+  downloader that can only succeed honestly: `.part` + HTTP `Range` resume, a
+  whole-file SHA256 including the bytes from before the resume, a size pin checked
+  against `Content-Length` *before* the first byte is written, a free-disk gate
+  before the request, and a `flash-gguf.json` manifest written only after the hash
+  matches — so the four wrong-success shapes (a truncated file, a resumed prefix
+  never re-hashed, a manifest written before the check, a host that ignored `Range`
+  and restarted) each die on their own check. The pins were re-read 2026-10-15 from
+  the Hugging Face tree API: fast `bartowski/Qwen2.5-Coder-7B-Instruct-GGUF` /
+  `Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf` / 4,683,074,336 B, brain
+  `lmstudio-community/Qwen3-Coder-30B-A3B-Instruct-GGUF` /
+  `Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf` / 18,632,186,176 B. Every check in that
+  gate runs against a local HTTP fixture and no network; the one real transfer is the
+  measurement, not the gate — on 2026-10-15 `flash models pull fast` moved the pinned
+  4,683,074,336 bytes in 848.78 s with the streamed SHA256 equal to the pin, and
+  `flash models verify fast` re-hashed the whole file off disk in 1.59 s.
+  `flash doctor` reports the GGUF cache beside the MLX one, and
+  `pip install 'flash-coder[local]'` (llama-cpp-python) is an extra, never a hard
+  dependency. Vector `benchmarks/models_pull_check.py`: **53/53 + 9/9**.
+- **R-7.19 (cost): the session says what it spent.** A session used to end with a
+  turn count and a silence: the tokens were already written into the trace by the loop,
+  and nothing added them up, so "was that worth it" had no answer at the terminal.
+  `cmd_session` now prints a `[cost]` header — turns, the library that answered, wall
+  seconds, model seconds, verifying seconds, tokens split prompt/completion,
+  escalations — followed by one row per turn naming *that* turn's backend, route, tier,
+  tokens and model time, and it writes the identical numbers as a `session_cost` record
+  before the trace closes, so `flash trace show <id>` afterwards agrees with what the
+  person watched instead of re-deriving it. The bill prints on both exits, including the
+  one where Ctrl-C killed the first turn, where there is no `[session]` report at all.
+  Three rules carry the requirement: a generation the tokenizer could not count is
+  reported as `uncounted=N/M generations` rather than folded into the total as a zero; a
+  turn that was killed is billed but not counted, with the difference named out loud
+  (`1000 not on a counted turn`) so one row cannot read like an arithmetic mistake; and
+  an escalation the power governor refused is counted separately from one that ran. The
+  record's fields are deliberately `tokens_in`/`tokens_out` and not the loop's own
+  `prompt_tokens`/`completion_tokens`, because `flash trace`'s summariser sums those
+  names over anything it counts as a generation — a bill that borrowed the work's keys
+  would be billed as work. For the backend name to be a fact rather than an assumption,
+  `flash/loop.py`'s `generate` record gained `backend=be.name` (R-7.17d's seam had only
+  ever reported it to the ledger). Vector: `benchmarks/session_ux_check.py` grew from
+  **34/34 + 12/12** to **48/48 + 21/21** (measured 2026-10-15), its arms leaving the
+  `generate`/`verify`/`escalation` records a real turn leaves so the report is computed
+  off the trace exactly as the shipped command computes it. No number on the §6 page
+  moved and that was designed, not hoped: `benchmarks/session_check.py --sweep` *is* a
+  published row (81 checks / 26 mutants) and it carries the parity copy of the command,
+  so the copy learned to bill too — re-ran **81/81 + 26/26, rc 0**, with no check and no
+  mutant added there, because the row's own scenarios leave no generation record and
+  print no bill.
+
+### Corrected — claims this pass found in its own documents
+- **`flash-coder[mac]` did not exist.** `remedy()` printed that install line on
+  Apple Silicon while `pyproject.toml` declared no `mac` extra, so the message that
+  tells a user what to do next would have failed at the shell. The extra is now
+  declared *and* gated: `printed_extras()` reads the names out of the source rather
+  than trusting a hand-written list, and the mutant `remedy_names_an_undeclared_extra`
+  renames it in `pyproject.toml` and dies on exactly that check. `mlx-lm` stays a
+  marked hard dependency — moving it into `[mac]` would change what every published
+  number was installed with.
+- **"No install line fixes this box" was false.** The non-Apple branch of `remedy()`
+  said that when MLX was the only backend; after R-7.18 the honest sentence names the
+  route that works: `[local]`, then `flash models pull fast`, then `--backend llama.cpp
+  --small fast`, and it still says which half runs without any backend at all.
+- **A mutation harness that cannot see its own mutants.** `models_pull_check` printed
+  **1/9** mutants caught against **53/53** green checks until it was pointed at the
+  interpreter: in-process gates patch a file on disk, and the running `flash.models`
+  object never re-read it. `importlib.reload()` after patching and after restoring
+  made 9/9 real. The same run left half of a mutant in `flash/models.py` (a file that
+  is untracked, so `git checkout --` was not a restore path), which is why both
+  harnesses now capture the bytes of every file they touch and print
+  `MUTANT LEFT IN TREE` if any differ afterwards — this repository has shipped that
+  bug twice (`62d547f`), and a green run over a dirty tree certifies code nobody
+  committed.
+- **Two documents quoted a page that had grown.** SPEC's R-7.6 box and
+  `CONTRIBUTING.md` said `flash doctor` answers nine questions; on 2026-10-15 it
+  prints **eleven answer lines across six sections** on this Mac, and the synthetic
+  broken install in the gate has 10 rows with `no` on exactly 5 of them (unchanged:
+  the seam list and the GGUF cache are `[   ]` facts, not verdicts). That check's own
+  label now computes its denominator instead of spelling "of 9". The submodule sweep
+  moved **27/27 → 29/29** (`SWEEP 29/29`) when `backend.py` and `models.py` joined.
+  The same box also asserted that `backend_free_check` "now carries 37 checks + 8
+  mutants" — true when R-7.10 wrote it, 49 + 15 now — and that the documented-command
+  spine finds "25 distinct commands across 150 citations", which is the gate's own
+  printed line and moves with every document edited, so both now carry the run that
+  measured them and the sentence that says why they are re-read rather than copied
+  forward. Every superseded number stayed on the page with its date, as the file's own
+  precedent does.
+- **The obvious cross-platform install test does not test the marker at all.** Asked to
+  prove that a Linux or Windows resolve never reaches `mlx-lm`, this box ran
+  `pip download --only-binary=:all: --platform manylinux2014_x86_64 --python-version
+  3.11 dist/flash_coder-0.1.0-py3-none-any.whl` and got the *opposite* answer: pip
+  printed `Collecting mlx-lm>=0.31 (from flash-coder==0.1.0)` and died with
+  `ResolutionImpossible`, because it treats `--platform` as a wheel-tag filter while
+  evaluating requirement markers against the RUNNING interpreter — this Mac, where the
+  marker is True. The same command for `win_amd64` walked the entire mlx-lm subtree.
+  Neither says anything about a Linux install; the proof is the metadata read with
+  `packaging` 26.3's reference marker implementation against five synthetic
+  environments (`docs/models.md` carries the table: `mlx-lm` reachable on darwin+arm64
+  only, `llama-cpp-python` and `[dev]`/`[ts]`/`[web]` on all five), plus the install
+  that a real Linux box actually performs — CI's `ubuntu-latest` `static` job, whose
+  `pip install -e .[dev]` step passed on both matrix arms in run `37478889583`
+  (2026-10-15). A Linux resolve that reached `mlx-lm` could not finish that step: the
+  next requirement it would have to satisfy is `mlx`, which has no Linux wheel.
+  The same reading found one comment that had fallen behind the tree: `pyproject.toml`
+  still carried `26 of 26` for the blocked-import sweep (it is **29 of 29** as
+  re-measured 2026-10-15) and still said a non-Mac install was unmeasured, when CI has
+  been doing that install, and running `battery_reread.py --backend-free` on it, since
+  the `static` job existed. The narrowed claim is in that comment now: what is
+  unmeasured is a **Windows** install, and any non-Mac box **generating**.
+- **Three defects that only the real library could see, and the claim they made
+  false.** Every one of them was invisible to `benchmarks/backend_seam_check.py`'s
+  stand-in, because a stub written to match the code under test can only certify the
+  code matching itself. Installed against the real llama-cpp-python 0.3.36:
+  - **The install itself.** `pip install 'flash-coder[local]'` failed to build, because
+    llama-cpp-python ships one sdist and no wheels and its build asks for `cmake`, which
+    this box did not have. `pip install cmake ninja` first is the workaround; the blocker
+    is named in `docs/models.md` rather than smoothed over.
+  - **`Llama.tokenize()` has no `add_special` keyword** — the real signature is
+    `(text: bytes, add_bos: bool = True, special: bool = False)`, measured off the
+    installed library. The shim passed `add_special=`, so every token *count* raised
+    `TypeError`. The first real session proved it from the artifact rather than the
+    traceback: it printed the answer, `Mars`, and then billed itself
+    `tokens=0 (prompt=0 completion=0) uncounted=1/1 generations` — a turn that had
+    really spent 83 tokens reported as nothing. `trace.n_tokens` catches, which is why
+    the run survived and why R-7.19's "never fold an uncounted turn into a zero" rule
+    is the thing that made the bug audible at all. The same call shape on
+    `flash.decide`'s label path has no handler, and pre-fix the probe arm died there.
+  - **Asking for log-probabilities on the shipped load raises.** The library's own
+    message is `ValueError: logprobs is not supported for models created with
+    logits_all=False`, and `load_model` leaves `logits_all` at that default, so
+    `Backend.probe` — which `flash.decide` calls — could not have worked on a GGUF.
+    Turning `logits_all` on would allocate a `(n_ctx, n_vocab)` float32 buffer,
+    ≈ **5.0 GB** at 8192 × 152,064, on a 32 GB box already holding the weight. The fix
+    is the honest one: `supports["probe"]` is False and the refusal is a sentence, and
+    it was run for real — `flash decide … --backend llama.cpp --model fast` on the
+    installed library gets past the label tokens, then exits **rc 2** printing the
+    refusal with both remedies in it. `flash run` on a GGUF is unaffected because it
+    routes on the decision fabric and never asks.
+  - **Stream chunks carry text but no token id.** Measured directly: the first two
+    chunks of that same answer were `(None, 'M')`, `(None, 'ars')`. `checkpoint.note`
+    does `f.ids.append(int(token_id))`, so an armed GGUF run dies at the first chunk —
+    which is the arithmetic of the measured shape against that line rather than an
+    observed crash, because the fix removes the path. `supports["ids"]` is now False and
+    `loop._generate` falls back to the one-shot call for such a backend. The declared
+    cost, in writing: a killed span cannot be resumed token-exact, so `--resume`
+    restarts that task rather than continuing inside it.
+
+### Fixed
+- **A GGUF run answered and then mis-stated what it cost.** Generation through
+  `LlamaCppBackend` worked; what was wrong is everything downstream of the answer, and
+  the three mismatches with the real library's signature and arithmetic — under
+  *Corrected* — are why. Fixed, one real session turn on the pulled fast tier answered
+  `Mars` and printed
+  `[cost] … backend=llama.cpp … tokens=83 (prompt=81 completion=2)`: 1.55 s to load the
+  4.68 GB weight, 0.92 s generating that turn, and 19.8 tokens/s on a separate 128-token
+  greedy run — where the same session before the fix had printed `uncounted=1/1` for a
+  turn that spent 83 tokens. `flash decide` on the same weights now ends in one sentence
+  naming the missing capability at rc 2 instead of a `TypeError` from the tokenizer. No
+  API key was present in the environment for any of it.
+- **The nightly was red for fifteen nights for a file it never downloaded.** Every
+  scheduled run failed at *Offline battery first* on
+  `flash.grammar --selftest want 47/47 got ['24/25']`: the mask checks load the fast
+  tier's tokenizer from the Hugging Face cache, a fresh macos-14 runner has no cache,
+  and the weights that would fill it are fetched by the live suite the gate blocks.
+  Both arms reproduced locally (`HOME=/tmp/nohome` → 24/25 with the named failure; the
+  real cache → 47/47), so the diagnosis is environmental and the fix is the one CI's
+  macos job already had: `nightly.yml` now warms the same cache key, 7 files, no
+  weights, before the battery.
+
+### Not claimed here
+- Generation through llama.cpp has now happened here — one session turn and one
+  128-token run, all numbers above — but **quality is still unmeasured**. Nothing here
+  compares a Q4_K_M GGUF answer to the 4-bit MLX tier on any task, and the tokens that
+  a real turn emitted were counted, not graded. `docs/models.md` says so in those words.
+  `flash doctor`'s llama.cpp profile also still reports `verified: false`, because
+  `doctor` decodes nothing; that flag means "this command has never run a forward pass",
+  not "this route has never run".
+- `[local]` is deliberately absent from `dev`, and from CI: llama-cpp-python 0.3.36 is
+  one sdist and zero wheels (re-checked against the PyPI JSON API 2026-10-15), so every
+  job would compile llama.cpp to prove nothing §6 depends on.
+- CI still has never printed the whole 37-line §6 re-read, and the nightly's live half
+  (run-suite + the hint audit) has never executed anywhere, so its green is unmeasured.
+- The landing site's data has not been regenerated for R-7.17d/R-7.18/R-7.19.
+- The bill has now been printed by a live turn: the `[cost]` line quoted under *Fixed*
+  came out of the real llama.cpp session above, and that session's `session_cost` record
+  is the witness committed with it. What is unchanged is the rest of the sentence — the
+  token counts inside the gates are still the stand-in's, and **no figure anywhere in
+  this section is money**; flash counts tokens and has never seen a provider bill.
+
 ## [0.1.0] - 2026-10-05 — the version moved; the tag has not been created
 
 **What the bump is.** `0.0.1` → `0.1.0` is one fact kept in four places, so they moved

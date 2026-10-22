@@ -1,0 +1,6 @@
+{"ts": 1792081127.784, "seq": 0, "type": "session_start", "label": "session", "cmd": "session", "params": {"context": "/tmp/gguf_ctx", "test": "", "small": "fast", "big": "mlx-community/Qwen3-30B-A3B-Instruct-2507-4bit", "allow_big": "auto", "adapter": null, "edit": true, "apply": false, "tournament": 1, "hints": ["source", "graph"], "confidence": false, "turns": 0, "chat": true}}
+{"ts": 1792081130.24, "seq": 1, "type": "generate", "task_id": "turn1", "attempt": 0, "temp": 0.0, "max_tokens": 32, "ms": 917, "backend": "llama.cpp", "prompt_tokens": 81, "completion_tokens": 2, "constrained": false}
+{"ts": 1792081130.24, "seq": 2, "type": "chat", "task_id": "turn1", "attempt": 0, "ok": true, "kind": "prose", "chars": 4, "applied": 0, "ms": 920}
+{"ts": 1792081130.297, "seq": 3, "type": "task_end", "task_id": "turn1", "prompt": "Answer in one word: which planet is called the red planet?", "solved": true, "tier": "small", "attempts": 1, "seconds": 0.9, "routed": "chat"}
+{"ts": 1792081130.297, "seq": 4, "type": "session_cost", "turns": 1, "backend": "llama.cpp", "wall_s": 2.5, "generating_s": 0.92, "verifying_s": 0.0, "tokens_in": 81, "tokens_out": 2, "escalations": 0}
+{"ts": 1792081130.297, "seq": 5, "type": "session_end", "solved": true, "turns": 1, "solved_turns": 1, "written_turns": 0, "seconds": 0.9}
