@@ -77,7 +77,7 @@ jobs:
           cd ..
 
       - name: Create GitHub release (draft)
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v3
         with:
           files: artifacts/flash-coder-${{ github.ref_name }}-macos-arm64.zip
           draft: true
