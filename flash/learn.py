@@ -80,6 +80,8 @@ def trainable(row: dict) -> bool:
 
 def embed_text(model, tok, text: str, max_len: int = 512, pool: str = "mean") -> np.ndarray:
     """Single-prompt embedding: pooled last hidden state ('mean' or 'last' token)."""
+    from flash import backend
+    backend.require("mlx.core")
     import mlx.core as mx
     ids = mx.array(tok.encode(text)[:max_len], dtype=mx.int32)[None]
     h = model.model(ids)[0]
@@ -149,6 +151,8 @@ def embed_prompts(rows: list[dict], small_repo: str, max_len: int = 512,
     Pre-prompt-telemetry ledger rows get their prompt backfilled from
     benchmarks/tasks/*.jsonl by task_id. Returns (X, kept_rows).
     """
+    from flash import backend
+    backend.require("mlx.core", "mlx_lm")
     from mlx_lm import load
     import mlx.core as mx
 

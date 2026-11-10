@@ -1,0 +1,34 @@
+# R-7.17c live arm, 2026-10-14: a real pseudo-terminal, so the keyboard path is what runs.
+# command: python -m flash.cli session --context /tmp/flash-chat-demo --test /tmp/flash-chat-demo/t.py --apply
+# turns: one ask typed, then Ctrl-C (byte 0x03) sent 20s after the turn's own `[working]` line reached the terminal, so the signal lands inside the wait and not at a prompt.
+# tree: money.py seeded as cents_to_str(c) -> f"${c / 100}"; oracle t.py 3 asserts, the third one being the negative case
+# driver: python benchmarks/session_pty_demo.py --tree /tmp/flash-chat-demo --interrupt --interrupt-after 20 --out <this file>
+# session trace written by this run: 20261014-162717-session-aecd
+# what the loop had already recorded when the signal arrived: route, generate, patch, generate, patch, escalation
+# child exit code: 130 after 20.7s
+# Every line below is stamped at the moment the terminal received it.
+[t+  0.00s] zero-pad the cents and keep a negative sign in front of the dollar sign, exactly as t.py asserts
+[t+  0.07s] flash session on /tmp/flash-chat-demo against the oracle /tmp/flash-chat-demo/t.py — one ask per line, and each answer arrives before you type the next. `quit` or Ctrl-D ends it; `/help` lists `/help`, `/quit`, `/save` and `/retry`.
+[t+  0.07s] you> [working] turn 1 — generating: small tier first, up to 2 attempt(s) per tier, big tier on failure, grading against /tmp/flash-chat-demo/t.py
+[t+ 20.08s] 
+[t+ 20.08s] <<< keyboard sent Ctrl-C (\x03) into the terminal
+[t+ 20.08s] ^C
+[t+ 20.08s] session: turn 1 was interrupted — it is not counted and nothing was verified
+=== child exited rc=130 after 20.7s ===
+=== final money.py ===
+def cents_to_str(cents: int) -> str:
+    return f"${cents / 100}"
+=== oracle re-run against the bytes now on disk ===
+rc=1 Traceback (most recent call last):
+  File "<string>", line 6, in <module>
+AssertionError
+=== what this arm proves, each line read off the transcript above, the tree, or `flash trace show` ===
+  OK   the turn announced itself while it was still working: `[working] turn 1` reached the terminal at [t+  0.07s], before any verdict
+  OK   Ctrl-C was sent into the wait, not at a prompt: the keystroke is stamped [t+ 20.08s], after the line that started the turn
+  OK   the session named the turn it lost instead of dying silently
+  OK   no stack trace reached the terminal — this is the whole point of the arm
+  OK   the killed turn printed no verdict: nothing here claims an oracle ran
+  OK   the child exited 130, the code a shell gives SIGINT, so a script cannot read an interrupted session as a finished one
+  OK   money.py is still the seeded bytes: a turn that never verified wrote nothing back
+  OK   `flash trace show 20261014-162717-session-aecd` reports the session closed — not a suite waiting to be resumed — on the reader's side of the file
+=== 8/8 claims hold ===

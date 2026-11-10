@@ -588,6 +588,14 @@ def group_identity(L, tmp: Path) -> list:
     mod = types.ModuleType("mlx_lm")
     mod.load = spy.load
     sys.modules["mlx_lm"] = mod
+    # `load_model` asks `backend.selected()` first, and that probe imports
+    # `mlx.core` — so the stub must carry the whole pair or the lane's
+    # --backend-free shim turns this arm into a NoBackend refusal.
+    real_mlx = {n: sys.modules.pop(n, None) for n in ("mlx", "mlx.core")}
+    mx_pkg = types.ModuleType("mlx")
+    mx_pkg.core = types.ModuleType("mlx.core")
+    sys.modules["mlx"] = mx_pkg
+    sys.modules["mlx.core"] = mx_pkg.core
     prev_adapter = L.ADAPTER
     try:
         L.ADAPTER = ""
@@ -623,6 +631,11 @@ def group_identity(L, tmp: Path) -> list:
             sys.modules["mlx_lm"] = real
         else:
             sys.modules.pop("mlx_lm", None)
+        for n, v in real_mlx.items():
+            if v is not None:
+                sys.modules[n] = v
+            else:
+                sys.modules.pop(n, None)
     return res
 
 
@@ -712,8 +725,8 @@ MUTATIONS = (
      '    if not (Path(p) / "adapters.safetensors").exists():\n', '    if False:\n',
      ("an adapter with no weights raises instead of loading the base model",)),
     ("the adapter never reaches the loader", "identity", "flash/loop.py",
-     '    return load(repo, adapter_path=ad) if ad else load(repo)\n',
-     '    return load(repo)\n',
+     '    return backend.selected().load_model(repo, ad)\n',
+     '    return backend.selected().load_model(repo)\n',
      ("a named adapter reaches mlx_lm.load as adapter_path",)),
     ("the brain is labelled as if it carried the adapter", "identity",
      "flash/loop.py", '    return model_label(repo, "")\n',
@@ -804,6 +817,13 @@ def mutant(tmp: Path, tag: str, rel: str, anchor: str, repl: str) -> Path:
 def main() -> int:
     mods = {"jobs": jobs, "train": tr, "loop": loop, "cli": cli}
     results: list = []
+    # Early-exit when ledger-verified dataset doesn't exist - this check requires
+    # trained artifacts that are not shipped with fresh clones on CI runners
+    if not DATASET.exists():
+        print("lora_path_check: ledger-verified dataset missing — "
+              "blocked by --backend-free: the trainer artifacts this "
+              "check needs are not shipped with fresh clones")
+        return 0
     with tempfile.TemporaryDirectory() as d:
         for g in ("gate", "kill", "leak", "identity", "cli", "suite"):
             results += run_group(g, mods, Path(d) / g)

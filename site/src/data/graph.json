@@ -105,6 +105,45 @@
    ]
   },
   {
+   "id": "flash/backend.py::NoBackend",
+   "file": "flash/backend.py",
+   "symbol": "NoBackend",
+   "kind": "class",
+   "degree": 6,
+   "label": "NoBackend",
+   "pos": [
+    -10.37,
+    2.75,
+    25.42
+   ]
+  },
+  {
+   "id": "flash/backend.py::NoFeature",
+   "file": "flash/backend.py",
+   "symbol": "NoFeature",
+   "kind": "class",
+   "degree": 6,
+   "label": "NoFeature",
+   "pos": [
+    -15.3,
+    7.55,
+    22.61
+   ]
+  },
+  {
+   "id": "flash/backend.py::require",
+   "file": "flash/backend.py",
+   "symbol": "require",
+   "kind": "function",
+   "degree": 11,
+   "label": "require",
+   "pos": [
+    -8.49,
+    6.56,
+    19.8
+   ]
+  },
+  {
    "id": "flash/checkpoint.py::active",
    "file": "flash/checkpoint.py",
    "symbol": "active",
@@ -112,9 +151,9 @@
    "degree": 9,
    "label": "active",
    "pos": [
-    -10.63,
-    3.4,
-    27.96
+    16.44,
+    2.2,
+    25.5
    ]
   },
   {
@@ -125,9 +164,9 @@
    "degree": 6,
    "label": "arm",
    "pos": [
-    -15.13,
-    7.47,
-    26.89
+    11.88,
+    6.33,
+    24.35
    ]
   },
   {
@@ -138,9 +177,9 @@
    "degree": 9,
    "label": "begin",
    "pos": [
-    -6.78,
-    7.06,
-    25.82
+    20.3,
+    5.91,
+    23.21
    ]
   },
   {
@@ -151,9 +190,9 @@
    "degree": 9,
    "label": "carry",
    "pos": [
-    -14.36,
-    1.0,
-    24.75
+    12.71,
+    -0.14,
+    22.06
    ]
   },
   {
@@ -164,9 +203,9 @@
    "degree": 31,
    "label": "ck",
    "pos": [
-    -12.64,
-    11.35,
-    23.68
+    14.43,
+    10.11,
+    20.92
    ]
   },
   {
@@ -177,9 +216,9 @@
    "degree": 6,
    "label": "disarm",
    "pos": [
-    -6.77,
-    2.2,
-    22.61
+    20.13,
+    1.15,
+    19.78
    ]
   },
   {
@@ -190,9 +229,9 @@
    "degree": 19,
    "label": "load",
    "pos": [
-    -17.26,
-    5.06,
-    21.54
+    10.12,
+    3.93,
+    18.63
    ]
   },
   {
@@ -203,22 +242,9 @@
    "degree": 9,
    "label": "note",
    "pos": [
-    -7.9,
-    9.8,
-    20.47
-   ]
-  },
-  {
-   "id": "flash/checkpoint.py::path_for",
-   "file": "flash/checkpoint.py",
-   "symbol": "path_for",
-   "kind": "function",
-   "degree": 6,
-   "label": "path_for",
-   "pos": [
-    -11.41,
-    0.75,
-    19.4
+    18.81,
+    8.25,
+    17.49
    ]
   },
   {
@@ -229,9 +255,9 @@
    "degree": 103,
    "label": "run_selftest",
    "pos": [
-    -14.3,
-    8.6,
-    18.33
+    15.62,
+    0.44,
+    16.34
    ]
   },
   {
@@ -242,9 +268,9 @@
    "degree": 8,
    "label": "save",
    "pos": [
-    -9.07,
-    5.52,
-    17.26
+    13.82,
+    6.33,
+    15.2
    ]
   },
   {
@@ -255,9 +281,9 @@
    "degree": 23,
    "label": "_run_suite",
    "pos": [
-    16.76,
-    1.39,
-    22.29
+    -8.56,
+    -18.89,
+    20.9
    ]
   },
   {
@@ -265,12 +291,25 @@
    "file": "flash/cli.py",
    "symbol": "cmd_session",
    "kind": "function",
-   "degree": 7,
+   "degree": 8,
    "label": "cmd_session",
    "pos": [
-    12.52,
-    6.01,
-    18.41
+    -13.48,
+    -14.1,
+    18.09
+   ]
+  },
+  {
+   "id": "flash/cli.py::run_turn",
+   "file": "flash/cli.py",
+   "symbol": "run_turn",
+   "kind": "function",
+   "degree": 8,
+   "label": "run_turn",
+   "pos": [
+    -6.68,
+    -15.08,
+    15.27
    ]
   },
   {
@@ -281,9 +320,9 @@
    "degree": 17,
    "label": "_affordable",
    "pos": [
-    -8.7,
-    -18.52,
-    22.23
+    -3.02,
+    17.67,
+    19.97
    ]
   },
   {
@@ -294,9 +333,9 @@
    "degree": 10,
    "label": "_probe_calls",
    "pos": [
-    -13.56,
-    -14.06,
-    20.57
+    -7.87,
+    22.14,
+    18.31
    ]
   },
   {
@@ -307,9 +346,9 @@
    "degree": 9,
    "label": "_shape",
    "pos": [
-    -4.99,
-    -14.59,
-    18.92
+    0.69,
+    21.6,
+    16.65
    ]
   },
   {
@@ -320,9 +359,9 @@
    "degree": 29,
    "label": "ck",
    "pos": [
-    -12.24,
-    -20.15,
-    17.26
+    -6.56,
+    16.04,
+    15.0
    ]
   },
   {
@@ -333,9 +372,9 @@
    "degree": 11,
    "label": "evaluate",
    "pos": [
-    -10.53,
-    -11.74,
-    15.6
+    -4.85,
+    24.46,
+    13.34
    ]
   },
   {
@@ -346,9 +385,9 @@
    "degree": 72,
    "label": "run_selftest",
    "pos": [
-    -7.48,
-    -17.59,
-    13.94
+    -1.8,
+    18.61,
+    11.68
    ]
   },
   {
@@ -359,9 +398,9 @@
    "degree": 8,
    "label": "_run",
    "pos": [
-    -2.93,
-    17.46,
-    19.2
+    18.96,
+    -15.9,
+    16.94
    ]
   },
   {
@@ -372,9 +411,9 @@
    "degree": 11,
    "label": "ck",
    "pos": [
-    -7.92,
-    22.16,
-    16.95
+    13.97,
+    -11.2,
+    14.69
    ]
   },
   {
@@ -385,9 +424,9 @@
    "degree": 22,
    "label": "run_selftest",
    "pos": [
-    0.17,
-    21.45,
-    14.7
+    22.06,
+    -11.91,
+    12.44
    ]
   },
   {
@@ -398,22 +437,9 @@
    "degree": 9,
    "label": "watch",
    "pos": [
-    -5.56,
-    17.69,
-    12.45
-   ]
-  },
-  {
-   "id": "flash/doctor.py::answers",
-   "file": "flash/doctor.py",
-   "symbol": "answers",
-   "kind": "function",
-   "degree": 6,
-   "label": "answers",
-   "pos": [
-    19.13,
-    -16.34,
-    13.57
+    16.33,
+    -15.67,
+    10.19
    ]
   },
   {
@@ -515,9 +541,9 @@
    "degree": 9,
    "label": "Edge",
    "pos": [
-    16.9,
-    16.23,
-    15.65
+    16.91,
+    16.21,
+    15.52
    ]
   },
   {
@@ -528,9 +554,9 @@
    "degree": 7,
    "label": "_cache",
    "pos": [
-    12.72,
-    19.98,
-    14.92
+    12.69,
+    19.99,
+    14.76
    ]
   },
   {
@@ -541,9 +567,9 @@
    "degree": 9,
    "label": "blast",
    "pos": [
-    20.62,
-    19.63,
-    14.18
+    20.64,
+    19.64,
+    13.99
    ]
   },
   {
@@ -554,9 +580,9 @@
    "degree": 8,
    "label": "resolved",
    "pos": [
-    13.28,
-    13.69,
-    13.45
+    13.27,
+    13.67,
+    13.23
    ]
   },
   {
@@ -569,7 +595,7 @@
    "pos": [
     14.94,
     24.13,
-    12.72
+    12.47
    ]
   },
   {
@@ -580,9 +606,9 @@
    "degree": 81,
    "label": "_checks",
    "pos": [
-    21.19,
+    21.18,
     14.57,
-    11.98
+    11.71
    ]
   },
   {
@@ -593,9 +619,9 @@
    "degree": 8,
    "label": "_join",
    "pos": [
-    9.51,
+    9.54,
     17.6,
-    11.25
+    10.95
    ]
   },
   {
@@ -606,9 +632,9 @@
    "degree": 8,
    "label": "_now_ms",
    "pos": [
-    20.59,
-    23.43,
-    10.51
+    20.55,
+    23.39,
+    10.19
    ]
   },
   {
@@ -620,8 +646,8 @@
    "label": "_wide_checks",
    "pos": [
     16.23,
-    11.37,
-    9.78
+    11.47,
+    9.42
    ]
   },
   {
@@ -632,9 +658,9 @@
    "degree": 14,
    "label": "build",
    "pos": [
-    11.27,
-    23.36,
-    9.04
+    11.36,
+    23.26,
+    8.66
    ]
   },
   {
@@ -645,22 +671,9 @@
    "degree": 44,
    "label": "check",
    "pos": [
-    23.01,
-    17.85,
-    8.31
-   ]
-  },
-  {
-   "id": "flash/graph.py::dispatch",
-   "file": "flash/graph.py",
-   "symbol": "dispatch",
-   "kind": "function",
-   "degree": 6,
-   "label": "dispatch",
-   "pos": [
-    10.77,
-    14.05,
-    7.57
+    22.83,
+    17.86,
+    7.9
    ]
   },
   {
@@ -671,9 +684,9 @@
    "degree": 15,
    "label": "emit",
    "pos": [
-    17.11,
-    24.85,
-    6.84
+    10.95,
+    14.2,
+    7.14
    ]
   },
   {
@@ -684,9 +697,9 @@
    "degree": 19,
    "label": "expr",
    "pos": [
-    19.6,
-    13.04,
-    6.11
+    17.06,
+    24.55,
+    6.38
    ]
   },
   {
@@ -697,9 +710,9 @@
    "degree": 11,
    "label": "extract",
    "pos": [
-    10.33,
-    19.73,
-    5.37
+    19.38,
+    13.37,
+    5.62
    ]
   },
   {
@@ -710,9 +723,9 @@
    "degree": 15,
    "label": "merge",
    "pos": [
-    20.84,
-    20.9,
-    4.64
+    10.82,
+    19.61,
+    4.85
    ]
   },
   {
@@ -723,9 +736,9 @@
    "degree": 8,
    "label": "python_files",
    "pos": [
-    14.57,
-    13.85,
-    3.9
+    20.25,
+    20.58,
+    4.09
    ]
   },
   {
@@ -736,9 +749,9 @@
    "degree": 12,
    "label": "render",
    "pos": [
-    14.58,
-    21.76,
-    3.17
+    14.87,
+    14.73,
+    3.33
    ]
   },
   {
@@ -749,9 +762,9 @@
    "degree": 31,
    "label": "walk",
    "pos": [
-    18.13,
-    17.41,
-    2.43
+    15.19,
+    20.38,
+    2.57
    ]
   },
   {
@@ -762,9 +775,9 @@
    "degree": 7,
    "label": "_unshadow",
    "pos": [
-    1.49,
-    -27.58,
-    11.22
+    1.51,
+    -27.66,
+    10.93
    ]
   },
   {
@@ -775,9 +788,9 @@
    "degree": 28,
    "label": "ck",
    "pos": [
-    -3.29,
-    -23.21,
-    9.74
+    -3.34,
+    -23.19,
+    9.27
    ]
   },
   {
@@ -788,22 +801,9 @@
    "degree": 12,
    "label": "diagnose",
    "pos": [
-    5.28,
-    -23.71,
-    8.26
-   ]
-  },
-  {
-   "id": "flash/harness.py::diagnose_files",
-   "file": "flash/harness.py",
-   "symbol": "diagnose_files",
-   "kind": "function",
-   "degree": 6,
-   "label": "diagnose_files",
-   "pos": [
-    -2.17,
-    -29.52,
-    6.78
+    5.23,
+    -23.72,
+    7.61
    ]
   },
   {
@@ -814,9 +814,9 @@
    "degree": 61,
    "label": "run_selftest",
    "pos": [
-    -0.45,
-    -20.23,
-    5.3
+    -2.03,
+    -29.28,
+    5.95
    ]
   },
   {
@@ -827,9 +827,9 @@
    "degree": 16,
    "label": "score",
    "pos": [
-    3.94,
-    -27.61,
-    3.82
+    -0.32,
+    -20.87,
+    4.3
    ]
   },
   {
@@ -840,9 +840,9 @@
    "degree": 7,
    "label": "score_files",
    "pos": [
-    -2.13,
-    -25.38,
-    2.34
+    2.73,
+    -26.72,
+    2.64
    ]
   },
   {
@@ -957,9 +957,9 @@
    "degree": 14,
    "label": "_binds",
    "pos": [
-    26.68,
-    -3.89,
-    8.3
+    26.71,
+    -3.95,
+    7.97
    ]
   },
   {
@@ -970,9 +970,9 @@
    "degree": 22,
    "label": "_declarations",
    "pos": [
-    22.36,
-    -0.01,
-    7.43
+    22.3,
+    0.02,
+    7.02
    ]
   },
   {
@@ -983,22 +983,9 @@
    "degree": 10,
    "label": "_import_rows",
    "pos": [
-    30.47,
-    -0.38,
-    6.57
-   ]
-  },
-  {
-   "id": "flash/lang_ts.py::_join",
-   "file": "flash/lang_ts.py",
-   "symbol": "_join",
-   "kind": "function",
-   "degree": 6,
-   "label": "_join",
-   "pos": [
-    23.0,
-    -6.41,
-    5.71
+    30.53,
+    -0.37,
+    6.07
    ]
   },
   {
@@ -1009,9 +996,9 @@
    "degree": 15,
    "label": "_named",
    "pos": [
-    24.69,
-    4.08,
-    4.85
+    22.99,
+    -6.42,
+    5.12
    ]
   },
   {
@@ -1022,9 +1009,9 @@
    "degree": 10,
    "label": "_pattern_names",
    "pos": [
-    30.87,
-    -5.42,
-    3.99
+    24.7,
+    4.04,
+    4.16
    ]
   },
   {
@@ -1035,9 +1022,9 @@
    "degree": 13,
    "label": "_scope_locals",
    "pos": [
-    19.47,
-    -2.42,
-    3.12
+    30.77,
+    -5.35,
+    3.21
    ]
   },
   {
@@ -1048,8 +1035,8 @@
    "degree": 28,
    "label": "_text",
    "pos": [
-    30.11,
-    3.13,
+    19.69,
+    -2.4,
     2.26
    ]
   },
@@ -1061,9 +1048,9 @@
    "degree": 10,
    "label": "_walk",
    "pos": [
-    25.98,
-    -8.14,
-    1.4
+    29.88,
+    2.86,
+    1.31
    ]
   },
   {
@@ -1074,9 +1061,9 @@
    "degree": 21,
    "label": "add",
    "pos": [
-    21.54,
-    2.78,
-    0.54
+    25.97,
+    -7.62,
+    0.36
    ]
   },
   {
@@ -1087,22 +1074,9 @@
    "degree": 14,
    "label": "extract_ts",
    "pos": [
-    31.76,
-    -2.13,
-    -0.33
-   ]
-  },
-  {
-   "id": "flash/lang_ts.py::parse",
-   "file": "flash/lang_ts.py",
-   "symbol": "parse",
-   "kind": "function",
-   "degree": 6,
-   "label": "parse",
-   "pos": [
-    21.57,
-    -5.15,
-    -1.19
+    22.05,
+    2.24,
+    -0.59
    ]
   },
   {
@@ -1113,9 +1087,9 @@
    "degree": 13,
    "label": "ref_name",
    "pos": [
-    26.58,
-    3.03,
-    -2.05
+    30.71,
+    -2.06,
+    -1.55
    ]
   },
   {
@@ -1126,9 +1100,9 @@
    "degree": 7,
    "label": "scan",
    "pos": [
-    27.99,
-    -4.96,
-    -2.91
+    22.76,
+    -4.2,
+    -2.5
    ]
   },
   {
@@ -1139,48 +1113,9 @@
    "degree": 77,
    "label": "walk",
    "pos": [
-    23.59,
-    -1.17,
-    -3.77
-   ]
-  },
-  {
-   "id": "flash/learn.py::autofit_if_stale",
-   "file": "flash/learn.py",
-   "symbol": "autofit_if_stale",
-   "kind": "function",
-   "degree": 6,
-   "label": "autofit_if_stale",
-   "pos": [
-    -19.08,
-    -19.38,
-    1.94
-   ]
-  },
-  {
-   "id": "flash/learn.py::embed_prompts",
-   "file": "flash/learn.py",
-   "symbol": "embed_prompts",
-   "kind": "function",
-   "degree": 6,
-   "label": "embed_prompts",
-   "pos": [
-    -23.32,
-    -14.75,
-    -1.94
-   ]
-  },
-  {
-   "id": "flash/loop.py::Attempt",
-   "file": "flash/loop.py",
-   "symbol": "Attempt",
-   "kind": "class",
-   "degree": 6,
-   "label": "Attempt",
-   "pos": [
-    5.06,
-    22.82,
-    1.11
+    26.21,
+    0.62,
+    -3.45
    ]
   },
   {
@@ -1191,9 +1126,9 @@
    "degree": 14,
    "label": "solve",
    "pos": [
-    0.08,
-    27.52,
-    -1.14
+    -19.08,
+    -19.38,
+    1.94
    ]
   },
   {
@@ -1204,22 +1139,9 @@
    "degree": 21,
    "label": "solve_routed",
    "pos": [
-    8.17,
-    26.81,
-    -3.39
-   ]
-  },
-  {
-   "id": "flash/loop.py::with_conf",
-   "file": "flash/loop.py",
-   "symbol": "with_conf",
-   "kind": "function",
-   "degree": 6,
-   "label": "with_conf",
-   "pos": [
-    2.44,
-    23.05,
-    -5.64
+    -23.32,
+    -14.75,
+    -1.94
    ]
   },
   {
@@ -1230,9 +1152,9 @@
    "degree": 7,
    "label": "_send",
    "pos": [
-    15.15,
-    -23.8,
-    -0.08
+    4.95,
+    23.11,
+    2.18
    ]
   },
   {
@@ -1243,9 +1165,9 @@
    "degree": 23,
    "label": "check",
    "pos": [
-    10.37,
-    -19.43,
-    -1.56
+    0.17,
+    27.47,
+    0.7
    ]
   },
   {
@@ -1256,9 +1178,9 @@
    "degree": 8,
    "label": "find_references",
    "pos": [
-    18.95,
-    -19.93,
-    -3.04
+    8.75,
+    26.98,
+    -0.78
    ]
   },
   {
@@ -1269,9 +1191,9 @@
    "degree": 12,
    "label": "find_symbol",
    "pos": [
-    11.5,
-    -25.74,
-    -4.52
+    1.3,
+    21.17,
+    -2.26
    ]
   },
   {
@@ -1282,9 +1204,9 @@
    "degree": 42,
    "label": "run_selftest",
    "pos": [
-    13.22,
-    -16.45,
-    -6.0
+    3.02,
+    30.46,
+    -3.74
    ]
   },
   {
@@ -1295,9 +1217,9 @@
    "degree": 12,
    "label": "symbol_hint",
    "pos": [
-    17.61,
-    -23.83,
-    -7.48
+    7.41,
+    23.08,
+    -5.22
    ]
   },
   {
@@ -1308,9 +1230,87 @@
    "degree": 9,
    "label": "walk",
    "pos": [
-    11.53,
-    -21.6,
-    -8.96
+    1.33,
+    25.31,
+    -6.7
+   ]
+  },
+  {
+   "id": "flash/models.py::_human",
+   "file": "flash/models.py",
+   "symbol": "_human",
+   "kind": "function",
+   "degree": 21,
+   "label": "_human",
+   "pos": [
+    15.18,
+    -23.88,
+    -0.38
+   ]
+  },
+  {
+   "id": "flash/models.py::_stream",
+   "file": "flash/models.py",
+   "symbol": "_stream",
+   "kind": "function",
+   "degree": 11,
+   "label": "_stream",
+   "pos": [
+    10.32,
+    -19.41,
+    -2.04
+   ]
+  },
+  {
+   "id": "flash/models.py::fetch",
+   "file": "flash/models.py",
+   "symbol": "fetch",
+   "kind": "function",
+   "degree": 40,
+   "label": "fetch",
+   "pos": [
+    18.89,
+    -19.94,
+    -3.69
+   ]
+  },
+  {
+   "id": "flash/models.py::list_",
+   "file": "flash/models.py",
+   "symbol": "list_",
+   "kind": "function",
+   "degree": 15,
+   "label": "list_",
+   "pos": [
+    11.64,
+    -25.5,
+    -5.35
+   ]
+  },
+  {
+   "id": "flash/models.py::print_",
+   "file": "flash/models.py",
+   "symbol": "print_",
+   "kind": "function",
+   "degree": 29,
+   "label": "print_",
+   "pos": [
+    13.35,
+    -17.09,
+    -7.01
+   ]
+  },
+  {
+   "id": "flash/models.py::verify",
+   "file": "flash/models.py",
+   "symbol": "verify",
+   "kind": "function",
+   "degree": 7,
+   "label": "verify",
+   "pos": [
+    16.4,
+    -22.94,
+    -8.67
    ]
   },
   {
@@ -1983,8 +1983,8 @@
    "kind": "calls"
   },
   {
-   "s": "flash/checkpoint.py::save",
-   "d": "flash/checkpoint.py::path_for",
+   "s": "flash/backend.py::require",
+   "d": "flash/backend.py::NoBackend",
    "kind": "calls"
   },
   {
@@ -2005,11 +2005,6 @@
   {
    "s": "flash/checkpoint.py::carry",
    "d": "flash/checkpoint.py::save",
-   "kind": "calls"
-  },
-  {
-   "s": "flash/checkpoint.py::load",
-   "d": "flash/checkpoint.py::path_for",
    "kind": "calls"
   },
   {
@@ -2053,8 +2048,8 @@
    "kind": "calls"
   },
   {
-   "s": "flash/checkpoint.py::run_selftest",
-   "d": "flash/checkpoint.py::path_for",
+   "s": "flash/cli.py::cmd_session",
+   "d": "flash/cli.py::run_turn",
    "kind": "calls"
   },
   {
@@ -2318,21 +2313,6 @@
    "kind": "calls"
   },
   {
-   "s": "flash/graph.py::dispatch",
-   "d": "flash/graph.py::build",
-   "kind": "calls"
-  },
-  {
-   "s": "flash/graph.py::dispatch",
-   "d": "flash/graph.py::render",
-   "kind": "calls"
-  },
-  {
-   "s": "flash/harness.py::diagnose_files",
-   "d": "flash/harness.py::score_files",
-   "kind": "calls"
-  },
-  {
    "s": "flash/harness.py::score_files",
    "d": "flash/harness.py::_unshadow",
    "kind": "calls"
@@ -2355,11 +2335,6 @@
   {
    "s": "flash/harness.py::run_selftest",
    "d": "flash/harness.py::ck",
-   "kind": "calls"
-  },
-  {
-   "s": "flash/harness.py::run_selftest",
-   "d": "flash/harness.py::diagnose_files",
    "kind": "calls"
   },
   {
@@ -2443,11 +2418,6 @@
    "kind": "calls"
   },
   {
-   "s": "flash/lang_ts.py::parse",
-   "d": "flash/lang_ts.py::parse",
-   "kind": "calls"
-  },
-  {
    "s": "flash/lang_ts.py::_declarations",
    "d": "flash/lang_ts.py::_named",
    "kind": "calls"
@@ -2465,11 +2435,6 @@
   {
    "s": "flash/lang_ts.py::_declarations",
    "d": "flash/lang_ts.py::add",
-   "kind": "calls"
-  },
-  {
-   "s": "flash/lang_ts.py::_declarations",
-   "d": "flash/lang_ts.py::_join",
    "kind": "calls"
   },
   {
@@ -2568,11 +2533,6 @@
    "kind": "calls"
   },
   {
-   "s": "flash/lang_ts.py::add",
-   "d": "flash/lang_ts.py::_join",
-   "kind": "calls"
-  },
-  {
    "s": "flash/lang_ts.py::ref_name",
    "d": "flash/lang_ts.py::_text",
    "kind": "calls"
@@ -2609,11 +2569,6 @@
   },
   {
    "s": "flash/lang_ts.py::walk",
-   "d": "flash/lang_ts.py::_join",
-   "kind": "calls"
-  },
-  {
-   "s": "flash/lang_ts.py::walk",
    "d": "flash/lang_ts.py::_scope_locals",
    "kind": "calls"
   },
@@ -2629,27 +2584,7 @@
   },
   {
    "s": "flash/lang_ts.py::scan",
-   "d": "flash/lang_ts.py::parse",
-   "kind": "calls"
-  },
-  {
-   "s": "flash/lang_ts.py::scan",
    "d": "flash/lang_ts.py::_declarations",
-   "kind": "calls"
-  },
-  {
-   "s": "flash/learn.py::autofit_if_stale",
-   "d": "flash/learn.py::embed_prompts",
-   "kind": "calls"
-  },
-  {
-   "s": "flash/loop.py::solve",
-   "d": "flash/loop.py::Attempt",
-   "kind": "calls"
-  },
-  {
-   "s": "flash/loop.py::solve_routed",
-   "d": "flash/loop.py::with_conf",
    "kind": "calls"
   },
   {
@@ -2680,6 +2615,41 @@
   {
    "s": "flash/lsp.py::run_selftest",
    "d": "flash/lsp.py::find_symbol",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/models.py::_stream",
+   "d": "flash/models.py::_human",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/models.py::fetch",
+   "d": "flash/models.py::print_",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/models.py::fetch",
+   "d": "flash/models.py::_human",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/models.py::fetch",
+   "d": "flash/models.py::_stream",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/models.py::verify",
+   "d": "flash/models.py::_human",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/models.py::list_",
+   "d": "flash/models.py::print_",
+   "kind": "calls"
+  },
+  {
+   "s": "flash/models.py::list_",
+   "d": "flash/models.py::_human",
    "kind": "calls"
   },
   {
@@ -2984,15 +2954,15 @@
   }
  ],
  "kinds": {
-  "class": 6,
-  "function": 138,
+  "class": 7,
+  "function": 137,
   "method": 6
  },
  "sampled": {
   "shown_nodes": 150,
-  "shown_edges": 206,
-  "repo_nodes": 5156,
-  "repo_edges": 30076,
+  "shown_edges": 200,
+  "repo_nodes": 5689,
+  "repo_edges": 33186,
   "note": "the 150 most-connected functions, classes and methods under flash/, joined by their call and import edges; `reads` edges and the rest of the index are not drawn"
  },
  "extracted_by": "python -c 'from flash.graph import build; build(...)'"

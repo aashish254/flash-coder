@@ -178,13 +178,16 @@ def summarize(sid: str, dir: str | Path | None = None) -> dict:
 
 
 _ORDER = ("cmd", "label", "tier", "routed", "route_p", "profile", "allow_big",
-          "big_allowed", "attempt", "temp", "max_tokens", "prompt_tokens",
+          "big_allowed", "attempt", "temp", "max_tokens", "backend",
+          "prompt_tokens",
           "completion_tokens", "ok", "kind", "solved", "hidden_ok", "attempts",
           "files", "multi", "tournament", "tournament_used", "conf_on", "conf_used",
           "conf_static", "conf_cov", "conf_seeds", "conf_edges", "conf_offer",
           "requested_k", "k", "width",
           "gens", "adopted", "denied", "why", "reason", "ms", "seconds", "resumed",
-          "tasks", "ran")
+          "tasks", "ran", "turns", "escalations", "escalations_denied",
+          "tokens_in", "tokens_out", "uncounted", "generating_s", "verifying_s",
+          "wall_s")
 
 
 def _one_line(rec: dict, full: bool = False) -> str:

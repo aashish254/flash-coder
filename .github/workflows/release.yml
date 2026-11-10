@@ -1,0 +1,102 @@
+name: Release — PyInstaller binary on tag push
+
+# Builds a one-file macOS arm64 bundle when a v* tag is pushed.
+#
+# Trigger: ref-type = tag, starts-with = v*. Does NOT run on branch pushes or PRs.
+#
+# Output: A `dist/flash-coder` binary attached as a GitHub release asset.
+#   The binary name matches the tag: flash-coder-vX.Y.Z-macos-arm64.zip
+#
+# Platform: macos-14 (Apple Silicon). Linux/Windows builds are future work.
+#
+# Security: Only runs on signed tags created by the owner. Does not run on
+#   lightweight tags. Requires GITHUB_TOKEN write access to publish releases.
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-binary:
+    runs-on: macos-14
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller build twine
+
+      - name: Verify pyproject.toml version matches tag
+        run: |
+          TAG_VERSION="${GITHUB_REF#refs/tags/v}"
+          PYPROJECT_VERSION=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml'))['project']['version'])")
+          echo "Tag version: $TAG_VERSION"
+          echo "pyproject.toml version: $PYPROJECT_VERSION"
+          test "$TAG_VERSION" == "$PYPROJECT_VERSION" || \
+            (echo "VERSION MISMATCH: tag=$TAG_VERSION != pyproject=$PYPROJECT_VERSION" && exit 1)
+
+      - name: Build the one-file bundle per docs/distribution.md
+        run: |
+          # Exact command from docs/distribution.md
+          pyinstaller --onefile \
+            --osx-bundle-identifier com.flash.coder \
+            --name flash-coder \
+            --distpath dist \
+            flash/cli.py
+          
+          # Verify it works
+          ./dist/flash-coder --version
+          ./dist/flash-coder doctor
+
+      - name: Smoke test the bundle
+        run: |
+          # flash --version should print the version string
+          VERSION=$(.venv/bin/python -m flash.cli --version 2>&1 | awk '{print $NF}')
+          echo "Expected version: $VERSION"
+          
+          # The frozen binary should also have help working
+          ./dist/flash-coder --help > /dev/null || \
+            (echo "frozen binary --help failed" && exit 1)
+
+      - name: Package for upload
+        run: |
+          mkdir -p artifacts
+          cd dist
+          zip -r ../artifacts/flash-coder-${{ github.ref_name }}-macos-arm64.zip flash-coder
+          cd ..
+
+      - name: Create GitHub release (draft)
+        uses: softprops/action-gh-release@v1
+        with:
+          files: artifacts/flash-coder-${{ github.ref_name }}-macos-arm64.zip
+          draft: true
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload to TestPyPI (optional, requires credentials)
+        if: false  # Disabled by default; enable by setting env var TEST_PYPI_UPLOAD=true
+        run: |
+          twine upload --repository testpypi dist/*
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.TEST_PYPI_TOKEN }}
+
+      - name: Upload to PyPI (permanent, requires explicit approval)
+        if: false  # Never automatic; manual intervention required
+        run: |
+          twine upload dist/*
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}

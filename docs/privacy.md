@@ -4,11 +4,16 @@ Everything here is stated so you can check it in the source, because a privacy
 page that asks for trust is worth nothing. The two claims that matter:
 
 - **Nothing runs on a server.** There is no account, no API key, no licence
-  call, no update ping, no analytics client. `grep -rn "requests\." flash/`
-  finds one network call in the whole package — `flash/web.py`, which fetches
-  the documentation URL *you* passed to `flash web`. Model weights come from
-  Hugging Face through `mlx-lm`'s downloader, once per model, into your own
-  cache directory.
+  call, no update ping, no analytics client. Two modules in the package open a
+  socket at all, and each of them does it because you named the thing to fetch:
+  `grep -rn "requests\." flash/` finds one hit — `flash/web.py`, which fetches the
+  documentation URL *you* passed to `flash web` — and
+  `grep -rn "urllib.request" flash/` finds the shipping downloader in
+  `flash/models.py` (the other hits are `flash/sandbox.py`'s own test fixtures,
+  which fetch a documentation-only address to prove the jail bites). Model
+  weights come from Hugging Face through `mlx-lm`'s downloader for the MLX tiers,
+  or through `flash models pull` for the GGUF ones — once per model, into your own
+  cache directory, and never from a command that does not say so in its own name.
 - **Your code stays in the directories you can see**, listed below, and the
   default record is a digest rather than your source text.
 
@@ -17,12 +22,15 @@ page that asks for trust is worth nothing. The two claims that matter:
 | when | what goes out | who asked |
 | --- | --- | --- |
 | first `flash run` with an uncached model | the model repo is downloaded from Hugging Face | you, by running a command that generates text |
+| `flash models pull <tier>`, and only with `--yes` | a GET (with a `Range` header when resuming) for the pinned GGUF file, from `huggingface.co` or the `FLASH_HF_ENDPOINT` you set | you, by naming the tier and agreeing to the byte count the command prints first |
 | `flash web <url>` | one HTTPS GET for that URL | you, naming the URL |
 | `pip install` | the usual package index traffic | you, installing |
 
 That is the list. `flash/doctor.py` prints which of the four §22 models are
 already in your cache, so a surprise download is visible before it happens
-rather than during a run.
+rather than during a run, and the same section prints the GGUF cache on the line
+`flash models list` writes: how many of the two tiers are pulled, how many GB
+they are, and what is half-finished.
 
 ## What gets written to disk
 
@@ -34,6 +42,7 @@ rather than during a run.
 | `benchmarks/results/jobs/`, `adapters/` | resumable job state and LoRA checkpoints | only if you run `flash learn --lora` |
 | `~/.flash/ambient/` | draft worktrees, and the log every ambient-mode safety claim reads | only for `flash ambient` |
 | `benchmarks/cache/` | the text `flash web` fetched, keyed by a hash of the URL, so a re-run does not re-fetch | only for `flash web`; gitignored and regenerable |
+| `~/.cache/flash/gguf/` | the GGUF weights `flash models pull` downloaded, a `<file>.gguf.part` while one is half-done, and `flash-gguf.json` naming which tier is which file | only for `flash models pull`; `FLASH_GGUF_DIR` moves it, and nothing in it is committed |
 
 Two consequences worth being explicit about. The training dataset is mined from
 traces, so if you ran with `--trace-full` against a private repository and then

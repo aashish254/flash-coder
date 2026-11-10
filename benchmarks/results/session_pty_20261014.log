@@ -1,0 +1,45 @@
+# R-7.15 clause 7 live arm, 2026-10-14: a real pseudo-terminal, so the keyboard path is what runs.
+# command: python -m flash.cli session --context /tmp/flash-chat-demo --test /tmp/flash-chat-demo/t.py --apply
+# turns, in the order they were typed (each only AFTER the previous turn's verdict reached the terminal): 'zero-pad the cents and keep a negative sign in front of the dollar sign, exactly as t.py asserts' / 'make cents_to_str raise ValueError when cents is not an int' / 'quit'
+# tree: money.py seeded as cents_to_str(c) -> f"${c / 100}"; oracle t.py 3 asserts, the third one being the negative case
+# driver: python benchmarks/session_pty_demo.py --tree /tmp/flash-chat-demo --out <this file>
+# session trace written by this run: 20261014-162748-session-ad80
+# turns, in the order they were typed (each only AFTER the previous 
+# child exit code: 0 after 33.5s
+# Every line below is stamped at the moment the terminal received it.
+[t+  0.00s] zero-pad the cents and keep a negative sign in front of the dollar sign, exactly as t.py asserts
+[t+  0.07s] flash session on /tmp/flash-chat-demo against the oracle /tmp/flash-chat-demo/t.py — one ask per line, and each answer arrives before you type the next. `quit` or Ctrl-D ends it; `/help` lists `/help`, `/quit`, `/save` and `/retry`.
+[t+  0.07s] you> [working] turn 1 — generating: small tier first, up to 2 attempt(s) per tier, big tier on failure, grading against /tmp/flash-chat-demo/t.py
+[t+  3.80s] 
+[t+  3.82s] 
+[t+  3.82s] 
+[t+ 14.44s] 
+[t+ 14.44s] 
+[t+ 14.44s] 
+[t+ 24.13s] [turn 1] routed=small tier=big solved=True attempts=3 (13.9s) patches=1 refused=0 whole=0 outside=0
+[t+ 24.33s] 
+[t+ 24.33s] <<< typed: 'make cents_to_str raise ValueError when cents is not an int'
+[t+ 24.33s] [R-3.2] wrote money.py (+4 -1 lines)
+[t+ 24.33s] you> make cents_to_str raise ValueError when cents is not an int
+[t+ 24.33s] [working] turn 2 — generating: small tier first, up to 2 attempt(s) per tier, big tier on failure, grading against /tmp/flash-chat-demo/t.py
+[t+ 24.97s] 
+[t+ 24.97s] 
+[t+ 24.97s] 
+[t+ 32.95s] [turn 2] routed=small tier=small solved=True attempts=1 (6.2s) patches=1 refused=0 whole=0 outside=0
+[t+ 33.15s] 
+[t+ 33.15s] <<< typed: 'quit'
+[t+ 33.15s] [R-3.2] wrote money.py (+2 -0 lines)
+[t+ 33.15s] you> quit
+[t+ 33.16s] [session] turns=2 solved=2 written=2 seconds=20.1 last_rc=0
+[t+ 33.16s] [trace] replay this session:  flash trace show 20261014-162748-session-ad80
+=== child exited rc=0 after 33.5s ===
+=== final money.py ===
+def cents_to_str(cents: int) -> str:
+    if not isinstance(cents, int):
+        raise ValueError("cents must be an integer")
+    if cents >= 0:
+        return f"${cents // 100}.{abs(cents) % 100:02d}"
+    else:
+        return f"-${abs(cents) // 100}.{abs(cents) % 100:02d}"
+=== oracle re-run against the bytes now on disk ===
+rc=0 ORACLE GREEN

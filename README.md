@@ -1,130 +1,101 @@
 # Flash Coder
 
-A coding agent that runs entirely on one Mac. It writes the change, executes the
-test, reads **which assert failed and what the value actually was**, and tries
-again — no API key, no container, nothing leaving the machine.
+A coding agent that runs entirely on one Mac. No API key, no container, nothing
+leaving the machine. You ask a question, it writes the change, runs your test, reads
+**which assert failed and what the value actually was**, and tries again.
 
-Two things about this repo are load-bearing, and both are visible in the files:
+## Quick start — 5 minutes from download to chat
 
-- **Every claim is a printed number.** The offline verification battery is
-  **1,429 checks + 20 oracle verifications + 172 mutation gates** over 37 vectors,
-  and `SPEC.md` §6
-  records why the totals come from the fraction each run *prints* — never an exit
-  code, never a phrase grep — after both of those shortcuts produced a wrong total
-  that looked clean on this project's own output. The same script re-reads that
-  battery with `mlx`, `mlx_lm` and `mlx_vlm` unimportable in every child, which is
-  the shape every non-Mac install actually has; two rows genuinely reach the backend
-  there, so they print **REFUSED** with the sentence each row died with and the lane
-  subtracts their own counts and says out loud it is not a §6 re-read. A death that
-  names no cause is still a failure: that is the whole difference between the two.
-  A second class showed up on the first real Linux runner and is now fixed rather
-  than refused: two rows asked questions in one platform's grammar — a memory size
-  read only from `sysctl`, a jail only macOS ships — and a row that cannot be
-  answered on the box running it is not a test, so `flash power` grew the
-  `/proc/meminfo` source and `flash.sandbox` asks its nine Seatbelt claims in two
-  arms. Both print the same fraction everywhere, which is the only shape a runner
-  can be held to.
-  That total is not a property of
-  the author's disk: `python benchmarks/r75_sdist_battery_check.py` builds the
-  sdist, installs it into a throwaway venv, checks which `flash` a child imports,
-  and runs the whole battery **inside the download**, on both install shapes one
-  tarball supports. What that printed on 2026-09-28, on the 35-line tree
-  (`benchmarks/results/r75_sdist_battery_shapes_20260928.log`): `pip install <sdist>`
-  **33 of 35** lines and `checks 1119  oracle 20  §6 total 1139  mutants 85` with
-  exactly two named grammar refusals, and `pip install '<sdist>[ts]'` **35/35** and
-  `checks 1210  oracle 20  §6 total 1230  mutants 111` alongside the battery's own
-  `matches SPEC §6 as written`. The 36th line — the patch write-back — joined the
-  checkout side on 2026-09-29, so those two download prints are dated rather than
-  carried forward, and the driver is being re-run against the current tree. The second
-  language is why a plain
-  install cannot reach the page's headline total: its two vectors refuse without the `ts` extra, and
-  the driver fails if either of them *passes* there or if the plain shape ever
-  agrees with §6.
-- **The one cross-tool comparison here is a run, not a claim.** `python
-  benchmarks/market_compare.py --arms oneshot,aider,flash` answers the same 8 held-out
-  tasks from the same 4-bit weights and grades every arm with the same harness oracle:
-  single-shot **5/8**, aider 0.86.2 **6/8**, `flash run-suite` **8/8**, at **2,021**,
-  **13,084** and **3,470** tokens. There is no Cursor or Copilot row and no
-  dollar-per-month column, because neither is drivable on this machine and both generate
-  in their own cloud — R-7.13 keeps that box open rather than filling it with a number
-  borrowed from a vendor's blog.
-- **The failures sit in the same file as the wins.** Speculative decoding faults the
-  GPU on this hardware (R-8.1, measured negative); the live hint A/B is a nil
-  (R-1.1b); the trained adapter has never been played against the frozen harness
-  (R-6.4, deferred by the author's other project). A project that publishes only its
-  wins cannot be verified, only believed.
+1. **Clone and setup** (assume you have Python 3.11+ installed):
+   ```bash
+   git clone https://github.com/aashish254/flash-coder.git
+   cd flash-coder
+   python3.11 -m venv .venv && . .venv/bin/activate
+   pip install -e .[dev]
+   python -m flash.cli doctor          # answers eleven questions about THIS install
+   python -m flash.cli selftest --all   # the offline battery, ~15 min, no models needed
+   ```
+
+2. **Get the fast tier model** (~4.4 GB):
+   ```bash
+   python benchmarks/m0_bakeoff.py --download --models qwen25-coder-7b
+   ```
+
+3. **Chat about your code**:
+   ```bash
+   python -m flash.cli session --context .
+   you> zero-pad the cents field like t.py expects
+   [turn 1] routed=big tier=big solved=True attempts=3 (13.5s) patches=1 refused=0 whole=0 outside=0
+   [R-3.2] wrote money.py (+4 -1 lines)
+   you> quit
+   [session] turns=2 solved=2 written=2 seconds=19.2 last_rc=0
+   ```
+
+That's it — you now have a coding agent running locally that can edit files and run
+your tests. Type `help` inside the session for all the commands (`apply`, `/save`,
+`/retry`, `/quit`).
+
+## What this buys you
+
+- **Runs offline**: everything executes on your hardware, no cloud calls, no data egress
+- **Owns your tests**: the same assertion file you use manually is the oracle that decides
+  whether an edit succeeded. The agent never "guesses" — it gets feedback from your test's
+  actual failure message and adjusts.
+- **One tree, two modes**: `flash session --context DIR` is scored when you pass `--test FILE`,
+  free-form prose when you don't. Both land edits under `--apply`. Both re-read your repo's
+  files every turn so conversation beats single-shot requests.
+- **Measurable over borrowed**: the landing page shows numbers printed by real runs, not vendor
+  blog posts. Every claim has a measurement or is marked OPEN.
 
 ## Requirements
 
-- **Anything that generates text needs Apple Silicon.** The model layer is MLX
-  (`mlx-lm`, `mlx-vlm`), and `pyproject.toml` marks it by platform rather than
-  letting a Linux install fail to resolve.
-- **Everything else is pure Python 3.11+**: symbol perception, the AST knowledge
-  graph, the harness and its GOT/WANT oracle, trace/replay, the outcome ledger, the
-  power governor, the sandbox and the whole offline battery. With MLX blocked in a
-  child process, **27 of the 27** submodules of `flash` still import, and the one
-  thing that raises is the call that needs a forward pass — with a message naming
-  MLX instead of a stack trace (SPEC R-7.7, gated by
-  `benchmarks/backend_free_check.py`). The denominator of that fraction is however
-  many modules `flash/` has, so it printed 26 until the second language's module
-  joined it and re-printed **27/27** on 2026-09-28; the gate asserts numerator ==
-  denominator, never a fixed number.
-- **What is NOT claimed:** that a Linux or Windows machine has installed this. The
-  install shapes that HAVE been run are a fresh clone's editable install, a wheel in
-  a throwaway venv, and an unpacked sdist with no `.git` — all on Apple Silicon, all
-  logged under `benchmarks/results/` (SPEC R-7.5). What R-7.16 added is a measurement
-  of the shape those platforms get: `battery_reread --backend-free`, run on this Mac
-  with the backend unimportable in every child, printed **35 of 37** rows green and
-  named the two that genuinely need a model, so the non-generating half is now partly
-  measured and the remaining half — a real install on real non-macOS hardware — is
-  still expected rather than verified.
-- RAM decides what you can run, not the OS. `power` prints the profile the machine
-  offers right now and the largest model it may load; the fast tier is ~4.4 GB of
-  resident weights and the brain tier is 15–17 GB.
+| | |
+|---|---|
+| **Generating text needs a backend.** On Apple Silicon that is MLX (`mlx-lm`, `mlx-vlm`), which `pyproject.toml` marks by platform. Anywhere else the same loop can run on llama.cpp: `pip install 'flash-coder[local]'`, `flash models pull fast`, then `--backend llama.cpp --small fast` (SPEC R-7.17d, R-7.18). Measured here, 2026-10-15: that pull moved the pinned 4,683,074,336 bytes in 848.78 s and its streamed SHA256 equalled the pin, and a session turn through the real library on that file answered in prose — 1.55 s to load at n_ctx 8192, 81 prompt and 2 completion tokens counted, 19.8 tokens/s for a 128-token greedy answer on CPU. What that does not buy: how those GGUF tiers *score* against the MLX tiers on the oracle suites, so the quality comparison stays OPEN and `docs/models.md` keeps it in an open box instead of quoting a vendor's number. |
+| **Everything else is pure Python 3.11+**: symbol perception, the AST knowledge graph, the harness and its GOT/WANT oracle, trace/replay, the outcome ledger, the power governor, the sandbox and the whole offline battery. With MLX blocked in a child process, **29 of the 29** submodules of `flash` still import (re-measured 2026-10-15), and the only thing that raises is the call that needs a forward pass — with a message naming MLX instead of a stack trace (SPEC R-7.7, gated by `benchmarks/backend_free_check.py`). The denominator of that fraction is however many modules `flash/` has, so it printed 26 until the second language's module joined it and re-printed **27/27** on 2026-09-28, and 29 now that `flash/backend.py` and `flash/models.py` have joined the package; the gate asserts numerator == denominator, never a fixed number. |
+| **What is NOT claimed:** that a Linux or Windows machine has installed this. The install shapes that HAVE been run are a fresh clone's editable install, a wheel in a throwaway venv, and an unpacked sdist with no `.git` — all on Apple Silicon, all logged under `benchmarks/results/` (SPEC R-7.5). What R-7.16 added is a measurement of the shape those platforms get: `battery_reread --backend-free`, run on this Mac with the backend unimportable in every child, printed **35 of 37** rows green and named the two that genuinely need a model, so the non-generating half is now partly measured and the remaining half — a real install on real non-macOS hardware — is still expected rather than verified. |
+| **RAM decides what you can run, not the OS.** `power` prints the profile the machine offers right now and the largest model it may load; the fast tier is ~4.4 GB of resident weights and the brain tier is 15–17 GB. |
 
 ## Install
 
 ```bash
 python3.11 -m venv .venv
 .venv/bin/pip install -e .[dev]                    # `flash` lands in .venv/bin
-.venv/bin/python -m flash.cli doctor               # nine answers about THIS install
+.venv/bin/python -m flash.cli doctor               # eleven answers about THIS install
 .venv/bin/python -m flash.cli selftest --all       # the offline battery, no models
 ```
 
-`doctor` is the command to run first because it answers the question a README
-usually dodges: which half of this project is present on your machine. It reports
-the install shape (a wheel has no `benchmarks/` beside the package, so it says
-"no verification surface here" rather than failing checks that never existed), the
-backend, the model cache against the four §22 tiers, the tools the vectors import,
-and what the box may load — and its exit code follows its own page.
+`doctor` is the command to run first because it answers the question a README usually dodges:
+which half of this project is present on your machine. It reports the install shape (a wheel
+has no `benchmarks/` beside the package, so it says "no verification surface here" rather than
+failing checks that never existed), the backend, the model cache against the four §22 tiers,
+the tools the vectors import, and what the box may load — and its exit code follows its own
+page.
 
-`selftest --all` is a thin wrapper on `benchmarks/battery_reread.py`: the same 37
-lines, the same printed totals, and the same refusal (rc 2, naming the path) when
-there is no battery to run.
+`selftest --all` is a thin wrapper on `benchmarks/battery_reread.py`: the same 37 lines, the
+same printed totals, and the same refusal (rc 2, naming the path) when there is no battery to
+run.
 
-One of those 37 lines is the machine itself: `checkpoint_resume_check` needs the
-tournament arm to have width ≥ 2, and the power governor forces width to 1 under
-25% charge even on AC. So a laptop at 22% cannot print the §6 total — it fails
-exactly one line with a sentence naming the charge. Put the machine on AC and
-above 25% before the full battery; that is measured, not folklore
-(`benchmarks/results/r75_sdist_battery_shapes_battgate_20260928.log` is the run
-that says so).
+One of those 37 lines is the machine itself: `checkpoint_resume_check` needs the tournament arm
+to have width ≥ 2, and the power governor forces width to 1 under 25% charge even on AC. So a
+laptop at 22% cannot print the §6 total — it fails exactly one line with a sentence naming the
+charge. Put the machine on AC and above 25% before the full battery; that is measured, not folklore
+(`benchmarks/results/r75_sdist_battery_shapes_battgate_20260928.log` is the run that says so).
 
-That refusal is the rule for every vector that reads the data tree beside `flash/`.
-A wheel install carries no `benchmarks/`, so the six selftests that do — `graph`,
-`grammar`, `debug`, `patches`, `tourney` and `lsp` — print one sentence naming the
-path they need and exit 2 rather than raising `FileNotFoundError` for a file inside
-`site-packages` (SPEC R-7.10). That list is not kept by hand: the same vector copies
-`flash/` to a temp directory that carries no data tree, runs every module in the copy
-that exposes a selftest, and classifies each death by re-running it with the data
-symlinked back in — which is how `flash.tourney`'s cwd-relative task path and
-`flash.lsp`'s `ValueError: substring not found` joined the refusals instead of
-escaping the gate (SPEC R-7.10c). Run them from a clone or an unpacked sdist.
+That refusal is the rule for every vector that reads the data tree beside `flash/`. A wheel install
+carries no `benchmarks/`, so the six selftests that do — `graph`, `grammar`, `debug`, `patches`,
+`tourney` and `lsp` — print one sentence naming the path they need and exit 2 rather than raising
+`FileNotFoundError` for a file inside `site-packages` (SPEC R-7.10). That list is not kept by hand:
+the same vector copies `flash/` to a temp directory that carries no data tree, runs every module
+in the copy that exposes a selftest, and classifies each death by re-running it with the data
+symlinked back in — which is how `flash.tourney`'s cwd-relative task path and `flash.lsp`'s
+`ValueError: substring not found` joined the refusals instead of escaping the gate (SPEC R-7.10c).
+Run them from a clone or an unpacked sdist.
 
 ## First run
 
-Every `flash …` command below works with no model at all; the ones that generate
-need weights first.
+Every `flash …` command below works with no model at all; the ones that generate need weights
+first.
 
 ```bash
 # 1. no model needed: read a repo the way the agent does
@@ -145,24 +116,37 @@ need weights first.
 # 5. code with it: this is the scored chat. Run it and it waits for you at `you> `.
 # Type one request, press Enter, read the answer, type the next — turn 2 edits
 # what turn 1 wrote, because every turn re-reads your files from disk. `quit`,
-# `exit`, `q` or Ctrl-D ends it. Nothing lands without --apply, and the oracle
-# you passed with --test is never a file it may edit. Drop --test and the same
-# command is a prose chat that answers "hi" and can create whole new files (R-7.15h).
+# `exit`, `q` or Ctrl-D ends it, and `/help` `/quit` `/save <file>` `/retry` are
+# four lines about the session rather than requests to the model. Nothing lands
+# without --apply, and the oracle you passed with --test is never a file it may
+# edit. Drop --test and the same command is a prose chat that answers "hi" and
+# can create whole new files (R-7.15h).
 .venv/bin/python -m flash.cli session --context . --test t.py --apply
 # or drive it from a script, which is the same code path one line at a time:
 printf 'zero-pad the cents\nadd a bulk discount\n' |
   .venv/bin/python -m flash.cli session --context . --test t.py --apply
 ```
 
-A turn prints its own verdict, the oracle's own words under `oracle|` when a turn
-fails, and then one of the same three landing sentences `run` prints
+Every turn announces itself first — `[working] turn N …` names the tier that answers
+first, the attempts and the oracle, flushed to the terminal before the generation
+starts, because a 40-second turn and a hung process otherwise look identical
+(R-7.17b). Then the turn prints its own verdict, the oracle's own words under `oracle|`
+when a turn fails, and one of the same three landing sentences `run` prints
 (`[R-3.2] wrote … (+a -b lines)` / `NOT APPLIED` / `REFUSED: …`). The session closes
-with one line a script can parse, and exits with the **last** turn's code. Verbatim
+with one line a script can parse and then its bill — `[cost] turns=… backend=…
+wall=…s generating=…s verifying=…s tokens=… (prompt=… completion=…) escalations=…`
+plus one row per turn naming the library that answered it, the route, the tier and
+what it spent, all of it read off the trace and written back into it as a
+`session_cost` record (R-7.19) — and it exits with the **last** turn's code. Ctrl-C is
+a normal way to leave: the turn it killed is announced, never verdicted, billed but not
+counted, and the session exits 130. Verbatim
 from a real terminal — a pseudo-tty driven by `python benchmarks/session_pty_demo.py`,
 so the `you> ` lines below are the keyboard path and not a here-doc — on a one-function
 money module whose asserts require a zero-padded cent field and a minus sign in front of
 the dollar
-([`benchmarks/results/session_pty_r715g_20260929.log`](benchmarks/results/session_pty_r715g_20260929.log)):
+([`benchmarks/results/session_pty_r715g_20260929.log`](benchmarks/results/session_pty_r715g_20260929.log),
+captured on 2026-09-29, three weeks before the `[working]` line and the bill were
+added, so neither appears below):
 
 ```text
 flash session on /tmp/flash-chat-demo against the oracle /tmp/flash-chat-demo/t.py — one ask per line, and each answer arrives before you type the next. `quit` or Ctrl-D ends it.
@@ -367,7 +351,6 @@ Vision is benchmarked once the text brain is picked (PLAN §M1–M2).
 
 
 
-
 # Escalation policy: small model tries, hot-swaps to the big brain
 .venv/bin/python -m flash.cli escalate-test
 
@@ -398,7 +381,7 @@ Vision is benchmarked once the text brain is picked (PLAN §M1–M2).
 # down, and a warm laptop is not a failing test.
 .venv/bin/python benchmarks/battery_reread.py       # 15 min measured 2026-09-27
 .venv/bin/python -m flash.cli selftest --all        # the same thing, by name
-.venv/bin/python -m flash.cli doctor                # nine answers about THIS install
+.venv/bin/python -m flash.cli doctor                # eleven answers about THIS install
 .venv/bin/python -m flash.cli --version             # flash <__version__>, no stale copy
 # `--backend-free` re-runs the battery with `mlx`, `mlx_lm` and `mlx_vlm` blocked in
 # every child, and refuses to print a total until it has PROVED the block bites. Two
@@ -553,11 +536,11 @@ Vision is benchmarked once the text brain is picked (PLAN §M1–M2).
 .venv/bin/python benchmarks/portable_paths_check.py          # 15 checks + 7 mutants
 
 # "Is what I just installed the thing the README describes?" One command answers it, and
-# the answer is gated rather than narrated: `flash doctor` walks nine lines across six
+# the answer is gated rather than narrated: `flash doctor` walks eleven lines across six
 # sections (install shape, backend, machine, cache, tools, what to verify) and its exit
 # code follows its own page — a synthetic broken install in a temp tree must print `no`
-# on exactly 5 of 9 and rc 1. R-7.7's half: with `mlx`, `mlx_lm` and `mlx_vlm` blocked in
-# a CHILD process, all 26 submodules of `flash` still import and the only thing that
+# on exactly 5 of them and rc 1. R-7.7's half: with `mlx`, `mlx_lm` and `mlx_vlm` blocked in
+# a CHILD process, all 29 submodules of `flash` still import and the only thing that
 # raises is the call that needs a forward pass. The sweep is enumerated, not named, and
 # its mutant plants a real backend-importing submodule on disk to prove it. R-7.10's half:
 # the six selftests that read `benchmarks/` beside the package are run against a synthetic
@@ -802,7 +785,7 @@ Vision is benchmarked once the text brain is picked (PLAN §M1–M2).
 .venv/bin/python -m flash.cli trace <sid> --task r03_bulk_rule   # replay one task's decisions
 .venv/bin/python -m flash.cli resume                   # continue the newest interrupted suite
 .venv/bin/python -m flash.cli trace --selftest         # 30 offline store/replay checks
-.venv/bin/python benchmarks/trace_resume_check.py      # 11 checks: interrupt -> resume, no re-billing
+.venv/python benchmarks/trace_resume_check.py      # 11 checks: interrupt -> resume, no re-billing
 
 # R-5.3 task-granular recovery — a kill inside a task resumes INSIDE the task
 # §33.7 made an interrupted suite resumable, which left a gap exactly one task
@@ -943,3 +926,8 @@ small-tier attempts, as r03 always has, and an A/B arm would have to say more.
 
 **Pass criteria** (PLAN §M0): a 30B-class MoE must sustain ≥45 tok/s, peak
 memory ≤ 18 GB (24 GB Blender budget leaves headroom), and pass ≥17/20 tasks.
+
+.venv/bin/python -m flash.cli resume                   # names the mid-flight task it continues
+.venv/bin/python -m flash.checkpoint --selftest        # 31 checks: identity, flush, atomicity under real kill -9
+.venv/bin/python benchmarks/checkpoint_resume_check.py # 35 checks: kill -9 a live run-suite, resume it, only the span continues
+.venv/bin/python benchmarks

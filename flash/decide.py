@@ -42,40 +42,26 @@ def decide(model, tokenizer, context: str, options: list[str],
     if not 2 <= len(options) <= 26:
         raise ValueError("need 2..26 options")
 
-    # R-7.7: the backend is imported here, at the call that needs a forward pass,
-    # rather than at module import — `flash.route` imports this module, and a
-    # non-Apple-silicon machine that cannot install MLX should lose this one call
-    # and nothing else. It is the FIRST thing the function does, before any
-    # tokenizer work, so the answer a caller without a backend gets is this
-    # sentence rather than an AttributeError about a template. `flash doctor`
-    # reports which half a machine is in.
-    try:
-        import mlx.core as mx
-    except ImportError as e:
-        raise RuntimeError(
-            "flash.decide.decide() needs MLX for its forward pass, and MLX is not "
-            "importable here (it installs on Apple Silicon only — `pip install "
-            "mlx-lm`). Everything else in flash — the harness, the graph, the "
-            "patcher, the whole offline battery — runs without it."
-        ) from e
+    # R-7.7's rule, kept exactly: the machine that needs the backend loses THIS
+    # call and nothing else, and it loses it to a sentence rather than an
+    # AttributeError about a template. R-7.17d moved the forward pass behind
+    # `flash.backend`, so `owner()` is the door: it resolves (and refuses) before
+    # any tokenizer work, and it is what decides whether a `model(tokens)` prefill
+    # or a GGUF's top-logprob table answers.
+    import time
+    from flash import backend
+    be = backend.owner(model)
 
     labels = string.ascii_uppercase[: len(options)]
     listing = "\n".join(f"{l}) {o}" for l, o in zip(labels, options))
     user = f"{context}\n\n{question}\n{listing}\nAnswer with a single letter."
-    prompt = tokenizer.apply_chat_template(
-        [{"role": "user", "content": user}], tokenize=False, add_generation_prompt=True
-    )
+    prompt = be.format(tokenizer, [{"role": "user", "content": user}])
+    label_ids = _label_token_ids(tokenizer, len(options))
 
-    import time
     t0 = time.perf_counter()
-    tokens = mx.array([tokenizer.encode(prompt, add_special_tokens=False)])
-    logits = model(tokens)[:, -1, :]                 # [1, vocab] — one pass
-    logits = logits - mx.logsumexp(logits, axis=-1, keepdims=True)
-    mx.eval(logits)
+    raw = be.probe(model, tokenizer, prompt, label_ids)     # one pass, no generation
     ms = (time.perf_counter() - t0) * 1000
 
-    label_ids = _label_token_ids(tokenizer, len(options))
-    raw = [float(logits[0, tid]) for tid in label_ids]   # log-probs, softmaxed over vocab
     # restricted softmax over just the options (renormalize):
     m = max(raw)
     exps = [math.exp(x - m) for x in raw]

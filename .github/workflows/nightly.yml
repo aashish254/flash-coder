@@ -57,6 +57,38 @@ jobs:
       - name: Pre-flight
         run: flash doctor
 
+      # The two steps ci.yml's macos job already runs, carried over verbatim with the
+      # SAME cache key so a scheduled night restores what the last push to main saved.
+      # They are here because the nightly died on this one row every night it has ever
+      # run: `flash.grammar --selftest`'s mask checks load the fast tier's tokenizer
+      # (never its weights), a fresh macos runner's HF cache is empty — run 38704438849
+      # prints `Cache not found for input keys: hf-macOS-qwen2.5-coder-7b-4bit-v1,
+      # hf-macOS-` then `BAD flash.grammar --selftest want 47/47 got ['24/25']` — and
+      # the weights that would fill the cache are downloaded by a step this gate
+      # blocks. So the battery asked a runner for a file only the live suite could
+      # give it, and a download was reported as a failing test.
+      - name: Cache the tokenizer files
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/huggingface/hub
+          key: hf-tokenizer-qwen25-coder-7b-instruct-4bit
+
+      - name: Pre-warm the tokenizer (no weights)
+        run: |
+          python - <<'PY'
+          from huggingface_hub import snapshot_download
+          path = snapshot_download(
+              "mlx-community/Qwen2.5-Coder-7B-Instruct-4bit",
+              allow_patterns=["tokenizer*", "*.jinja", "chat_template.json",
+                              "special_tokens_map.json", "config.json",
+                              "generation_config.json", "added_tokens.json",
+                              "merges.txt", "vocab.json"])
+          print("snapshot:", path)
+          PY
+
+      - name: The tokenizer is really there (grammar's mask checks read it)
+        run: python benchmarks/battery_reread.py --quick grammar
+
       - name: Offline battery first (a live result on broken code is noise)
         run: flash selftest --all
 

@@ -390,9 +390,15 @@ def default_slice(*, repo: str, train_file: Path, valid_file: Path,
         raise ValueError(f"no training rows in {train_file}")
     vdata = read_jsonl(valid_file)
 
-    from mlx_lm import load
-    from mlx_lm.lora import train_model
-    from mlx_lm.tuner.datasets import ChatDataset
+    try:
+        from mlx_lm import load
+        from mlx_lm.lora import train_model
+        from mlx_lm.tuner.datasets import ChatDataset
+    except ImportError:
+        raise RuntimeError(
+            "flash.train requires mlx-lm which is only available on Apple Silicon; "
+            "this command cannot run on Linux/Windows. Install on darwin/arm64 or "
+            "run flash doctor first to confirm your platform.")
 
     model, tok = load(repo)
     train_set = ChatDataset(data, tok, mask_prompt=True)

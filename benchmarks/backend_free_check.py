@@ -239,6 +239,19 @@ def pkg_only_sweep():
     return _SWEEP["result"]
 
 
+def death(text: str) -> str:
+    """The failing check's OWN line, rather than the tail of the run.
+
+    A module selftest ends with its fraction, so the last ninety characters of any
+    death are always the same sentence: `N/M checks passed`, which names the module
+    and not the check. CI paid for that on a runner that lost one checkpoint check
+    and could only say `checkpoint, rc 1` — the label that would have said which
+    claim broke was in the output and thrown away."""
+    hits = [line.strip() for line in text.splitlines()
+            if line.strip().startswith("FAIL")]
+    return " || ".join(h[:170] for h in hits[:3]) or text.strip()[-90:]
+
+
 def _shim_dir() -> Path:
     """The directory holding the shipped `--backend-free` shim, built once per
     process, read from the file the battery uses rather than a copy this vector
@@ -384,7 +397,9 @@ def run_gates() -> None:
        f"pyproject={floor.groups() if floor else 'not found'}")
     broken = doctor.report(answers(wheel, has_backend=False, tools_ok=False))
     ck("a broken install's report says no to exactly its own failures — "
-       f"{broken.count('[no ]')} of 9 answers, computed per line, not one banner "
+       f"{broken.count('[no ]')} of "
+       f"{len(doctor.verdict(answers(wheel, has_backend=False, tools_ok=False)))} "
+       "answers, computed per line, not one banner "
        "over the whole page",
        broken.count("[no ]") == 5, broken[-220:])
 
@@ -557,10 +572,21 @@ def run_gates() -> None:
                "except Exception as e:\n"
                "    print('OTHER:' + type(e).__name__ + ':' + str(e)[:100])\n",
                env=env)
+    # R-7.17d moved the sentence this row demands. `decide()` used to raise its own
+    # "needs MLX for its forward pass"; it now raises the seam's shared refusal,
+    # which names whichever backend is missing rather than the one Apple Silicon
+    # happens to have. Both failure modes this check exists for stay caught — a raw
+    # `ModuleNotFoundError` out of somebody else's import, and a refusal that names
+    # nothing — and demanding the literal "MLX" would be the wrong word to require
+    # on the Linux box R-7.17 exists for.
     ck("...and the CALL that needs the backend is the one that says so, as a "
-       "RuntimeError naming MLX rather than a ModuleNotFoundError or a tokenizer "
-       "crash — a caller can print that sentence to a user",
-       "RUNTIMEERROR:" in proc.stdout and "MLX" in proc.stdout,
+       "RuntimeError carrying the shared refusal with the missing library named in "
+       "it, rather than a ModuleNotFoundError or a tokenizer crash — a caller can "
+       "print that sentence to a user",
+       "RUNTIMEERROR:" in proc.stdout
+       and "no generation backend" in proc.stdout
+       and "what is missing" in proc.stdout
+       and "mlx" in proc.stdout,
        f"rc={proc.returncode} out={proc.stdout[-200:]} err={proc.stderr[-120:]}")
 
     # ------------------------------------------- R-7.10: a selftest that cannot
@@ -646,14 +672,14 @@ def run_gates() -> None:
        "deterministic and a wall-clock budget is not",
        not untabled,
        "untabled data-dependents: "
-       + str([(m, died[m][0], died[m][1].strip()[-90:]) for m in untabled]))
+       + str([(m, died[m][0], death(died[m][1])) for m in untabled]))
     ck("...and a failure that survives the data coming back is one of the three "
        f"named machine-state vectors ({', '.join(sorted(MACHINE_STATE))}), never a "
        "silently-skipped module: the sweep is allowed to be honest about a loaded "
        "box, and the price is that the list is checked in both directions",
        not state,
        "new unexplained failures: "
-       + str([(m, died[m][0], died[m][1].strip()[-90:]) for m in state]))
+       + str([(m, died[m][0], death(died[m][1])) for m in state]))
 
     # ----------------------------- R-7.16: the same copy, with the backend blocked.
     # `mlx-lm` sits behind a platform marker in `pyproject.toml`, so every Linux and
@@ -673,7 +699,7 @@ def run_gates() -> None:
        f"the one that can ({len(backend_deaths)} deaths)",
        len(shimmed) == len(swept) and len(swept) >= 16 and not backend_deaths,
        "selftests that need a backend: "
-       + str([(m, shimmed[m][0], shimmed[m][1].strip()[-90:])
+       + str([(m, shimmed[m][0], death(shimmed[m][1]))
               for m in backend_deaths]))
     backend_control = run("-c", "import mlx_lm.lora", env=shim_env())
     ck("...and the block is live in the interpreter that arm used: `import "
