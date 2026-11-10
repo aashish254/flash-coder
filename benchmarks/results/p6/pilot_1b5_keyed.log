@@ -21,4 +21,4 @@ Traceback (most recent call last):
   File "/Users/aashish/BEST PROJECT/flash-coder/flash/learn.py", line 237, in score
     xp = (emb - bundle["xmu"]) @ bundle["vt"].T
           ~~~~^~~~~~~~~~~~~~~
-ValueError: operands could not be broadcast together with shapes (1536,) (3584,) 
+ValueError: operands could not be broadcast together with shapes (1536,) (3584,)

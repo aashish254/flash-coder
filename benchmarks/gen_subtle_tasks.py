@@ -27,6 +27,7 @@ probe. `python benchmarks/subtle_premise_check.py` is expected to report those
 two as NOT offered, and the limitation ships with the recall number rather than
 being reworded away.
 """
+
 import json
 from pathlib import Path
 
@@ -36,11 +37,11 @@ TASKS = [
         id="cov01_invoice_tax",
         defect="coverage",
         prompt="Write render_invoice(items, tax_rate) -> str. items is a list of "
-               "(name, price) pairs. With no items return exactly 'empty'. "
-               "Otherwise return an 'INVOICE' header line, one 'name: price' line "
-               "per item with the price to two decimals, and a final 'TOTAL: t' "
-               "line where t is the subtotal grown by tax_rate, rounded to two "
-               "decimals. Lines are joined with newline. Return only the code.",
+        "(name, price) pairs. With no items return exactly 'empty'. "
+        "Otherwise return an 'INVOICE' header line, one 'name: price' line "
+        "per item with the price to two decimals, and a final 'TOTAL: t' "
+        "line where t is the subtotal grown by tax_rate, rounded to two "
+        "decimals. Lines are joined with newline. Return only the code.",
         test="assert render_invoice([], 0.2) == 'empty'\n",
         hidden="assert render_invoice([('a', 10.0)], 0.2) == 'INVOICE\\na: 10.00\\nTOTAL: 12.00'\n",
         solution=(
@@ -55,7 +56,8 @@ TASKS = [
             "        lines.append(line)\n"
             "    total = round(subtotal * (1 + tax_rate), 2)\n"
             "    lines.append(f'TOTAL: {total:.2f}')\n"
-            "    return '\\n'.join(lines)\n"),
+            "    return '\\n'.join(lines)\n"
+        ),
         seeded=(
             "def render_invoice(items, tax_rate):\n"
             "    if not items:\n"
@@ -66,21 +68,23 @@ TASKS = [
             "        line = f'{name}: {price:.2f}'\n"
             "        subtotal += price\n"
             "        lines.append(line)\n"
-            "    total = round(subtotal * tax_rate, 2)\n"      # forgot the 1 +
+            "    total = round(subtotal * tax_rate, 2)\n"  # forgot the 1 +
             "    lines.append(f'TOTAL: {total:.2f}')\n"
-            "    return '\\n'.join(lines)\n")),
+            "    return '\\n'.join(lines)\n"
+        ),
+    ),
     dict(
         id="cov02_report_sum",
         defect="coverage",
         prompt="Write format_report(rows, footer) -> str. rows is a list of "
-               "(name, score) pairs. Return one 'name=score' line per row, then "
-               "the footer as its own line, and — only when there is more than "
-               "one row — a final line 'N rows, sum S, best B' where S is the "
-               "total of all scores and B the largest one. Lines joined with "
-               "newline. Return only the code.",
+        "(name, score) pairs. Return one 'name=score' line per row, then "
+        "the footer as its own line, and — only when there is more than "
+        "one row — a final line 'N rows, sum S, best B' where S is the "
+        "total of all scores and B the largest one. Lines joined with "
+        "newline. Return only the code.",
         test="assert format_report([('a', 1)], 'END') == 'a=1\\nEND'\n",
         hidden="assert format_report([('a', 1), ('b', 5), ('c', 3)], 'END') == "
-               "'a=1\\nb=5\\nc=3\\nEND\\n3 rows, sum 9, best 5'\n",
+        "'a=1\\nb=5\\nc=3\\nEND\\n3 rows, sum 9, best 5'\n",
         solution=(
             "def format_report(rows, footer):\n"
             "    lines = []\n"
@@ -95,7 +99,8 @@ TASKS = [
             "            if score > best:\n"
             "                best = score\n"
             "        lines.append(f'{len(rows)} rows, sum {total}, best {best}')\n"
-            "    return '\\n'.join(lines)\n"),
+            "    return '\\n'.join(lines)\n"
+        ),
         seeded=(
             "def format_report(rows, footer):\n"
             "    lines = []\n"
@@ -106,21 +111,22 @@ TASKS = [
             "        total = 0\n"
             "        best = rows[0][1]\n"
             "        for name, score in rows:\n"
-            "            total = score\n"                                # not +=
+            "            total = score\n"  # not +=
             "            if score > best:\n"
             "                best = score\n"
             "        lines.append(f'{len(rows)} rows, sum {total}, best {best}')\n"
-            "    return '\\n'.join(lines)\n")),
-
+            "    return '\\n'.join(lines)\n"
+        ),
+    ),
     # -------------------------------------------------------------------- seeds
     dict(
         id="seed01_tag_order",
         defect="seeds",
         prompt="Write pick_tag(tags). The tag pool is the caller's tags merged "
-               "with the five defaults alpha, bravo, charlie, delta, echo. "
-               "Return the pool member that comes first alphabetically, except "
-               "that a caller who passed exactly one tag gets that tag back "
-               "whatever it is. Return only the code.",
+        "with the five defaults alpha, bravo, charlie, delta, echo. "
+        "Return the pool member that comes first alphabetically, except "
+        "that a caller who passed exactly one tag gets that tag back "
+        "whatever it is. Return only the code.",
         test="assert pick_tag([]) == 'alpha'\n",
         hidden="assert pick_tag(['uniform']) == 'uniform'\n",
         solution=(
@@ -128,76 +134,80 @@ TASKS = [
             "    defaults = ['alpha', 'bravo', 'charlie', 'delta', 'echo']\n"
             "    if len(tags) == 1:\n"
             "        return tags[0]\n"
-            "    return min(set(tags) | set(defaults))\n"),
+            "    return min(set(tags) | set(defaults))\n"
+        ),
         seeded=(
             "def pick_tag(tags):\n"
             "    s = set(tags)\n"
             "    s.update(['alpha', 'bravo', 'charlie', 'delta', 'echo'])\n"
-            "    return next(iter(s))\n")),
+            "    return next(iter(s))\n"
+        ),
+    ),
     dict(
         id="seed02_shared_name",
         defect="seeds",
         prompt="Write pick_shared(names, blocked). Return the alphabetically "
-               "first name in names that is not in blocked. When nothing is "
-               "left, raise LookupError('all blocked'). Return only the code.",
+        "first name in names that is not in blocked. When nothing is "
+        "left, raise LookupError('all blocked'). Return only the code.",
         test="assert pick_shared(['alpha', 'bravo', 'charlie', 'delta'], ['bravo']) == 'alpha'\n",
         hidden="assert pick_shared(['charlie', 'hotel'], []) == 'charlie'\n"
-               "assert pick_shared(['golf', 'kilo'], ['kilo']) == 'golf'\n",
+        "assert pick_shared(['golf', 'kilo'], ['kilo']) == 'golf'\n",
         solution=(
             "def pick_shared(names, blocked):\n"
             "    for n in sorted(names):\n"
             "        if n not in blocked:\n"
             "            return n\n"
-            "    raise LookupError('all blocked')\n"),
+            "    raise LookupError('all blocked')\n"
+        ),
         seeded=(
             "def pick_shared(names, blocked):\n"
             "    free = set(names) - set(blocked)\n"
             "    if not free:\n"
             "        raise LookupError('all blocked')\n"
-            "    return next(iter(free))\n")),
-
+            "    return next(iter(free))\n"
+        ),
+    ),
     # -------------------------------------------------------------------- edges
     dict(
         id="edge01_mean_guard",
         defect="edges",
         prompt="Write average(numbers). Return the arithmetic mean of a list of "
-               "numbers; an empty list averages to 0.0. Return only the code.",
+        "numbers; an empty list averages to 0.0. Return only the code.",
         test="assert average([2, 4]) == 3\nassert average([1]) == 1\n",
         hidden="assert average([]) == 0.0\n",
         solution=(
             "def average(numbers):\n"
             "    if not numbers:\n"
             "        return 0.0\n"
-            "    return sum(numbers) / len(numbers)\n"),
-        seeded=(
-            "def average(numbers):\n"
-            "    return sum(numbers) / len(numbers)\n")),
+            "    return sum(numbers) / len(numbers)\n"
+        ),
+        seeded=("def average(numbers):\n    return sum(numbers) / len(numbers)\n"),
+    ),
     dict(
         id="edge02_last_pair",
         defect="edges",
         prompt="Write last_pair(values). Return the final two values of the "
-               "sequence as a tuple. When there are fewer than two values, "
-               "return (None, None). Return only the code.",
+        "sequence as a tuple. When there are fewer than two values, "
+        "return (None, None). Return only the code.",
         test="assert last_pair([1, 2, 3]) == (2, 3)\nassert last_pair([7, 8]) == (7, 8)\n",
         hidden="assert last_pair([]) == (None, None)\nassert last_pair([5]) == (None, None)\n",
         solution=(
             "def last_pair(values):\n"
             "    if len(values) < 2:\n"
             "        return (None, None)\n"
-            "    return (values[-2], values[-1])\n"),
-        seeded=(
-            "def last_pair(values):\n"
-            "    return (values[-2], values[-1])\n")),
-
+            "    return (values[-2], values[-1])\n"
+        ),
+        seeded=("def last_pair(values):\n    return (values[-2], values[-1])\n"),
+    ),
     # ------------------------------------------------- the documented blind spot
     dict(
         id="mask01_bucket_sign",
         defect="masked-value",
         prompt="Write bucket(value, limits). limits is an ascending list of "
-               "thresholds. Return the pair (count, overshoot) where count is "
-               "how many limits the value exceeds and overshoot is how far past "
-               "the LAST limit it exceeds the value is (0 when it exceeds none). "
-               "Return only the code.",
+        "thresholds. Return the pair (count, overshoot) where count is "
+        "how many limits the value exceeds and overshoot is how far past "
+        "the LAST limit it exceeds the value is (0 when it exceeds none). "
+        "Return only the code.",
         test="assert bucket(50, [1, 10])[0] == 2\nassert bucket(0, [1, 10])[0] == 0\n",
         hidden="assert bucket(50, [1, 10]) == (2, 40)\nassert bucket(5, [1, 10]) == (1, 4)\n",
         solution=(
@@ -208,7 +218,8 @@ TASKS = [
             "        if value > lim:\n"
             "            count += 1\n"
             "            far = value - lim\n"
-            "    return count, far\n"),
+            "    return count, far\n"
+        ),
         seeded=(
             "def bucket(value, limits):\n"
             "    count = 0\n"
@@ -216,40 +227,52 @@ TASKS = [
             "    for lim in limits:\n"
             "        if value > lim:\n"
             "            count += 1\n"
-            "            far = lim - value\n"        # the sign, on a line that runs
-            "    return count, far\n")),
+            "            far = lim - value\n"  # the sign, on a line that runs
+            "    return count, far\n"
+        ),
+    ),
     dict(
         id="mask02_leftovers",
         defect="masked-value",
         prompt="Write split_rows(rows, per_page). Return the pair (pages, "
-               "leftovers) where pages is rows chopped into consecutive lists "
-               "of per_page items with the final short chunk included, and "
-               "leftovers is how many rows landed on that final chunk when it "
-               "is short, 0 when rows divides evenly. Return only the code.",
+        "leftovers) where pages is rows chopped into consecutive lists "
+        "of per_page items with the final short chunk included, and "
+        "leftovers is how many rows landed on that final chunk when it "
+        "is short, 0 when rows divides evenly. Return only the code.",
         test="assert split_rows([1, 2, 3], 2)[0] == [[1, 2], [3]]\n",
         hidden="assert split_rows([1, 2, 3, 4, 5, 6, 7], 4) == ([[1, 2, 3, 4], [5, 6, 7]], 3)\n"
-               "assert split_rows([1, 2, 3, 4], 2) == ([[1, 2], [3, 4]], 0)\n",
+        "assert split_rows([1, 2, 3, 4], 2) == ([[1, 2], [3, 4]], 0)\n",
         solution=(
             "def split_rows(rows, per_page):\n"
             "    pages = [list(rows[i:i + per_page]) for i in range(0, len(rows), per_page)]\n"
             "    leftovers = len(rows) % per_page\n"
-            "    return pages, leftovers\n"),
+            "    return pages, leftovers\n"
+        ),
         seeded=(
             "def split_rows(rows, per_page):\n"
             "    pages = [list(rows[i:i + per_page]) for i in range(0, len(rows), per_page)]\n"
             "    r = len(rows) % per_page\n"
-            "    leftovers = per_page - r if r else 0\n"   # the complement, unseen
-            "    return pages, leftovers\n")),
+            "    leftovers = per_page - r if r else 0\n"  # the complement, unseen
+            "    return pages, leftovers\n"
+        ),
+    ),
 ]
 
 OUT = Path(__file__).resolve().parent / "tasks" / "subtle_tasks.jsonl"
 
 
 def main() -> int:
-    rows = [{k: t[k] for k in ("id", "prompt", "test", "hidden", "solution",
-                              "seeded", "defect")} for t in TASKS]
+    rows = [
+        {
+            k: t[k]
+            for k in ("id", "prompt", "test", "hidden", "solution", "seeded", "defect")
+        }
+        for t in TASKS
+    ]
     OUT.write_text("".join(json.dumps(r) + "\n" for r in rows))
-    print(f"wrote {len(rows)} task(s) -> {OUT.relative_to(Path(__file__).resolve().parent.parent)}")
+    print(
+        f"wrote {len(rows)} task(s) -> {OUT.relative_to(Path(__file__).resolve().parent.parent)}"
+    )
     for r in rows:
         print(f"  {r['id']:<22} {r['defect']}")
     return 0

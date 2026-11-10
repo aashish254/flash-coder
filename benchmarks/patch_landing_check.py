@@ -50,6 +50,7 @@ The loop half is here too: `_solve_edits` hands the accepted workspace back on
     python benchmarks/patch_landing_check.py --sweep     # one fresh process each
     python benchmarks/patch_landing_check.py --mutant 7  # one bug, for a bisection
 """
+
 from __future__ import annotations
 
 import argparse
@@ -65,8 +66,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from flash import cli, loop, patches, trace                          # noqa: E402
-from flash.patches import (LandError, workspace_from_dir)            # noqa: E402
+from flash import cli, loop, patches, trace  # noqa: E402
+from flash.patches import LandError, workspace_from_dir  # noqa: E402
 
 NUM_BUGS = 28
 
@@ -81,24 +82,32 @@ MONEY_FIXED = 'def cents(n):\n    return f"${n // 100}.{n % 100:02d}"\n'
 #: nothing deleted, nothing re-typed. `+4 -0` is what that measures, and it is
 #: what the CLI has to print, because a create reported as `+0 -0` is the same
 #: sentence as a run that wrote nothing.
-MONEY_CREATED = MONEY + '\n\ndef k_to_c(k):\n    return k - 273.15\n'
-CREATE_TEST = ('import sys; sys.path.insert(0, "<TMPDIR>")\n'
-               "from money import k_to_c\nassert k_to_c(0) == -273.15\n")
-CREATE_PATCH = ("# edit: money.py :: +k_to_c\n```python\n"
-                "def k_to_c(k):\n    return k - 273.15\n```\n")
-CREATE_CLASH = ("# edit: money.py :: +cents\n```python\n"
-                "def cents(n):\n    return 1\n```\n")
+MONEY_CREATED = MONEY + "\n\ndef k_to_c(k):\n    return k - 273.15\n"
+CREATE_TEST = (
+    'import sys; sys.path.insert(0, "<TMPDIR>")\n'
+    "from money import k_to_c\nassert k_to_c(0) == -273.15\n"
+)
+CREATE_PATCH = (
+    "# edit: money.py :: +k_to_c\n```python\n"
+    "def k_to_c(k):\n    return k - 273.15\n```\n"
+)
+CREATE_CLASH = (
+    "# edit: money.py :: +cents\n```python\ndef cents(n):\n    return 1\n```\n"
+)
 TAX = "def rate(v):\n    return v * 0.08\n"
 DEEP = "LIMIT = 3\n"
-ORACLE = ('import sys\nsys.path.insert(0, "<TMPDIR>")\n'
-          'from money import cents\nassert cents(5) == "$0.05"\n')
-FILES = {"money.py": MONEY, "tax.py": TAX, "pkg/deep.py": DEEP,
-         "t.py": ORACLE}
+ORACLE = (
+    'import sys\nsys.path.insert(0, "<TMPDIR>")\n'
+    'from money import cents\nassert cents(5) == "$0.05"\n'
+)
+FILES = {"money.py": MONEY, "tax.py": TAX, "pkg/deep.py": DEEP, "t.py": ORACLE}
 
 #: The one patch the stub generator emits: the symbol-addressed form the protocol
 #: tells the model to prefer, over `MONEY`'s real definition.
-PATCH = ("# edit: money.py :: cents\n```python\n"
-         'def cents(n):\n    return f"${n // 100}.{n % 100:02d}"\n```\n')
+PATCH = (
+    "# edit: money.py :: cents\n```python\n"
+    'def cents(n):\n    return f"${n // 100}.{n % 100:02d}"\n```\n'
+)
 
 CHECKS: list[tuple[str, bool, str]] = []
 
@@ -166,8 +175,10 @@ def new_tree(files: dict[str, str] | None = None) -> Path:
 def snapshot(root: Path) -> dict:
     """The tree as the write-back would find it: bytes *and* mtimes, so a check
     for "not rewritten" cannot be satisfied by a rewrite with the same text."""
-    return {k: (v, (root / k).stat().st_mtime_ns)
-            for k, v in workspace_from_dir(root).items()}
+    return {
+        k: (v, (root / k).stat().st_mtime_ns)
+        for k, v in workspace_from_dir(root).items()
+    }
 
 
 def cleanup() -> None:
@@ -183,14 +194,23 @@ def ws(root: Path, **changed: str) -> dict:
 
 
 def args_for(root: Path, apply: bool, test: str | None = None) -> argparse.Namespace:
-    return argparse.Namespace(apply=apply, context=str(root),
-                              test=test or str(root / "t.py"))
+    return argparse.Namespace(
+        apply=apply, context=str(root), test=test or str(root / "t.py")
+    )
 
 
 def result_for(workspace, solved=True) -> loop.SolveResult:
-    return loop.SolveResult(task_id="landing", solved=solved, attempts=[
-        loop.Attempt(code="# file: money.py\n" + (MONEY_FIXED if solved else MONEY),
-                     ok=solved)], workspace=workspace)
+    return loop.SolveResult(
+        task_id="landing",
+        solved=solved,
+        attempts=[
+            loop.Attempt(
+                code="# file: money.py\n" + (MONEY_FIXED if solved else MONEY),
+                ok=solved,
+            )
+        ],
+        workspace=workspace,
+    )
 
 
 def capture(fn, *a, **k) -> tuple[object, str]:
@@ -207,6 +227,7 @@ def capture(fn, *a, **k) -> tuple[object, str]:
 
 # ----------------------------------------------------- the reference copies
 
+
 def land_copy(**knob):
     """`flash.patches.land` with one clause switched, which is how a mutant puts
     exactly one defect back. A copy rather than a wrapper: removing a guard from
@@ -217,9 +238,21 @@ def land_copy(**knob):
     agreement is itself asserted below, and the sweep fails loudly if the copy
     drifts.
     """
-    k = dict(skip=True, escape=True, newfile=True, protect=True, atomic=True,
-             mkdir=True, write=True, ops=False, phantom=False, delete=False,
-             stale=False, protect_unchanged=False, insert_zero=False)
+    k = dict(
+        skip=True,
+        escape=True,
+        newfile=True,
+        protect=True,
+        atomic=True,
+        mkdir=True,
+        write=True,
+        ops=False,
+        phantom=False,
+        delete=False,
+        stale=False,
+        protect_unchanged=False,
+        insert_zero=False,
+    )
     k.update(knob)
 
     def _counts(rel, text, before):
@@ -230,12 +263,16 @@ def land_copy(**knob):
         sm = difflib.SequenceMatcher(None, old, new, autojunk=False)
         ops = [o for o in sm.get_opcodes() if o[0] != "equal"]
         if k["insert_zero"] and ops and all(t == "insert" for t, *_ in ops):
-            return (0, 0)                    # a pure insertion prints as a no-op
+            return (0, 0)  # a pure insertion prints as a no-op
         if k["ops"]:
-            return (sum(1 for t, *_ in ops if t in ("insert", "replace")),
-                    sum(1 for t, *_ in ops if t in ("delete", "replace")))
-        return (sum(j2 - j1 for t, _, _, j1, j2 in ops if t in ("insert", "replace")),
-                sum(i2 - i1 for t, i1, i2, _, _ in ops if t in ("delete", "replace")))
+            return (
+                sum(1 for t, *_ in ops if t in ("insert", "replace")),
+                sum(1 for t, *_ in ops if t in ("delete", "replace")),
+            )
+        return (
+            sum(j2 - j1 for t, _, _, j1, j2 in ops if t in ("insert", "replace")),
+            sum(i2 - i1 for t, i1, i2, _, _ in ops if t in ("delete", "replace")),
+        )
 
     def _land(root, before, after, protected=()):
         root = Path(root).resolve()
@@ -246,8 +283,9 @@ def land_copy(**knob):
             if k["mkdir"]:
                 dest.parent.mkdir(parents=True, exist_ok=True)
             if k["write"]:
-                dest.write_text(before.get(rel, "") if k["stale"] else after[rel],
-                                encoding="utf-8")
+                dest.write_text(
+                    before.get(rel, "") if k["stale"] else after[rel], encoding="utf-8"
+                )
             out.append((rel, added, removed))
 
         for rel, text in after.items():
@@ -267,8 +305,7 @@ def land_copy(**knob):
                 # counts are the diff against NOTHING, which is what `_counts`
                 # gets from an empty `before` entry.
                 if not k["newfile"]:
-                    raise LandError(f"{rel}: not a file this workspace was "
-                                    "read from")
+                    raise LandError(f"{rel}: not a file this workspace was read from")
                 added, _ = _counts(rel, text, dict(before, **{rel: ""}))
                 removed = 0
                 if k["atomic"]:
@@ -288,31 +325,47 @@ def land_copy(**knob):
                 if rel not in after:
                     (root / rel).unlink(missing_ok=True)
         return out
+
     return _land
 
 
 def edits_copy(**knob):
     """`flash.cli._land_edits` with one clause switched. Same reason as above."""
-    k = dict(protect=True, refuse_rc=1, honest=True, verdict_rc=True,
-             say_noop=True, unsolved_rc=1, protect_tree=False)
+    k = dict(
+        protect=True,
+        refuse_rc=1,
+        honest=True,
+        verdict_rc=True,
+        say_noop=True,
+        unsolved_rc=1,
+        protect_tree=False,
+    )
     k.update(knob)
 
     def _edits(args, task, r):
         from flash.patches import land
+
         if not args.apply:
-            what = ("the oracle passed this patch set" if r.solved
-                    else "nothing passed the oracle")
+            what = (
+                "the oracle passed this patch set"
+                if r.solved
+                else "nothing passed the oracle"
+            )
             if k["honest"]:
-                print(f"[R-3.2] NOT APPLIED: {what} in memory; {args.context} on "
-                      "disk is unchanged. Re-run with --apply to land the patch set.")
+                print(
+                    f"[R-3.2] NOT APPLIED: {what} in memory; {args.context} on "
+                    "disk is unchanged. Re-run with --apply to land the patch set."
+                )
             else:
                 print(f"[R-3.2] APPLIED: {what}.")
             if k["verdict_rc"]:
                 return 0 if r.solved else 1
             return 0
         if r.workspace is None:
-            print(f"[R-3.2] NOT APPLIED: the task was not solved, so --apply wrote "
-                  f"nothing to {args.context}")
+            print(
+                f"[R-3.2] NOT APPLIED: the task was not solved, so --apply wrote "
+                f"nothing to {args.context}"
+            )
             return k["unsolved_rc"]
         key = task.get("test_path") or cli._oracle_key(args, task)
         protected = ()
@@ -328,9 +381,12 @@ def edits_copy(**knob):
         for rel, added, removed in changed:
             print(f"[R-3.2] wrote {rel} (+{added} -{removed} lines)")
         if not changed and k["say_noop"]:
-            print(f"[R-3.2] --apply wrote nothing: the verified workspace is "
-                  f"byte-identical to what is already in {args.context}")
+            print(
+                f"[R-3.2] --apply wrote nothing: the verified workspace is "
+                f"byte-identical to what is already in {args.context}"
+            )
         return 0
+
     return _edits
 
 
@@ -353,8 +409,9 @@ def agree() -> str:
     for changed, protected in scenarios:
         seen = []
         for fn in (patches.land, land_copy()):
-            root = new_tree({"f.py": "a\nb\nc\n"} if changed == {"f.py": "a\nb\nc\n"}
-                            else None)
+            root = new_tree(
+                {"f.py": "a\nb\nc\n"} if changed == {"f.py": "a\nb\nc\n"} else None
+            )
             before = workspace_from_dir(root)
             start = snapshot(root)
             after = dict(before, **changed)
@@ -363,9 +420,13 @@ def agree() -> str:
             except Exception as e:
                 got = ("RAISED", f"{type(e).__name__}")
             end = snapshot(root)
-            seen.append((got, {k: v[0] for k, v in end.items()},
-                         tuple(sorted(k for k in end
-                                      if end[k] != start.get(k)))))
+            seen.append(
+                (
+                    got,
+                    {k: v[0] for k, v in end.items()},
+                    tuple(sorted(k for k in end if end[k] != start.get(k))),
+                )
+            )
         if seen[0] != seen[1]:
             return f"{sorted(changed)} {protected}: shipped={seen[0]} copy={seen[1]}"
     return ""
@@ -373,237 +434,348 @@ def agree() -> str:
 
 # ---------------------------------------------------------------- the checks
 
+
 def _land_checks() -> None:
-    check("the copy of `land` this vector mutates agrees with the shipped one on "
-          "every clean scenario, so a mutant fails for its own bug and not for "
-          "drift", agree() == "", agree())
+    check(
+        "the copy of `land` this vector mutates agrees with the shipped one on "
+        "every clean scenario, so a mutant fails for its own bug and not for "
+        "drift",
+        agree() == "",
+        agree(),
+    )
 
     root = new_tree()
     before = workspace_from_dir(root)
     rows = try_land(root, before, ws(root, **{"money.py": MONEY_FIXED}))
-    check("the file that changed lands with the workspace's bytes, and is the only "
-          "row the call reports",
-          text(root, "money.py") == MONEY_FIXED
-          and rows == [("money.py", 1, 1)], f"{rows}")
+    check(
+        "the file that changed lands with the workspace's bytes, and is the only "
+        "row the call reports",
+        text(root, "money.py") == MONEY_FIXED and rows == [("money.py", 1, 1)],
+        f"{rows}",
+    )
 
     root = new_tree()
     before = workspace_from_dir(root)
     snap = snapshot(root)
     try_land(root, before, ws(root, **{"money.py": MONEY_FIXED}))
-    check("an untouched sibling keeps its bytes *and* its mtime, so a patch on one "
-          "module does not re-timestamp a project",
-          snapshot(root)["tax.py"] == snap["tax.py"], str(snapshot(root)["tax.py"]))
+    check(
+        "an untouched sibling keeps its bytes *and* its mtime, so a patch on one "
+        "module does not re-timestamp a project",
+        snapshot(root)["tax.py"] == snap["tax.py"],
+        str(snapshot(root)["tax.py"]),
+    )
 
     root = new_tree()
     before = workspace_from_dir(root)
-    try_land(root, before, {k: v for k, v in before.items()
-                                if k != "pkg/deep.py"} | {"money.py": MONEY_FIXED})
-    check("a file the listing stopped covering is left on disk — the patch arm has "
-          "no verb for deleting a module, so a `limit` is not a deletion",
-          text(root, "pkg/deep.py") == DEEP,
-          "the tree lost it")
+    try_land(
+        root,
+        before,
+        {k: v for k, v in before.items() if k != "pkg/deep.py"}
+        | {"money.py": MONEY_FIXED},
+    )
+    check(
+        "a file the listing stopped covering is left on disk — the patch arm has "
+        "no verb for deleting a module, so a `limit` is not a deletion",
+        text(root, "pkg/deep.py") == DEEP,
+        "the tree lost it",
+    )
 
     root = new_tree()
     before = workspace_from_dir(root)
     (root / "pkg" / "deep.py").unlink()
     (root / "pkg").rmdir()
     rows = try_land(root, before, ws(root, **{"pkg/deep.py": "LIMIT = 9\n"}))
-    check("a nested key whose directory is gone is recreated, not skipped",
-          text(root, "pkg/deep.py") == "LIMIT = 9\n"
-          and rows == [("pkg/deep.py", 1, 1)], f"{rows}")
+    check(
+        "a nested key whose directory is gone is recreated, not skipped",
+        text(root, "pkg/deep.py") == "LIMIT = 9\n" and rows == [("pkg/deep.py", 1, 1)],
+        f"{rows}",
+    )
 
     root = new_tree()
     before = workspace_from_dir(root)
     snap = snapshot(root)
     escaped = {"money.py": MONEY_FIXED, "../evil.py": "import os\n"}
     err = try_land(root, before, escaped)
-    check("an address that resolves outside the project root is refused by name, "
-          "never silently landed",
-          isinstance(err, str) and err.startswith("RAISED: LandError")
-          and "outside the project root" in err, str(err)[:160])
-    check("the whole set stays unwritten when one address in it is refused, so a "
-          "half-landed patch is never mistaken for the tree the oracle scored",
-          snapshot(root) == snap, "money.py landed before the refusal")
+    check(
+        "an address that resolves outside the project root is refused by name, "
+        "never silently landed",
+        isinstance(err, str)
+        and err.startswith("RAISED: LandError")
+        and "outside the project root" in err,
+        str(err)[:160],
+    )
+    check(
+        "the whole set stays unwritten when one address in it is refused, so a "
+        "half-landed patch is never mistaken for the tree the oracle scored",
+        snapshot(root) == snap,
+        "money.py landed before the refusal",
+    )
 
     root = new_tree()
     before = workspace_from_dir(root)
-    rows = try_land(root, before, {"money.py": MONEY_FIXED,
-                                   "new.py": "X = 1\n"})
-    check("a key the listing never had is CREATED, not refused: R-7.15c gave the "
-          "patch arm a verb to found a file, and a write-back that refused it "
-          "would print a creation that never reached the tree",
-          rows == [("money.py", 1, 1), ("new.py", 1, 0)]
-          and text(root, "new.py") == "X = 1\n", f"{rows}")
+    rows = try_land(root, before, {"money.py": MONEY_FIXED, "new.py": "X = 1\n"})
+    check(
+        "a key the listing never had is CREATED, not refused: R-7.15c gave the "
+        "patch arm a verb to found a file, and a write-back that refused it "
+        "would print a creation that never reached the tree",
+        rows == [("money.py", 1, 1), ("new.py", 1, 0)]
+        and text(root, "new.py") == "X = 1\n",
+        f"{rows}",
+    )
     root = new_tree()
     rows = try_land(root, workspace_from_dir(root), {"brand.py": "a\nb\nc\n"})
-    check("a created file is counted against NOTHING, so its report is its whole "
-          "body and never a diff against a file that did not exist",
-          rows == [("brand.py", 3, 0)], f"{rows}")
+    check(
+        "a created file is counted against NOTHING, so its report is its whole "
+        "body and never a diff against a file that did not exist",
+        rows == [("brand.py", 3, 0)],
+        f"{rows}",
+    )
 
     root = new_tree()
     before = workspace_from_dir(root)
     snap = snapshot(root)
-    err = try_land(root, before, {"money.py": MONEY_FIXED,
-                                  "../new.py": "X = 1\n"})
-    check("a CREATED file is still bounded by the project root: founding a file "
-          "one directory up is the same string as founding one inside it, and the "
-          "escape guard runs before the create path",
-          isinstance(err, str) and err.startswith("RAISED: LandError")
-          and "outside the project root" in err
-          and not (root.parent / "new.py").exists(), str(err)[:160])
-    check("and the refusal holds the sibling back too, creation included",
-          snapshot(root) == snap, "money.py landed before the refusal")
+    err = try_land(root, before, {"money.py": MONEY_FIXED, "../new.py": "X = 1\n"})
+    check(
+        "a CREATED file is still bounded by the project root: founding a file "
+        "one directory up is the same string as founding one inside it, and the "
+        "escape guard runs before the create path",
+        isinstance(err, str)
+        and err.startswith("RAISED: LandError")
+        and "outside the project root" in err
+        and not (root.parent / "new.py").exists(),
+        str(err)[:160],
+    )
+    check(
+        "and the refusal holds the sibling back too, creation included",
+        snapshot(root) == snap,
+        "money.py landed before the refusal",
+    )
 
     root = new_tree()
     before = workspace_from_dir(root)
-    err = try_land(root, before, {"money.py": MONEY_FIXED,
-                                  "t.py": "assert True\n"}, ("t.py",))
-    check("the oracle cannot be FOUNDED either: it is in the listing so this is "
-          "the protection clause, and a new name for it escapes by path, not by "
-          "kind",
-          isinstance(err, str) and err.startswith("RAISED: LandError")
-          and "protected" in err, str(err)[:160])
+    err = try_land(
+        root, before, {"money.py": MONEY_FIXED, "t.py": "assert True\n"}, ("t.py",)
+    )
+    check(
+        "the oracle cannot be FOUNDED either: it is in the listing so this is "
+        "the protection clause, and a new name for it escapes by path, not by "
+        "kind",
+        isinstance(err, str)
+        and err.startswith("RAISED: LandError")
+        and "protected" in err,
+        str(err)[:160],
+    )
 
     root = new_tree()
     before = workspace_from_dir(root)
     snap = snapshot(root)
-    err = try_land(root, before, ws(root, **{"t.py": "assert True\n"}),
-                   ("t.py",))
-    check("a protected file the patch set changed is refused by name, because a "
-          "failure fixed by weakening an assertion is not a fix",
-          isinstance(err, str) and err.startswith("RAISED: LandError")
-          and "protected" in err, str(err)[:160])
-    check("a refusal that names a protected file writes nothing at all, including "
-          "the sibling it was happy with",
-          snapshot(root) == snap, "the tree moved")
+    err = try_land(root, before, ws(root, **{"t.py": "assert True\n"}), ("t.py",))
+    check(
+        "a protected file the patch set changed is refused by name, because a "
+        "failure fixed by weakening an assertion is not a fix",
+        isinstance(err, str)
+        and err.startswith("RAISED: LandError")
+        and "protected" in err,
+        str(err)[:160],
+    )
+    check(
+        "a refusal that names a protected file writes nothing at all, including "
+        "the sibling it was happy with",
+        snapshot(root) == snap,
+        "the tree moved",
+    )
 
     root = new_tree()
     before = workspace_from_dir(root)
-    rows = try_land(root, before, ws(root, **{"money.py": MONEY_FIXED}),
-                        ("t.py",))
-    check("a protected file the patch set left byte-identical is not refused, so "
-          "protection costs nothing on a clean patch",
-          rows == [("money.py", 1, 1)]
-          and text(root, "t.py") == ORACLE, f"{rows}")
+    rows = try_land(root, before, ws(root, **{"money.py": MONEY_FIXED}), ("t.py",))
+    check(
+        "a protected file the patch set left byte-identical is not refused, so "
+        "protection costs nothing on a clean patch",
+        rows == [("money.py", 1, 1)] and text(root, "t.py") == ORACLE,
+        f"{rows}",
+    )
 
     root = new_tree({"f.py": "a\nb\nc\n"})
     rows = try_land(root, {"f.py": "a\nb\nc\n"}, {"f.py": "a\nX\nY\nZ\nc\n"})
-    check("the line counts `land` reports are lines, not diff hunks — one hunk that "
-          "adds three is +3, and the CLI prints whatever this returns",
-          rows == [("f.py", 3, 1)], f"{rows}")
+    check(
+        "the line counts `land` reports are lines, not diff hunks — one hunk that "
+        "adds three is +3, and the CLI prints whatever this returns",
+        rows == [("f.py", 3, 1)],
+        f"{rows}",
+    )
 
     root = new_tree({"f.py": "a\nb\n"})
     rows = try_land(root, {"f.py": "a\nb\n"}, {"f.py": "a\nb"})
-    check("a difference in the trailing newline alone lands as a change of zero "
-          "lines, not a phantom deleted line",
-          text(root, "f.py") == "a\nb"
-          and rows == [("f.py", 0, 0)], f"{rows}")
+    check(
+        "a difference in the trailing newline alone lands as a change of zero "
+        "lines, not a phantom deleted line",
+        text(root, "f.py") == "a\nb" and rows == [("f.py", 0, 0)],
+        f"{rows}",
+    )
 
     root = new_tree()
     before = workspace_from_dir(root)
     snap = snapshot(root)
     rows = try_land(root, before, dict(before))
-    check("an identical workspace reports an empty list and rewrites nothing, so "
-          "the caller can say byte-identical instead of claiming a write",
-          rows == [] and snapshot(root) == snap, f"{rows}")
+    check(
+        "an identical workspace reports an empty list and rewrites nothing, so "
+        "the caller can say byte-identical instead of claiming a write",
+        rows == [] and snapshot(root) == snap,
+        f"{rows}",
+    )
 
     root = new_tree()
     before = workspace_from_dir(root)
     rows = try_land(root, before, ws(root, **{"money.py": MONEY_CREATED}))
-    check("a create — R-7.15b's `+Name`, whose workspace differs from the file on "
-          "disk by a PURE insertion — lands as +4 -0: four lines added, none "
-          "removed, which is not the sentence a no-op gets",
-          rows == [("money.py", 4, 0)] and text(root, "money.py") == MONEY_CREATED,
-          f"{rows} -> {text(root, 'money.py')!r}")
-    check("...and the definition that was already there is still the first thing "
-          "in the file, byte for byte, because a create rewrites nothing it was "
-          "not asked to touch",
-          text(root, "money.py").startswith(MONEY)
-          and text(root, "tax.py") == TAX and text(root, "t.py") == ORACLE,
-          text(root, "money.py")[:60])
+    check(
+        "a create — R-7.15b's `+Name`, whose workspace differs from the file on "
+        "disk by a PURE insertion — lands as +4 -0: four lines added, none "
+        "removed, which is not the sentence a no-op gets",
+        rows == [("money.py", 4, 0)] and text(root, "money.py") == MONEY_CREATED,
+        f"{rows} -> {text(root, 'money.py')!r}",
+    )
+    check(
+        "...and the definition that was already there is still the first thing "
+        "in the file, byte for byte, because a create rewrites nothing it was "
+        "not asked to touch",
+        text(root, "money.py").startswith(MONEY)
+        and text(root, "tax.py") == TAX
+        and text(root, "t.py") == ORACLE,
+        text(root, "money.py")[:60],
+    )
 
 
 def _edits_checks() -> None:
     root = new_tree()
     task = {"files": workspace_from_dir(root)}
     snap = snapshot(root)
-    rc, out = capture(cli._land_edits, args_for(root, False), task,
-                      result_for(ws(root, **{"money.py": MONEY_FIXED})))
-    check("without --apply a solved patch set prints NOT APPLIED, names the flag "
-          "that would land it, and still exits on its verdict",
-          rc == 0 and "NOT APPLIED" in out and "--apply" in out, out[:200])
+    rc, out = capture(
+        cli._land_edits,
+        args_for(root, False),
+        task,
+        result_for(ws(root, **{"money.py": MONEY_FIXED})),
+    )
+    check(
+        "without --apply a solved patch set prints NOT APPLIED, names the flag "
+        "that would land it, and still exits on its verdict",
+        rc == 0 and "NOT APPLIED" in out and "--apply" in out,
+        out[:200],
+    )
 
-    rc, out = capture(cli._land_edits, args_for(root, False), task,
-                      result_for(None, solved=False))
-    check("without --apply a failed run exits 1, and its sentence says nothing "
-          "passed the oracle rather than the one a green run gets",
-          rc == 1 and "nothing passed the oracle" in out
-          and "passed this patch set" not in out, out[:200])
+    rc, out = capture(
+        cli._land_edits, args_for(root, False), task, result_for(None, solved=False)
+    )
+    check(
+        "without --apply a failed run exits 1, and its sentence says nothing "
+        "passed the oracle rather than the one a green run gets",
+        rc == 1
+        and "nothing passed the oracle" in out
+        and "passed this patch set" not in out,
+        out[:200],
+    )
 
-    rc, out = capture(cli._land_edits, args_for(root, True), task,
-                      result_for(None, solved=False))
-    check("--apply on a run that never reached a workspace exits 1 and writes "
-          "nothing, because the flag is not a licence to guess",
-          rc == 1 and snapshot(root) == snap, f"rc={rc} {out[:120]}")
+    rc, out = capture(
+        cli._land_edits, args_for(root, True), task, result_for(None, solved=False)
+    )
+    check(
+        "--apply on a run that never reached a workspace exits 1 and writes "
+        "nothing, because the flag is not a licence to guess",
+        rc == 1 and snapshot(root) == snap,
+        f"rc={rc} {out[:120]}",
+    )
 
-    rc, out = capture(cli._land_edits, args_for(root, True), task,
-                      result_for(ws(root, **{"money.py": MONEY_FIXED})))
-    check("--apply writes the changed file and prints its path with the line "
-          "counts `land` reported",
-          rc == 0 and text(root, "money.py") == MONEY_FIXED
-          and "wrote money.py (+1 -1 lines)" in out, out[:200])
+    rc, out = capture(
+        cli._land_edits,
+        args_for(root, True),
+        task,
+        result_for(ws(root, **{"money.py": MONEY_FIXED})),
+    )
+    check(
+        "--apply writes the changed file and prints its path with the line "
+        "counts `land` reported",
+        rc == 0
+        and text(root, "money.py") == MONEY_FIXED
+        and "wrote money.py (+1 -1 lines)" in out,
+        out[:200],
+    )
 
     root = new_tree()
     task = {"files": workspace_from_dir(root)}
-    rc, out = capture(cli._land_edits, args_for(root, True), task,
-                      result_for(dict(workspace_from_dir(root))))
-    check("--apply on a byte-identical workspace says so instead of printing a "
-          "write that did not happen",
-          rc == 0 and "byte-identical" in out and "wrote money" not in out,
-          out[:200])
+    rc, out = capture(
+        cli._land_edits,
+        args_for(root, True),
+        task,
+        result_for(dict(workspace_from_dir(root))),
+    )
+    check(
+        "--apply on a byte-identical workspace says so instead of printing a "
+        "write that did not happen",
+        rc == 0 and "byte-identical" in out and "wrote money" not in out,
+        out[:200],
+    )
 
     root = new_tree()
     task = {"files": workspace_from_dir(root)}
     snap = snapshot(root)
-    rc, out = capture(cli._land_edits, args_for(root, True), task,
-                      result_for(ws(root, **{"money.py": MONEY_FIXED,
-                                             "../escape.py": "x = 1\n"})))
-    check("when `land` refuses, --apply exits 1 and prints REFUSED with the reason, "
-          "so a failed write-back is not the same verdict as a successful one",
-          rc == 1 and "REFUSED" in out and "outside the project root" in out
-          and snapshot(root) == snap, f"rc={rc} {out[:160]}")
+    rc, out = capture(
+        cli._land_edits,
+        args_for(root, True),
+        task,
+        result_for(ws(root, **{"money.py": MONEY_FIXED, "../escape.py": "x = 1\n"})),
+    )
+    check(
+        "when `land` refuses, --apply exits 1 and prints REFUSED with the reason, "
+        "so a failed write-back is not the same verdict as a successful one",
+        rc == 1
+        and "REFUSED" in out
+        and "outside the project root" in out
+        and snapshot(root) == snap,
+        f"rc={rc} {out[:160]}",
+    )
 
     root = new_tree()
     task = {"files": workspace_from_dir(root)}
     snap = snapshot(root)
-    rc, out = capture(cli._land_edits, args_for(root, True), task,
-                      result_for(ws(root, **{"t.py": "assert True\n",
-                                             "money.py": MONEY_FIXED})))
-    check("an oracle that lives inside --context is protected: a patch set that "
-          "repaired the failure by editing the assertion is refused, the sibling "
-          "edit and all",
-          rc == 1 and "REFUSED" in out and "t.py" in out and snapshot(root) == snap,
-          f"rc={rc} {out[:160]}")
+    rc, out = capture(
+        cli._land_edits,
+        args_for(root, True),
+        task,
+        result_for(ws(root, **{"t.py": "assert True\n", "money.py": MONEY_FIXED})),
+    )
+    check(
+        "an oracle that lives inside --context is protected: a patch set that "
+        "repaired the failure by editing the assertion is refused, the sibling "
+        "edit and all",
+        rc == 1 and "REFUSED" in out and "t.py" in out and snapshot(root) == snap,
+        f"rc={rc} {out[:160]}",
+    )
 
     root = new_tree()
     outside = new_tree({"t.py": ORACLE})
     task = {"files": workspace_from_dir(root)}
-    rc, out = capture(cli._land_edits, args_for(root, True,
-                                                test=str(outside / "t.py")),
-                      task, result_for(ws(root, **{"money.py": MONEY_FIXED})))
-    check("protection is scoped to the oracle rather than the tree: a test kept "
-          "outside --context leaves a real patch free to land",
-          rc == 0 and text(root, "money.py") == MONEY_FIXED,
-          f"rc={rc} {out[:160]}")
+    rc, out = capture(
+        cli._land_edits,
+        args_for(root, True, test=str(outside / "t.py")),
+        task,
+        result_for(ws(root, **{"money.py": MONEY_FIXED})),
+    )
+    check(
+        "protection is scoped to the oracle rather than the tree: a test kept "
+        "outside --context leaves a real patch free to land",
+        rc == 0 and text(root, "money.py") == MONEY_FIXED,
+        f"rc={rc} {out[:160]}",
+    )
 
     root = new_tree()
-    check("_rel_to gives the oracle the same key form the workspace uses, however "
-          "the path was spelled — an absolute path, a ./ step and a package "
-          "subdirectory all resolve back to one name",
-          cli._rel_to(str(root / "t.py"), str(root)) == "t.py"
-          and cli._rel_to(str(root / "./t.py"), str(root)) == "t.py"
-          and cli._rel_to(str(root / "pkg" / ".." / "t.py"), str(root)) == "t.py",
-          f"{cli._rel_to(str(root / './t.py'), str(root))!r}")
+    check(
+        "_rel_to gives the oracle the same key form the workspace uses, however "
+        "the path was spelled — an absolute path, a ./ step and a package "
+        "subdirectory all resolve back to one name",
+        cli._rel_to(str(root / "t.py"), str(root)) == "t.py"
+        and cli._rel_to(str(root / "./t.py"), str(root)) == "t.py"
+        and cli._rel_to(str(root / "pkg" / ".." / "t.py"), str(root)) == "t.py",
+        f"{cli._rel_to(str(root / './t.py'), str(root))!r}",
+    )
 
     cwd = Path.cwd()
     try:
@@ -611,19 +783,25 @@ def _edits_checks() -> None:
         spelled = cli._rel_to("t.py", ".")
     finally:
         os.chdir(cwd)
-    check("the spelling a person actually types — `--test t.py --context .` from "
-          "inside the project — produces the workspace's key, so the oracle is "
-          "protected in the demo as much as in the tree",
-          spelled == "t.py", repr(spelled))
+    check(
+        "the spelling a person actually types — `--test t.py --context .` from "
+        "inside the project — produces the workspace's key, so the oracle is "
+        "protected in the demo as much as in the tree",
+        spelled == "t.py",
+        repr(spelled),
+    )
 
-    check("_rel_to leaves a path outside the tree alone, so it can never name a "
-          "protected key by accident and disarm the guard it was answering",
-          cli._rel_to(str(root.parent / "elsewhere.py"), str(root))
-          == str(root.parent / "elsewhere.py"),
-          cli._rel_to(str(root.parent / "elsewhere.py"), str(root)))
+    check(
+        "_rel_to leaves a path outside the tree alone, so it can never name a "
+        "protected key by accident and disarm the guard it was answering",
+        cli._rel_to(str(root.parent / "elsewhere.py"), str(root))
+        == str(root.parent / "elsewhere.py"),
+        cli._rel_to(str(root.parent / "elsewhere.py"), str(root)),
+    )
 
 
 # ---------------------------------------------------------------- the command
+
 
 def drive(argv: list[str], workspace: dict | None = None, solved: bool = True):
     """The real parser and the real `cmd_run`, in this process, with the router
@@ -648,7 +826,11 @@ def drive(argv: list[str], workspace: dict | None = None, solved: bool = True):
         # composition changes what the check reads rather than what it expects.
         enriched = loop.enrich_task(task, root, kw.get("max_chars", 4000))
         SEEN["prompt"] = enriched["prompt"]
-        edited_msg = patches.edit_prompt(enriched) if enriched.get("edit") else enriched["prompt"]
+        edited_msg = (
+            patches.edit_prompt(enriched)
+            if enriched.get("edit")
+            else enriched["prompt"]
+        )
         SEEN["message"] = edited_msg
         r = result_for(None, solved)
         if workspace is not None and task.get("files"):
@@ -695,111 +877,222 @@ def _cli_checks() -> None:
     before = sorted(p.name for p in tdir.glob("*.jsonl")) if tdir.is_dir() else []
 
     a = parsed(["run", "p", "--test", "t.py"])
-    check("--apply is a flag on `run` and defaults to off, so writing to someone's "
-          "project is never what a first command does",
-          getattr(a, "apply", None) is False, repr(getattr(a, "apply", None)))
+    check(
+        "--apply is a flag on `run` and defaults to off, so writing to someone's "
+        "project is never what a first command does",
+        getattr(a, "apply", None) is False,
+        repr(getattr(a, "apply", None)),
+    )
     a = parsed(["run", "p", "--test", "t.py", "--edit", "--context", ".", "--apply"])
-    check("--apply parses together with --edit and --context, the three flags that "
-          "make a write-back meaningful",
-          getattr(a, "apply", None) is True and a.edit is True and a.context == ".",
-          repr(a)[:200])
-    check("--apply is not accepted by `run-suite` or `resume`, where there is no "
-          "single tree to land and a flag that silently does nothing is worse than "
-          "one that does not exist",
-          "unrecognized arguments: --apply" in rejects(["run-suite", "--apply"])
-          and "unrecognized arguments: --apply" in rejects(["resume", "--apply"]),
-          rejects(["run-suite", "--apply"])[:120])
+    check(
+        "--apply parses together with --edit and --context, the three flags that "
+        "make a write-back meaningful",
+        getattr(a, "apply", None) is True and a.edit is True and a.context == ".",
+        repr(a)[:200],
+    )
+    check(
+        "--apply is not accepted by `run-suite` or `resume`, where there is no "
+        "single tree to land and a flag that silently does nothing is worse than "
+        "one that does not exist",
+        "unrecognized arguments: --apply" in rejects(["run-suite", "--apply"])
+        and "unrecognized arguments: --apply" in rejects(["resume", "--apply"]),
+        rejects(["run-suite", "--apply"])[:120],
+    )
 
     root = new_tree()
-    rc, out, reached = drive(["run", "zero-pad the cents", "--test",
-                              str(root / "t.py"), "--apply"],
-                             workspace={"money.py": MONEY_FIXED})
-    check("--apply without --edit is refused before anything is routed: with no "
-          "patch arm there is no verified workspace, and the flag would be a "
-          "promise the command cannot keep",
-          rc == 2 and not reached and "--apply needs --edit" in out
-          and text(root, "money.py") == MONEY,
-          f"rc={rc} reached={reached} {out[:160]}")
+    rc, out, reached = drive(
+        ["run", "zero-pad the cents", "--test", str(root / "t.py"), "--apply"],
+        workspace={"money.py": MONEY_FIXED},
+    )
+    check(
+        "--apply without --edit is refused before anything is routed: with no "
+        "patch arm there is no verified workspace, and the flag would be a "
+        "promise the command cannot keep",
+        rc == 2
+        and not reached
+        and "--apply needs --edit" in out
+        and text(root, "money.py") == MONEY,
+        f"rc={rc} reached={reached} {out[:160]}",
+    )
 
     root = new_tree()
-    rc, out, reached = drive(["run", "zero-pad the cents", "--test", str(root / "t.py"),
-                              "--context", str(root), "--edit", "--apply"],
-                             workspace={"money.py": MONEY_FIXED})
-    check("flash run --edit --context <tree> --apply lands the oracle-passing patch "
-          "set on the tree it read, and prints the path with its line counts",
-          rc == 0 and reached and text(root, "money.py")
-          == MONEY_FIXED and "wrote money.py (+1 -1 lines)" in out, out[:200])
-    check("the command that landed a patch left its sibling, its package module and "
-          "its oracle exactly as it found them",
-          text(root, "tax.py") == TAX
-          and text(root, "t.py") == ORACLE
-          and text(root, "pkg/deep.py") == DEEP,
-          "the tree moved outside the symbol")
+    rc, out, reached = drive(
+        [
+            "run",
+            "zero-pad the cents",
+            "--test",
+            str(root / "t.py"),
+            "--context",
+            str(root),
+            "--edit",
+            "--apply",
+        ],
+        workspace={"money.py": MONEY_FIXED},
+    )
+    check(
+        "flash run --edit --context <tree> --apply lands the oracle-passing patch "
+        "set on the tree it read, and prints the path with its line counts",
+        rc == 0
+        and reached
+        and text(root, "money.py") == MONEY_FIXED
+        and "wrote money.py (+1 -1 lines)" in out,
+        out[:200],
+    )
+    check(
+        "the command that landed a patch left its sibling, its package module and "
+        "its oracle exactly as it found them",
+        text(root, "tax.py") == TAX
+        and text(root, "t.py") == ORACLE
+        and text(root, "pkg/deep.py") == DEEP,
+        "the tree moved outside the symbol",
+    )
 
     root = new_tree()
-    rc, out, _ = drive(["run", "zero-pad the cents", "--test", str(root / "t.py"),
-                        "--context", str(root), "--edit", "--apply"],
-                       workspace={"money.py": MONEY_CREATED})
-    check("through the real command a landed create prints the lines it ADDED and "
-          "none removed, and the file on disk defines what the address asked for — "
-          "the half of the pair that a session's `refused=1` line is read against",
-          rc == 0 and "wrote money.py (+4 -0 lines)" in out
-          and text(root, "money.py") == MONEY_CREATED, f"rc={rc} {out[:200]}")
+    rc, out, _ = drive(
+        [
+            "run",
+            "zero-pad the cents",
+            "--test",
+            str(root / "t.py"),
+            "--context",
+            str(root),
+            "--edit",
+            "--apply",
+        ],
+        workspace={"money.py": MONEY_CREATED},
+    )
+    check(
+        "through the real command a landed create prints the lines it ADDED and "
+        "none removed, and the file on disk defines what the address asked for — "
+        "the half of the pair that a session's `refused=1` line is read against",
+        rc == 0
+        and "wrote money.py (+4 -0 lines)" in out
+        and text(root, "money.py") == MONEY_CREATED,
+        f"rc={rc} {out[:200]}",
+    )
 
     root = new_tree()
     snap = snapshot(root)
-    rc, out, _ = drive(["run", "zero-pad the cents", "--test", str(root / "t.py"),
-                        "--context", str(root), "--edit"],
-                       workspace={"money.py": MONEY_FIXED})
-    check("the same command without --apply leaves the tree byte-identical, exits "
-          "on its verdict, and says NOT APPLIED over the verdict line",
-          rc == 0 and snapshot(root) == snap and "NOT APPLIED" in out, out[:200])
+    rc, out, _ = drive(
+        [
+            "run",
+            "zero-pad the cents",
+            "--test",
+            str(root / "t.py"),
+            "--context",
+            str(root),
+            "--edit",
+        ],
+        workspace={"money.py": MONEY_FIXED},
+    )
+    check(
+        "the same command without --apply leaves the tree byte-identical, exits "
+        "on its verdict, and says NOT APPLIED over the verdict line",
+        rc == 0 and snapshot(root) == snap and "NOT APPLIED" in out,
+        out[:200],
+    )
 
     root = new_tree()
     snap = snapshot(root)
-    rc, out, _ = drive(["run", "zero-pad the cents", "--test", str(root / "t.py"),
-                        "--context", str(root), "--edit", "--apply"],
-                       workspace={"t.py": "assert True\n",
-                                  "money.py": MONEY_FIXED})
-    check("through the real command, a patch set that edited the oracle inside "
-          "--context comes back REFUSED with a nonzero code and a tree nobody "
-          "has to audit",
-          rc == 1 and "REFUSED" in out and snapshot(root) == snap, out[:200])
+    rc, out, _ = drive(
+        [
+            "run",
+            "zero-pad the cents",
+            "--test",
+            str(root / "t.py"),
+            "--context",
+            str(root),
+            "--edit",
+            "--apply",
+        ],
+        workspace={"t.py": "assert True\n", "money.py": MONEY_FIXED},
+    )
+    check(
+        "through the real command, a patch set that edited the oracle inside "
+        "--context comes back REFUSED with a nonzero code and a tree nobody "
+        "has to audit",
+        rc == 1 and "REFUSED" in out and snapshot(root) == snap,
+        out[:200],
+    )
 
     root = new_tree()
-    rc, out, _ = drive(["run", "zero-pad the cents", "--test", str(root / "t.py"),
-                        "--context", str(root), "--edit", "--apply"],
-                       workspace=None, solved=False)
-    check("--apply after a run that did not solve exits nonzero and writes nothing, "
-          "so the flag never turns a failure into a partial edit",
-          rc == 1 and "wrote nothing" in out
-          and text(root, "money.py") == MONEY, out[:200])
+    rc, out, _ = drive(
+        [
+            "run",
+            "zero-pad the cents",
+            "--test",
+            str(root / "t.py"),
+            "--context",
+            str(root),
+            "--edit",
+            "--apply",
+        ],
+        workspace=None,
+        solved=False,
+    )
+    check(
+        "--apply after a run that did not solve exits nonzero and writes nothing, "
+        "so the flag never turns a failure into a partial edit",
+        rc == 1 and "wrote nothing" in out and text(root, "money.py") == MONEY,
+        out[:200],
+    )
 
     # R-7.15e: the refusal only exists if the arm is TOLD. Both halves are gated
     # here — the key the command computes, and the key it puts on the task.
     root = new_tree()
-    a = parsed(["run", "zero-pad the cents", "--test", str(root / "t.py"),
-                "--context", str(root), "--edit"])
+    a = parsed(
+        [
+            "run",
+            "zero-pad the cents",
+            "--test",
+            str(root / "t.py"),
+            "--context",
+            str(root),
+            "--edit",
+        ]
+    )
     keyed = cli._oracle_key(a, {"files": workspace_from_dir(root)})
     outside = new_tree({"t.py": ORACLE})
-    a2 = parsed(["run", "zero-pad the cents", "--test", str(outside / "t.py"),
-                 "--context", str(root), "--edit"])
-    check("the command's own key for the oracle is the workspace's key, and a test "
-          "kept outside --context names no key at all, which is what leaves the "
-          "published suite's patches free to address their own test file",
-          keyed == "t.py"
-          and cli._oracle_key(a2, {"files": workspace_from_dir(root)}) == "",
-          repr(keyed))
+    a2 = parsed(
+        [
+            "run",
+            "zero-pad the cents",
+            "--test",
+            str(outside / "t.py"),
+            "--context",
+            str(root),
+            "--edit",
+        ]
+    )
+    check(
+        "the command's own key for the oracle is the workspace's key, and a test "
+        "kept outside --context names no key at all, which is what leaves the "
+        "published suite's patches free to address their own test file",
+        keyed == "t.py"
+        and cli._oracle_key(a2, {"files": workspace_from_dir(root)}) == "",
+        repr(keyed),
+    )
     SEEN.clear()
     root = new_tree()
-    drive(["run", "zero-pad the cents", "--test", str(root / "t.py"),
-           "--context", str(root), "--edit"],
-          workspace={"money.py": MONEY_FIXED})
-    check("the command hands the arm the oracle's workspace key on the task, so the "
-          "patch layer can refuse it without re-deriving a path it was never given",
-          SEEN.get("task", {}).get("test_path") == "t.py"
-          and SEEN["task"]["files"].get("t.py") == ORACLE,
-          f"{SEEN.get('task', {}).get('test_path')!r}")
+    drive(
+        [
+            "run",
+            "zero-pad the cents",
+            "--test",
+            str(root / "t.py"),
+            "--context",
+            str(root),
+            "--edit",
+        ],
+        workspace={"money.py": MONEY_FIXED},
+    )
+    check(
+        "the command hands the arm the oracle's workspace key on the task, so the "
+        "patch layer can refuse it without re-deriving a path it was never given",
+        SEEN.get("task", {}).get("test_path") == "t.py"
+        and SEEN["task"]["files"].get("t.py") == ORACLE,
+        f"{SEEN.get('task', {}).get('test_path')!r}",
+    )
 
     # R-7.15f: the message the command actually puts in front of the model. This
     # was the accuracy hole — `run --edit` read the tree into `task["files"]` and
@@ -807,41 +1100,74 @@ def _cli_checks() -> None:
     # been shown. These read the composed message, not the task, because the task
     # was already full and the model still never saw it.
     root = new_tree()
-    drive(["run", "zero-pad the cents", "--test", str(root / "t.py"),
-           "--context", str(root), "--edit"],
-          workspace={"money.py": MONEY_FIXED})
+    drive(
+        [
+            "run",
+            "zero-pad the cents",
+            "--test",
+            str(root / "t.py"),
+            "--context",
+            str(root),
+            "--edit",
+        ],
+        workspace={"money.py": MONEY_FIXED},
+    )
     msg, keys = SEEN["message"], sorted(SEEN["task"]["files"])
-    check("the message `flash run --edit` sends names every file of the tree it "
-          "read as an addressable `# file:` block — a patch refused for a file the "
-          "model was never shown is a refusal about the harness, not the code",
-          all(f"# file: {k}" in msg for k in keys), f"{len(msg)} chars, {keys}")
-    check("...and it carries the real body of the symbol the ask names, not an "
-          "outline of it: the protocol makes the model re-type the complete "
-          "definition, so a signature list cannot produce one",
-          "def cents(n):" in msg and 'return f"${n // 100}.{n % 100}"' in msg,
-          msg[:200])
-    check("the typed ask survives verbatim under `Requested change:`, so the "
-          "project block and the request are one message without either overwriting "
-          "the other",
-          "Requested change: zero-pad the cents" in msg
-          and msg.count("Requested change:") == 1,
-          f"{msg[-400:]!r}")
-    check("the oracle's assertions are in the same message, which is the only way "
-          "'exactly as t.py asserts' can be honoured — and the reason R-7.15e's "
-          "refusal has a file to point at",
-          "The test that must pass afterwards:" in msg
-          and 'assert cents(5) == "$0.05"' in msg, msg[-300:])
-    check("composing is idempotent, because the suite's stored tasks already ship "
-          "this block: a second `enrich_task` on a composed prompt returns it "
-          "byte-identical rather than nesting the project inside itself",
-          loop.enrich_task({"id": "twice", "prompt": SEEN["prompt"], "edit": True,
-                            "files": SEEN["task"]["files"]}, ROOT, 4000)["prompt"]
-          == SEEN["prompt"], f"{SEEN['prompt'].count(patches.PROJECT_HEADER)} headers")
+    check(
+        "the message `flash run --edit` sends names every file of the tree it "
+        "read as an addressable `# file:` block — a patch refused for a file the "
+        "model was never shown is a refusal about the harness, not the code",
+        all(f"# file: {k}" in msg for k in keys),
+        f"{len(msg)} chars, {keys}",
+    )
+    check(
+        "...and it carries the real body of the symbol the ask names, not an "
+        "outline of it: the protocol makes the model re-type the complete "
+        "definition, so a signature list cannot produce one",
+        "def cents(n):" in msg and 'return f"${n // 100}.{n % 100}"' in msg,
+        msg[:200],
+    )
+    check(
+        "the typed ask survives verbatim under `Requested change:`, so the "
+        "project block and the request are one message without either overwriting "
+        "the other",
+        "Requested change: zero-pad the cents" in msg
+        and msg.count("Requested change:") == 1,
+        f"{msg[-400:]!r}",
+    )
+    check(
+        "the oracle's assertions are in the same message, which is the only way "
+        "'exactly as t.py asserts' can be honoured — and the reason R-7.15e's "
+        "refusal has a file to point at",
+        "The test that must pass afterwards:" in msg
+        and 'assert cents(5) == "$0.05"' in msg,
+        msg[-300:],
+    )
+    check(
+        "composing is idempotent, because the suite's stored tasks already ship "
+        "this block: a second `enrich_task` on a composed prompt returns it "
+        "byte-identical rather than nesting the project inside itself",
+        loop.enrich_task(
+            {
+                "id": "twice",
+                "prompt": SEEN["prompt"],
+                "edit": True,
+                "files": SEEN["task"]["files"],
+            },
+            ROOT,
+            4000,
+        )["prompt"]
+        == SEEN["prompt"],
+        f"{SEEN['prompt'].count(patches.PROJECT_HEADER)} headers",
+    )
 
     after = sorted(p.name for p in tdir.glob("*.jsonl")) if tdir.is_dir() else []
-    check("every command this vector drove left its session in the trace store it "
-          "was given, so a check run adds nothing to the repository's record",
-          after == before, f"{len(after) - len(before)} new session(s)")
+    check(
+        "every command this vector drove left its session in the trace store it "
+        "was given, so a check run adds nothing to the repository's record",
+        after == before,
+        f"{len(after) - len(before)} new session(s)",
+    )
 
 
 def _arm_message(task: dict, out: str, edit: bool) -> str:
@@ -882,163 +1208,243 @@ def _solve(task: dict, outs: list[str]) -> loop.SolveResult:
 def _loop_checks() -> None:
     root = new_tree()
     snap = snapshot(root)
-    task = {"id": "landing-loop", "prompt": "zero-pad the cents in money.py",
-            "test": ORACLE, "edit": True, "multi": True,
-            "files": workspace_from_dir(root)}
+    task = {
+        "id": "landing-loop",
+        "prompt": "zero-pad the cents in money.py",
+        "test": ORACLE,
+        "edit": True,
+        "multi": True,
+        "files": workspace_from_dir(root),
+    }
     r = outcome(lambda: _solve(task, [PATCH]))
-    check("the patch arm hands the accepted workspace back on SolveResult, so the "
-          "CLI can tell an edit that passed the oracle from an edit that is on "
-          "disk",
-          not isinstance(r, str) and r.solved and isinstance(r.workspace, dict)
-          and r.workspace["money.py"].strip() == MONEY_FIXED.strip()
-          and r.workspace["t.py"] == ORACLE, str(r)[:200])
-    check("the patch arm writes nothing itself: a verified workspace stays a "
-          "proposal until the command is given --apply",
-          not isinstance(r, str) and snapshot(root) == snap,
-          "the arm edited the tree underneath the CLI")
+    check(
+        "the patch arm hands the accepted workspace back on SolveResult, so the "
+        "CLI can tell an edit that passed the oracle from an edit that is on "
+        "disk",
+        not isinstance(r, str)
+        and r.solved
+        and isinstance(r.workspace, dict)
+        and r.workspace["money.py"].strip() == MONEY_FIXED.strip()
+        and r.workspace["t.py"] == ORACLE,
+        str(r)[:200],
+    )
+    check(
+        "the patch arm writes nothing itself: a verified workspace stays a "
+        "proposal until the command is given --apply",
+        not isinstance(r, str) and snapshot(root) == snap,
+        "the arm edited the tree underneath the CLI",
+    )
 
     root = new_tree()
     task = dict(task, files=workspace_from_dir(root))
-    refused = ("# edit: money.py :: cents_that_never_was\n```python\n"
-               "def cents_that_never_was():\n    return 1\n```\n")
+    refused = (
+        "# edit: money.py :: cents_that_never_was\n```python\n"
+        "def cents_that_never_was():\n    return 1\n```\n"
+    )
     r2 = outcome(lambda: _solve(task, [refused]))
-    check("an arm that never passed the oracle hands back no workspace, so --apply "
-          "has nothing to land and says so rather than writing the last proposal",
-          not isinstance(r2, str) and not r2.solved and r2.workspace is None,
-          str(r2)[:200])
+    check(
+        "an arm that never passed the oracle hands back no workspace, so --apply "
+        "has nothing to land and says so rather than writing the last proposal",
+        not isinstance(r2, str) and not r2.solved and r2.workspace is None,
+        str(r2)[:200],
+    )
 
     # R-7.15b's verb, driven through the arm that has to accept it: the oracle
     # below can only pass a file that did not exist before the patch.
     root = new_tree()
     snap = snapshot(root)
-    ct = {"id": "create-arm", "prompt": "add k_to_c to money.py",
-          "test": CREATE_TEST, "edit": True, "multi": True,
-          "files": workspace_from_dir(root)}
+    ct = {
+        "id": "create-arm",
+        "prompt": "add k_to_c to money.py",
+        "test": CREATE_TEST,
+        "edit": True,
+        "multi": True,
+        "files": workspace_from_dir(root),
+    }
     r3 = outcome(lambda: _solve(ct, [CREATE_PATCH]))
     arm_snap = snapshot(root)
     rows3 = [] if isinstance(r3, str) else try_land(root, ct["files"], r3.workspace)
-    check("create: the arm ACCEPTS `+k_to_c`, passes an oracle only the new "
-          "definition can satisfy, and hands the grown file back as the workspace",
-          not isinstance(r3, str) and r3.solved and isinstance(r3.workspace, dict)
-          and r3.workspace["money.py"] == MONEY_CREATED, str(r3)[:200])
-    check("create: ...and once --apply is given, that workspace is on disk with "
-          "the old definition first and the new one last at +4 -0 — the position "
-          "the AST chose, not one the model typed",
-          not isinstance(r3, str) and text(root, "money.py") == MONEY_CREATED
-          and rows3 == [("money.py", 4, 0)], f"{rows3} {text(root, 'money.py')!r}")
-    check("create: the arm itself wrote nothing, even for a verb that only adds, "
-          "so the tree a create passed on in memory is still the tree it was read "
-          "from until --apply says otherwise",
-          arm_snap == snap and text(root, "t.py") == ORACLE
-          and text(root, "tax.py") == TAX, "the create moved a file it never named")
+    check(
+        "create: the arm ACCEPTS `+k_to_c`, passes an oracle only the new "
+        "definition can satisfy, and hands the grown file back as the workspace",
+        not isinstance(r3, str)
+        and r3.solved
+        and isinstance(r3.workspace, dict)
+        and r3.workspace["money.py"] == MONEY_CREATED,
+        str(r3)[:200],
+    )
+    check(
+        "create: ...and once --apply is given, that workspace is on disk with "
+        "the old definition first and the new one last at +4 -0 — the position "
+        "the AST chose, not one the model typed",
+        not isinstance(r3, str)
+        and text(root, "money.py") == MONEY_CREATED
+        and rows3 == [("money.py", 4, 0)],
+        f"{rows3} {text(root, 'money.py')!r}",
+    )
+    check(
+        "create: the arm itself wrote nothing, even for a verb that only adds, "
+        "so the tree a create passed on in memory is still the tree it was read "
+        "from until --apply says otherwise",
+        arm_snap == snap
+        and text(root, "t.py") == ORACLE
+        and text(root, "tax.py") == TAX,
+        "the create moved a file it never named",
+    )
 
     root = new_tree()
     snap = snapshot(root)
     ct2 = dict(ct, files=workspace_from_dir(root))
     r4 = outcome(lambda: _solve(ct2, [CREATE_CLASH]))
-    check("create: a create the arm REFUSES — the name is already there, so the "
-          "address duplicates a definition — hands back no workspace and leaves "
-          "the tree byte-identical, which is the state a session's `refused=1` "
-          "line is read against",
-          not isinstance(r4, str) and not r4.solved and r4.workspace is None
-          and snapshot(root) == snap, f"{str(r4)[:140]}")
-    check("create: ...and the refusal the model gets back on its next attempt "
-          "carries the remedy, because `+cents` is one character away from the "
-          "form that would have worked",
-          not isinstance(r4, str) and r4.attempts
-          and "already exists" in r4.attempts[-1].err
-          and "without the '+'" in r4.attempts[-1].err,
-          f"{str(r4.attempts[-1].err)[:160] if r4.attempts else str(r4)[:140]}")
+    check(
+        "create: a create the arm REFUSES — the name is already there, so the "
+        "address duplicates a definition — hands back no workspace and leaves "
+        "the tree byte-identical, which is the state a session's `refused=1` "
+        "line is read against",
+        not isinstance(r4, str)
+        and not r4.solved
+        and r4.workspace is None
+        and snapshot(root) == snap,
+        f"{str(r4)[:140]}",
+    )
+    check(
+        "create: ...and the refusal the model gets back on its next attempt "
+        "carries the remedy, because `+cents` is one character away from the "
+        "form that would have worked",
+        not isinstance(r4, str)
+        and r4.attempts
+        and "already exists" in r4.attempts[-1].err
+        and "without the '+'" in r4.attempts[-1].err,
+        f"{str(r4.attempts[-1].err)[:160] if r4.attempts else str(r4)[:140]}",
+    )
 
     # R-7.15e: the arm is now TOLD which key the run scores against. The oracle
     # below has a definition in it, so an address aimed at it resolves and would
     # apply — which is exactly the shape that lets "make the test pass" be
     # answered by editing the test, and the reason the gate is on the file's name
     # rather than on what the address happens to trip.
-    oracle_fn = ('import sys\nsys.path.insert(0, "<TMPDIR>")\n'
-                 'from money import cents\n'
-                 'def check_it():\n    return cents(5)\n\n'
-                 'assert check_it() == "$0.05"\n')
-    to_oracle = ("# edit: t.py :: check_it\n```python\n"
-                 "def check_it():\n    pass\n```\n")
+    oracle_fn = (
+        'import sys\nsys.path.insert(0, "<TMPDIR>")\n'
+        "from money import cents\n"
+        "def check_it():\n    return cents(5)\n\n"
+        'assert check_it() == "$0.05"\n'
+    )
+    to_oracle = "# edit: t.py :: check_it\n```python\ndef check_it():\n    pass\n```\n"
     root = new_tree({**FILES, "t.py": oracle_fn})
     snap = snapshot(root)
-    kt = {"id": "oracle-arm", "prompt": "make t.py pass", "test": oracle_fn,
-          "edit": True, "multi": True, "files": workspace_from_dir(root),
-          "test_path": "t.py"}
+    kt = {
+        "id": "oracle-arm",
+        "prompt": "make t.py pass",
+        "test": oracle_fn,
+        "edit": True,
+        "multi": True,
+        "files": workspace_from_dir(root),
+        "test_path": "t.py",
+    }
     r5 = outcome(lambda: _solve(kt, [to_oracle]))
-    check("the arm refuses a patch aimed at the oracle it was handed, so the "
-          "attempt is over before the assertion it emptied is ever scored, the "
-          "workspace never carries a changed oracle forward, and the tree on disk "
-          "is the one the run read",
-          not isinstance(r5, str) and not r5.solved and r5.workspace is None
-          and r5.attempts and r5.attempts[-1].err.startswith("PATCH REFUSED")
-          and snapshot(root) == snap, f"{str(r5)[:200]}")
-    check("and the line the model reads next names the oracle rather than the line "
-          "count of its file, since R-7.15e's measured retry was chasing a "
-          "coordinate in a file it was never allowed to touch",
-          not isinstance(r5, str) and r5.attempts
-          and "is the oracle this run scores against" in r5.attempts[-1].err
-          and "past the end" not in r5.attempts[-1].err
-          and "no symbol" not in r5.attempts[-1].err,
-          f"{str(r5.attempts[-1].err)[:160] if r5.attempts else str(r5)[:160]}")
+    check(
+        "the arm refuses a patch aimed at the oracle it was handed, so the "
+        "attempt is over before the assertion it emptied is ever scored, the "
+        "workspace never carries a changed oracle forward, and the tree on disk "
+        "is the one the run read",
+        not isinstance(r5, str)
+        and not r5.solved
+        and r5.workspace is None
+        and r5.attempts
+        and r5.attempts[-1].err.startswith("PATCH REFUSED")
+        and snapshot(root) == snap,
+        f"{str(r5)[:200]}",
+    )
+    check(
+        "and the line the model reads next names the oracle rather than the line "
+        "count of its file, since R-7.15e's measured retry was chasing a "
+        "coordinate in a file it was never allowed to touch",
+        not isinstance(r5, str)
+        and r5.attempts
+        and "is the oracle this run scores against" in r5.attempts[-1].err
+        and "past the end" not in r5.attempts[-1].err
+        and "no symbol" not in r5.attempts[-1].err,
+        f"{str(r5.attempts[-1].err)[:160] if r5.attempts else str(r5)[:160]}",
+    )
 
     root = new_tree({**FILES, "t.py": oracle_fn})
     nt = {k: v for k, v in kt.items() if k != "test_path"}
     nt["files"] = workspace_from_dir(root)
     r6 = outcome(lambda: _solve(nt, [to_oracle]))
-    check("with no oracle key on the task the identical patch APPLIES and the "
-          "attempt is answered with a failing assert inside the oracle instead — "
-          "which is the proof that the refusal is the wiring, and the reason a "
-          "suite task that keeps its test outside the tree is untouched by this "
-          "clause",
-          not isinstance(r6, str) and not r6.solved and r6.attempts
-          and r6.attempts[-1].err.startswith("FAILING_ASSERT")
-          and "PATCH REFUSED" not in r6.attempts[-1].err,
-          f"{str(r6.attempts[-1].err)[:160] if r6.attempts else str(r6)[:160]}")
+    check(
+        "with no oracle key on the task the identical patch APPLIES and the "
+        "attempt is answered with a failing assert inside the oracle instead — "
+        "which is the proof that the refusal is the wiring, and the reason a "
+        "suite task that keeps its test outside the tree is untouched by this "
+        "clause",
+        not isinstance(r6, str)
+        and not r6.solved
+        and r6.attempts
+        and r6.attempts[-1].err.startswith("FAILING_ASSERT")
+        and "PATCH REFUSED" not in r6.attempts[-1].err,
+        f"{str(r6.attempts[-1].err)[:160] if r6.attempts else str(r6)[:160]}",
+    )
 
     # R-3.2 clause 1's comparability, re-read on the CLI's shape rather than on a
     # stored suite task. The A/B was booked as "same input, different answer
     # format"; until R-7.15f the CLI's edit arm had no input to compare, so the
     # claim was only ever true for the published tasks.
     root = new_tree()
-    raw = {"id": "comparability", "prompt": "zero-pad the cents", "test": ORACLE,
-           "edit": True, "multi": True, "files": workspace_from_dir(root)}
+    raw = {
+        "id": "comparability",
+        "prompt": "zero-pad the cents",
+        "test": ORACLE,
+        "edit": True,
+        "multi": True,
+        "files": workspace_from_dir(root),
+    }
     shown = loop.enrich_task(raw, ROOT, 4000)
     patch_msg = _arm_message(shown, PATCH, edit=True)
-    whole_msg = _arm_message(shown, f"# file: money.py\n```python\n{MONEY_FIXED}```\n",
-                             edit=False)
-    check("both arms are handed the project: the same `# file:` block and the same "
-          "oracle text reach the patch arm and the whole-file control, which is "
-          "what the R-3.2 A/B was promising on a tree read off disk",
-          all(f"# file: {k}" in patch_msg for k in raw["files"])
-          and all(f"# file: {k}" in whole_msg for k in raw["files"])
-          and "The test that must pass afterwards:" in patch_msg
-          and "The test that must pass afterwards:" in whole_msg,
-          f"patch={len(patch_msg)} whole={len(whole_msg)}")
-    check("...and the two messages are IDENTICAL up to the sentence that names the "
-          "answer format — a protocol comparison that let the prompt differ would "
-          "measure the prompt instead of the protocol",
-          patch_msg[:-len(patches.PROTOCOL)] == whole_msg[:-len(loop.WHOLE_FILE_PROTOCOL)],
-          f"{patch_msg[:80]!r} / {whole_msg[:80]!r}")
-    check("the ask is not what the arm is given: the composed message is larger "
-          "than the prompt it started from by more than the protocol's own tail, so "
-          "a regression that sends the bare ask cannot hide inside a passing count",
-          len(patch_msg) > len(raw["prompt"]) + len(patches.PROTOCOL) + 100,
-          f"{len(raw['prompt'])} -> {len(patch_msg)}")
+    whole_msg = _arm_message(
+        shown, f"# file: money.py\n```python\n{MONEY_FIXED}```\n", edit=False
+    )
+    check(
+        "both arms are handed the project: the same `# file:` block and the same "
+        "oracle text reach the patch arm and the whole-file control, which is "
+        "what the R-3.2 A/B was promising on a tree read off disk",
+        all(f"# file: {k}" in patch_msg for k in raw["files"])
+        and all(f"# file: {k}" in whole_msg for k in raw["files"])
+        and "The test that must pass afterwards:" in patch_msg
+        and "The test that must pass afterwards:" in whole_msg,
+        f"patch={len(patch_msg)} whole={len(whole_msg)}",
+    )
+    check(
+        "...and the two messages are IDENTICAL up to the sentence that names the "
+        "answer format — a protocol comparison that let the prompt differ would "
+        "measure the prompt instead of the protocol",
+        patch_msg[: -len(patches.PROTOCOL)]
+        == whole_msg[: -len(loop.WHOLE_FILE_PROTOCOL)],
+        f"{patch_msg[:80]!r} / {whole_msg[:80]!r}",
+    )
+    check(
+        "the ask is not what the arm is given: the composed message is larger "
+        "than the prompt it started from by more than the protocol's own tail, so "
+        "a regression that sends the bare ask cannot hide inside a passing count",
+        len(patch_msg) > len(raw["prompt"]) + len(patches.PROTOCOL) + 100,
+        f"{len(raw['prompt'])} -> {len(patch_msg)}",
+    )
 
 
 def _doc_checks() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     spec = (ROOT / "SPEC.md").read_text(encoding="utf-8")
-    check("--apply is in the README next to the --edit it belongs to, so nobody "
-          "learns the only safe way to write by reading source",
-          "--apply" in readme and "NOT APPLIED" in readme,
-          f"{readme.count('--apply')} mention(s) in README.md")
-    check("SPEC R-3.2 carries the clause this vector gates, including that writing "
-          "is opt-in and the state of the tree is always printed",
-          "--apply" in spec and "NOT APPLIED" in spec,
-          f"{spec.count('--apply')} mention(s) in SPEC.md")
+    check(
+        "--apply is in the README next to the --edit it belongs to, so nobody "
+        "learns the only safe way to write by reading source",
+        "--apply" in readme and "NOT APPLIED" in readme,
+        f"{readme.count('--apply')} mention(s) in README.md",
+    )
+    check(
+        "SPEC R-3.2 carries the clause this vector gates, including that writing "
+        "is opt-in and the state of the tree is always printed",
+        "--apply" in spec and "NOT APPLIED" in spec,
+        f"{spec.count('--apply')} mention(s) in SPEC.md",
+    )
 
 
 def run_checks() -> int:
@@ -1055,14 +1461,19 @@ def run_checks() -> int:
 def report() -> int:
     bad = run_checks()
     for name, ok, detail in CHECKS:
-        print(f"  {'OK  ' if ok else 'FAIL'} {name}"
-              + ("" if ok or not detail else f"\n      -> {detail}"))
-    print(f"\nR-3.2 clause 3, patch landing: {len(CHECKS) - bad}/{len(CHECKS)} "
-          f"checks passed")
+        print(
+            f"  {'OK  ' if ok else 'FAIL'} {name}"
+            + ("" if ok or not detail else f"\n      -> {detail}")
+        )
+    print(
+        f"\nR-3.2 clause 3, patch landing: {len(CHECKS) - bad}/{len(CHECKS)} "
+        f"checks passed"
+    )
     return 1 if bad else 0
 
 
 # ------------------------------------------------------------------- the mutants
+
 
 def mutants() -> list[tuple[str, object, object, str]]:
     """Each entry: a bug, where it goes back, and the check that must catch it."""
@@ -1087,8 +1498,11 @@ def mutants() -> list[tuple[str, object, object, str]]:
         p = _build()
         subs = p._subparsers._group_actions[0].choices
         for name in ("run-suite", "resume"):
-            subs[name].add_argument("--apply", action="store_true",
-                                   help="mutant: a flag that does nothing here")
+            subs[name].add_argument(
+                "--apply",
+                action="store_true",
+                help="mutant: a flag that does nothing here",
+            )
         return p
 
     def create_ignores_the_anchor(patch, src, defs):
@@ -1119,105 +1533,214 @@ def mutants() -> list[tuple[str, object, object, str]]:
         return _enrich(task, root, max_chars)
 
     return [
-        ("rewrites every file in the workspace, so an untouched sibling loses its "
-         "mtime and a whole tree looks like a change",
-         (P, "land"), land_copy(skip=False), "keeps its bytes *and* its mtime"),
-        ("lets an address escape the project root, where `# edit: ../../etc/hosts` "
-         "is one string away from a real one",
-         (P, "land"), land_copy(escape=False), "outside the project root is refused"),
-        ("refuses to write a file the listing never had, which is R-7.15c's create "
-         "verb arriving in memory and never reaching the tree: the session prints "
-         "the new module, the patch layer reports it applied, and the project on "
-         "disk still does not have it",
-         (P, "land"), land_copy(newfile=False),
-         "a key the listing never had is CREATED"),
-        ("ignores the protected list, so the patch set that weakened the assertion "
-         "is a fix after all",
-         (P, "land"), land_copy(protect=False), "protected file the patch set"),
-        ("refuses any protected key it sees, changed or not, so a patch on one "
-         "module can never land while its oracle sits in the tree",
-         (P, "land"), land_copy(protect_unchanged=True), "left byte-identical"),
-        ("writes as it validates, so one refused address leaves the rest of the "
-         "set on disk and the tree is no longer what passed",
-         (P, "land"), land_copy(atomic=False), "stays unwritten"),
-        ("skips the directory creation, so a nested key in a package that moved "
-         "raises instead of landing",
-         (P, "land"), land_copy(mkdir=False), "is recreated, not skipped"),
-        ("counts diff hunks and prints them as lines, which is how a one-hunk "
-         "rewrite of twenty lines arrives as +1 -1",
-         (P, "land"), land_copy(ops=True), "are lines, not diff hunks"),
-        ("splits on newlines, so a file's trailing empty element is reported as a "
-         "line that was deleted",
-         (P, "land"), land_copy(phantom=True), "trailing newline alone"),
-        ("reports the rows without writing them, so the command claims a change "
-         "the disk does not have",
-         (P, "land"), land_copy(write=False), "--apply writes the changed file"),
-        ("deletes whatever the listing stopped covering, turning a `limit` in a "
-         "workspace into missing source",
-         (P, "land"), land_copy(delete=True), "is left on disk"),
-        ("writes the pre-patch bytes back over the tree, so the file that changed "
-         "is the one that did not",
-         (P, "land"), land_copy(stale=True), "lands with the workspace's bytes"),
-        ("computes no protected key at all, so through the command an edited "
-         "oracle lands beside the fix",
-         (C, "_land_edits"), edits_copy(protect=False), "is refused, the sibling"),
-        ("protects the whole tree instead of the oracle, which refuses every real "
-         "patch and turns --apply into a no-op",
-         (C, "_land_edits"), edits_copy(protect_tree=True), "outside --context leaves"),
-        ("exits 0 on a refusal, so a write-back that wrote nothing reads as a "
-         "success to whatever scripted the command",
-         (C, "_land_edits"), edits_copy(refuse_rc=0), "prints REFUSED with the reason"),
-        ("calls an in-memory patch set APPLIED, which is the sentence that was the "
-         "bug this box exists for",
-         (C, "_land_edits"), edits_copy(honest=False), "prints NOT APPLIED"),
-        ("exits 0 for an unsolved run because it printed a verdict line anyway, so "
-         "a suite could adopt a failure",
-         (C, "_land_edits"), edits_copy(verdict_rc=False), "a failed run exits 1"),
-        ("stays silent when the workspace matches the tree, leaving the reader no "
-         "statement about which state the disk is in",
-         (C, "_land_edits"), edits_copy(say_noop=False), "says so instead of printing"),
-        ("never relativizes, so the oracle's key never matches the workspace's and "
-         "the guard disarms itself",
-         (C, "_rel_to"), never_relativizes, "however the path was spelled"),
-        ("accepts --apply without --edit and routes the task, so the flag promises "
-         "a write-back no arm can produce",
-         (C, "_apply_guard"), guard_shrugs, "without --edit is refused"),
-        ("hands back no workspace from the arm that solved, so --apply has nothing "
-         "to land and says the task was not solved",
-         (L, "_solve_edits"), forgets_workspace, "hands the accepted workspace back"),
-        ("puts --apply on `run-suite` and `resume`, where there is no single tree "
-         "to land and the flag would do nothing at all",
-         (C, "build_parser"), widens_apply, "not accepted by `run-suite`"),
-        ("writes the verified create onto the disk but prints `+0 -0` for it, so "
-         "the sentence for a landed insertion is the one a no-op gets",
-         (P, "land"), land_copy(insert_zero=True), "prints the lines it ADDED"),
-        ("takes a create's position from the patch instead of from the AST, so the "
-         "new definition lands above the ones that were already in the file",
-         (P, "_resolve_create"), create_ignores_the_anchor,
-         "old definition first and the new one last"),
-        ("never tells the patch layer which file the run scores against, so an "
-         "oracle patch is applied and scored rather than refused",
-         (P, "apply_patches"), untold, "refuses a patch aimed at the oracle"),
-        ("answers an oracle patch with a complaint about line numbers, which is "
-         "the sentence R-7.15e was opened for",
-         (P, "ORACLE_MSG"), "{} is past the end of a file this short",
-         "rather than the line count of its file"),
-        ("names no oracle key on the task, which disarms the patch layer and "
-         "`land`'s protection from one return value",
-         (C, "_oracle_key"), keyless,
-         "hands the arm the oracle's workspace key"),
-        ("returns an edit task with only its typed ask, which is the state "
-         "R-7.15f was filed for: the project was read off disk and never shown",
-         (L, "enrich_task"), blind,
-         "names every file of the tree it read"),
+        (
+            "rewrites every file in the workspace, so an untouched sibling loses its "
+            "mtime and a whole tree looks like a change",
+            (P, "land"),
+            land_copy(skip=False),
+            "keeps its bytes *and* its mtime",
+        ),
+        (
+            "lets an address escape the project root, where `# edit: ../../etc/hosts` "
+            "is one string away from a real one",
+            (P, "land"),
+            land_copy(escape=False),
+            "outside the project root is refused",
+        ),
+        (
+            "refuses to write a file the listing never had, which is R-7.15c's create "
+            "verb arriving in memory and never reaching the tree: the session prints "
+            "the new module, the patch layer reports it applied, and the project on "
+            "disk still does not have it",
+            (P, "land"),
+            land_copy(newfile=False),
+            "a key the listing never had is CREATED",
+        ),
+        (
+            "ignores the protected list, so the patch set that weakened the assertion "
+            "is a fix after all",
+            (P, "land"),
+            land_copy(protect=False),
+            "protected file the patch set",
+        ),
+        (
+            "refuses any protected key it sees, changed or not, so a patch on one "
+            "module can never land while its oracle sits in the tree",
+            (P, "land"),
+            land_copy(protect_unchanged=True),
+            "left byte-identical",
+        ),
+        (
+            "writes as it validates, so one refused address leaves the rest of the "
+            "set on disk and the tree is no longer what passed",
+            (P, "land"),
+            land_copy(atomic=False),
+            "stays unwritten",
+        ),
+        (
+            "skips the directory creation, so a nested key in a package that moved "
+            "raises instead of landing",
+            (P, "land"),
+            land_copy(mkdir=False),
+            "is recreated, not skipped",
+        ),
+        (
+            "counts diff hunks and prints them as lines, which is how a one-hunk "
+            "rewrite of twenty lines arrives as +1 -1",
+            (P, "land"),
+            land_copy(ops=True),
+            "are lines, not diff hunks",
+        ),
+        (
+            "splits on newlines, so a file's trailing empty element is reported as a "
+            "line that was deleted",
+            (P, "land"),
+            land_copy(phantom=True),
+            "trailing newline alone",
+        ),
+        (
+            "reports the rows without writing them, so the command claims a change "
+            "the disk does not have",
+            (P, "land"),
+            land_copy(write=False),
+            "--apply writes the changed file",
+        ),
+        (
+            "deletes whatever the listing stopped covering, turning a `limit` in a "
+            "workspace into missing source",
+            (P, "land"),
+            land_copy(delete=True),
+            "is left on disk",
+        ),
+        (
+            "writes the pre-patch bytes back over the tree, so the file that changed "
+            "is the one that did not",
+            (P, "land"),
+            land_copy(stale=True),
+            "lands with the workspace's bytes",
+        ),
+        (
+            "computes no protected key at all, so through the command an edited "
+            "oracle lands beside the fix",
+            (C, "_land_edits"),
+            edits_copy(protect=False),
+            "is refused, the sibling",
+        ),
+        (
+            "protects the whole tree instead of the oracle, which refuses every real "
+            "patch and turns --apply into a no-op",
+            (C, "_land_edits"),
+            edits_copy(protect_tree=True),
+            "outside --context leaves",
+        ),
+        (
+            "exits 0 on a refusal, so a write-back that wrote nothing reads as a "
+            "success to whatever scripted the command",
+            (C, "_land_edits"),
+            edits_copy(refuse_rc=0),
+            "prints REFUSED with the reason",
+        ),
+        (
+            "calls an in-memory patch set APPLIED, which is the sentence that was the "
+            "bug this box exists for",
+            (C, "_land_edits"),
+            edits_copy(honest=False),
+            "prints NOT APPLIED",
+        ),
+        (
+            "exits 0 for an unsolved run because it printed a verdict line anyway, so "
+            "a suite could adopt a failure",
+            (C, "_land_edits"),
+            edits_copy(verdict_rc=False),
+            "a failed run exits 1",
+        ),
+        (
+            "stays silent when the workspace matches the tree, leaving the reader no "
+            "statement about which state the disk is in",
+            (C, "_land_edits"),
+            edits_copy(say_noop=False),
+            "says so instead of printing",
+        ),
+        (
+            "never relativizes, so the oracle's key never matches the workspace's and "
+            "the guard disarms itself",
+            (C, "_rel_to"),
+            never_relativizes,
+            "however the path was spelled",
+        ),
+        (
+            "accepts --apply without --edit and routes the task, so the flag promises "
+            "a write-back no arm can produce",
+            (C, "_apply_guard"),
+            guard_shrugs,
+            "without --edit is refused",
+        ),
+        (
+            "hands back no workspace from the arm that solved, so --apply has nothing "
+            "to land and says the task was not solved",
+            (L, "_solve_edits"),
+            forgets_workspace,
+            "hands the accepted workspace back",
+        ),
+        (
+            "puts --apply on `run-suite` and `resume`, where there is no single tree "
+            "to land and the flag would do nothing at all",
+            (C, "build_parser"),
+            widens_apply,
+            "not accepted by `run-suite`",
+        ),
+        (
+            "writes the verified create onto the disk but prints `+0 -0` for it, so "
+            "the sentence for a landed insertion is the one a no-op gets",
+            (P, "land"),
+            land_copy(insert_zero=True),
+            "prints the lines it ADDED",
+        ),
+        (
+            "takes a create's position from the patch instead of from the AST, so the "
+            "new definition lands above the ones that were already in the file",
+            (P, "_resolve_create"),
+            create_ignores_the_anchor,
+            "old definition first and the new one last",
+        ),
+        (
+            "never tells the patch layer which file the run scores against, so an "
+            "oracle patch is applied and scored rather than refused",
+            (P, "apply_patches"),
+            untold,
+            "refuses a patch aimed at the oracle",
+        ),
+        (
+            "answers an oracle patch with a complaint about line numbers, which is "
+            "the sentence R-7.15e was opened for",
+            (P, "ORACLE_MSG"),
+            "{} is past the end of a file this short",
+            "rather than the line count of its file",
+        ),
+        (
+            "names no oracle key on the task, which disarms the patch layer and "
+            "`land`'s protection from one return value",
+            (C, "_oracle_key"),
+            keyless,
+            "hands the arm the oracle's workspace key",
+        ),
+        (
+            "returns an edit task with only its typed ask, which is the state "
+            "R-7.15f was filed for: the project was read off disk and never shown",
+            (L, "enrich_task"),
+            blind,
+            "names every file of the tree it read",
+        ),
     ]
 
 
 def run_mutants(one: int | None = None, verbose: bool = False) -> int:
     bugs = mutants()
     if len(bugs) != NUM_BUGS:
-        raise SystemExit(f"NUM_BUGS is stale: {len(bugs)} bugs listed, "
-                         f"{NUM_BUGS} promised to --sweep")
+        raise SystemExit(
+            f"NUM_BUGS is stale: {len(bugs)} bugs listed, "
+            f"{NUM_BUGS} promised to --sweep"
+        )
     escaped = 0
     ran = 0
     for i, (label, (holder, attr), bug, catcher) in enumerate(bugs):
@@ -1232,19 +1755,28 @@ def run_mutants(one: int | None = None, verbose: bool = False) -> int:
         except KeyError as e:
             # A mutant crashed mid-check, likely SEEN["message"] was never populated.
             # Treat this as all checks failing so the mutant counts as caught.
-            import sys; print(f"  MUTATION crashed mid-run: {e}", file=sys.stderr)
+            import sys
+
+            print(f"  MUTATION crashed mid-run: {e}", file=sys.stderr)
             fails = [c[0] for c in CHECKS]  # Assume all failed
         finally:
             setattr(holder, attr, real)
         hit = any(catcher in f for f in fails)
         escaped += not hit
         if verbose or not hit:
-            print(f"  {'ok  ' if hit else 'MISS'} MUTATION: {label} -> "
-                  f"{len(fails)} check(s) fail"
-                  + ("" if hit else f", none of them the one that catches it: "
-                                    f"{fails[:3]}"))
-    print(f"patch-landing mutants: {ran - escaped}/{ran} caught"
-          + ("" if one is None else f"  [{one}]"))
+            print(
+                f"  {'ok  ' if hit else 'MISS'} MUTATION: {label} -> "
+                f"{len(fails)} check(s) fail"
+                + (
+                    ""
+                    if hit
+                    else f", none of them the one that catches it: {fails[:3]}"
+                )
+            )
+    print(
+        f"patch-landing mutants: {ran - escaped}/{ran} caught"
+        + ("" if one is None else f"  [{one}]")
+    )
     return escaped
 
 
@@ -1259,33 +1791,47 @@ def sweep() -> int:
     """
     caught = 0
     for i in range(NUM_BUGS):
-        proc = subprocess.run([sys.executable, "-u", str(Path(__file__).resolve()),
-                               "--mutant", str(i)], capture_output=True, text=True,
-                              cwd=ROOT)
+        proc = subprocess.run(
+            [sys.executable, "-u", str(Path(__file__).resolve()), "--mutant", str(i)],
+            capture_output=True,
+            text=True,
+            cwd=ROOT,
+        )
         lines = [ln for ln in proc.stdout.splitlines() if "MUTATION:" in ln]
         if len(lines) != 1 or proc.returncode not in (0, 1):
-            print(f"  MISS MUTATION [{i}]: no clean verdict "
-                  f"(rc={proc.returncode})\n{proc.stdout[-300:]}")
+            print(
+                f"  MISS MUTATION [{i}]: no clean verdict "
+                f"(rc={proc.returncode})\n{proc.stdout[-300:]}"
+            )
             continue
         print("  fresh>" + lines[0].strip())
         caught += proc.returncode == 0
     print(f"patch-landing mutants, fresh process each: {caught}/{NUM_BUGS} caught")
     here = run_mutants()
-    print(f"patch-landing mutants, one process:        "
-          f"{NUM_BUGS - here}/{NUM_BUGS} caught")
+    print(
+        f"patch-landing mutants, one process:        "
+        f"{NUM_BUGS - here}/{NUM_BUGS} caught"
+    )
     ok = caught == NUM_BUGS and here == 0
-    print(("OK  each mutant is caught by its named check in a fresh process too, "
-           "so no count here is a leftover from the previous bug"
-           if ok else
-           "FAIL  the two sweeps disagree or one escaped — the mutation claim is "
-           "process-order-dependent"))
+    print(
+        (
+            "OK  each mutant is caught by its named check in a fresh process too, "
+            "so no count here is a leftover from the previous bug"
+            if ok
+            else "FAIL  the two sweeps disagree or one escaped — the mutation claim is "
+            "process-order-dependent"
+        )
+    )
     return 0 if ok else 1
 
 
 def main(argv: list[str]) -> int:
     if "--mutant" in argv and "--sweep" not in argv:
-        return 1 if run_mutants(one=int(argv[argv.index("--mutant") + 1]),
-                                verbose=True) else 0
+        return (
+            1
+            if run_mutants(one=int(argv[argv.index("--mutant") + 1]), verbose=True)
+            else 0
+        )
     bad = report()
     if "--sweep" in argv:
         return 1 if (bad or sweep()) else 0

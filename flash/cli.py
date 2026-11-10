@@ -1,9 +1,10 @@
 """flash — CLI entry point (M1 skeleton).
 
-  python -m flash.cli decide "refactor the auth module" --options bugfix feature refactor docs
-  python -m flash.cli decide-batch            # built-in routing demo, prints accuracy
-  python -m flash.cli bench ...               # wraps benchmarks/m0_bakeoff.py
+python -m flash.cli decide "refactor the auth module" --options bugfix feature refactor docs
+python -m flash.cli decide-batch            # built-in routing demo, prints accuracy
+python -m flash.cli bench ...               # wraps benchmarks/m0_bakeoff.py
 """
+
 from __future__ import annotations
 
 import argparse
@@ -52,9 +53,17 @@ def cmd_decide(args) -> int:
 
     model, tok = load(args.model)
     d = decide(model, tok, args.context, args.options)
-    print(json.dumps({"choice": d.choice, "confidence": round(d.confidence, 3),
-                      "ms": d.ms, "probs": {k: round(v, 3) for k, v in d.probs.items()}},
-                     indent=2))
+    print(
+        json.dumps(
+            {
+                "choice": d.choice,
+                "confidence": round(d.confidence, 3),
+                "ms": d.ms,
+                "probs": {k: round(v, 3) for k, v in d.probs.items()},
+            },
+            indent=2,
+        )
+    )
     return 0
 
 
@@ -65,15 +74,24 @@ def cmd_decide_batch(args) -> int:
     model, tok = load(args.model)
     correct, total_ms = 0, 0.0
     for text, expected in ROUTING_DEMO:
-        d = decide(model, tok, f"Coding task: {text}", CATEGORIES,
-                   question="What kind of task is this?")
+        d = decide(
+            model,
+            tok,
+            f"Coding task: {text}",
+            CATEGORIES,
+            question="What kind of task is this?",
+        )
         ok = d.choice == expected
         correct += ok
         total_ms += d.ms
-        print(f"  {'OK ' if ok else 'MISS'} [{d.choice:>8} @ {d.confidence:4.2f}, {d.ms:5.1f}ms]  {text}")
+        print(
+            f"  {'OK ' if ok else 'MISS'} [{d.choice:>8} @ {d.confidence:4.2f}, {d.ms:5.1f}ms]  {text}"
+        )
     n = len(ROUTING_DEMO)
-    print(f"\nrouting accuracy: {correct}/{n}  ({correct/n:.0%})   "
-          f"avg decision: {total_ms/n:.1f}ms")
+    print(
+        f"\nrouting accuracy: {correct}/{n}  ({correct / n:.0%})   "
+        f"avg decision: {total_ms / n:.1f}ms"
+    )
     return 0 if correct == n else 1
 
 
@@ -82,6 +100,7 @@ def cmd_router_fit(args) -> int:
     from flash import ledger
     from flash.learn import embed_prompts, features, loo_report, pca, trainable
     import numpy as np
+
     rows = [r for r in ledger.load() if trainable(r)]
     if len(rows) < 10:
         print(f"only {len(rows)} ledger rows — run more suites first")
@@ -91,27 +110,31 @@ def cmd_router_fit(args) -> int:
     X, kept = embed_prompts(rows, args.small)
     print(loo_report(pca(X, k=8), kept, "embeddings+pca8"))
     from flash.learn import fit_router, save_router
+
     save_router(fit_router(kept, X, small_repo=args.small))
-    print("\nrouter bundle saved -> benchmarks/results/router.npz "
-          "(solve_routed: big-direct when P(need-big) >= 0.5)")
+    print(
+        "\nrouter bundle saved -> benchmarks/results/router.npz "
+        "(solve_routed: big-direct when P(need-big) >= 0.5)"
+    )
 
     print("\ncaveat: pipeline proof with few positives; the ledger grows n for free")
     return 0
 
 
-
 def cmd_ledger(args) -> int:
     """M3: summarize the outcome ledger (the future router's training data)."""
     from flash import ledger
+
     rows = ledger.load()
     print(ledger.summary(rows))
     if args.tail and rows:
         print("\nlast runs:")
-        for r in rows[-args.tail:]:
-            print(f"  {r['task_id']:<22} tier={r['tier']:<7} routed={r['routed']:<6} "
-                  f"solved={r['solved']} attempts={r['attempts']} ({r['seconds']}s)")
+        for r in rows[-args.tail :]:
+            print(
+                f"  {r['task_id']:<22} tier={r['tier']:<7} routed={r['routed']:<6} "
+                f"solved={r['solved']} attempts={r['attempts']} ({r['seconds']}s)"
+            )
     return 0
-
 
 
 def cmd_route_test(args) -> int:
@@ -124,11 +147,11 @@ def cmd_route_test(args) -> int:
     model, tok = load(args.model)
     m2_ctx = digest(str(ROOT / "benchmarks" / "fixtures"), args.max_chars)
     rows: list[tuple[dict, str, str]] = []
-    for t in load_tasks():                      # m0: 7B solved 18/20 on hardware
+    for t in load_tasks():  # m0: 7B solved 18/20 on hardware
         need = "big" if t["id"] in ("t14_topk_frequent", "t15_parse_log") else "small"
         rows.append((t, "", need))
     for t in load_tasks(ROOT / "benchmarks" / "tasks" / "m2_tasks.jsonl"):
-        rows.append((t, m2_ctx, "small"))       # 7B solved all w/ semantic skeleton
+        rows.append((t, m2_ctx, "small"))  # 7B solved all w/ semantic skeleton
 
     correct, total_ms = 0, 0.0
     for t, ctx, want in rows:
@@ -137,11 +160,16 @@ def cmd_route_test(args) -> int:
         ok = got == want
         correct += ok
         total_ms += d.ms
-        print(f"  {'OK ' if ok else 'MISS'} [{got:>5} @ {d.confidence:4.2f} "
-              f"want={want:<5} {d.ms:5.0f}ms] {t['id']}", flush=True)
+        print(
+            f"  {'OK ' if ok else 'MISS'} [{got:>5} @ {d.confidence:4.2f} "
+            f"want={want:<5} {d.ms:5.0f}ms] {t['id']}",
+            flush=True,
+        )
     n = len(rows)
-    print(f"\nrouting: {correct}/{n} ({correct / n:.0%})   "
-          f"avg {total_ms / n:.0f}ms/decision")
+    print(
+        f"\nrouting: {correct}/{n} ({correct / n:.0%})   "
+        f"avg {total_ms / n:.0f}ms/decision"
+    )
     return 0
 
 
@@ -152,21 +180,27 @@ def cmd_solve_all(args) -> int:
 
     model, tok = load(args.model)
     tasks = load_tasks(args.tasks)[: args.max_tasks]
-    if args.with_context:                      # M2: inject each task's repo skeleton
+    if args.with_context:  # M2: inject each task's repo skeleton
         from flash.loop import enrich_task
+
         tasks = [enrich_task(t, ROOT, args.max_chars) for t in tasks]
     pass1 = passk = 0
     for t in tasks:
         r = solve(model, tok, t, max_attempts=args.attempts, max_tokens=args.max_tokens)
         pass1 += r.attempts[0].ok
         passk += r.solved
-        print(f"  {'PASS' if r.solved else 'FAIL'} {t['id']:<22} "
-              f"attempts={r.n_attempts} first={'ok' if r.attempts[0].ok else 'no'} "
-              f"({r.seconds}s)", flush=True)
+        print(
+            f"  {'PASS' if r.solved else 'FAIL'} {t['id']:<22} "
+            f"attempts={r.n_attempts} first={'ok' if r.attempts[0].ok else 'no'} "
+            f"({r.seconds}s)",
+            flush=True,
+        )
     n = len(tasks)
-    print(f"\npass@1: {pass1}/{n} ({pass1/n:.0%})   "
-          f"pass@{args.attempts}: {passk}/{n} ({passk/n:.0%})   "
-          f"loop delta: +{passk - pass1} tasks")
+    print(
+        f"\npass@1: {pass1}/{n} ({pass1 / n:.0%})   "
+        f"pass@{args.attempts}: {passk}/{n} ({passk / n:.0%})   "
+        f"loop delta: +{passk - pass1} tasks"
+    )
     return 0 if passk == n else 1
 
 
@@ -175,15 +209,23 @@ def cmd_escalate_test(args) -> int:
     from flash.harness import load_tasks
     from flash.loop import solve_with_escalation
 
-    hard = [t for t in load_tasks() if t["id"] in ("t14_topk_frequent", "t15_parse_log")]
+    hard = [
+        t for t in load_tasks() if t["id"] in ("t14_topk_frequent", "t15_parse_log")
+    ]
     for t in hard:
         r, tier = solve_with_escalation(args.small, args.big, t)
-        print(f"  [{'ESC->BIG' if tier == 'big' else tier.upper():>9}] {t['id']:<22} "
-              f"solved={r.solved} attempts={r.n_attempts} ({r.seconds}s)", flush=True)
+        print(
+            f"  [{'ESC->BIG' if tier == 'big' else tier.upper():>9}] {t['id']:<22} "
+            f"solved={r.solved} attempts={r.n_attempts} ({r.seconds}s)",
+            flush=True,
+        )
     return 0
+
+
 def _rel_to(path: str, root: str) -> str:
     """`path` expressed from `root`, the way `workspace_from_dir` keys a file."""
     from pathlib import Path
+
     try:
         return str(Path(path).resolve().relative_to(Path(root).resolve()))
     except (ValueError, OSError):
@@ -215,8 +257,10 @@ def _apply_guard(args) -> "int | None":
     one that produces a verified workspace to write back. Returns the exit code
     the command should use, or None to carry on."""
     if args.apply and not args.edit:
-        print("--apply needs --edit: without a patch arm there is no verified "
-              "workspace to write back")
+        print(
+            "--apply needs --edit: without a patch arm there is no verified "
+            "workspace to write back"
+        )
         return 2
     return None
 
@@ -234,24 +278,35 @@ def _land_edits(args, task: dict, r) -> int:
     Returns the exit code: a run that solved but could not land is not a success.
     """
     from flash.patches import LandError, land
+
     chat = bool(task.get("chat"))
     if not args.apply:
         if chat:
             # Chat mode has no oracle to pass, so the only fact worth stating is
             # whether the turn produced a workspace at all.
-            what = ("this turn produced a workspace" if r.workspace is not None
-                    else "this turn produced no patch set")
+            what = (
+                "this turn produced a workspace"
+                if r.workspace is not None
+                else "this turn produced no patch set"
+            )
             tail = "Re-run with --apply to write what it produced."
         else:
-            what = ("the oracle passed this patch set" if r.solved
-                    else "nothing passed the oracle")
+            what = (
+                "the oracle passed this patch set"
+                if r.solved
+                else "nothing passed the oracle"
+            )
             tail = "Re-run with --apply to land the patch set."
-        print(f"[R-3.2] NOT APPLIED: {what} in memory; {args.context} on disk "
-              f"is unchanged. {tail}")
+        print(
+            f"[R-3.2] NOT APPLIED: {what} in memory; {args.context} on disk "
+            f"is unchanged. {tail}"
+        )
         return 0 if r.solved else 1
     if r.workspace is None:
-        print(f"[R-3.2] NOT APPLIED: the task was not solved, so --apply wrote "
-              f"nothing to {args.context}")
+        print(
+            f"[R-3.2] NOT APPLIED: the task was not solved, so --apply wrote "
+            f"nothing to {args.context}"
+        )
         return 1
     # The oracle lives in the same directory the patch arm reads, and
     # `workspace_from_dir` lists every .py it finds — so a patch set that
@@ -270,8 +325,10 @@ def _land_edits(args, task: dict, r) -> int:
     for rel, added, removed in changed:
         print(f"[R-3.2] wrote {rel} (+{added} -{removed} lines)")
     if not changed:
-        print(f"[R-3.2] --apply wrote nothing: the verified workspace is "
-              f"byte-identical to what is already in {args.context}")
+        print(
+            f"[R-3.2] --apply wrote nothing: the verified workspace is "
+            f"byte-identical to what is already in {args.context}"
+        )
     return 0
 
 
@@ -281,8 +338,7 @@ def cmd_run(args) -> int:
     import flash.loop as loop
     from flash.loop import solve_routed
 
-    task = {"id": "adhoc", "prompt": args.prompt,
-            "test": open(args.test).read()}
+    task = {"id": "adhoc", "prompt": args.prompt, "test": open(args.test).read()}
     rc = _apply_guard(args)
     if rc is not None:
         return rc
@@ -295,6 +351,7 @@ def cmd_run(args) -> int:
             print("--edit needs --context <dir>: the project to patch")
             return 2
         from flash.patches import workspace_from_dir
+
         task["files"] = workspace_from_dir(args.context)
         task["edit"] = True
         task["multi"] = True
@@ -305,26 +362,45 @@ def cmd_run(args) -> int:
     loop.DEBUG = args.debug
     loop.EDIT = args.edit
     loop.HINTS = _hint_names(args.no_source_hint, args.no_graph_hint)
-    sid = trace.open_session("run", cmd="run", params={"prompt": args.prompt[:200],
-                                                       "small": args.small,
-                                                       "big": args.big,
-                                                       "allow_big": args.allow_big,
-                                                       "adapter": args.adapter,
-                                                       "edit": args.edit,
-                                                       "apply": args.apply,
-                                                       "tournament": args.tournament,
-                                                       "hints": loop.HINTS,
-                                                       "confidence": args.confidence})
-    r, tier, routed = solve_routed(args.small, args.big, task, ROOT,
-                                   small_attempts=args.attempts,
-                                   big_attempts=args.attempts,
-                                   max_tokens=args.max_tokens,
-                                   allow_big=args.allow_big,
-                                   tournament=args.tournament,
-                                   confidence=args.confidence)
-    trace.event("task_end", task_id=task["id"], solved=r.solved, tier=tier,
-                attempts=r.n_attempts, seconds=r.seconds, routed=routed,
-                **loop.tournament_fields(r), **_conf_fields(r))
+    sid = trace.open_session(
+        "run",
+        cmd="run",
+        params={
+            "prompt": args.prompt[:200],
+            "small": args.small,
+            "big": args.big,
+            "allow_big": args.allow_big,
+            "adapter": args.adapter,
+            "edit": args.edit,
+            "apply": args.apply,
+            "tournament": args.tournament,
+            "hints": loop.HINTS,
+            "confidence": args.confidence,
+        },
+    )
+    r, tier, routed = solve_routed(
+        args.small,
+        args.big,
+        task,
+        ROOT,
+        small_attempts=args.attempts,
+        big_attempts=args.attempts,
+        max_tokens=args.max_tokens,
+        allow_big=args.allow_big,
+        tournament=args.tournament,
+        confidence=args.confidence,
+    )
+    trace.event(
+        "task_end",
+        task_id=task["id"],
+        solved=r.solved,
+        tier=tier,
+        attempts=r.n_attempts,
+        seconds=r.seconds,
+        routed=routed,
+        **loop.tournament_fields(r),
+        **_conf_fields(r),
+    )
     trace.close_session(solved=r.solved)
     print(f"routed={routed} tier={tier}")
     print("--- code ---")
@@ -332,6 +408,7 @@ def cmd_run(args) -> int:
     print(f"--- solved={r.solved} attempts={r.n_attempts} ({r.seconds}s) ---")
     if r.tournament is not None:
         from flash import tourney
+
         print("[R-3.3] " + tourney.describe(r.tournament))
     if r.confidence is not None:
         print("[R-2.3] " + r.confidence.describe())
@@ -373,7 +450,7 @@ def _read_turns(stream, limit: int = 0, prompt: str = ""):
         if t.lower() in ("quit", "exit", "q"):
             return
         if not t:
-            continue                      # a blank line is not a turn: ask again
+            continue  # a blank line is not a turn: ask again
         yield t
         n += 1
         if limit and n >= limit:
@@ -397,12 +474,16 @@ def _working_line(args, turn: int, use_oracle: bool) -> str:
     cap = f"/{args.turns}" if args.turns else ""
     esc = ", big tier on failure" if args.allow_big != "never" else ""
     if use_oracle:
-        return (f"[working] turn {turn}{cap} — generating: small tier first, "
-                f"up to {args.attempts} attempt(s) per tier{esc}, "
-                f"grading against {args.test}")
-    return (f"[working] turn {turn}{cap} — generating: small tier first, "
+        return (
+            f"[working] turn {turn}{cap} — generating: small tier first, "
             f"up to {args.attempts} attempt(s) per tier{esc}, "
-            "no oracle (chat mode), answering in prose")
+            f"grading against {args.test}"
+        )
+    return (
+        f"[working] turn {turn}{cap} — generating: small tier first, "
+        f"up to {args.attempts} attempt(s) per tier{esc}, "
+        "no oracle (chat mode), answering in prose"
+    )
 
 
 #: The in-session commands (R-7.17b). A line starting with `/` is one of these,
@@ -411,26 +492,31 @@ SESSION_COMMANDS = ("/help", "/quit", "/save", "/retry")
 
 
 def _session_help(use_oracle: bool) -> str:
-    """"/help": the four commands and what a turn is, in the session's own words.
+    """ "/help": the four commands and what a turn is, in the session's own words.
 
     The mode sentence is here rather than only in the banner because the banner
     scrolls away under the first answer; a reader mid-session who has forgotten
     whether anything is being verified can ask again.
     """
-    return "\n".join([
-        "session commands — a line starting with `/` is a command, not an ask:",
-        "  /help          this list",
-        "  /quit          end the session (same as `quit`, `exit`, `q` or Ctrl-D)",
-        "  /save <file>   write every ask and answer so far to <file>",
-        "  /retry         ask the last turn again: after a failed one, or a "
-        "mis-typed one",
-        "",
-        ("  each turn is graded against the oracle named by --test; a turn that "
-         "fails prints\n  the oracle's own words under `oracle|`, and the tier "
-         "that answered is on the\n  `[turn N]` line."
-         if use_oracle else
-         "  no oracle is loaded (chat mode): answers are prose, new files are "
-         "written,\n  and nothing is verified.")])
+    return "\n".join(
+        [
+            "session commands — a line starting with `/` is a command, not an ask:",
+            "  /help          this list",
+            "  /quit          end the session (same as `quit`, `exit`, `q` or Ctrl-D)",
+            "  /save <file>   write every ask and answer so far to <file>",
+            "  /retry         ask the last turn again: after a failed one, or a "
+            "mis-typed one",
+            "",
+            (
+                "  each turn is graded against the oracle named by --test; a turn that "
+                "fails prints\n  the oracle's own words under `oracle|`, and the tier "
+                "that answered is on the\n  `[turn N]` line."
+                if use_oracle
+                else "  no oracle is loaded (chat mode): answers are prose, new files are "
+                "written,\n  and nothing is verified."
+            ),
+        ]
+    )
 
 
 def _save_transcript(name: str, rows: list, args, use_oracle: bool) -> None:
@@ -443,8 +529,10 @@ def _save_transcript(name: str, rows: list, args, use_oracle: bool) -> None:
     against, which is the one write R-3.2 exists to forbid.
     """
     if not name:
-        print("session: /save wants a file — `/save notes.md` writes every ask "
-              "and answer so far")
+        print(
+            "session: /save wants a file — `/save notes.md` writes every ask "
+            "and answer so far"
+        )
         return
     if not rows:
         print("session: /save has nothing to write yet — no turn has answered")
@@ -453,15 +541,23 @@ def _save_transcript(name: str, rows: list, args, use_oracle: bool) -> None:
     if use_oracle:
         try:
             if target.resolve() == Path(args.test).resolve():
-                print(f"session: /save refuses to write over the oracle "
-                      f"{args.test} — the session grades every turn against it")
+                print(
+                    f"session: /save refuses to write over the oracle "
+                    f"{args.test} — the session grades every turn against it"
+                )
                 return
-        except OSError:                       # unresolvable path: let the write
-            pass                              # attempt report it in its own words
-    body = [f"# flash session on {args.context}",
-            (f"oracle: {args.test}" if use_oracle
-             else "chat mode: no oracle, nothing verified"),
-            f"{len(rows)} turn(s)", ""]
+        except OSError:  # unresolvable path: let the write
+            pass  # attempt report it in its own words
+    body = [
+        f"# flash session on {args.context}",
+        (
+            f"oracle: {args.test}"
+            if use_oracle
+            else "chat mode: no oracle, nothing verified"
+        ),
+        f"{len(rows)} turn(s)",
+        "",
+    ]
     for i, ask, answer in rows:
         body += [f"## turn {i}", "", f"you> {ask}", "", answer.strip(), ""]
     try:
@@ -486,13 +582,17 @@ def _session_cost(sid: str, turns: list, wall: float) -> list[str]:
     event, before the session closes, so the trace carries the session's own bill).
     """
     from flash import trace
+
     recs = trace.read(sid)
     gens = [r for r in recs if r.get("type") == "generate"]
     if not gens:
         return []
     s = trace.summarize(sid)
-    uncounted = sum(1 for r in gens if r.get("prompt_tokens") is None
-                    and r.get("completion_tokens") is None)
+    uncounted = sum(
+        1
+        for r in gens
+        if r.get("prompt_tokens") is None and r.get("completion_tokens") is None
+    )
     esc = [r for r in recs if r.get("type") == "escalation"]
     took = sum(1 for r in esc if r.get("denied") is False)
     denied = sum(1 for r in esc if r.get("denied") is True)
@@ -502,8 +602,11 @@ def _session_cost(sid: str, turns: list, wall: float) -> list[str]:
     backs: dict[str, list[str]] = {}
     for r in gens:
         tid = r.get("task_id") or ""
-        tok[tid] = tok.get(tid, 0) + (r.get("prompt_tokens") or 0) \
+        tok[tid] = (
+            tok.get(tid, 0)
+            + (r.get("prompt_tokens") or 0)
             + (r.get("completion_tokens") or 0)
+        )
         name = r.get("backend")
         if name and name not in backs.setdefault(tid, []):
             backs[tid].append(name)
@@ -513,12 +616,14 @@ def _session_cost(sid: str, turns: list, wall: float) -> list[str]:
     # the per-turn rows cannot add up to the header total. Saying which part of the
     # money that is beats printing a total that looks like a mistake in the rows.
     attributed = sum(tok.get(f"turn{t['i']}", 0) for t in turns)
-    head = (f"[cost] turns={len(turns)} "
-            f"backend={'/'.join(all_backs) or 'uncounted'} "
-            f"wall={round(wall, 1)}s generating={s['gen_s']}s "
-            f"verifying={s['verify_s']}s tokens={tokens} "
-            f"(prompt={s['prompt_tokens']} completion={s['completion_tokens']}) "
-            f"escalations={took}")
+    head = (
+        f"[cost] turns={len(turns)} "
+        f"backend={'/'.join(all_backs) or 'uncounted'} "
+        f"wall={round(wall, 1)}s generating={s['gen_s']}s "
+        f"verifying={s['verify_s']}s tokens={tokens} "
+        f"(prompt={s['prompt_tokens']} completion={s['completion_tokens']}) "
+        f"escalations={took}"
+    )
     if denied:
         head += f" escalations_denied={denied}"
     if uncounted:
@@ -528,18 +633,26 @@ def _session_cost(sid: str, turns: list, wall: float) -> list[str]:
     out = [head]
     for t in turns:
         key = f"turn{t['i']}"
-        out.append(f"       turn {t['i']}: "
-                   f"{'/'.join(backs.get(key) or ['uncounted'])} "
-                   f"routed={t['routed']} tier={t['tier']} "
-                   f"{tok.get(key, 0)} tok {t['seconds']}s"
-                   + (" escalated" if t["tier"] == "big" and t["routed"] == "small"
-                      else ""))
-    trace.event("session_cost", turns=len(turns),
-                backend="/".join(all_backs) or None, wall_s=round(wall, 1),
-                generating_s=s["gen_s"], verifying_s=s["verify_s"],
-                tokens_in=s["prompt_tokens"], tokens_out=s["completion_tokens"],
-                uncounted=uncounted or None, escalations=took,
-                escalations_denied=denied or None)
+        out.append(
+            f"       turn {t['i']}: "
+            f"{'/'.join(backs.get(key) or ['uncounted'])} "
+            f"routed={t['routed']} tier={t['tier']} "
+            f"{tok.get(key, 0)} tok {t['seconds']}s"
+            + (" escalated" if t["tier"] == "big" and t["routed"] == "small" else "")
+        )
+    trace.event(
+        "session_cost",
+        turns=len(turns),
+        backend="/".join(all_backs) or None,
+        wall_s=round(wall, 1),
+        generating_s=s["gen_s"],
+        verifying_s=s["verify_s"],
+        tokens_in=s["prompt_tokens"],
+        tokens_out=s["completion_tokens"],
+        uncounted=uncounted or None,
+        escalations=took,
+        escalations_denied=denied or None,
+    )
     return out
 
 
@@ -565,21 +678,26 @@ def cmd_session(args) -> int:
     # Optional oracle: if present, verify; if absent, enable chat mode
     test = ""
     use_oracle = args.test is not None
-    
+
     if use_oracle:
         try:
             test = open(args.test).read()
         except OSError as e:
-            print(f"session: the oracle {args.test} cannot be read ({e}) — "
-                  "omit --test for chat mode")
+            print(
+                f"session: the oracle {args.test} cannot be read ({e}) — "
+                "omit --test for chat mode"
+            )
             return 2
         if not test.strip():
-            print(f"session: the oracle {args.test} is empty — omit --test for "
-                  "chat mode")
+            print(
+                f"session: the oracle {args.test} is empty — omit --test for chat mode"
+            )
             return 2
     else:
-        print("session in CHAT MODE — no oracle, free-form questions and new "
-              "file creation allowed")
+        print(
+            "session in CHAT MODE — no oracle, free-form questions and new "
+            "file creation allowed"
+        )
 
     loop.ADAPTER = args.adapter or ""
     loop.CONSTRAIN = args.constrain
@@ -587,29 +705,41 @@ def cmd_session(args) -> int:
     loop.EDIT = True
     loop.HINTS = _hint_names(args.no_source_hint, args.no_graph_hint)
     trace.CAPTURE = args.trace_full
-    sid = trace.open_session("session", cmd="session",
-                            params={"context": args.context, "test": args.test or "",
-                                    "small": args.small, "big": args.big,
-                                    "allow_big": args.allow_big,
-                                    "adapter": args.adapter, "edit": True,
-                                    "apply": args.apply,
-                                    "tournament": args.tournament,
-                                    "hints": loop.HINTS,
-                                    "confidence": args.confidence,
-                                    "turns": args.turns,
-                                    "chat": not use_oracle})
+    sid = trace.open_session(
+        "session",
+        cmd="session",
+        params={
+            "context": args.context,
+            "test": args.test or "",
+            "small": args.small,
+            "big": args.big,
+            "allow_big": args.allow_big,
+            "adapter": args.adapter,
+            "edit": True,
+            "apply": args.apply,
+            "tournament": args.tournament,
+            "hints": loop.HINTS,
+            "confidence": args.confidence,
+            "turns": args.turns,
+            "chat": not use_oracle,
+        },
+    )
     tty = bool(getattr(sys.stdin, "isatty", lambda: False)())
     # Printed before the first read, because on a keyboard the alternative is a
     # cursor sitting there with no idea what the program wants.
     if use_oracle:
-        print(f"flash session on {args.context} against the oracle {args.test} — "
-              "one ask per line, and each answer arrives before you type the next. "
-              "`quit` or Ctrl-D ends it; `/help` lists `/help`, `/quit`, `/save` "
-              "and `/retry`.")
+        print(
+            f"flash session on {args.context} against the oracle {args.test} — "
+            "one ask per line, and each answer arrives before you type the next. "
+            "`quit` or Ctrl-D ends it; `/help` lists `/help`, `/quit`, `/save` "
+            "and `/retry`."
+        )
     else:
-        print(f"flash chat session on {args.context} — free-form questions, "
-              "code creation, no verification. `quit` or Ctrl-D ends it; `/help` "
-              "lists `/help`, `/quit`, `/save` and `/retry`.")
+        print(
+            f"flash chat session on {args.context} — free-form questions, "
+            "code creation, no verification. `quit` or Ctrl-D ends it; `/help` "
+            "lists `/help`, `/quit`, `/save` and `/retry`."
+        )
     solved_n = written_n = ran = 0
     seconds = 0.0
     rc = 2
@@ -636,8 +766,13 @@ def cmd_session(args) -> int:
         nonlocal ran, solved_n, written_n, seconds, rc, last_ask, in_flight
         ran += 1
         i = ran
-        task = {"id": f"turn{i}", "prompt": prompt, "test": test,
-                "context": args.context, "chat": not use_oracle}
+        task = {
+            "id": f"turn{i}",
+            "prompt": prompt,
+            "test": test,
+            "context": args.context,
+            "chat": not use_oracle,
+        }
         # The workspace comes off the DISK every turn, so turn N edits the bytes
         # turn N-1 wrote rather than the bytes this process remembered.
         task["files"] = workspace_from_dir(args.context)
@@ -656,19 +791,32 @@ def cmd_session(args) -> int:
         # which is the same hang with a different cause.
         in_flight = i
         print(_working_line(args, i, use_oracle), flush=True)
-        r, tier, routed = solve_routed(args.small, args.big, task, ROOT,
-                                       small_attempts=args.attempts,
-                                       big_attempts=args.attempts,
-                                       max_tokens=args.max_tokens,
-                                       allow_big=args.allow_big,
-                                       tournament=args.tournament,
-                                       confidence=args.confidence,
-                                       chat=not use_oracle)
-        trace.event("task_end", task_id=task["id"], prompt=prompt[:200],
-                    solved=r.solved, tier=tier, attempts=r.n_attempts,
-                    seconds=r.seconds, routed=routed,
-                    **loop.tournament_fields(r), **_conf_fields(r),
-                    **_patch_fields(r))
+        r, tier, routed = solve_routed(
+            args.small,
+            args.big,
+            task,
+            ROOT,
+            small_attempts=args.attempts,
+            big_attempts=args.attempts,
+            max_tokens=args.max_tokens,
+            allow_big=args.allow_big,
+            tournament=args.tournament,
+            confidence=args.confidence,
+            chat=not use_oracle,
+        )
+        trace.event(
+            "task_end",
+            task_id=task["id"],
+            prompt=prompt[:200],
+            solved=r.solved,
+            tier=tier,
+            attempts=r.n_attempts,
+            seconds=r.seconds,
+            routed=routed,
+            **loop.tournament_fields(r),
+            **_conf_fields(r),
+            **_patch_fields(r),
+        )
         # Chat mode prints the reply, not the telemetry. The user asked a
         # question; a line about which tier answered it is an answer to a
         # different question, and the routing detail still reaches the trace.
@@ -679,8 +827,10 @@ def cmd_session(args) -> int:
                 for line in r.attempts[-1].err.splitlines()[:8]:
                     print(f"  {line}")
         else:
-            print(f"[turn {i}] routed={routed} tier={tier} solved={r.solved} "
-                  f"attempts={r.n_attempts} ({r.seconds}s){_patch_note(r)}")
+            print(
+                f"[turn {i}] routed={routed} tier={tier} solved={r.solved} "
+                f"attempts={r.n_attempts} ({r.seconds}s){_patch_note(r)}"
+            )
             if not r.solved and r.attempts and r.attempts[-1].err:
                 for line in r.attempts[-1].err.splitlines()[:8]:
                     print(f"  oracle| {line}")
@@ -697,14 +847,14 @@ def cmd_session(args) -> int:
         # Only now is the turn a fact: it answered, it was graded, it landed or
         # refused to. `/save` and `/retry` deal in finished turns and nothing else.
         rows.append([i, prompt, answer])
-        turns.append({"i": i, "tier": tier, "routed": routed,
-                      "seconds": round(r.seconds, 1)})
+        turns.append(
+            {"i": i, "tier": tier, "routed": routed, "seconds": round(r.seconds, 1)}
+        )
         last_ask = prompt
         in_flight = 0
 
     try:
-        for prompt in _read_turns(sys.stdin, args.turns,
-                                  PROMPT if tty else ""):
+        for prompt in _read_turns(sys.stdin, args.turns, PROMPT if tty else ""):
             if prompt.startswith("/"):
                 name, _, rest = prompt[1:].partition(" ")
                 if name == "quit":
@@ -715,13 +865,16 @@ def cmd_session(args) -> int:
                     _save_transcript(rest.strip(), rows, args, use_oracle)
                 elif name == "retry":
                     if not last_ask:
-                        print("session: /retry has nothing to retry — no turn "
-                              "has answered yet")
+                        print(
+                            "session: /retry has nothing to retry — no turn "
+                            "has answered yet"
+                        )
                     else:
                         run_turn(last_ask)
                 else:
-                    print(f"session: unknown command `/{name}` — `/help` lists "
-                          "the four")
+                    print(
+                        f"session: unknown command `/{name}` — `/help` lists the four"
+                    )
                 continue
             run_turn(prompt)
     except KeyboardInterrupt:
@@ -733,16 +886,20 @@ def cmd_session(args) -> int:
         interrupted = True
         if in_flight:
             killed = in_flight
-            print(f"\nsession: turn {in_flight} was interrupted — it is not "
-                  "counted and nothing was verified")
+            print(
+                f"\nsession: turn {in_flight} was interrupted — it is not "
+                "counted and nothing was verified"
+            )
             ran -= 1
     if not ran:
         if interrupted:
             # A killed first turn is not "no turn was asked": the ask reached the
             # program and the sentence above already said what happened to it.
             if not killed:
-                print("session: interrupted at the prompt — no turn was asked, "
-                      "so nothing was verified")
+                print(
+                    "session: interrupted at the prompt — no turn was asked, "
+                    "so nothing was verified"
+                )
             # The turn was not counted; the tokens it spent were still spent, and
             # a person deciding whether to re-run cares about that bill even when
             # nothing was verified. Empty when the signal landed at the prompt.
@@ -752,25 +909,47 @@ def cmd_session(args) -> int:
             return 130
         # Nothing was ever asked, so nothing was ever generated: a session that
         # exits 0 here would be a green run with no verify step behind it.
-        print("session: no turns on stdin — nothing was asked, so nothing "
-              "was verified")
+        print("session: no turns on stdin — nothing was asked, so nothing was verified")
         trace.close_session(solved=False, turns=0)
         return 2
-    print(f"[session] turns={ran} solved={solved_n} written={written_n} "
-          f"seconds={round(seconds, 1)} last_rc={rc}")
+    print(
+        f"[session] turns={ran} solved={solved_n} written={written_n} "
+        f"seconds={round(seconds, 1)} last_rc={rc}"
+    )
     for line in _session_cost(sid, turns, time.monotonic() - started):
         print(line)
     print(f"[trace] replay this session:  flash trace show {sid}")
-    trace.close_session(solved=(rc == 0), turns=ran, solved_turns=solved_n,
-                        written_turns=written_n, seconds=round(seconds, 1),
-                        **({"interrupted": True} if interrupted else {}))
+    trace.close_session(
+        solved=(rc == 0),
+        turns=ran,
+        solved_turns=solved_n,
+        written_turns=written_n,
+        seconds=round(seconds, 1),
+        **({"interrupted": True} if interrupted else {}),
+    )
     return 130 if interrupted else rc
 
 
-SUITE_PARAMS = ("small", "big", "tasks", "with_context", "attempts", "max_tasks",
-                "max_tokens", "max_chars", "threshold", "allow_big", "constrain",
-                "debug", "edit", "tournament", "confidence", "adapter",
-                "no_source_hint", "no_graph_hint")
+SUITE_PARAMS = (
+    "small",
+    "big",
+    "tasks",
+    "with_context",
+    "attempts",
+    "max_tasks",
+    "max_tokens",
+    "max_chars",
+    "threshold",
+    "allow_big",
+    "constrain",
+    "debug",
+    "edit",
+    "tournament",
+    "confidence",
+    "adapter",
+    "no_source_hint",
+    "no_graph_hint",
+)
 
 
 def _hint_names(off_source: bool, off_graph: bool) -> tuple[str, ...]:
@@ -779,8 +958,11 @@ def _hint_names(off_source: bool, off_graph: bool) -> tuple[str, ...]:
     Recorded in the session's params, so a trace states its own arm; an old
     session resumed without these keys gets both, which is what it ran with.
     """
-    return tuple(n for n, off in (("source", bool(off_source)),
-                                  ("graph", bool(off_graph))) if not off)
+    return tuple(
+        n
+        for n, off in (("source", bool(off_source)), ("graph", bool(off_graph)))
+        if not off
+    )
 
 
 def _patch_attempt(r):
@@ -796,20 +978,34 @@ def _patch_attempt(r):
 
 def _patch_note(r) -> str:
     a = _patch_attempt(r)
-    return "" if a is None else (f" patches={a.patches} refused={a.refused} "
-                                 f"whole={a.whole} outside={a.outside}")
+    return (
+        ""
+        if a is None
+        else (
+            f" patches={a.patches} refused={a.refused} "
+            f"whole={a.whole} outside={a.outside}"
+        )
+    )
 
 
 def _patch_fields(r) -> dict:
     a = _patch_attempt(r)
-    return {} if a is None else {"patch_refused": a.refused, "patch_whole": a.whole,
-                                 "patch_outside": a.outside}
+    return (
+        {}
+        if a is None
+        else {
+            "patch_refused": a.refused,
+            "patch_whole": a.whole,
+            "patch_outside": a.outside,
+        }
+    )
 
 
 def _tour_fields(r) -> dict:
     """R-3.3's task_end fields: the candidate table, so a resumed run reports
     the tournament it already ran without re-charging a model for it."""
     from flash import loop
+
     return loop.tournament_fields(r)
 
 
@@ -817,6 +1013,7 @@ def _tour_note(r) -> str:
     if r.tournament is None:
         return ""
     from flash import tourney
+
     return "  " + tourney.describe(r.tournament)
 
 
@@ -842,10 +1039,12 @@ def _hidden_verdict(r, hidden: str):
     and a gate number has to be reproducible.
     """
     from flash.loop import surfaced_attempt
+
     a = surfaced_attempt(r)
     if a is None or not a.code:
         return None
     from flash.confidence import HASH_SEEDS, _visible_verdict
+
     return all(_visible_verdict(a.code, hidden, s, 15) for s in HASH_SEEDS)
 
 
@@ -878,21 +1077,22 @@ def _run_suite(params: dict, sid: str | None = None) -> int:
     # R-6.4: one brain for the whole run, and it is the adapter the SESSION
     # recorded — a resumed suite must not quietly switch weights mid-suite.
     loop.ADAPTER = params.get("adapter") or ""
-    loop.CONSTRAIN = bool(params.get("constrain"))   # R-4.2 output mask
-    loop.DEBUG = bool(params.get("debug"))           # R-4.3 execution digest
-    loop.EDIT = bool(params.get("edit"))             # R-3.2 symbol-precise patches
+    loop.CONSTRAIN = bool(params.get("constrain"))  # R-4.2 output mask
+    loop.DEBUG = bool(params.get("debug"))  # R-4.3 execution digest
+    loop.EDIT = bool(params.get("edit"))  # R-3.2 symbol-precise patches
     # R-1.1b's arm. Both names when the session predates the keys, because that is
     # what the run it is resuming actually did.
-    loop.HINTS = _hint_names(params.get("no_source_hint"),
-                             params.get("no_graph_hint"))
-    if params["threshold"] <= 1.0:          # gate on -> keep the router learning
+    loop.HINTS = _hint_names(params.get("no_source_hint"), params.get("no_graph_hint"))
+    if params["threshold"] <= 1.0:  # gate on -> keep the router learning
         from flash.learn import autofit_if_stale
+
         msg = autofit_if_stale(params["small"])
         if msg:
             print(msg, flush=True)
     tasks = load_tasks(params["tasks"])[: params["max_tasks"]]
     if params["with_context"]:
         from flash.loop import enrich_task
+
         tasks = [enrich_task(t, ROOT, params["max_chars"]) for t in tasks]
 
     done = trace.positions(sid) if sid else {}
@@ -903,15 +1103,19 @@ def _run_suite(params: dict, sid: str | None = None) -> int:
         # user which task a resume will CONTINUE rather than only restart.
         checkpoint.arm(sid)
         left = checkpoint.pending(sid)
-        print(f"[trace] resuming {sid} — {len(done)} task(s) already settled, "
-              f"{len(tasks) - len([t for t in tasks if t['id'] in done])} to go"
-              + (f"; task {left} is mid-flight and resumes inside" if left else ""),
-              flush=True)
+        print(
+            f"[trace] resuming {sid} — {len(done)} task(s) already settled, "
+            f"{len(tasks) - len([t for t in tasks if t['id'] in done])} to go"
+            + (f"; task {left} is mid-flight and resumes inside" if left else ""),
+            flush=True,
+        )
     else:
         sid = trace.open_session("run-suite", cmd="run-suite", params=params)
         checkpoint.arm(sid)
-        print(f"[trace] session {sid} — interrupt me anytime, then: "
-              f"flash resume {sid}", flush=True)
+        print(
+            f"[trace] session {sid} — interrupt me anytime, then: flash resume {sid}",
+            flush=True,
+        )
 
     solved = small_n = big_n = shed_n = 0
     total = 0.0
@@ -974,10 +1178,11 @@ def _run_suite(params: dict, sid: str | None = None) -> int:
             return
         # Two clauses, two denominators: recall is over the answers the hidden
         # tests SINK, false offers over the answers they float.
-        (conf_fails, conf_pass) = (conf_fails + 1, conf_pass) if not h \
-            else (conf_fails, conf_pass + 1)
-        conf_caught += offer and not h        # recalled a would-fail-hidden answer
-        conf_false += offer and bool(h)       # offered an answer hidden accepts
+        (conf_fails, conf_pass) = (
+            (conf_fails + 1, conf_pass) if not h else (conf_fails, conf_pass + 1)
+        )
+        conf_caught += offer and not h  # recalled a would-fail-hidden answer
+        conf_false += offer and bool(h)  # offered an answer hidden accepts
         if gate == "routine":
             rt_n += 1
             rt_fails += not h
@@ -997,27 +1202,47 @@ def _run_suite(params: dict, sid: str | None = None) -> int:
                 _count_edits(d, d.get("attempts"))
                 _count_tourney(d)
                 _count_conf(d, t.get("gate"))
-                print(f"  [{'CACHED' if d.get('solved') else str(d.get('tier', 'failed')).upper():>9}] "
-                      f"{t['id']:<22} solved={d.get('solved')} (already in session, "
-                      f"not re-run)", flush=True)
+                print(
+                    f"  [{'CACHED' if d.get('solved') else str(d.get('tier', 'failed')).upper():>9}] "
+                    f"{t['id']:<22} solved={d.get('solved')} (already in session, "
+                    f"not re-run)",
+                    flush=True,
+                )
                 continue
-            r, tier, routed = solve_routed(params["small"], params["big"], t, ROOT,
-                                           small_attempts=params["attempts"],
-                                           big_attempts=params["attempts"],
-                                           max_tokens=params["max_tokens"],
-                                           threshold=params["threshold"],
-                                           allow_big=params["allow_big"],
-                                           tournament=params.get("tournament") or 1,
-                                           confidence=bool(params.get("confidence")))
+            r, tier, routed = solve_routed(
+                params["small"],
+                params["big"],
+                t,
+                ROOT,
+                small_attempts=params["attempts"],
+                big_attempts=params["attempts"],
+                max_tokens=params["max_tokens"],
+                threshold=params["threshold"],
+                allow_big=params["allow_big"],
+                tournament=params.get("tournament") or 1,
+                confidence=bool(params.get("confidence")),
+            )
             ran += 1
             # §34.2's answer key, scored after the offer so it cannot leak into
             # it: did the answer the machine just judged fail the hidden tests?
-            hid = (_hidden_verdict(r, t["hidden"])
-                   if params.get("confidence") and t.get("hidden") else None)
-            trace.event("task_end", task_id=t["id"], solved=r.solved, tier=tier,
-                        attempts=r.n_attempts, seconds=r.seconds, routed=routed,
-                        hidden_ok=hid,
-                        **_patch_fields(r), **_tour_fields(r), **_conf_fields(r))
+            hid = (
+                _hidden_verdict(r, t["hidden"])
+                if params.get("confidence") and t.get("hidden")
+                else None
+            )
+            trace.event(
+                "task_end",
+                task_id=t["id"],
+                solved=r.solved,
+                tier=tier,
+                attempts=r.n_attempts,
+                seconds=r.seconds,
+                routed=routed,
+                hidden_ok=hid,
+                **_patch_fields(r),
+                **_tour_fields(r),
+                **_conf_fields(r),
+            )
             # Only now is the task's history in the trace, so only now may its
             # frame go: clearing it before the record lands would turn a kill in
             # that window into a task that restarts from nothing.
@@ -1030,18 +1255,26 @@ def _run_suite(params: dict, sid: str | None = None) -> int:
             _count_edits(_patch_fields(r), r.n_attempts)
             _count_tourney(_tour_fields(r))
             _count_conf({**_conf_fields(r), "hidden_ok": hid}, t.get("gate"))
-            print(f"  [{('SHED' if tier == 'shed' else 'ESC->BIG' if tier == 'big' else tier.upper()):>9}] "
-                  f"{t['id']:<22} solved={r.solved} attempts={r.n_attempts} "
-                  f"({r.seconds}s)" + _patch_note(r) + _tour_note(r) + _conf_note(r),
-                  flush=True)
+            print(
+                f"  [{('SHED' if tier == 'shed' else 'ESC->BIG' if tier == 'big' else tier.upper()):>9}] "
+                f"{t['id']:<22} solved={r.solved} attempts={r.n_attempts} "
+                f"({r.seconds}s)" + _patch_note(r) + _tour_note(r) + _conf_note(r),
+                flush=True,
+            )
     except KeyboardInterrupt:
         left = checkpoint.pending(sid)
-        print(f"\ninterrupted after {ran} task(s). {len(done) + ran} of {len(tasks)} "
-              f"are settled; nothing written to the ledger is lost."
-              + (f"\n  task {left} was mid-generation: its partial answer and its "
-                 f"sandbox state are checkpointed, so the resume continues it"
-                 if left else "")
-              + f"\n  continue:  flash resume {sid}", flush=True)
+        print(
+            f"\ninterrupted after {ran} task(s). {len(done) + ran} of {len(tasks)} "
+            f"are settled; nothing written to the ledger is lost."
+            + (
+                f"\n  task {left} was mid-generation: its partial answer and its "
+                f"sandbox state are checkpointed, so the resume continues it"
+                if left
+                else ""
+            )
+            + f"\n  continue:  flash resume {sid}",
+            flush=True,
+        )
         return 130
     finally:
         # Recovery is armed per suite, never per process: leaving it armed would
@@ -1050,59 +1283,85 @@ def _run_suite(params: dict, sid: str | None = None) -> int:
         checkpoint.disarm()
     n = len(tasks)
     trace.close_session(solved=solved, tasks=n, ran=ran)
-    print(f"\nsolved {solved}/{n}   small-tier {small_n}, escalated {big_n}   "
-          f"total {total:.0f}s (avg {total / n:.1f}s/task)")
+    print(
+        f"\nsolved {solved}/{n}   small-tier {small_n}, escalated {big_n}   "
+        f"total {total:.0f}s (avg {total / n:.1f}s/task)"
+    )
     if edit_n:
-        print(f"[R-3.2] {first_try}/{edit_n} edit(s) solved in <=1 attempt "
-              f"(gate: >= {max(1, edit_n * 4 // 5)})   "
-              f"{outside_n} line(s) touched outside the target symbol "
-              f"(gate: 0)   {whole_n} whole-file rewrite(s)   "
-              f"{refused_n} refusal round(s)")
+        print(
+            f"[R-3.2] {first_try}/{edit_n} edit(s) solved in <=1 attempt "
+            f"(gate: >= {max(1, edit_n * 4 // 5)})   "
+            f"{outside_n} line(s) touched outside the target symbol "
+            f"(gate: 0)   {whole_n} whole-file rewrite(s)   "
+            f"{refused_n} refusal round(s)"
+        )
     if tour_n:
         pts = 100.0 * (tour_best - tour_c0) / tour_n
-        print(f"[R-3.3] {tour_n} tournament task(s): pass@1 "
-              f"{tour_c0}/{tour_n}  best-of-k {tour_best}/{tour_n}  "
-              f"(+{pts:.0f} pts, gate: >= 8)   {tour_gens} generation(s) spent")
+        print(
+            f"[R-3.3] {tour_n} tournament task(s): pass@1 "
+            f"{tour_c0}/{tour_n}  best-of-k {tour_best}/{tour_n}  "
+            f"(+{pts:.0f} pts, gate: >= 8)   {tour_gens} generation(s) spent"
+        )
     if conf_n:
         # Two clauses, two denominators — the gate is not one ratio. Unkeyed
         # rows (no hidden test) are named, never folded into either, and a
         # denominator of zero is a refusal to report rather than a number.
-        print(f"[R-2.3] {conf_offers}/{conf_n} answer(s) carried evidence; "
-              + _scored(
-                  "recall on would-fail-hidden", conf_fails,
-                  f"recall on would-fail-hidden {conf_caught}/{conf_fails} "
-                  f"(gate: >= 90%)",
-                  "nothing in this suite fails its hidden test, so recall was "
-                  "not tested at any threshold")
-              + ", "
-              + _scored(
-                  "false offers", conf_pass,
-                  f"{conf_false} false offer(s) over {conf_pass} hidden-accepted "
-                  f"answer(s) (gate: < 1 per 20)",
-                  "no answer here was accepted by a hidden test, so there was no "
-                  "correct answer left to offer wrongly")
-              + ("" if conf_fails + conf_pass else
-                 "   [this suite has no hidden tests: the evidence is reported, "
-                 "not scored]"))
+        print(
+            f"[R-2.3] {conf_offers}/{conf_n} answer(s) carried evidence; "
+            + _scored(
+                "recall on would-fail-hidden",
+                conf_fails,
+                f"recall on would-fail-hidden {conf_caught}/{conf_fails} "
+                f"(gate: >= 90%)",
+                "nothing in this suite fails its hidden test, so recall was "
+                "not tested at any threshold",
+            )
+            + ", "
+            + _scored(
+                "false offers",
+                conf_pass,
+                f"{conf_false} false offer(s) over {conf_pass} hidden-accepted "
+                f"answer(s) (gate: < 1 per 20)",
+                "no answer here was accepted by a hidden test, so there was no "
+                "correct answer left to offer wrongly",
+            )
+            + (
+                ""
+                if conf_fails + conf_pass
+                else "   [this suite has no hidden tests: the evidence is reported, "
+                "not scored]"
+            )
+        )
         if rt_n and rt_n != conf_n:
             # The clause's own population, named separately rather than blended
             # with rows it was never about.
-            print("        gate's own population (rows tagged routine): "
-                  + _scored("recall", rt_fails,
-                            f"recall {rt_caught}/{rt_fails} (>= 90%)",
-                            "no routine answer in this run fails its hidden test")
-                  + ", "
-                  + _scored("false offers", rt_pass,
-                            f"{rt_false} false offer(s) over {rt_pass} "
-                            f"hidden-accepted of {rt_n} task(s) (< 1 per 20)",
-                            f"none of the {rt_n} routine row(s) was accepted by a "
-                            f"hidden test, so the per-20 clause has no population"))
+            print(
+                "        gate's own population (rows tagged routine): "
+                + _scored(
+                    "recall",
+                    rt_fails,
+                    f"recall {rt_caught}/{rt_fails} (>= 90%)",
+                    "no routine answer in this run fails its hidden test",
+                )
+                + ", "
+                + _scored(
+                    "false offers",
+                    rt_pass,
+                    f"{rt_false} false offer(s) over {rt_pass} "
+                    f"hidden-accepted of {rt_n} task(s) (< 1 per 20)",
+                    f"none of the {rt_n} routine row(s) was accepted by a "
+                    f"hidden test, so the per-20 clause has no population",
+                )
+            )
     print(f"[trace] flash trace show {sid}")
     if shed_n:
         from flash import power
+
         _, caps = power.governor(refresh=True)
-        print(f"{shed_n} task(s) denied escalation by the §34.1 governor "
-              f"({caps.profile}): {'; '.join(caps.reasons)}")
+        print(
+            f"{shed_n} task(s) denied escalation by the §34.1 governor "
+            f"({caps.profile}): {'; '.join(caps.reasons)}"
+        )
         print("   rerun with --allow-big always to force the brain on battery/heat")
     return 0 if solved == n else 1
 
@@ -1110,6 +1369,7 @@ def _run_suite(params: dict, sid: str | None = None) -> int:
 def cmd_run_suite(args) -> int:
     """Full policy over a suite: PERCEIVE -> ROUTE -> small -> ESC per task."""
     from flash import trace
+
     params = {k: getattr(args, k) for k in SUITE_PARAMS}
     sid = None
     if args.resume is not None:
@@ -1128,28 +1388,36 @@ def cmd_run_suite(args) -> int:
 def cmd_resume(args) -> int:
     """§33.7: continue the last (or a named) interrupted suite from its snapshot."""
     from flash import trace
+
     sid = args.session or (trace.interrupted("run-suite") or [None])[-1]
     if not sid:
-        print("nothing to resume — no interrupted run-suite session "
-              "(flash trace ls to see recorded runs)")
+        print(
+            "nothing to resume — no interrupted run-suite session "
+            "(flash trace ls to see recorded runs)"
+        )
         return 0
     params = trace.session_params(sid)
     if not params:
-        print(f"session {sid} stored no parameters — rerun run-suite with flags "
-              f"and pass --resume {sid}")
+        print(
+            f"session {sid} stored no parameters — rerun run-suite with flags "
+            f"and pass --resume {sid}"
+        )
         return 2
-    for k in SUITE_PARAMS:                      # explicit flags outrank the snapshot
+    for k in SUITE_PARAMS:  # explicit flags outrank the snapshot
         v = getattr(args, k, None)
         if v is not None:
             params[k] = v
     trace.CAPTURE = bool(args.trace_full)
-    print(f"continuing {sid} under: " + ", ".join(f"{k}={v}" for k, v in params.items()))
+    print(
+        f"continuing {sid} under: " + ", ".join(f"{k}={v}" for k, v in params.items())
+    )
     return _run_suite(params, sid)
 
 
 def cmd_trace(args) -> int:
     """§33.6: the trace store and its replay view."""
     from flash import trace
+
     if args.selftest:
         return trace.run_selftest()
     if args.show:
@@ -1161,12 +1429,12 @@ def cmd_trace(args) -> int:
         return 0
     for sid in sids:
         s = trace.summarize(sid)
-        print(f"{sid:<44} {s['cmd'] or '-':<10} {s['solved']}/{s['tasks']:<3} solved "
-              f"{'closed' if s['closed'] else 'INTERRUPTED -> resume':<24} "
-              f"{s['prompt_tokens'] + s['completion_tokens']:>7} tok  {s['wall_s']:>7}s wall")
+        print(
+            f"{sid:<44} {s['cmd'] or '-':<10} {s['solved']}/{s['tasks']:<3} solved "
+            f"{'closed' if s['closed'] else 'INTERRUPTED -> resume':<24} "
+            f"{s['prompt_tokens'] + s['completion_tokens']:>7} tok  {s['wall_s']:>7}s wall"
+        )
     return 0
-
-
 
 
 def cmd_run_vis_suite(args) -> int:
@@ -1179,29 +1447,35 @@ def cmd_run_vis_suite(args) -> int:
     solved = 0
     total = 0.0
     for t in tasks:
-        r = solve_vision(args.vlm, t, max_attempts=args.attempts,
-                         max_tokens=args.max_tokens)
+        r = solve_vision(
+            args.vlm, t, max_attempts=args.attempts, max_tokens=args.max_tokens
+        )
         solved += r.solved
         total += r.seconds
-        print(f"  [{'VISION' if r.solved else 'FAILED':>9}] {t['id']:<22} "
-              f"solved={r.solved} attempts={r.n_attempts} ({r.seconds:.1f}s)",
-              flush=True)
+        print(
+            f"  [{'VISION' if r.solved else 'FAILED':>9}] {t['id']:<22} "
+            f"solved={r.solved} attempts={r.n_attempts} ({r.seconds:.1f}s)",
+            flush=True,
+        )
         if not r.solved:
             # full err: the quadrant report IS the diagnosis (truncating to 140
             # chars hid the MISMATCH lines that explain WHERE it went wrong)
             print(f"           err: {r.attempts[-1][1]}", flush=True)
         # M3 flywheel: vision outcomes go to the ledger under tier="vision" so
         # stats see them but the small/big router filter excludes them
-        ledger.record({"prompt": t["prompt"], "tier": "vision",
-                       "attempts": r.n_attempts, "solved": r.solved,
-                       "seconds": round(r.seconds, 1), "task_id": t["id"]})
+        ledger.record(
+            {
+                "prompt": t["prompt"],
+                "tier": "vision",
+                "attempts": r.n_attempts,
+                "solved": r.solved,
+                "seconds": round(r.seconds, 1),
+                "task_id": t["id"],
+            }
+        )
     n = len(tasks)
-    print(f"\nsolved {solved}/{n}   total {total:.0f}s "
-          f"(avg {total / n:.1f}s/task)")
+    print(f"\nsolved {solved}/{n}   total {total:.0f}s (avg {total / n:.1f}s/task)")
     return 0 if solved == n else 1
-
-
-
 
 
 def cmd_solve(args) -> int:
@@ -1212,24 +1486,39 @@ def cmd_solve(args) -> int:
     prompt = args.prompt
     if args.context:
         from flash.context import digest
-        prompt = (f"Project context (real API signatures — use exactly these):\n"
-                  f"{digest(args.context, args.max_chars)}\n\nTask: {args.prompt}")
-    if args.docs:                             # Phase-4: knowledge as a tool
+
+        prompt = (
+            f"Project context (real API signatures — use exactly these):\n"
+            f"{digest(args.context, args.max_chars)}\n\nTask: {args.prompt}"
+        )
+    if args.docs:  # Phase-4: knowledge as a tool
         from flash import web
+
         urls = [u.strip() for u in args.docs.split(",") if u.strip()]
-        recs = web.lookup(args.prompt, urls, budget=args.docs_budget,
-                          offline=args.docs_offline)
+        recs = web.lookup(
+            args.prompt, urls, budget=args.docs_budget, offline=args.docs_offline
+        )
         for r in recs:
-            print(f"  [docs {r.ranker:>3} "
-                  f"{'cache' if r.cached else 'FETCH':>5} {len(r.text)}c] "
-                  f"{r.url}" if r.ok else f"  [docs ERR] {r.url}: {r.error}",
-                  flush=True)
+            print(
+                f"  [docs {r.ranker:>3} "
+                f"{'cache' if r.cached else 'FETCH':>5} {len(r.text)}c] "
+                f"{r.url}"
+                if r.ok
+                else f"  [docs ERR] {r.url}: {r.error}",
+                flush=True,
+            )
         block = web.format_for_prompt(recs)
         if block:
-            prompt = f"{block}\n\nTask: {args.prompt}" if not args.context \
+            prompt = (
+                f"{block}\n\nTask: {args.prompt}"
+                if not args.context
                 else f"{block}\n\n{prompt}"
-    task = {"id": "adhoc", "prompt": prompt,
-            "test": open(args.test).read() if args.test else "print('__PASS__')"}
+            )
+    task = {
+        "id": "adhoc",
+        "prompt": prompt,
+        "test": open(args.test).read() if args.test else "print('__PASS__')",
+    }
     model, tok = load(args.model)
     r = solve(model, tok, task, max_attempts=args.attempts)
     print("--- code ---")
@@ -1240,6 +1529,7 @@ def cmd_solve(args) -> int:
 
 def cmd_context(args) -> int:
     from flash.context import digest
+
     print(digest(args.path, max_chars=args.max_chars))
     return 0
 
@@ -1247,18 +1537,23 @@ def cmd_context(args) -> int:
 def cmd_web(args) -> int:
     """Phase-4 web tool: fetch -> cache -> bge-rank excerpts (PLAN §25a3)."""
     from flash import web
+
     if args.selftest:
         return web.run_selftest()
     urls = [u.strip() for u in args.urls.split(",") if u.strip()]
     if not urls:
-        print("no --urls given"); return 2
-    recs = web.lookup(args.query, urls, budget=args.budget,
-                      offline=args.offline, force_kw=args.kw)
+        print("no --urls given")
+        return 2
+    recs = web.lookup(
+        args.query, urls, budget=args.budget, offline=args.offline, force_kw=args.kw
+    )
     for r in recs:
         if r.ok:
-            print(f"  [{r.ranker:>3} sim={r.top1_sim:.3f} "
-                  f"{'cache' if r.cached else 'FETCH':>5} "
-                  f"{len(r.text)}c] {r.url}")
+            print(
+                f"  [{r.ranker:>3} sim={r.top1_sim:.3f} "
+                f"{'cache' if r.cached else 'FETCH':>5} "
+                f"{len(r.text)}c] {r.url}"
+            )
         else:
             print(f"  [ERR] {r.url}: {r.error}")
     print()
@@ -1269,6 +1564,7 @@ def cmd_web(args) -> int:
 
 def cmd_perceive(args) -> int:
     from flash.perceive import static_check
+
     code = open(args.file, encoding="utf-8").read()
     diags = static_check(code)
     if not diags:
@@ -1282,6 +1578,7 @@ def cmd_perceive(args) -> int:
 def cmd_find(args) -> int:
     """§33.1: where is this symbol defined? (AST discovery + live LSP ranges)"""
     from flash.lsp import find_symbol
+
     syms = find_symbol(args.path, args.name, use_lsp=not args.ast)
     if not syms:
         print(f"{args.name}: not defined under {args.path}")
@@ -1294,6 +1591,7 @@ def cmd_find(args) -> int:
 def cmd_refs(args) -> int:
     """§33.1: every site that mentions this symbol."""
     from flash.lsp import find_references
+
     locs = find_references(args.path, args.name, use_lsp=not args.ast)
     for loc in locs:
         print(f"{loc.path}:{loc.line}:{loc.char}")
@@ -1304,9 +1602,11 @@ def cmd_refs(args) -> int:
 def cmd_symbols(args) -> int:
     """§33.1: outline one file (live ranges) or the whole tree (AST table)."""
     from flash.lsp import outline
+
     one = args.file or args.name
     if one:
         from flash.lsp import Lsp
+
         with Lsp(args.path) as lsp:
             for s in lsp.document_symbols(one):
                 print(f"{s}")
@@ -1318,12 +1618,14 @@ def cmd_symbols(args) -> int:
 
 def cmd_lsp_selftest(args) -> int:
     from flash.lsp import run_selftest
+
     return run_selftest()
 
 
 def cmd_learn(args) -> int:
     """§34.3: background learning, gated on AC + idle user, resumable."""
     from flash import jobs
+
     # The job's name is derived from the job, not from a default: `--lora` and
     # the router refit share one checkpoint directory, and a LoRA run that wrote
     # under 'router-fit' both destroyed the router's staleness watermark and
@@ -1345,14 +1647,22 @@ def cmd_learn(args) -> int:
     if args.lora:
         # R-6.4: the same gate over the heavier job — weights instead of a
         # router. Nothing here loads a model until the gate has opened.
-        msg = jobs.run_lora(args.small, dataset_dir=args.dataset or None,
-                            adapter_name=args.adapter, steps_total=args.steps,
-                            slice_iters=args.slice_iters, patience=args.patience,
-                            budget_s=args.budget, force=args.force, kind=kind)
+        msg = jobs.run_lora(
+            args.small,
+            dataset_dir=args.dataset or None,
+            adapter_name=args.adapter,
+            steps_total=args.steps,
+            slice_iters=args.slice_iters,
+            patience=args.patience,
+            budget_s=args.budget,
+            force=args.force,
+            kind=kind,
+        )
         print(msg)
         return 0 if "refused" not in msg and "no dataset" not in msg else 1
-    msg = jobs.run_fit(args.small, budget_s=args.budget, chunk=args.chunk,
-                       force=args.force, kind=kind)
+    msg = jobs.run_fit(
+        args.small, budget_s=args.budget, chunk=args.chunk, force=args.force, kind=kind
+    )
     print(msg)
     return 0 if "refused" not in msg else 1
 
@@ -1360,10 +1670,12 @@ def cmd_learn(args) -> int:
 def cmd_power(args) -> int:
     """§34.1: what the machine can afford right now, and why."""
     from flash import power
+
     if args.selftest:
         return power.run_selftest()
     if args.json:
         from dataclasses import asdict
+
         st, caps = power.governor(args.need, refresh=True)
         print(json.dumps({"state": asdict(st), "caps": caps.to_dict()}, indent=2))
         return 0
@@ -1372,8 +1684,9 @@ def cmd_power(args) -> int:
 
 
 def cmd_bench(args) -> int:
-    return subprocess.call([sys.executable, str(ROOT / "benchmarks" / "m0_bakeoff.py"),
-                            *args.bench_args])
+    return subprocess.call(
+        [sys.executable, str(ROOT / "benchmarks" / "m0_bakeoff.py"), *args.bench_args]
+    )
 
 
 def _module_forward(module: str):
@@ -1385,9 +1698,10 @@ def _module_forward(module: str):
     defect class R-7.8 now gates. The flags stay owned by the module's own
     parser, so this does not create a second place to keep them.
     """
+
     def cmd(args) -> int:
-        return subprocess.call([sys.executable, "-m", f"flash.{module}",
-                                *args.rest])
+        return subprocess.call([sys.executable, "-m", f"flash.{module}", *args.rest])
+
     return cmd
 
 
@@ -1395,21 +1709,25 @@ def cmd_selftest(args) -> int:
     """R-7.6: one command that re-runs the published claims from THIS install."""
     battery = ROOT / "benchmarks" / "battery_reread.py"
     if not args.all:
-        print("flash selftest: nothing to run. `--all` runs SPEC §6's offline "
-              "battery (every vector, no model loaded) and prints its totals the "
-              "way `benchmarks/battery_reread.py` does; `--backend-free` does the "
-              "same with the MLX import blocked, to prove which half of the "
-              "battery never needed a backend.")
+        print(
+            "flash selftest: nothing to run. `--all` runs SPEC §6's offline "
+            "battery (every vector, no model loaded) and prints its totals the "
+            "way `benchmarks/battery_reread.py` does; `--backend-free` does the "
+            "same with the MLX import blocked, to prove which half of the "
+            "battery never needed a backend."
+        )
         return 2
     if not battery.is_file():
         # The same refusal R-7.5 taught `flash.graph --selftest`: a wheel install
         # carries no benchmarks/, and reporting a count from vectors that were
         # never run is how a green number gets bought with nothing.
-        print(f"flash selftest --all cannot run from this install: {battery} is "
-              "not there. A wheel carries the `flash` package only, so the "
-              "verification surface did not come with it. Clone the repo (or "
-              "unpack the sdist, which ships benchmarks/) and run this there. "
-              "`flash doctor` says which half of the project you have.")
+        print(
+            f"flash selftest --all cannot run from this install: {battery} is "
+            "not there. A wheel carries the `flash` package only, so the "
+            "verification surface did not come with it. Clone the repo (or "
+            "unpack the sdist, which ships benchmarks/) and run this there. "
+            "`flash doctor` says which half of the project you have."
+        )
         return 2
     argv = [sys.executable, str(battery)]
     if args.backend_free:
@@ -1421,11 +1739,11 @@ def cmd_selftest(args) -> int:
 
 def cmd_doctor(args) -> int:
     from flash import doctor
+
     return doctor.dispatch(args)
 
 
-def _session_flags(p, *, context_required: bool = True,
-                   with_test: bool = True) -> None:
+def _session_flags(p, *, context_required: bool = True, with_test: bool = True) -> None:
     """Every flag the turn loop takes, defined in one place.
 
     `flash session` is the machinery name and `flash chat` is the product name for
@@ -1437,59 +1755,99 @@ def _session_flags(p, *, context_required: bool = True,
     standing in.
     """
     if with_test:
-        p.add_argument("--test", default=None,
-                       help="the oracle: a file with asserts that verify each turn "
-                            "(read once — a turn cannot rewrite it, see R-3.2 c3; "
-                            "omit for chat mode, which answers in prose and writes "
-                            "new files with no verify step, see R-7.15h)")
-    p.add_argument("--context", required=context_required,
-                   default=None if context_required else ".",
-                   help="the project each turn patches, and the directory the "
-                        "workspace is re-read from at the start of every turn"
-                        if context_required else
-                        "the project to talk about (default: this folder)")
-    p.add_argument("--turns", type=int, default=0, metavar="N",
-                   help="stop after N turns (0 = until EOF or `quit`)")
-    p.add_argument("--apply", action="store_true",
-                   help="R-3.2 clause 3: write each turn's oracle-passing patch "
-                        "set to --context; without it every turn prints NOT "
-                        "APPLIED and changes nothing")
+        p.add_argument(
+            "--test",
+            default=None,
+            help="the oracle: a file with asserts that verify each turn "
+            "(read once — a turn cannot rewrite it, see R-3.2 c3; "
+            "omit for chat mode, which answers in prose and writes "
+            "new files with no verify step, see R-7.15h)",
+        )
+    p.add_argument(
+        "--context",
+        required=context_required,
+        default=None if context_required else ".",
+        help="the project each turn patches, and the directory the "
+        "workspace is re-read from at the start of every turn"
+        if context_required
+        else "the project to talk about (default: this folder)",
+    )
+    p.add_argument(
+        "--turns",
+        type=int,
+        default=0,
+        metavar="N",
+        help="stop after N turns (0 = until EOF or `quit`)",
+    )
+    p.add_argument(
+        "--apply",
+        action="store_true",
+        help="R-3.2 clause 3: write each turn's oracle-passing patch "
+        "set to --context; without it every turn prints NOT "
+        "APPLIED and changes nothing",
+    )
     # The knobs no turn needs, grouped rather than deleted: they are how a run is
     # reproduced, and a stranger typing `flash chat --help` should not have to read
     # fourteen lines to find the two that matter.
     tuning = p.add_argument_group("tuning — a first chat needs none of these")
     tuning.add_argument("--small", default=DEFAULT_MODEL)
-    tuning.add_argument("--big",
-                        default="mlx-community/Qwen3-30B-A3B-Instruct-2507-4bit")
-    tuning.add_argument("--attempts", type=int, default=2,
-                        help="per tier, per turn")
+    tuning.add_argument(
+        "--big", default="mlx-community/Qwen3-30B-A3B-Instruct-2507-4bit"
+    )
+    tuning.add_argument("--attempts", type=int, default=2, help="per tier, per turn")
     tuning.add_argument("--max-tokens", type=int, default=1024)
-    tuning.add_argument("--allow-big", choices=("auto", "always", "never"),
-                        default="auto",
-                        help="escalation vs the §34.1 power governor, same as `run` "
-                             "(a shed turn says so rather than pretending)")
-    tuning.add_argument("--tournament", type=int, default=1, metavar="K",
-                        help="R-3.3: k oracle-scored candidates per turn, clamped to "
-                             "the governor's width (1 = off)")
-    tuning.add_argument("--confidence", action=argparse.BooleanOptionalAction,
-                        default=False,
-                        help="R-2.3: print the evidence table after each turn's "
-                             "verdict")
-    tuning.add_argument("--adapter", default=None, metavar="DIR",
-                        help="R-6.4: LoRA directory over the SMALL tier, as in `run`")
-    tuning.add_argument("--constrain", action="store_true",
-                        help="R-4.2: mask each turn's decode to the output contract")
-    tuning.add_argument("--debug", action="store_true",
-                        help="R-4.3: trace a failed turn and feed the digest to its "
-                             "retry")
-    tuning.add_argument("--no-source-hint", action="store_true",
-                        help="R-1.1b: withhold the LSP source block from retry "
-                             "feedback")
-    tuning.add_argument("--no-graph-hint", action="store_true",
-                        help="R-1.1b: withhold the graph's dependents block")
-    tuning.add_argument("--trace-full", action="store_true",
-                        help="§33.6: store the exact prompts and outputs of every "
-                             "turn")
+    tuning.add_argument(
+        "--allow-big",
+        choices=("auto", "always", "never"),
+        default="auto",
+        help="escalation vs the §34.1 power governor, same as `run` "
+        "(a shed turn says so rather than pretending)",
+    )
+    tuning.add_argument(
+        "--tournament",
+        type=int,
+        default=1,
+        metavar="K",
+        help="R-3.3: k oracle-scored candidates per turn, clamped to "
+        "the governor's width (1 = off)",
+    )
+    tuning.add_argument(
+        "--confidence",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="R-2.3: print the evidence table after each turn's verdict",
+    )
+    tuning.add_argument(
+        "--adapter",
+        default=None,
+        metavar="DIR",
+        help="R-6.4: LoRA directory over the SMALL tier, as in `run`",
+    )
+    tuning.add_argument(
+        "--constrain",
+        action="store_true",
+        help="R-4.2: mask each turn's decode to the output contract",
+    )
+    tuning.add_argument(
+        "--debug",
+        action="store_true",
+        help="R-4.3: trace a failed turn and feed the digest to its retry",
+    )
+    tuning.add_argument(
+        "--no-source-hint",
+        action="store_true",
+        help="R-1.1b: withhold the LSP source block from retry feedback",
+    )
+    tuning.add_argument(
+        "--no-graph-hint",
+        action="store_true",
+        help="R-1.1b: withhold the graph's dependents block",
+    )
+    tuning.add_argument(
+        "--trace-full",
+        action="store_true",
+        help="§33.6: store the exact prompts and outputs of every turn",
+    )
 
 
 def cmd_chat(args) -> int:
@@ -1518,13 +1876,17 @@ def cmd_verify(args) -> int:
     if rc not in (0, 1):
         return rc
     if args.no_battery:
-        print("verify: the doctor half ran and the offline battery was skipped "
-              "(`--no-battery`). Run `flash verify` without the flag to re-check "
-              "every published claim.")
+        print(
+            "verify: the doctor half ran and the offline battery was skipped "
+            "(`--no-battery`). Run `flash verify` without the flag to re-check "
+            "every published claim."
+        )
         return rc
-    print("verify: doctor answered above. Now SPEC §6's offline battery — no "
-          "model loads, and it takes tens of minutes on a small machine. "
-          "`flash verify --no-battery` is the fast half.")
+    print(
+        "verify: doctor answered above. Now SPEC §6's offline battery — no "
+        "model loads, and it takes tens of minutes on a small machine. "
+        "`flash verify --no-battery` is the fast half."
+    )
     ns = argparse.Namespace(all=True, backend_free=args.backend_free, quick=[])
     return cmd_selftest(ns) or rc
 
@@ -1552,18 +1914,24 @@ def build_parser(advanced: bool = False) -> argparse.ArgumentParser:
     `flash --advanced`, lists the machinery verbs too. The commands themselves are
     identical either way — the flag changes the listing, never the parser.
     """
-    ap = argparse.ArgumentParser(prog="flash", description="Flash Coder CLI (M1)",
-                                 formatter_class=_ProductHelp)
+    ap = argparse.ArgumentParser(
+        prog="flash", description="Flash Coder CLI (M1)", formatter_class=_ProductHelp
+    )
     # R-7.6. Read from the package rather than a literal, because a second copy
     # of the version string is a second thing that can be wrong: `benchmarks/
     # backend_free_check.py` parses this flag's output and requires it to equal
     # `flash.__version__`.
-    ap.add_argument("--version", action="version",
-                    version=f"flash {flash.__version__}",
-                    help="print the package version and exit")
-    ap.add_argument("--advanced", action="store_true",
-                    help="list every command, including the machinery a normal "
-                         "run never needs")
+    ap.add_argument(
+        "--version",
+        action="version",
+        version=f"flash {flash.__version__}",
+        help="print the package version and exit",
+    )
+    ap.add_argument(
+        "--advanced",
+        action="store_true",
+        help="list every command, including the machinery a normal run never needs",
+    )
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     # R-7.17d: one parent parser for `--backend`, attached to every command that
@@ -1574,13 +1942,16 @@ def build_parser(advanced: bool = False) -> argparse.ArgumentParser:
     # different backend than the one a published number came from is a wrong
     # measurement, so the choice is printed in the trace and in `flash doctor`.
     gen = argparse.ArgumentParser(add_help=False)
-    gen.add_argument("--backend", choices=("auto", "mlx", "llama.cpp"),
-                     default="auto",
-                     help="which model library answers: `mlx` (Apple Silicon; the "
-                          "backend every number in this repo was measured on), "
-                          "`llama.cpp` (a local GGUF — the route for Linux, Windows "
-                          "and any non-Apple box), or `auto` = the first that "
-                          "imports, MLX preferred")
+    gen.add_argument(
+        "--backend",
+        choices=("auto", "mlx", "llama.cpp"),
+        default="auto",
+        help="which model library answers: `mlx` (Apple Silicon; the "
+        "backend every number in this repo was measured on), "
+        "`llama.cpp` (a local GGUF — the route for Linux, Windows "
+        "and any non-Apple box), or `auto` = the first that "
+        "imports, MLX preferred",
+    )
 
     # PHASE 2: the first screen is the product. Every verb below still parses and
     # still keeps its exact flags — hiding a listing entry does not remove a
@@ -1610,129 +1981,192 @@ def build_parser(advanced: bool = False) -> argparse.ArgumentParser:
     p.add_argument("--model", default=DEFAULT_MODEL)
     p.set_defaults(fn=cmd_decide_batch)
 
-    p = command("route-test", parents=[gen], help="route m0+m2 tasks small-vs-big vs known labels")
+    p = command(
+        "route-test",
+        parents=[gen],
+        help="route m0+m2 tasks small-vs-big vs known labels",
+    )
     p.add_argument("--model", default=DEFAULT_MODEL)
     p.add_argument("--max-chars", type=int, default=4000)
     p.set_defaults(fn=cmd_route_test)
 
-    p = command("solve-all", parents=[gen], help="ACT->VERIFY->retry loop over all tasks")
+    p = command(
+        "solve-all", parents=[gen], help="ACT->VERIFY->retry loop over all tasks"
+    )
     p.add_argument("--model", default=DEFAULT_MODEL)
     p.add_argument("--attempts", type=int, default=3)
     p.add_argument("--max-tasks", type=int, default=20)
     p.add_argument("--max-tokens", type=int, default=1024)
     p.add_argument("--tasks", default=None, help="jsonl path (default: m0 suite)")
-    p.add_argument("--with-context", action="store_true",
-                   help="M2: inject each task's repo skeleton into the prompt")
+    p.add_argument(
+        "--with-context",
+        action="store_true",
+        help="M2: inject each task's repo skeleton into the prompt",
+    )
     p.add_argument("--max-chars", type=int, default=4000)
     p.set_defaults(fn=cmd_solve_all)
 
-    p = command("escalate-test", parents=[gen], help="small->big hot-swap escalation demo")
+    p = command(
+        "escalate-test", parents=[gen], help="small->big hot-swap escalation demo"
+    )
     p.add_argument("--small", default=DEFAULT_MODEL)
     p.add_argument("--big", default="mlx-community/Qwen3-30B-A3B-Instruct-2507-4bit")
     p.set_defaults(fn=cmd_escalate_test)
 
-    p = command("router-fit", parents=[gen], help="M3: fit learned router on the ledger (leave-one-out report)")
+    p = command(
+        "router-fit",
+        parents=[gen],
+        help="M3: fit learned router on the ledger (leave-one-out report)",
+    )
     p.add_argument("--small", default="mlx-community/Qwen2.5-Coder-7B-Instruct-4bit")
     p.set_defaults(fn=cmd_router_fit)
-
 
     p = command("ledger", help="M3: outcome ledger summary (router training data)")
     p.add_argument("--tail", type=int, default=10)
     p.set_defaults(fn=cmd_ledger)
 
-
-    p = command("run", parents=[gen],
-                help="one task, scored against your own test file, with the "
-                     "change written back only if it passed",
-                description="Give it one job and the file that proves it: "
-                            "the agent writes the change, your asserts grade "
-                            "it, and it retries until they pass.\n"
-                            "Nothing lands in your project unless you add "
-                            "`--apply`; until then the answer is printed and "
-                            "the run says NOT APPLIED.",
-                epilog="example:\n"
-                       '  flash run "add a retry with backoff to '
-                       'send_email" --test test_notifier.py --context . '
-                       '--edit --apply')
+    p = command(
+        "run",
+        parents=[gen],
+        help="one task, scored against your own test file, with the "
+        "change written back only if it passed",
+        description="Give it one job and the file that proves it: "
+        "the agent writes the change, your asserts grade "
+        "it, and it retries until they pass.\n"
+        "Nothing lands in your project unless you add "
+        "`--apply`; until then the answer is printed and "
+        "the run says NOT APPLIED.",
+        epilog="example:\n"
+        '  flash run "add a retry with backoff to '
+        'send_email" --test test_notifier.py --context . '
+        "--edit --apply",
+    )
     p.add_argument("prompt")
-    p.add_argument("--test", required=True, help="file with asserts verifying the solution")
+    p.add_argument(
+        "--test", required=True, help="file with asserts verifying the solution"
+    )
     p.add_argument("--context", help="repo path whose skeleton is injected (M2)")
     p.add_argument("--small", default=DEFAULT_MODEL)
     p.add_argument("--big", default="mlx-community/Qwen3-30B-A3B-Instruct-2507-4bit")
     p.add_argument("--attempts", type=int, default=2, help="per tier")
     p.add_argument("--max-tokens", type=int, default=1024)
-    p.add_argument("--allow-big", choices=("auto", "always", "never"), default="auto",
-                   help="escalation vs the §34.1 power governor: auto obeys the "
-                        "profile (battery/heat/memory shed the brain), always is "
-                        "the benchmark override, never is single-track")
-    p.add_argument("--constrain", action="store_true",
-                   help="R-4.2: mask every decode step to the task's output contract "
-                        "(# file: headers + fences), so a malformed answer is "
-                        "structurally impossible")
-    p.add_argument("--debug", action="store_true",
-                   help="R-4.3: re-run a failed test under a line tracer and put the "
-                        "execution digest (value history, last mutated line) in the "
-                        "retry feedback")
-    p.add_argument("--no-source-hint", action="store_true",
-                   help="R-1.1b: withhold the LSP source block from retry feedback "
-                        "(the A/B's OFF arm for that hint; the parse is skipped too)")
-    p.add_argument("--no-graph-hint", action="store_true",
-                   help="R-1.1b: withhold the graph's dependents block from retry "
-                        "feedback (the A/B's OFF arm for that hint)")
-    p.add_argument("--edit", action="store_true",
-                   help="R-3.2: answer a change request with symbol-addressed "
-                        "patches (# edit: file :: Symbol) that replace exactly the "
-                        "lines the AST owns, instead of re-typing whole files")
-    p.add_argument("--apply", action="store_true",
-                   help="R-3.2 clause 3: with --edit, write the oracle-passing "
-                        "patch set back into the --context tree. Without it "
-                        "nothing is written and the run prints NOT APPLIED")
-    p.add_argument("--tournament", type=int, default=1, metavar="K",
-                   help="R-3.3: replace the small tier's feedback chain with K "
-                        "independent candidates (candidate 0 greedy, the rest "
-                        "sampled), oracle-scored, first-pass adopted; clamped "
-                        "to the governor's width (1 = off)")
-    p.add_argument("--confidence", action=argparse.BooleanOptionalAction,
-                   default=True,
-                   help="R-2.3: ON by default here — before a single answer "
-                        "ships, re-run it under the hash seeds, trace which of "
-                        "its lines the visible tests reached, and probe it with "
-                        "adversarial arguments, then print what that evidence "
-                        "backs. Seconds of subprocess, no model (--no-confidence "
-                        "to skip)")
-    p.add_argument("--adapter", default=None, metavar="DIR",
-                   help="R-6.4: LoRA directory to load over the SMALL tier (the "
-                        "brain stays base). Its name goes on the ledger row and "
-                        "every trace event, and an adapter with no weights is an "
-                        "error, not a fall back to the base model")
-    p.add_argument("--trace-full", action="store_true",
-                   help="§33.6: also store the exact prompts and outputs, so the "
-                        "run can be re-fed to a model")
+    p.add_argument(
+        "--allow-big",
+        choices=("auto", "always", "never"),
+        default="auto",
+        help="escalation vs the §34.1 power governor: auto obeys the "
+        "profile (battery/heat/memory shed the brain), always is "
+        "the benchmark override, never is single-track",
+    )
+    p.add_argument(
+        "--constrain",
+        action="store_true",
+        help="R-4.2: mask every decode step to the task's output contract "
+        "(# file: headers + fences), so a malformed answer is "
+        "structurally impossible",
+    )
+    p.add_argument(
+        "--debug",
+        action="store_true",
+        help="R-4.3: re-run a failed test under a line tracer and put the "
+        "execution digest (value history, last mutated line) in the "
+        "retry feedback",
+    )
+    p.add_argument(
+        "--no-source-hint",
+        action="store_true",
+        help="R-1.1b: withhold the LSP source block from retry feedback "
+        "(the A/B's OFF arm for that hint; the parse is skipped too)",
+    )
+    p.add_argument(
+        "--no-graph-hint",
+        action="store_true",
+        help="R-1.1b: withhold the graph's dependents block from retry "
+        "feedback (the A/B's OFF arm for that hint)",
+    )
+    p.add_argument(
+        "--edit",
+        action="store_true",
+        help="R-3.2: answer a change request with symbol-addressed "
+        "patches (# edit: file :: Symbol) that replace exactly the "
+        "lines the AST owns, instead of re-typing whole files",
+    )
+    p.add_argument(
+        "--apply",
+        action="store_true",
+        help="R-3.2 clause 3: with --edit, write the oracle-passing "
+        "patch set back into the --context tree. Without it "
+        "nothing is written and the run prints NOT APPLIED",
+    )
+    p.add_argument(
+        "--tournament",
+        type=int,
+        default=1,
+        metavar="K",
+        help="R-3.3: replace the small tier's feedback chain with K "
+        "independent candidates (candidate 0 greedy, the rest "
+        "sampled), oracle-scored, first-pass adopted; clamped "
+        "to the governor's width (1 = off)",
+    )
+    p.add_argument(
+        "--confidence",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="R-2.3: ON by default here — before a single answer "
+        "ships, re-run it under the hash seeds, trace which of "
+        "its lines the visible tests reached, and probe it with "
+        "adversarial arguments, then print what that evidence "
+        "backs. Seconds of subprocess, no model (--no-confidence "
+        "to skip)",
+    )
+    p.add_argument(
+        "--adapter",
+        default=None,
+        metavar="DIR",
+        help="R-6.4: LoRA directory to load over the SMALL tier (the "
+        "brain stays base). Its name goes on the ledger row and "
+        "every trace event, and an adapter with no weights is an "
+        "error, not a fall back to the base model",
+    )
+    p.add_argument(
+        "--trace-full",
+        action="store_true",
+        help="§33.6: also store the exact prompts and outputs, so the "
+        "run can be re-fed to a model",
+    )
     p.set_defaults(fn=cmd_run)
 
-    p = command("session", parents=[gen],
-                help="many turns against one repo, scored by an oracle — "
-                     "the machinery name for the loop `flash chat` runs")
+    p = command(
+        "session",
+        parents=[gen],
+        help="many turns against one repo, scored by an oracle — "
+        "the machinery name for the loop `flash chat` runs",
+    )
     _session_flags(p)
     p.set_defaults(fn=cmd_session)
 
-    p = command("chat", parents=[gen],
-                help="ask about the code in this folder and get an answer "
-                     "in prose; say apply and the change lands",
-                description="Chat with the agent about your own code: "
-                            "describe what you want, it answers in prose and "
-                            "proposes the file changes.\n"
-                            "Nothing is written until you say apply, and "
-                            "every turn ends with a line saying whether the "
-                            "turn did what it claimed.",
-                epilog="example:\n"
-                       "  flash chat\n"
-                       "  you> add a retry with backoff to send_email in "
-                       "notifier.py\n")
+    p = command(
+        "chat",
+        parents=[gen],
+        help="ask about the code in this folder and get an answer "
+        "in prose; say apply and the change lands",
+        description="Chat with the agent about your own code: "
+        "describe what you want, it answers in prose and "
+        "proposes the file changes.\n"
+        "Nothing is written until you say apply, and "
+        "every turn ends with a line saying whether the "
+        "turn did what it claimed.",
+        epilog="example:\n"
+        "  flash chat\n"
+        "  you> add a retry with backoff to send_email in "
+        "notifier.py\n",
+    )
     _session_flags(p, context_required=False, with_test=False)
     p.set_defaults(fn=cmd_chat)
 
-    p = command("run-suite", parents=[gen], help="full policy over a suite (cost report)")
+    p = command(
+        "run-suite", parents=[gen], help="full policy over a suite (cost report)"
+    )
     p.add_argument("--small", default=DEFAULT_MODEL)
     p.add_argument("--big", default="mlx-community/Qwen3-30B-A3B-Instruct-2507-4bit")
     p.add_argument("--tasks", default=None, help="jsonl path (default: m0 suite)")
@@ -1741,50 +2175,103 @@ def build_parser(advanced: bool = False) -> argparse.ArgumentParser:
     p.add_argument("--max-tasks", type=int, default=25)
     p.add_argument("--max-tokens", type=int, default=1024)
     p.add_argument("--max-chars", type=int, default=4000)
-    p.add_argument("--threshold", type=float, default=1.1,
-                   help="learned-router P(need-big) cutoff; >1 disables the gate "
-                        "(default OFF since held-out m7 (2026-09-24): gate trained "
-                        "with its own big-direct rows big-directed 8/8 easy tasks; "
-                        "pass 0.5 to enable)")
-    p.add_argument("--allow-big", choices=("auto", "always", "never"), default="auto",
-                   help="escalation vs the §34.1 power governor (auto sheds the "
-                        "brain on battery/heat/memory pressure)")
-    p.add_argument("--resume", nargs="?", const="", default=None, metavar="SESSION",
-                   help="§33.7: continue an interrupted trace session (blank = the "
-                        "latest one) instead of starting a new run")
-    p.add_argument("--constrain", action="store_true",
-                   help="R-4.2: constrained decoding on the output contract")
-    p.add_argument("--debug", action="store_true",
-                   help="R-4.3: execution digest in the retry feedback")
-    p.add_argument("--no-source-hint", action="store_true",
-                   help="R-1.1b: withhold the LSP source block from retry feedback "
-                        "(A/B OFF arm for that hint; the shared AST parse is skipped "
-                        "too, so the OFF arm does not pay for the hint it hides)")
-    p.add_argument("--no-graph-hint", action="store_true",
-                   help="R-1.1b: withhold the graph's dependents block from retry "
-                        "feedback (A/B OFF arm for that hint)")
-    p.add_argument("--edit", action="store_true",
-                   help="R-3.2: symbol-addressed patches on edit tasks")
-    p.add_argument("--tournament", type=int, default=1, metavar="K",
-                   help="R-3.3: best-of-K candidates on single-file tasks, "
-                        "oracle-scored (1 = off; clamped to the governor's width)")
-    p.add_argument("--confidence", action="store_true", default=False,
-                   help="R-2.3: run §34.2's four evidence streams on every "
-                        "surfaced answer and report offers alongside the hidden "
-                        "verdicts (off: ~5 subprocesses per task)")
-    p.add_argument("--adapter", default=None, metavar="DIR",
-                   help="R-6.4: LoRA directory to load over the SMALL tier (the "
-                        "brain stays base). Its name goes on every ledger row and "
-                        "trace event, and an adapter with no weights is an error, "
-                        "not a fall back to the base model")
-    p.add_argument("--trace-full", action="store_true",
-                   help="§33.6: store exact prompts/outputs too, for re-feeding")
+    p.add_argument(
+        "--threshold",
+        type=float,
+        default=1.1,
+        help="learned-router P(need-big) cutoff; >1 disables the gate "
+        "(default OFF since held-out m7 (2026-09-24): gate trained "
+        "with its own big-direct rows big-directed 8/8 easy tasks; "
+        "pass 0.5 to enable)",
+    )
+    p.add_argument(
+        "--allow-big",
+        choices=("auto", "always", "never"),
+        default="auto",
+        help="escalation vs the §34.1 power governor (auto sheds the "
+        "brain on battery/heat/memory pressure)",
+    )
+    p.add_argument(
+        "--resume",
+        nargs="?",
+        const="",
+        default=None,
+        metavar="SESSION",
+        help="§33.7: continue an interrupted trace session (blank = the "
+        "latest one) instead of starting a new run",
+    )
+    p.add_argument(
+        "--constrain",
+        action="store_true",
+        help="R-4.2: constrained decoding on the output contract",
+    )
+    p.add_argument(
+        "--debug",
+        action="store_true",
+        help="R-4.3: execution digest in the retry feedback",
+    )
+    p.add_argument(
+        "--no-source-hint",
+        action="store_true",
+        help="R-1.1b: withhold the LSP source block from retry feedback "
+        "(A/B OFF arm for that hint; the shared AST parse is skipped "
+        "too, so the OFF arm does not pay for the hint it hides)",
+    )
+    p.add_argument(
+        "--no-graph-hint",
+        action="store_true",
+        help="R-1.1b: withhold the graph's dependents block from retry "
+        "feedback (A/B OFF arm for that hint)",
+    )
+    p.add_argument(
+        "--edit",
+        action="store_true",
+        help="R-3.2: symbol-addressed patches on edit tasks",
+    )
+    p.add_argument(
+        "--tournament",
+        type=int,
+        default=1,
+        metavar="K",
+        help="R-3.3: best-of-K candidates on single-file tasks, "
+        "oracle-scored (1 = off; clamped to the governor's width)",
+    )
+    p.add_argument(
+        "--confidence",
+        action="store_true",
+        default=False,
+        help="R-2.3: run §34.2's four evidence streams on every "
+        "surfaced answer and report offers alongside the hidden "
+        "verdicts (off: ~5 subprocesses per task)",
+    )
+    p.add_argument(
+        "--adapter",
+        default=None,
+        metavar="DIR",
+        help="R-6.4: LoRA directory to load over the SMALL tier (the "
+        "brain stays base). Its name goes on every ledger row and "
+        "trace event, and an adapter with no weights is an error, "
+        "not a fall back to the base model",
+    )
+    p.add_argument(
+        "--trace-full",
+        action="store_true",
+        help="§33.6: store exact prompts/outputs too, for re-feeding",
+    )
     p.set_defaults(fn=cmd_run_suite)
 
-    p = command("resume", parents=[gen], help="§33.7: continue an interrupted suite from its "
-                               "trace snapshot (parameters come from the session)")
-    p.add_argument("session", nargs="?", default=None, help="trace session id "
-                       "(default: the newest interrupted run-suite session)")
+    p = command(
+        "resume",
+        parents=[gen],
+        help="§33.7: continue an interrupted suite from its "
+        "trace snapshot (parameters come from the session)",
+    )
+    p.add_argument(
+        "session",
+        nargs="?",
+        default=None,
+        help="trace session id (default: the newest interrupted run-suite session)",
+    )
     p.add_argument("--small", default=None)
     p.add_argument("--big", default=None)
     p.add_argument("--tasks", default=None)
@@ -1795,18 +2282,42 @@ def build_parser(advanced: bool = False) -> argparse.ArgumentParser:
     p.add_argument("--max-chars", type=int, default=None)
     p.add_argument("--threshold", type=float, default=None)
     p.add_argument("--allow-big", choices=("auto", "always", "never"), default=None)
-    p.add_argument("--constrain", action="store_true", default=None,
-                   help="R-4.2: omit to keep the resumed session's setting")
-    p.add_argument("--debug", action="store_true", default=None,
-                   help="R-4.3: omit to keep the resumed session's setting")
-    p.add_argument("--edit", action="store_true", default=None,
-                   help="R-3.2: omit to keep the resumed session's setting")
-    p.add_argument("--tournament", type=int, default=None, metavar="K",
-                   help="R-3.3: omit to keep the resumed session's setting")
-    p.add_argument("--confidence", action="store_true", default=None,
-                   help="R-2.3: omit to keep the resumed session's setting")
-    p.add_argument("--adapter", default=None,
-                   help="R-6.4: omit to keep the resumed session's adapter")
+    p.add_argument(
+        "--constrain",
+        action="store_true",
+        default=None,
+        help="R-4.2: omit to keep the resumed session's setting",
+    )
+    p.add_argument(
+        "--debug",
+        action="store_true",
+        default=None,
+        help="R-4.3: omit to keep the resumed session's setting",
+    )
+    p.add_argument(
+        "--edit",
+        action="store_true",
+        default=None,
+        help="R-3.2: omit to keep the resumed session's setting",
+    )
+    p.add_argument(
+        "--tournament",
+        type=int,
+        default=None,
+        metavar="K",
+        help="R-3.3: omit to keep the resumed session's setting",
+    )
+    p.add_argument(
+        "--confidence",
+        action="store_true",
+        default=None,
+        help="R-2.3: omit to keep the resumed session's setting",
+    )
+    p.add_argument(
+        "--adapter",
+        default=None,
+        help="R-6.4: omit to keep the resumed session's adapter",
+    )
     p.add_argument("--trace-full", action="store_true")
     p.set_defaults(fn=cmd_resume)
 
@@ -1814,7 +2325,9 @@ def build_parser(advanced: bool = False) -> argparse.ArgumentParser:
     p.add_argument("show", nargs="?", default=None, help="session id to replay")
     p.add_argument("--task", default=None, help="only this task's decisions")
     p.add_argument("--full", action="store_true", help="include stored prompts/outputs")
-    p.add_argument("--selftest", action="store_true", help="offline deterministic checks")
+    p.add_argument(
+        "--selftest", action="store_true", help="offline deterministic checks"
+    )
     p.set_defaults(fn=cmd_trace)
 
     p = command("run-vis-suite", help="M0b: screenshot->HTML suite via VLM")
@@ -1825,19 +2338,29 @@ def build_parser(advanced: bool = False) -> argparse.ArgumentParser:
     p.add_argument("--max-tasks", type=int, default=999)
     p.set_defaults(fn=cmd_run_vis_suite)
 
-    p = command("solve", parents=[gen], help="solve one ad-hoc task (M2: --context injects repo skeleton)")
+    p = command(
+        "solve",
+        parents=[gen],
+        help="solve one ad-hoc task (M2: --context injects repo skeleton)",
+    )
     p.add_argument("prompt")
     p.add_argument("--test", help="file with asserts verifying the solution")
-    p.add_argument("--context", help="repo path whose skeleton is injected into the prompt")
+    p.add_argument(
+        "--context", help="repo path whose skeleton is injected into the prompt"
+    )
     p.add_argument("--max-chars", type=int, default=4000)
     p.add_argument("--model", default=DEFAULT_MODEL)
     p.add_argument("--attempts", type=int, default=3)
-    p.add_argument("--docs", default=None,
-                   help="Phase-4: comma-separated doc URLs to fetch+rank into "
-                        "the prompt (flash.web)")
+    p.add_argument(
+        "--docs",
+        default=None,
+        help="Phase-4: comma-separated doc URLs to fetch+rank into "
+        "the prompt (flash.web)",
+    )
     p.add_argument("--docs-budget", type=int, default=2500)
-    p.add_argument("--docs-offline", action="store_true",
-                   help="docs from cache only (§33.9)")
+    p.add_argument(
+        "--docs-offline", action="store_true", help="docs from cache only (§33.9)"
+    )
     p.set_defaults(fn=cmd_solve)
 
     p = command("context", help="token-budgeted project skeleton (M2 PERCEIVE)")
@@ -1845,17 +2368,25 @@ def build_parser(advanced: bool = False) -> argparse.ArgumentParser:
     p.add_argument("--max-chars", type=int, default=4000)
     p.set_defaults(fn=cmd_context)
 
-    p = command("web", help="Phase-4: fetch+cache+bge-rank doc excerpts "
-                            "(offline-degrading, §33.9)")
+    p = command(
+        "web",
+        help="Phase-4: fetch+cache+bge-rank doc excerpts (offline-degrading, §33.9)",
+    )
     p.add_argument("query", nargs="?", default="")
     p.add_argument("--urls", default="", help="comma-separated doc URLs")
-    p.add_argument("--budget", type=int, default=2500,
-                   help="chars of excerpt per doc (v3 A/B winner)")
+    p.add_argument(
+        "--budget",
+        type=int,
+        default=2500,
+        help="chars of excerpt per doc (v3 A/B winner)",
+    )
     p.add_argument("--offline", action="store_true", help="cache-only")
-    p.add_argument("--kw", action="store_true",
-                   help="force keyword ranker (skip the bge embedder)")
-    p.add_argument("--selftest", action="store_true",
-                   help="offline deterministic checks, exit 0/1")
+    p.add_argument(
+        "--kw", action="store_true", help="force keyword ranker (skip the bge embedder)"
+    )
+    p.add_argument(
+        "--selftest", action="store_true", help="offline deterministic checks, exit 0/1"
+    )
     p.set_defaults(fn=cmd_web)
 
     p = command("perceive", help="LSP static check of one file")
@@ -1880,148 +2411,234 @@ def build_parser(advanced: bool = False) -> argparse.ArgumentParser:
     p.add_argument("--file", default=None, help="alias for the positional file")
     p.set_defaults(fn=cmd_symbols)
 
-    from flash import graph as _graph      # R-1.3/PLAN §28: flags defined once
-    p = command("graph", help="§28/R-1.3: knowledge-graph blast radius — "
-                            "which symbols a change reaches, each with the "
-                            "call/import edge that proves it, under 200ms")
+    from flash import graph as _graph  # R-1.3/PLAN §28: flags defined once
+
+    p = command(
+        "graph",
+        help="§28/R-1.3: knowledge-graph blast radius — "
+        "which symbols a change reaches, each with the "
+        "call/import edge that proves it, under 200ms",
+    )
     _graph.add_flags(p)
     p.set_defaults(fn=_graph.dispatch)
 
     p = command("lsp-selftest", help="§33.1: deterministic perception checks")
     p.set_defaults(fn=cmd_lsp_selftest)
 
-    p = command("learn", parents=[gen], help="§34.3: gated, resumable background learning "
-                              "(router refit; --lora for weights)")
+    p = command(
+        "learn",
+        parents=[gen],
+        help="§34.3: gated, resumable background learning "
+        "(router refit; --lora for weights)",
+    )
     p.add_argument("--small", default=DEFAULT_MODEL)
-    p.add_argument("--budget", type=float, default=900.0,
-                   help="wall-clock cap per invocation; the rest resumes next idle window")
+    p.add_argument(
+        "--budget",
+        type=float,
+        default=900.0,
+        help="wall-clock cap per invocation; the rest resumes next idle window",
+    )
     p.add_argument("--chunk", type=int, default=8, help="prompts per checkpoint flush")
-    p.add_argument("--force", action="store_true",
-                   help="override the idle/AC gate (explicit foreground use)")
-    p.add_argument("--kind", default=None,
-                   help="the checkpoint name; omit it and the job names itself "
-                        "(router-fit, or lora-fit with --lora)")
+    p.add_argument(
+        "--force",
+        action="store_true",
+        help="override the idle/AC gate (explicit foreground use)",
+    )
+    p.add_argument(
+        "--kind",
+        default=None,
+        help="the checkpoint name; omit it and the job names itself "
+        "(router-fit, or lora-fit with --lora)",
+    )
     p.add_argument("--status", action="store_true", help="print the last checkpoint")
     p.add_argument("--check", action="store_true", help="only answer: may it run now?")
     p.add_argument("--min-new", type=int, default=10)
-    p.add_argument("--lora", action="store_true",
-                   help="train the LoRA adapter instead of refitting the router")
-    p.add_argument("--dataset", default="",
-                   help="dataset dir (default: benchmarks/results/datasets/ledger-verified)")
-    p.add_argument("--adapter", default="self-improve",
-                   help="adapter name; weights land in benchmarks/results/adapters/<name>")
-    p.add_argument("--steps", type=int, default=256,
-                   help="total optimizer steps for the experiment")
-    p.add_argument("--slice-iters", type=int, default=32,
-                   help="steps per slice: what a kill costs, and the eval interval")
-    p.add_argument("--patience", type=int, default=3,
-                   help="non-improving checkpoints before the run stops")
+    p.add_argument(
+        "--lora",
+        action="store_true",
+        help="train the LoRA adapter instead of refitting the router",
+    )
+    p.add_argument(
+        "--dataset",
+        default="",
+        help="dataset dir (default: benchmarks/results/datasets/ledger-verified)",
+    )
+    p.add_argument(
+        "--adapter",
+        default="self-improve",
+        help="adapter name; weights land in benchmarks/results/adapters/<name>",
+    )
+    p.add_argument(
+        "--steps",
+        type=int,
+        default=256,
+        help="total optimizer steps for the experiment",
+    )
+    p.add_argument(
+        "--slice-iters",
+        type=int,
+        default=32,
+        help="steps per slice: what a kill costs, and the eval interval",
+    )
+    p.add_argument(
+        "--patience",
+        type=int,
+        default=3,
+        help="non-improving checkpoints before the run stops",
+    )
     p.add_argument("--selftest", action="store_true")
     p.set_defaults(fn=cmd_learn)
 
     p = command("power", help="§34.1: system profile + what the machine may load")
-    p.add_argument("--need", type=float, default=4.4, help="GB the caller wants to load")
+    p.add_argument(
+        "--need", type=float, default=4.4, help="GB the caller wants to load"
+    )
     p.add_argument("--json", action="store_true", help="machine-readable state + caps")
-    p.add_argument("--selftest", action="store_true", help="deterministic decision table")
+    p.add_argument(
+        "--selftest", action="store_true", help="deterministic decision table"
+    )
     p.set_defaults(fn=cmd_power)
 
     p = command("bench", help="wrap benchmarks/m0_bakeoff.py")
     p.add_argument("bench_args", nargs=argparse.REMAINDER)
     p.set_defaults(fn=cmd_bench)
 
-    p = command("ambient", help="§33.5/R-7.2: idle-window DRAFTS only — lint, "
-                            "suite-premise and doc-drift fixes prepared in a "
-                            "git worktree, verified by the check that found "
-                            "them, never merged and never pushed")
-    from flash import ambient as _ambient      # flags defined once, in flash/ambient.py
+    p = command(
+        "ambient",
+        help="§33.5/R-7.2: idle-window DRAFTS only — lint, "
+        "suite-premise and doc-drift fixes prepared in a "
+        "git worktree, verified by the check that found "
+        "them, never merged and never pushed",
+    )
+    from flash import ambient as _ambient  # flags defined once, in flash/ambient.py
+
     _ambient.add_flags(p)
     p.set_defaults(fn=_ambient.dispatch)
 
-    p = command("models", help="the weights on this machine — fetch a tier, list "
-                               "the cache, check a file against the pin",
-                description="R-7.18: the GGUF weights `--backend llama.cpp` loads, "
-                            "one pinned tier per file. `pull` resumes where it "
-                            "stopped and checks the SHA256, `list` says what is "
-                            "here, `verify` re-reads the bytes rather than trusting "
-                            "the download.",
-                epilog="example:\n  flash models list — and `flash models pull fast` "
-                       "when it says nothing is here; the pull asks first, because "
-                       "4.68 GB on a metered line is a decision.")
-    from flash import models as _models      # verbs defined once, in flash/models.py
+    p = command(
+        "models",
+        help="the weights on this machine — fetch a tier, list "
+        "the cache, check a file against the pin",
+        description="R-7.18: the GGUF weights `--backend llama.cpp` loads, "
+        "one pinned tier per file. `pull` resumes where it "
+        "stopped and checks the SHA256, `list` says what is "
+        "here, `verify` re-reads the bytes rather than trusting "
+        "the download.",
+        epilog="example:\n  flash models list — and `flash models pull fast` "
+        "when it says nothing is here; the pull asks first, because "
+        "4.68 GB on a metered line is a decision.",
+    )
+    from flash import models as _models  # verbs defined once, in flash/models.py
+
     _models.add_flags(p)
     p.set_defaults(fn=_models.dispatch)
 
-    p = command("setup", parents=[gen],
-                help="the first command to run: check this machine, get the "
-                     "weights, prove one answer comes out",
-                description="Five steps, printed as five: what this machine "
-                            "is, the weights coming down, the bytes checked "
-                            "against the pin,\none real turn answering, and "
-                            "what you can now do. Run it once, before "
-                            "`flash chat`.",
-                epilog="example:\n  flash setup")
-    from flash import setup as _setup      # flags defined once, in flash/setup.py
+    p = command(
+        "setup",
+        parents=[gen],
+        help="the first command to run: check this machine, get the "
+        "weights, prove one answer comes out",
+        description="Five steps, printed as five: what this machine "
+        "is, the weights coming down, the bytes checked "
+        "against the pin,\none real turn answering, and "
+        "what you can now do. Run it once, before "
+        "`flash chat`.",
+        epilog="example:\n  flash setup",
+    )
+    from flash import setup as _setup  # flags defined once, in flash/setup.py
+
     _setup.add_flags(p)
     p.set_defaults(fn=_setup.dispatch)
 
-    p = command("verify", parents=[gen],
-                help="is this install and this project healthy — the doctor "
-                     "and the whole offline battery, in one call",
-                description="Two halves, in one sentence each: what this "
-                            "install is and can do, then every published "
-                            "claim re-run against it.\n"
-                            "The second half loads no model but takes tens "
-                            "of minutes; `--no-battery` is the fast half.",
-                epilog="example:\n  flash verify --no-battery")
-    from flash import doctor as _doctor   # the same flag table `flash doctor` uses
+    p = command(
+        "verify",
+        parents=[gen],
+        help="is this install and this project healthy — the doctor "
+        "and the whole offline battery, in one call",
+        description="Two halves, in one sentence each: what this "
+        "install is and can do, then every published "
+        "claim re-run against it.\n"
+        "The second half loads no model but takes tens "
+        "of minutes; `--no-battery` is the fast half.",
+        epilog="example:\n  flash verify --no-battery",
+    )
+    from flash import doctor as _doctor  # the same flag table `flash doctor` uses
+
     _doctor.add_flags(p)
-    p.add_argument("--no-battery", action="store_true",
-                   help="only the doctor half — the offline battery is the slow one")
-    p.add_argument("--backend-free", action="store_true",
-                   help="with the battery: block every `mlx` import in the child "
-                        "processes, so 'the battery needs no model' is a run "
-                        "rather than a sentence")
+    p.add_argument(
+        "--no-battery",
+        action="store_true",
+        help="only the doctor half — the offline battery is the slow one",
+    )
+    p.add_argument(
+        "--backend-free",
+        action="store_true",
+        help="with the battery: block every `mlx` import in the child "
+        "processes, so 'the battery needs no model' is a run "
+        "rather than a sentence",
+    )
     p.set_defaults(fn=cmd_verify)
 
-    p = command("ui", parents=[gen],
-                help="the same chat in a page on this machine — chat, the "
-                     "diff it proposes, the oracle's verdict, the weights",
-                description="Four panels, one local web page: ask, read the "
-                            "diff, press Apply per file to write it, and see "
-                            "what your asserts say.\n"
-                            "Nothing is written until you press Apply, and "
-                            "the server only ever listens on 127.0.0.1.",
-                epilog="example:\n  flash ui")
-    from flash import ui as _ui            # flags defined once, in flash/ui.py
+    p = command(
+        "ui",
+        parents=[gen],
+        help="the same chat in a page on this machine — chat, the "
+        "diff it proposes, the oracle's verdict, the weights",
+        description="Four panels, one local web page: ask, read the "
+        "diff, press Apply per file to write it, and see "
+        "what your asserts say.\n"
+        "Nothing is written until you press Apply, and "
+        "the server only ever listens on 127.0.0.1.",
+        epilog="example:\n  flash ui",
+    )
+    from flash import ui as _ui  # flags defined once, in flash/ui.py
+
     _ui.add_flags(p)
     p.set_defaults(fn=_ui.dispatch)
 
-    p = command("doctor", help="R-7.6: which half of this project is "
-                               "installed here, and what it can verify "
-                               "(reads the running interpreter, never a doc)")
-    from flash import doctor as _doctor        # flags defined once, in flash/doctor.py
+    p = command(
+        "doctor",
+        help="R-7.6: which half of this project is "
+        "installed here, and what it can verify "
+        "(reads the running interpreter, never a doc)",
+    )
+    from flash import doctor as _doctor  # flags defined once, in flash/doctor.py
+
     _doctor.add_flags(p)
     p.set_defaults(fn=cmd_doctor)
 
-    p = command("selftest", help="R-7.6: re-run the published claims "
-                                 "against this install")
-    p.add_argument("--all", action="store_true",
-                   help="run SPEC §6's offline battery and print its totals")
-    p.add_argument("--backend-free", action="store_true",
-                   help="with --all: block every `mlx` import in the child "
-                        "processes, so 'the battery needs no model' is a run "
-                        "rather than a sentence")
-    p.add_argument("--quick", nargs="*", metavar="NAME",
-                   help="with --all: only the battery lines whose name matches, "
-                        "and say out loud that the totals are partial")
+    p = command(
+        "selftest", help="R-7.6: re-run the published claims against this install"
+    )
+    p.add_argument(
+        "--all",
+        action="store_true",
+        help="run SPEC §6's offline battery and print its totals",
+    )
+    p.add_argument(
+        "--backend-free",
+        action="store_true",
+        help="with --all: block every `mlx` import in the child "
+        "processes, so 'the battery needs no model' is a run "
+        "rather than a sentence",
+    )
+    p.add_argument(
+        "--quick",
+        nargs="*",
+        metavar="NAME",
+        help="with --all: only the battery lines whose name matches, "
+        "and say out loud that the totals are partial",
+    )
     p.set_defaults(fn=cmd_selftest)
 
     # The module-owned vectors, reachable as commands because the docs name them
     # that way. See `_module_forward`.
     for name in ("debug", "jobs", "train"):
-        p = command(name,
-                    help=f"forward to `python -m flash.{name}` "
-                         "(that module's parser owns the flags)")
+        p = command(
+            name,
+            help=f"forward to `python -m flash.{name}` "
+            "(that module's parser owns the flags)",
+        )
         p.add_argument("rest", nargs=argparse.REMAINDER)
         p.set_defaults(fn=_module_forward(name))
 
@@ -2063,6 +2680,7 @@ def _dispatch(ap: argparse.ArgumentParser, argv: list) -> int:
         # the first model call chooses, which is what keeps `flash doctor` and the
         # whole offline battery answerable on a box with no backend at all.
         from flash import backend
+
         if getattr(args, "backend", "auto") != "auto":
             backend.use(args.backend)
         return args.fn(args)
@@ -2078,6 +2696,7 @@ def _dispatch(ap: argparse.ArgumentParser, argv: list) -> int:
         # record says `refused`, so `flash trace show` cannot mistake it for a
         # turn that was attempted and failed.
         from flash import trace
+
         if trace.active():
             trace.close_session(solved=False, refused="no generation backend")
         print(str(e), file=sys.stderr)
@@ -2089,6 +2708,7 @@ def _dispatch(ap: argparse.ArgumentParser, argv: list) -> int:
         # is closed the same way a refusal closes it, so `flash trace show` cannot
         # read an interrupted-but-resumable run out of a turn that never started.
         from flash import trace
+
         if trace.active():
             trace.close_session(solved=False, refused="backend cannot do this")
         print(f"flash: {e}", file=sys.stderr)

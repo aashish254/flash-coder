@@ -15,6 +15,7 @@ Protocol:
 
 Run: .venv/bin/python benchmarks/eval_gate_heldout.py
 """
+
 from __future__ import annotations
 
 import sys
@@ -28,8 +29,12 @@ from flash.learn import embed_prompts, fit_router, score, trainable
 
 ROOT = Path(__file__).resolve().parent
 SMALL = "mlx-community/Qwen2.5-Coder-7B-Instruct-4bit"
-SUITES = ["m4_heldout_tasks.jsonl", "m5_heldout_tasks.jsonl",
-          "m6_heldout_tasks.jsonl", "m7_heldout_tasks.jsonl"]
+SUITES = [
+    "m4_heldout_tasks.jsonl",
+    "m5_heldout_tasks.jsonl",
+    "m6_heldout_tasks.jsonl",
+    "m7_heldout_tasks.jsonl",
+]
 
 
 def auc(scores: list[float], labels: list[bool]) -> float:
@@ -38,15 +43,18 @@ def auc(scores: list[float], labels: list[bool]) -> float:
     neg = [s for s, y in zip(scores, labels) if not y]
     if not pos or not neg:
         return float("nan")
-    wins = sum(p > n for p in pos for n in neg) + 0.5 * sum(p == n for p in pos for n in neg)
+    wins = sum(p > n for p in pos for n in neg) + 0.5 * sum(
+        p == n for p in pos for n in neg
+    )
     return wins / (len(pos) * len(neg))
 
 
 def main() -> None:
     rows = [r for r in ledger.load() if trainable(r)]
-    X, kept = embed_prompts(rows, SMALL)          # cached; embeds any misses once
-    print(f"clean rows: {len(kept)} "
-          f"({sum(r['tier'] != 'small' for r in kept)} positives)")
+    X, kept = embed_prompts(rows, SMALL)  # cached; embeds any misses once
+    print(
+        f"clean rows: {len(kept)} ({sum(r['tier'] != 'small' for r in kept)} positives)"
+    )
 
     all_sc, all_y = [], []
     for suite in SUITES:
@@ -66,14 +74,17 @@ def main() -> None:
             all_y.append(y)
             print(f"  p={p:.3f}  {'POS' if y else 'neg':<3}  {r['task_id']}")
 
-    print(f"\n=== global over {len(all_y)} held-out rows "
-          f"({sum(all_y)} positives) ===")
+    print(f"\n=== global over {len(all_y)} held-out rows ({sum(all_y)} positives) ===")
     print(f"ROC-AUC: {auc(all_sc, all_y):.3f}  (0.5 = useless, 1.0 = perfect)")
-    print(f"score ranges: positives {min((s for s, y in zip(all_sc, all_y) if y), default=0):.3f}"
-          f"-{max((s for s, y in zip(all_sc, all_y) if y), default=0):.3f}, "
-          f"negatives {min((s for s, y in zip(all_sc, all_y) if not y), default=0):.3f}"
-          f"-{max((s for s, y in zip(all_sc, all_y) if not y), default=0):.3f}")
-    print(f"\n{'thr':>5} {'TP':>3} {'FP':>3} {'TN':>3} {'FN':>3} {'prec':>6} {'recall':>6}")
+    print(
+        f"score ranges: positives {min((s for s, y in zip(all_sc, all_y) if y), default=0):.3f}"
+        f"-{max((s for s, y in zip(all_sc, all_y) if y), default=0):.3f}, "
+        f"negatives {min((s for s, y in zip(all_sc, all_y) if not y), default=0):.3f}"
+        f"-{max((s for s, y in zip(all_sc, all_y) if not y), default=0):.3f}"
+    )
+    print(
+        f"\n{'thr':>5} {'TP':>3} {'FP':>3} {'TN':>3} {'FN':>3} {'prec':>6} {'recall':>6}"
+    )
     for thr in (0.4, 0.5, 0.6, 0.7, 0.8, 0.9):
         tp = sum(y and s >= thr for s, y in zip(all_sc, all_y))
         fp = sum((not y) and s >= thr for s, y in zip(all_sc, all_y))

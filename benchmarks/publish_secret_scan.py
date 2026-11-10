@@ -30,6 +30,7 @@ reader to trust a count.
     python benchmarks/publish_secret_scan.py          # the sweep + the plant
     python benchmarks/publish_secret_scan.py --quiet  # counts only
 """
+
 from __future__ import annotations
 
 import gzip
@@ -46,7 +47,7 @@ sys.path.insert(0, str(ROOT / "benchmarks"))
 # restating it is both the rule that gate enforces and the reason a second list
 # is dangerous: two lists drift, and the one nobody re-reads is the one a path
 # hides behind.
-from portable_paths_check import HOST_PATHS                          # noqa: E402
+from portable_paths_check import HOST_PATHS  # noqa: E402
 
 #: Credential shapes, each wide enough to catch the real thing and named so a
 #: match can be argued about. `assignment` is the noisy one and the reason the
@@ -58,22 +59,28 @@ from portable_paths_check import HOST_PATHS                          # noqa: E40
 FAMILIES = {
     "provider_key": re.compile(
         rb"(?i)\b(sk|ghp|gho|ghu|ghs|ghr|github_pat|glpat|sgp|dckr_pat|amzn|"
-        rb"AIza|ya29|AKIA|ASIA|xox[a-z])[-_]?[A-Za-z0-9]{12,}"),
+        rb"AIza|ya29|AKIA|ASIA|xox[a-z])[-_]?[A-Za-z0-9]{12,}"
+    ),
     "npm_token": re.compile(rb"\bnpm_[A-Za-z0-9]{30,}"),
     "private_key": re.compile(rb"-----BEGIN [A-Z ]*PRIVATE KEY-----"),
     "bearer": re.compile(rb"(?i)\bbearer\s+[A-Za-z0-9._~+/=-]{20,}"),
     "jwt": re.compile(rb"\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}"),
-    "basic_auth_url": re.compile(rb"[a-z][a-z0-9+.-]*://[^/\s:]{1,40}:"
-                                 rb"[^/\s@]{4,64}@[a-zA-Z0-9.-]+"),
+    "basic_auth_url": re.compile(
+        rb"[a-z][a-z0-9+.-]*://[^/\s:]{1,40}:"
+        rb"[^/\s@]{4,64}@[a-zA-Z0-9.-]+"
+    ),
     "assignment": re.compile(
         rb"(?i)(password|passwd|pwd|secret|api_?key|access_?token|auth_?token|"
         rb"client_?secret|private_?token)\w*[\"' ]{0,3}[:=][\"' ]{0,3}"
-        rb"[A-Za-z0-9._/+=-]{8,}"),
+        rb"[A-Za-z0-9._/+=-]{8,}"
+    ),
 }
 
 #: A secret is also a filename. Nothing here should ever be tracked.
-BAD_NAMES = re.compile(r"(^|/)(\.env$|\.env\.[\w-]+$|id_rsa\w*$|"
-                       r"[\w.-]*\.(pem|key|p12|pfx|keystore|jks)$)")
+BAD_NAMES = re.compile(
+    r"(^|/)(\.env$|\.env\.[\w-]+$|id_rsa\w*$|"
+    r"[\w.-]*\.(pem|key|p12|pfx|keystore|jks)$)"
+)
 
 #: Every match this project accepts, with the sentence that makes it acceptable.
 #: An entry that stops being true is an unlisted match, and the run exits 1.
@@ -81,14 +88,18 @@ BAD_NAMES = re.compile(r"(^|/)(\.env$|\.env\.[\w-]+$|id_rsa\w*$|"
 #: without the shape they excuse: a report that re-creates the match it is
 #: excusing would make the next run of this scan fail on its own log.
 ALLOWLIST = {
-    ("assignment", "benchmarks/market_compare.py"):
-        "the OpenAI key aider is handed for this run is the literal "
-        "proxy-no-auth, so it talks to a local token-counting server that "
-        "authenticates nobody. No service accepts that string and it is not a "
-        "credential",
-    ("provider_key", "site/package-lock.json"):
-        "a base64 run inside an `sha512-…==` integrity hash, which is a content "
-        "digest of a published npm tarball and not a token",
+    (
+        "assignment",
+        "benchmarks/market_compare.py",
+    ): "the OpenAI key aider is handed for this run is the literal "
+    "proxy-no-auth, so it talks to a local token-counting server that "
+    "authenticates nobody. No service accepts that string and it is not a "
+    "credential",
+    (
+        "provider_key",
+        "site/package-lock.json",
+    ): "a base64 run inside an `sha512-…==` integrity hash, which is a content "
+    "digest of a published npm tarball and not a token",
 }
 
 #: Identity, reported rather than gated: the author's own handle and host paths.
@@ -100,13 +111,15 @@ ALLOWLIST = {
 #: portability sweep would be the two gates disagreeing about the same tree.
 IDENTITY = {
     "github-noreply-email": re.compile(
-        rb"145881415\+aashish254@users\.noreply\.github\.com"),
+        rb"145881415\+aashish254@users\.noreply\.github\.com"
+    ),
     "personal-email": re.compile(
         rb"[A-Za-z0-9._%+-]+@(?!users\.noreply\.github\.com)"
-        rb"[A-Za-z0-9.-]+\.(?:com|net|org|io|dev|in)\b"),
+        rb"[A-Za-z0-9.-]+\.(?:com|net|org|io|dev|in)\b"
+    ),
     "host-path": re.compile(
-        b"|".join(re.escape(p.encode()) + rb"[A-Za-z0-9._ -]*/"
-                  for p in HOST_PATHS)),
+        b"|".join(re.escape(p.encode()) + rb"[A-Za-z0-9._ -]*/" for p in HOST_PATHS)
+    ),
 }
 
 
@@ -126,8 +139,11 @@ def untracked() -> list[str]:
     completely visible on GitHub, so the sweep covers the ignore-filtered
     working set as well as the committed one.
     """
-    return [p for p in _sh("git", "ls-files", "--others", "--exclude-standard")
-            .splitlines() if p]
+    return [
+        p
+        for p in _sh("git", "ls-files", "--others", "--exclude-standard").splitlines()
+        if p
+    ]
 
 
 def history_blobs() -> dict[str, str]:
@@ -143,12 +159,20 @@ def history_blobs() -> dict[str, str]:
     `cat-file --batch-check` rather than one per object, because the object list
     is longer than a process spawn deserves.
     """
-    lines = [l for l in _sh("git", "rev-list", "--objects", "--all").splitlines()
-             if l.strip()]
+    lines = [
+        l
+        for l in _sh("git", "rev-list", "--objects", "--all").splitlines()
+        if l.strip()
+    ]
     shas = [l.split(" ", 1)[0] for l in lines]
     kinds = {}
-    batch = subprocess.run(["git", "cat-file", "--batch-check"], cwd=ROOT,
-                           input="\n".join(shas), capture_output=True, text=True)
+    batch = subprocess.run(
+        ["git", "cat-file", "--batch-check"],
+        cwd=ROOT,
+        input="\n".join(shas),
+        capture_output=True,
+        text=True,
+    )
     for line in batch.stdout.splitlines():
         parts = line.split()
         if len(parts) >= 2:
@@ -184,13 +208,14 @@ def _expand(data: bytes) -> list[bytes]:
     if data[:2] == b"PK":
         import io
         import zipfile
+
         parts = [data]
         try:
             with zipfile.ZipFile(io.BytesIO(data)) as z:
                 for n in z.namelist():
                     parts.append(n.encode())
                     parts.append(z.read(n))
-        except Exception:                        # noqa: BLE001 - swept raw below
+        except Exception:  # noqa: BLE001 - swept raw below
             pass
         return parts
     if data[:2] == b"\x1f\x8b":
@@ -256,7 +281,7 @@ def plant() -> list[str]:
         "bearer": b"Authorization: Bearer " + b"C" * 24 + b".D" + b"E" * 12,
         "jwt": b"eyJ" + b"F" * 20 + b"." + b"G" * 20 + b".H",
         "basic_auth_url": b"postgres://admin:" + b"H" * 12 + b"@db.internal:5432",
-        "assignment": b"AWS_SECRET_ACCESS_KEY: \"" + b"I" * 24 + b'"',
+        "assignment": b'AWS_SECRET_ACCESS_KEY: "' + b"I" * 24 + b'"',
     }
     escaped = []
     for family, rx in FAMILIES.items():
@@ -274,10 +299,12 @@ def main(argv: list[str]) -> int:
     new_files = untracked()
     hist = history_blobs()
     if not tracked_files or not hist:
-        print("FAIL  the sweep found no files or no history to sweep: "
-              f"{len(tracked_files)} tracked, {len(hist)} historical blobs. "
-              "Without `.git` the history arm cannot run — clone the repo instead "
-              "of using a ZIP download, or this is a scan of nothing.")
+        print(
+            "FAIL  the sweep found no files or no history to sweep: "
+            f"{len(tracked_files)} tracked, {len(hist)} historical blobs. "
+            "Without `.git` the history arm cannot run — clone the repo instead "
+            "of using a ZIP download, or this is a scan of nothing."
+        )
         return 1
 
     # What a push sends right now: the working tree, not what HEAD says the tree
@@ -290,8 +317,14 @@ def main(argv: list[str]) -> int:
             current[rel] = p.read_bytes()
     hist_blobs = []
     for sha, path in sorted(hist.items(), key=lambda kv: (kv[1], kv[0])):
-        hist_blobs.append((path, subprocess.run(
-            ["git", "cat-file", "blob", sha], cwd=ROOT, capture_output=True).stdout))
+        hist_blobs.append(
+            (
+                path,
+                subprocess.run(
+                    ["git", "cat-file", "blob", sha], cwd=ROOT, capture_output=True
+                ).stdout,
+            )
+        )
 
     at_tree = sweep(list(current.items()), list(current))
     at_hist = sweep(hist_blobs, list(current) + sorted(set(hist.values())))
@@ -307,45 +340,59 @@ def main(argv: list[str]) -> int:
     unlisted = len(bad)
 
     if not quiet:
-        print(f"publish sweep — {len(current)} files in the working tree "
-              f"({len(new_files)} of them not yet tracked) and "
-              f"{len(hist_blobs)} historical blobs, "
-              f"{len(FAMILIES)} credential families + filename shapes")
+        print(
+            f"publish sweep — {len(current)} files in the working tree "
+            f"({len(new_files)} of them not yet tracked) and "
+            f"{len(hist_blobs)} historical blobs, "
+            f"{len(FAMILIES)} credential families + filename shapes"
+        )
         for (fam, path, frag), n in sorted(hits.items()):
             if (fam, path) in ALLOWLIST:
                 print(f"  allowed  {fam:16s} {path}  {mask(frag)} x{n}")
                 print(f"           because: {ALLOWLIST[(fam, path)]}")
             else:
                 print(f"  UNLISTED {fam:16s} {path}  {mask(frag)} x{n}")
-        print(f"\n  matches accepted by name: {len(hits) - unlisted}"
-              f"   unlisted: {unlisted}")
-        print(f"  blobs carrying NUL padding, swept with the padding removed: "
-              f"{len(padded)}")
+        print(
+            f"\n  matches accepted by name: {len(hits) - unlisted}"
+            f"   unlisted: {unlisted}"
+        )
+        print(
+            f"  blobs carrying NUL padding, swept with the padding removed: "
+            f"{len(padded)}"
+        )
         for label, n in identity_counts(list(current.items()) + hist_blobs).items():
             print(f"  identity `{label}`: {n} occurrences")
 
     escapes = plant()
     if not quiet:
-        print(f"  planted-secret proof: {len(FAMILIES) + 1 - len(escapes)}"
-              f"/{len(FAMILIES) + 1} families bite"
-              + (f", these do not: {escapes}" if escapes else ""))
+        print(
+            f"  planted-secret proof: {len(FAMILIES) + 1 - len(escapes)}"
+            f"/{len(FAMILIES) + 1} families bite"
+            + (f", these do not: {escapes}" if escapes else "")
+        )
 
     if unlisted:
         # Named even under `--quiet`: a gate that says "there is a secret"
         # without saying which file is a warning nobody can act on.
         for fam, path, frag in bad:
             print(f"  UNLISTED {fam:16s} {path}  {mask(frag)}")
-        print("FAIL  a credential-shaped match is not in the allowlist, so this "
-              "page cannot say the tree is clean.")
+        print(
+            "FAIL  a credential-shaped match is not in the allowlist, so this "
+            "page cannot say the tree is clean."
+        )
         return 1
     if escapes:
-        print("FAIL  a pattern family matched nothing it was planted with — the "
-              "sweep would pass on any content whatsoever.")
+        print(
+            "FAIL  a pattern family matched nothing it was planted with — the "
+            "sweep would pass on any content whatsoever."
+        )
         return 1
-    print(f"OK  no unlisted credential shape in the {len(current)} files a push "
-          f"sends or in any of the {len(hist_blobs)} blobs ever committed, and "
-          f"{len(FAMILIES) + 1 - len(escapes)}/{len(FAMILIES) + 1} families "
-          f"proved they can bite.")
+    print(
+        f"OK  no unlisted credential shape in the {len(current)} files a push "
+        f"sends or in any of the {len(hist_blobs)} blobs ever committed, and "
+        f"{len(FAMILIES) + 1 - len(escapes)}/{len(FAMILIES) + 1} families "
+        f"proved they can bite."
+    )
     return 0
 
 

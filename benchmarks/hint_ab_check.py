@@ -27,6 +27,7 @@ run back through every gate, each required to be caught by the gate that covers
 the property it breaks, so a green run means only "this instrument can tell the
 arms apart" — the most an offline vector can say about an A/B.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -38,19 +39,23 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-import flash.loop as loop                                   # noqa: E402
-from flash import graph, harness                            # noqa: E402
-from flash.context import digest                            # noqa: E402
-from flash.harness import extract_code                      # noqa: E402
-from flash.perceive import format_errors, static_check      # noqa: E402
-from flash.graph import SCOPE_HEADER                        # noqa: E402
-from flash.lsp import (HINT_HEADER, SymbolIndex, symbol_hint,  # noqa: E402
-                       symbols_involved)
+import flash.loop as loop  # noqa: E402
+from flash import graph, harness  # noqa: E402
+from flash.context import digest  # noqa: E402
+from flash.harness import extract_code  # noqa: E402
+from flash.perceive import format_errors, static_check  # noqa: E402
+from flash.graph import SCOPE_HEADER  # noqa: E402
+from flash.lsp import (
+    HINT_HEADER,
+    SymbolIndex,
+    symbol_hint,  # noqa: E402
+    symbols_involved,
+)
 
 SUITE = ROOT / "benchmarks" / "tasks" / "hint_ab_tasks.jsonl"
 CTX_DIR = ROOT / "benchmarks" / "fixtures"
-SOURCE_BUDGET = 1200        # `lsp.symbol_hint`'s own default max_chars
-MIN_CLASSES = 5             # the suite must not be one mistake ten times
+SOURCE_BUDGET = 1200  # `lsp.symbol_hint`'s own default max_chars
+MIN_CLASSES = 5  # the suite must not be one mistake ten times
 ARMS = (("source", "graph"), ("graph",), ("source",), ())
 API_KINDS = ("class", "function", "method", "property")
 
@@ -77,6 +82,7 @@ def published() -> set[str]:
                     out.add(s.name)
     return out
 
+
 CHECKS: list[tuple[str, bool, str]] = []
 
 
@@ -99,8 +105,10 @@ _ORACLE: dict[tuple[str, str], tuple[bool, str]] = {}
 def oracle(code: str, test: str) -> tuple[bool, str]:
     """`harness.diagnose`, memoized: each tampered copy re-runs every gate over
     every task, and each uncached verdict is a sandboxed subprocess."""
-    key = (hashlib.sha1(code.encode()).hexdigest(),
-           hashlib.sha1(test.encode()).hexdigest())
+    key = (
+        hashlib.sha1(code.encode()).hexdigest(),
+        hashlib.sha1(test.encode()).hexdigest(),
+    )
     if key not in _ORACLE:
         _ORACLE[key] = harness.diagnose(code, test)
     return _ORACLE[key]
@@ -115,24 +123,26 @@ def exc_class(err: str) -> str:
     suite, and calling it "assert-diff" would hide that the loop short-circuited.
     """
     if err.startswith("STATIC:"):
-        m = re.search(r"(undefined name|syntax error|before assignment)", err,
-                      re.I)
-        return "static:" + (m.group(1).lower().replace(" ", "-") if m
-                            else "other")
+        m = re.search(r"(undefined name|syntax error|before assignment)", err, re.I)
+        return "static:" + (m.group(1).lower().replace(" ", "-") if m else "other")
     names = sorted(set(re.findall(r"\b([A-Z]\w*(?:Error|Exception))\b", err)))
     return names[0] if names else ("assert-diff" if err else "no verdict")
 
 
 def shown_names(block: str) -> list[str]:
     """The symbols the SOURCE block quotes, in order, bare of their container."""
-    return [m.group(2) for m in
-            re.finditer(r"^# \S+:\d+\s+(?:([\w.]+\.)?(\w+)\s*\[)", block, re.M)]
+    return [
+        m.group(2)
+        for m in re.finditer(r"^# \S+:\d+\s+(?:([\w.]+\.)?(\w+)\s*\[)", block, re.M)
+    ]
 
 
 def headed_names(block: str) -> list[str]:
     """The symbols the DEPENDENTS block heads — `Cart.total_cents [method]`."""
-    return [m.group(1).rsplit(".", 1)[-1] for m in
-            re.finditer(r"^\s+(\S+) \[\w+\] \S+:\d+", block, re.M)]
+    return [
+        m.group(1).rsplit(".", 1)[-1]
+        for m in re.finditer(r"^\s+(\S+) \[\w+\] \S+:\d+", block, re.M)
+    ]
 
 
 def counted(block: str) -> int:
@@ -173,8 +183,7 @@ def measure(task: dict) -> dict:
         compiles = False
     diag_ok, diag_err = oracle(task["naive"], task["test"])
     naive_ok, verdict, vkind = diag_ok, diag_err, "test"
-    alt = diag_err if static else harness.run_test(task["naive"],
-                                                  task["test"])[1]
+    alt = diag_err if static else harness.run_test(task["naive"], task["test"])[1]
     if static:
         verdict, vkind, naive_ok = f"STATIC: {static}", "static", False
     sol_ok, sol_err = oracle(task["solution"], task["test"])
@@ -183,19 +192,25 @@ def measure(task: dict) -> dict:
     ranked_alt: list[str] = []
     if ctx and not naive_ok:
         idx = index()
-        ranked = [s.name for s in symbols_involved(idx, verdict,
-                                                  task["naive"], 3)]
-        ranked_alt = [s.name for s in symbols_involved(idx, alt,
-                                                       task["naive"], 3)]
+        ranked = [s.name for s in symbols_involved(idx, verdict, task["naive"], 3)]
+        ranked_alt = [s.name for s in symbols_involved(idx, alt, task["naive"], 3)]
         src = symbol_hint(ctx, verdict, task["naive"], index=idx)
         grp = graph.scope_hint(ctx, verdict, task["naive"], index=idx)
-    return {"id": task["id"], "naive_ok": naive_ok, "verdict": verdict,
-            "vkind": vkind, "sol_ok": sol_ok, "sol_err": sol_err,
-            "compiles": compiles,
-            "ranked": ranked, "ranked_alt": ranked_alt, "src": src, "grp": grp,
-            "cls": exc_class(verdict),
-            "sig": (f"{exc_class(verdict)}/{vkind}",
-                    ranked[0] if ranked else "")}
+    return {
+        "id": task["id"],
+        "naive_ok": naive_ok,
+        "verdict": verdict,
+        "vkind": vkind,
+        "sol_ok": sol_ok,
+        "sol_err": sol_err,
+        "compiles": compiles,
+        "ranked": ranked,
+        "ranked_alt": ranked_alt,
+        "src": src,
+        "grp": grp,
+        "cls": exc_class(verdict),
+        "sig": (f"{exc_class(verdict)}/{vkind}", ranked[0] if ranked else ""),
+    }
 
 
 ARM_HITS: dict[str, str] = {}
@@ -214,10 +229,19 @@ def arm_retry(task: dict, err: str, hints: tuple[str, ...]) -> str:
     on the record's CONTENT, not its id: two tasks with one id must not share a
     retry.
     """
-    key = hashlib.sha1(json.dumps([task.get("id"), task.get("context"),
-                                   task.get("prompt"), task.get("naive"),
-                                   err, list(hints)],
-                                  sort_keys=True).encode()).hexdigest()
+    key = hashlib.sha1(
+        json.dumps(
+            [
+                task.get("id"),
+                task.get("context"),
+                task.get("prompt"),
+                task.get("naive"),
+                err,
+                list(hints),
+            ],
+            sort_keys=True,
+        ).encode()
+    ).hexdigest()
     got = ARM_HITS.get(key)
     if got is not None:
         return got
@@ -232,8 +256,7 @@ def arm_retry(task: dict, err: str, hints: tuple[str, ...]) -> str:
         loop._generate = gen
         loop.diagnose = lambda code, test: (False, err)
         loop.HINTS = hints
-        loop.solve(None, None, dict(task), max_attempts=2, max_tokens=128,
-                   debug=False)
+        loop.solve(None, None, dict(task), max_attempts=2, max_tokens=128, debug=False)
     finally:
         loop._generate, loop.diagnose, loop.HINTS = real_gen, real_diag, real_hints
     retry = seen[1][-1]["content"] if len(seen) > 1 else ""
@@ -252,117 +275,173 @@ def gates(tasks: list[dict], keep: dict | None = None) -> None:
     CHECKS.clear()
     rows = [measure(t) for t in tasks]
 
-    missing = [t.get("id", "?") for t in tasks
-               if not {"id", "context", "prompt", "test", "solution",
-                       "naive"} <= set(t)
-               or not (ROOT / t.get("context", "") / "minishop").is_dir()]
-    ck(f"the suite is frozen and complete: {len(tasks)} records, each with "
-       "prompt/test/solution/naive and a context dir that holds the package",
-       not missing, ",".join(missing))
+    missing = [
+        t.get("id", "?")
+        for t in tasks
+        if not {"id", "context", "prompt", "test", "solution", "naive"} <= set(t)
+        or not (ROOT / t.get("context", "") / "minishop").is_dir()
+    ]
+    ck(
+        f"the suite is frozen and complete: {len(tasks)} records, each with "
+        "prompt/test/solution/naive and a context dir that holds the package",
+        not missing,
+        ",".join(missing),
+    )
 
-    prose = [t["id"] for t in tasks
-             if extract_code(t["naive"]) != t["naive"].strip("\n")]
-    ck("`naive` is already the CODE `solve` verified, not the model's prose-plus-"
-       "fences answer — the loop extracts before it diagnoses, so a record "
-       "holding raw text would have this vector certify a syntax verdict no "
-       "live arm ever reads", not prose, ",".join(prose))
+    prose = [
+        t["id"] for t in tasks if extract_code(t["naive"]) != t["naive"].strip("\n")
+    ]
+    ck(
+        "`naive` is already the CODE `solve` verified, not the model's prose-plus-"
+        "fences answer — the loop extracts before it diagnoses, so a record "
+        "holding raw text would have this vector certify a syntax verdict no "
+        "live arm ever reads",
+        not prose,
+        ",".join(prose),
+    )
 
     bad = [r["id"] for r in rows if r["naive_ok"]]
-    ck("every naive answer FAILS the real oracle — a task the first try solves "
-       "never reaches a retry, so an arm that shows it a hint is not being "
-       "asked a question", not bad, ",".join(bad))
+    ck(
+        "every naive answer FAILS the real oracle — a task the first try solves "
+        "never reaches a retry, so an arm that shows it a hint is not being "
+        "asked a question",
+        not bad,
+        ",".join(bad),
+    )
 
     bad = [r["id"] for r in rows if not r["sol_ok"]]
-    ck("every reference solution PASSES the real oracle — an unsolvable task "
-       "lands as all four arms at zero, which reads exactly like 'the hints do "
-       "not help'", not bad, ",".join(f"{r['id']}: {r['sol_err'][-90:]}"
-                                      for r in rows if not r["sol_ok"]))
+    ck(
+        "every reference solution PASSES the real oracle — an unsolvable task "
+        "lands as all four arms at zero, which reads exactly like 'the hints do "
+        "not help'",
+        not bad,
+        ",".join(f"{r['id']}: {r['sol_err'][-90:]}" for r in rows if not r["sol_ok"]),
+    )
 
     thin = [r["id"] for r in rows if not r["src"]]
-    ck("over each naive answer's REAL verdict the source block is non-empty — "
-       "R-1.1c's contract is that silence means 'nothing repo-defined is at "
-       "issue', so a silent task is not hint-eligible and must not be scored",
-       not thin, ",".join(thin))
+    ck(
+        "over each naive answer's REAL verdict the source block is non-empty — "
+        "R-1.1c's contract is that silence means 'nothing repo-defined is at "
+        "issue', so a silent task is not hint-eligible and must not be scored",
+        not thin,
+        ",".join(thin),
+    )
 
     thin = [r["id"] for r in rows if not r["grp"]]
-    ck("...and so is the dependents block, over the same verdict and the same "
-       "shared index — both blocks have something to show for every task in the "
-       "denominator", not thin, ",".join(thin))
+    ck(
+        "...and so is the dependents block, over the same verdict and the same "
+        "shared index — both blocks have something to show for every task in the "
+        "denominator",
+        not thin,
+        ",".join(thin),
+    )
 
     cut = [r["id"] for r in rows if not r["compiles"]]
-    ck("every naive COMPILES — a SyntaxError here means the answer was cut off by "
-       "the token cap, and a retry over a half-written program scores the harness "
-       "budget instead of the symbol the hint names", not cut, ",".join(cut))
+    ck(
+        "every naive COMPILES — a SyntaxError here means the answer was cut off by "
+        "the token cap, and a retry over a half-written program scores the harness "
+        "budget instead of the symbol the hint names",
+        not cut,
+        ",".join(cut),
+    )
 
     src_max = max((len(r["src"]) for r in rows), default=0)
     grp_max = max((len(r["grp"]) for r in rows), default=0)
-    ck("the blocks stay inside their own budgets, so the A/B's added context is "
-       f"a number: {SOURCE_BUDGET} chars for source, "
-       f"{graph.SCOPE_MAX_CHARS} for dependents",
-       src_max <= SOURCE_BUDGET and grp_max <= graph.SCOPE_MAX_CHARS,
-       f"largest {src_max} / {grp_max}")
+    ck(
+        "the blocks stay inside their own budgets, so the A/B's added context is "
+        f"a number: {SOURCE_BUDGET} chars for source, "
+        f"{graph.SCOPE_MAX_CHARS} for dependents",
+        src_max <= SOURCE_BUDGET and grp_max <= graph.SCOPE_MAX_CHARS,
+        f"largest {src_max} / {grp_max}",
+    )
 
     off = []
     for r in rows:
         shown, gh = shown_names(r["src"]), headed_names(r["grp"])
-        if (not r["ranked"] or r["ranked"][:len(shown)] != shown
-                or r["ranked"][:len(gh)] != gh
-                or len(shown) + counted(r["src"]) != len(r["ranked"])):
-            off.append(f"{r['id']}: ranked={r['ranked']} src={shown} "
-                       f"counted={counted(r['src'])} graph={gh}")
-    ck(f"one ranking, two readers, {len(rows)} failures deep: each block's "
-       "symbols are a "
-       "PREFIX of the same `symbols_involved` list and every ranked symbol is "
-       "either quoted or counted in the tail — the two blocks cannot tell two "
-       "stories about one failure, and R-1.1c's counted tail is what keeps the "
-       "prefix rule true when the budget bites",
-       not off, " | ".join(off[:2]))
+        if (
+            not r["ranked"]
+            or r["ranked"][: len(shown)] != shown
+            or r["ranked"][: len(gh)] != gh
+            or len(shown) + counted(r["src"]) != len(r["ranked"])
+        ):
+            off.append(
+                f"{r['id']}: ranked={r['ranked']} src={shown} "
+                f"counted={counted(r['src'])} graph={gh}"
+            )
+    ck(
+        f"one ranking, two readers, {len(rows)} failures deep: each block's "
+        "symbols are a "
+        "PREFIX of the same `symbols_involved` list and every ranked symbol is "
+        "either quoted or counted in the tail — the two blocks cannot tell two "
+        "stories about one failure, and R-1.1c's counted tail is what keeps the "
+        "prefix rule true when the budget bites",
+        not off,
+        " | ".join(off[:2]),
+    )
 
     enrich, texts = [], {}
     for t, r in zip(tasks, rows):
         e = loop.enrich_task(dict(t), ROOT)
         enrich.append(e)
         texts[r["id"]] = {a: arm_retry(e, r["verdict"], a) for a in ARMS}
-    miss = [i for i, txt in texts.items()
-            if HINT_HEADER not in txt[("source", "graph")]
-            or SCOPE_HEADER not in txt[("source", "graph")]]
-    ck("the suite is eligible AT THE SEAM the A/B measures: `loop.solve` over a "
-       "stubbed generator shows every task's retry message carrying BOTH headers",
-       not miss, ",".join(miss))
+    miss = [
+        i
+        for i, txt in texts.items()
+        if HINT_HEADER not in txt[("source", "graph")]
+        or SCOPE_HEADER not in txt[("source", "graph")]
+    ]
+    ck(
+        "the suite is eligible AT THE SEAM the A/B measures: `loop.solve` over a "
+        "stubbed generator shows every task's retry message carrying BOTH headers",
+        not miss,
+        ",".join(miss),
+    )
 
     same, wrong = [], []
     for i, txt in texts.items():
         if len(set(txt.values())) != len(ARMS):
             same.append(i)
-        if (HINT_HEADER in txt[("graph",)] or SCOPE_HEADER in txt[("source",)]
-                or HINT_HEADER not in txt[("source",)]
-                or SCOPE_HEADER not in txt[("graph",)]
-                or HINT_HEADER in txt[()] or SCOPE_HEADER in txt[()]):
+        if (
+            HINT_HEADER in txt[("graph",)]
+            or SCOPE_HEADER in txt[("source",)]
+            or HINT_HEADER not in txt[("source",)]
+            or SCOPE_HEADER not in txt[("graph",)]
+            or HINT_HEADER in txt[()]
+            or SCOPE_HEADER in txt[()]
+        ):
             wrong.append(i)
-    ck("the four arms are four DIFFERENT prompts and each carries exactly its "
-       "own blocks — an OFF arm that leaks its hint measures nothing and looks "
-       "like a result", not (same or wrong),
-       f"indistinct={','.join(same)} mis-set={','.join(wrong)}")
+    ck(
+        "the four arms are four DIFFERENT prompts and each carries exactly its "
+        "own blocks — an OFF arm that leaks its hint measures nothing and looks "
+        "like a result",
+        not (same or wrong),
+        f"indistinct={','.join(same)} mis-set={','.join(wrong)}",
+    )
 
     crowded = []
     for r in rows:
         for arm, txt in texts[r["id"]].items():
             if txt.count(r["verdict"]) != 1:
                 crowded.append(f"{r['id']}/{'+'.join(arm) or 'off'}")
-    ck("the hint never rewrites the verdict it is appended to: in all four arms "
-       "of every task the retry carries the bare verdict EXACTLY ONCE, so a "
-       "delta between arms is the blocks' and not a differently-worded or "
-       "doubled error", not crowded, ",".join(crowded[:4]))
+    ck(
+        "the hint never rewrites the verdict it is appended to: in all four arms "
+        "of every task the retry carries the bare verdict EXACTLY ONCE, so a "
+        "delta between arms is the blocks' and not a differently-worded or "
+        "doubled error",
+        not crowded,
+        ",".join(crowded[:4]),
+    )
 
     sigs = [(r["sig"], r["id"]) for r in rows]
     classes = {r["cls"] for r in rows}
     dupes = {s: [i for (x, i) in sigs if s == x] for s in {y for y, _ in sigs}}
-    ck(f"the suite is not one mistake ten times: {len(sigs)} distinct "
-       f"(failure class, at-issue symbol) signatures spanning >= {MIN_CLASSES} "
-       "exception classes",
-       all(len(v) == 1 for v in dupes.values()) and len(classes) >= MIN_CLASSES,
-       f"dupes={[v for v in dupes.values() if len(v) > 1]} classes="
-       f"{sorted(classes)}")
+    ck(
+        f"the suite is not one mistake ten times: {len(sigs)} distinct "
+        f"(failure class, at-issue symbol) signatures spanning >= {MIN_CLASSES} "
+        "exception classes",
+        all(len(v) == 1 for v in dupes.values()) and len(classes) >= MIN_CLASSES,
+        f"dupes={[v for v in dupes.values() if len(v) > 1]} classes={sorted(classes)}",
+    )
 
     leaks = []
     names = published()
@@ -373,9 +452,13 @@ def gates(tasks: list[dict], keep: dict | None = None) -> None:
         words.discard(target_name(prompt))
         if hit or words:
             leaks.append(f"{t.get('id')}: {hit} {sorted(words)}")
-    ck("no prompt carries the package's own code or names one of its symbols — "
-       "if the question leaked the answer, every arm would pass and the A/B "
-       "would be scoring its own prompt", not leaks, " | ".join(leaks[:3]))
+    ck(
+        "no prompt carries the package's own code or names one of its symbols — "
+        "if the question leaked the answer, every arm would pass and the A/B "
+        "would be scoring its own prompt",
+        not leaks,
+        " | ".join(leaks[:3]),
+    )
 
     if keep is not None:
         keep["rows"] = rows
@@ -401,71 +484,136 @@ def redundancy(rows: list[dict], enrich: list[dict]) -> str:
                 repeated += 1
             else:
                 body += 1
-        reach += len([x for x in r["grp"].splitlines()
-                      if x.strip().startswith(("d1", "d2", "--"))])
+        reach += len(
+            [
+                x
+                for x in r["grp"].splitlines()
+                if x.strip().startswith(("d1", "d2", "--"))
+            ]
+        )
     turn0 = sum(len(t["prompt"]) for t in enrich)
-    return (f"turn 0 already carries {turn0} chars of skeleton across "
-            f"{len(rows)} tasks; over their failures the source block shows "
-            f"{shown} lines, {repeated} of which the skeleton prints too and "
-            f"{body} of which it never does (bodies, not signatures), while the "
-            f"dependents block adds {reach} reach/import lines that appear "
-            f"nowhere in turn 0")
+    return (
+        f"turn 0 already carries {turn0} chars of skeleton across "
+        f"{len(rows)} tasks; over their failures the source block shows "
+        f"{shown} lines, {repeated} of which the skeleton prints too and "
+        f"{body} of which it never does (bodies, not signatures), while the "
+        f"dependents block adds {reach} reach/import lines that appear "
+        f"nowhere in turn 0"
+    )
 
 
 def tamper(tasks: list[dict]) -> list[tuple[str, list[dict], str]]:
     """Eight broken copies of the suite, each data-level, each with one gate."""
     out: list[tuple[str, list[dict], str]] = []
     t = tasks[0]
-    out.append(("a task whose naive answer already passes — the loop never "
-                "reaches a retry for it, so it dilutes both arms equally and "
-                "looks like evidence",
-                [dict(t, naive=t["solution"]), *tasks[1:]],
-                "every naive answer FAILS"))
+    out.append(
+        (
+            "a task whose naive answer already passes — the loop never "
+            "reaches a retry for it, so it dilutes both arms equally and "
+            "looks like evidence",
+            [dict(t, naive=t["solution"]), *tasks[1:]],
+            "every naive answer FAILS",
+        )
+    )
     t = tasks[1]
-    out.append(("a task whose reference solution fails its own test — all four "
-                "arms would score 0 and the nil would read as 'hints do not "
-                "help'",
-                [dict(x, solution=t["naive"]) if x is t else x for x in tasks],
-                "every reference solution PASSES"))
+    out.append(
+        (
+            "a task whose reference solution fails its own test — all four "
+            "arms would score 0 and the nil would read as 'hints do not "
+            "help'",
+            [dict(x, solution=t["naive"]) if x is t else x for x in tasks],
+            "every reference solution PASSES",
+        )
+    )
     t = tasks[2]
-    out.append(("a task whose failure names nothing the repo defines (a stdlib "
-                "crash in a test that never touches the package) — both blocks "
-                "are contractually silent, so it cannot score an arm",
-                [dict(x, test="assert nope(1) == 2\n",
-                      naive="def nope(x):\n    return 1 / 0",
-                      solution="def nope(x):\n    return 2") if x is t else x
-                 for x in tasks],
-                "the source block is non-empty"))
+    out.append(
+        (
+            "a task whose failure names nothing the repo defines (a stdlib "
+            "crash in a test that never touches the package) — both blocks "
+            "are contractually silent, so it cannot score an arm",
+            [
+                dict(
+                    x,
+                    test="assert nope(1) == 2\n",
+                    naive="def nope(x):\n    return 1 / 0",
+                    solution="def nope(x):\n    return 2",
+                )
+                if x is t
+                else x
+                for x in tasks
+            ],
+            "the source block is non-empty",
+        )
+    )
     t = tasks[3]
-    out.append(("a prompt that quotes the fixture's own source — the arms would "
-                "pass because the question handed over the answer",
-                [dict(x, prompt=x["prompt"] + "\n```python\nfrom minishop.utils"
-                      " import money\n```") if x is t else x for x in tasks],
-                "no prompt carries"))
+    out.append(
+        (
+            "a prompt that quotes the fixture's own source — the arms would "
+            "pass because the question handed over the answer",
+            [
+                dict(
+                    x,
+                    prompt=x["prompt"] + "\n```python\nfrom minishop.utils"
+                    " import money\n```",
+                )
+                if x is t
+                else x
+                for x in tasks
+            ],
+            "no prompt carries",
+        )
+    )
     t = tasks[4]
-    out.append(("one task duplicated under its own id — a suite that asks the "
-                "same question twice, weighted",
-                [*tasks, dict(t)],
-                "not one mistake ten times"))
+    out.append(
+        (
+            "one task duplicated under its own id — a suite that asks the "
+            "same question twice, weighted",
+            [*tasks, dict(t)],
+            "not one mistake ten times",
+        )
+    )
     t = tasks[5]
-    out.append(("a task that lost its `context` — no repo to perceive, so both "
-                "arms show it nothing and the delta is computed over silence",
-                [dict(x, context="") if x is t else x for x in tasks],
-                "the dependents block, over the same verdict"))
+    out.append(
+        (
+            "a task that lost its `context` — no repo to perceive, so both "
+            "arms show it nothing and the delta is computed over silence",
+            [dict(x, context="") if x is t else x for x in tasks],
+            "the dependents block, over the same verdict",
+        )
+    )
     t = tasks[6 % len(tasks)]
-    out.append(("a `naive` frozen at the wrong layer — the model's prose-plus-"
-                "fences answer instead of the code `solve` extracted from it, so "
-                "the vector ranks on the extractor's complaint",
-                [dict(x, naive="Here is the implementation:\n\n```python\n"
-                      + x["naive"] + "\n```\n") if x is t else x for x in tasks],
-                "naive` is already the CODE"))
+    out.append(
+        (
+            "a `naive` frozen at the wrong layer — the model's prose-plus-"
+            "fences answer instead of the code `solve` extracted from it, so "
+            "the vector ranks on the extractor's complaint",
+            [
+                dict(
+                    x,
+                    naive="Here is the implementation:\n\n```python\n"
+                    + x["naive"]
+                    + "\n```\n",
+                )
+                if x is t
+                else x
+                for x in tasks
+            ],
+            "naive` is already the CODE",
+        )
+    )
     t = tasks[7 % len(tasks)]
-    out.append(("a `naive` the token cap cut off mid-string — it fails, it even "
-                "has symbols at issue, but its retry is about an unclosed "
-                "program, which no hint can correct",
-                [dict(x, naive=x["naive"] + '\nlabel = "abc') if x is t else x
-                 for x in tasks],
-                "every naive COMPILES"))
+    out.append(
+        (
+            "a `naive` the token cap cut off mid-string — it fails, it even "
+            "has symbols at issue, but its retry is about an unclosed "
+            "program, which no hint can correct",
+            [
+                dict(x, naive=x["naive"] + '\nlabel = "abc') if x is t else x
+                for x in tasks
+            ],
+            "every naive COMPILES",
+        )
+    )
     return out
 
 
@@ -476,22 +624,30 @@ def main() -> int:
     gates(tasks, keep)
     failed = [n for n, ok, _ in CHECKS if not ok]
     for name, ok, detail in CHECKS:
-        print(f"  {'OK  ' if ok else 'FAIL'} {name}"
-              + (f"\n       {detail}" if detail and (not ok or show) else ""))
-    print(f"\nR-1.1b hint-eligible suite: {len(CHECKS) - len(failed)}/"
-          f"{len(CHECKS)} checks passed")
+        print(
+            f"  {'OK  ' if ok else 'FAIL'} {name}"
+            + (f"\n       {detail}" if detail and (not ok or show) else "")
+        )
+    print(
+        f"\nR-1.1b hint-eligible suite: {len(CHECKS) - len(failed)}/"
+        f"{len(CHECKS)} checks passed"
+    )
     print(f"  ..  {redundancy(keep['rows'], keep['enrich'])}")
     dep = [r["id"] for r in keep["rows"] if r["ranked"][:1] != r["ranked_alt"][:1]]
-    print(f"  ..  {len(dep)}/{len(keep['rows'])} tasks are hint-eligible only "
-          f"because `diagnose`'s GOT/WANT upgrade names the at-issue symbol in "
-          f"the verdict — on the bare traceback they rank to nothing "
-          f"({', '.join(dep) or 'none'}); eligibility rides on that upgrade, so a "
-          f"regression there shrinks this denominator silently")
+    print(
+        f"  ..  {len(dep)}/{len(keep['rows'])} tasks are hint-eligible only "
+        f"because `diagnose`'s GOT/WANT upgrade names the at-issue symbol in "
+        f"the verdict — on the bare traceback they rank to nothing "
+        f"({', '.join(dep) or 'none'}); eligibility rides on that upgrade, so a "
+        f"regression there shrinks this denominator silently"
+    )
     if show:
         for r in keep["rows"]:
-            print(f"  ..  {r['id']:<26} {r['cls']:<20} "
-                  f"at issue={','.join(r['ranked']):<34} "
-                  f"src={len(r['src']):4d} graph={len(r['grp']):4d}")
+            print(
+                f"  ..  {r['id']:<26} {r['cls']:<20} "
+                f"at issue={','.join(r['ranked']):<34} "
+                f"src={len(r['src']):4d} graph={len(r['grp']):4d}"
+            )
     if failed:
         return 1
 
@@ -502,11 +658,15 @@ def main() -> int:
         bad = [n for n, ok, _ in CHECKS if not ok]
         hit = any(must in n for n in bad)
         defeated += hit
-        print(f"  {'ok  ' if hit else 'MISS'} MUTATION: {label}"
-              f" -> {len(bad)} check(s) fail"
-              + ("" if hit else f", none of them {must!r}"))
-    print(f"\nhint-ab mutants: {defeated}/{len(cases)} gates defeated by exactly "
-          "their checks")
+        print(
+            f"  {'ok  ' if hit else 'MISS'} MUTATION: {label}"
+            f" -> {len(bad)} check(s) fail"
+            + ("" if hit else f", none of them {must!r}")
+        )
+    print(
+        f"\nhint-ab mutants: {defeated}/{len(cases)} gates defeated by exactly "
+        "their checks"
+    )
     return 0 if defeated == len(cases) else 1
 
 

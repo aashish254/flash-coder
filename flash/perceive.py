@@ -9,6 +9,7 @@ Design: one short-lived pylsp process per check, virtual document (nothing
 touches disk), Content-Length-framed JSON-RPC per the LSP base protocol.
 Falls back to stdlib compile() when pylsp isn't installed.
 """
+
 from __future__ import annotations
 
 import json
@@ -23,8 +24,8 @@ _SEV = {1: "error", 2: "warning", 3: "info", 4: "hint"}
 
 @dataclass
 class Diagnostic:
-    line: int          # 1-based
-    severity: str      # error | warning | info | hint
+    line: int  # 1-based
+    severity: str  # error | warning | info | hint
     message: str
     source: str = "lsp"
 
@@ -51,9 +52,12 @@ def _read_msg(stream) -> dict | None:
 
 def lsp_diagnostics(code: str, timeout: float = 10.0) -> list[Diagnostic]:
     """Open `code` as a virtual doc in pylsp; return its diagnostics."""
-    proc = subprocess.Popen([sys.executable, "-m", "pylsp"],
-                            stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                            stderr=subprocess.DEVNULL)
+    proc = subprocess.Popen(
+        [sys.executable, "-m", "pylsp"],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+    )
     uri = "file:///tmp/flash_perceive_virtual.py"
 
     def send(method: str, params: dict, msg_id: int | None = None) -> None:
@@ -64,33 +68,49 @@ def lsp_diagnostics(code: str, timeout: float = 10.0) -> list[Diagnostic]:
         proc.stdin.flush()
 
     try:
-        send("initialize", {"processId": None, "rootUri": None,
-                            "capabilities": {}}, msg_id=1)
+        send(
+            "initialize",
+            {"processId": None, "rootUri": None, "capabilities": {}},
+            msg_id=1,
+        )
         deadline = time.monotonic() + timeout
-        while time.monotonic() < deadline:               # await init response
+        while time.monotonic() < deadline:  # await init response
             if not select.select([proc.stdout], [], [], 0.2)[0]:
                 continue
             msg = _read_msg(proc.stdout)
             if msg and msg.get("id") == 1:
                 break
         send("initialized", {})
-        send("textDocument/didOpen", {"textDocument": {
-            "uri": uri, "languageId": "python", "version": 1, "text": code}})
+        send(
+            "textDocument/didOpen",
+            {
+                "textDocument": {
+                    "uri": uri,
+                    "languageId": "python",
+                    "version": 1,
+                    "text": code,
+                }
+            },
+        )
 
         diags: list[Diagnostic] | None = None
         deadline = time.monotonic() + timeout
-        while time.monotonic() < deadline:               # await diagnostics
+        while time.monotonic() < deadline:  # await diagnostics
             if not select.select([proc.stdout], [], [], 0.2)[0]:
                 continue
             msg = _read_msg(proc.stdout)
             if msg is None:
                 break
             if msg.get("method") == "textDocument/publishDiagnostics":
-                diags = [Diagnostic(line=d["range"]["start"]["line"] + 1,
-                                    severity=_SEV.get(d.get("severity", 3), "info"),
-                                    message=d["message"].splitlines()[0],
-                                    source=d.get("source", "lsp"))
-                         for d in msg["params"]["diagnostics"]]
+                diags = [
+                    Diagnostic(
+                        line=d["range"]["start"]["line"] + 1,
+                        severity=_SEV.get(d.get("severity", 3), "info"),
+                        message=d["message"].splitlines()[0],
+                        source=d.get("source", "lsp"),
+                    )
+                    for d in msg["params"]["diagnostics"]
+                ]
                 break
         send("shutdown", {}, msg_id=2)
         send("exit", {})
@@ -106,8 +126,11 @@ def _syntax_fallback(code: str) -> list[Diagnostic]:
         compile(code, "<generated>", "exec")
         return []
     except SyntaxError as e:
-        return [Diagnostic(line=e.lineno or 1, severity="error",
-                           message=e.msg, source="compile")]
+        return [
+            Diagnostic(
+                line=e.lineno or 1, severity="error", message=e.msg, source="compile"
+            )
+        ]
 
 
 def static_check(code: str, use_lsp: bool = True) -> list[Diagnostic]:

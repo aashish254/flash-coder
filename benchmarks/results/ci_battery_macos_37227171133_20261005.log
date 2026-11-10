@@ -34,7 +34,7 @@ OK   benchmarks/subtle_premise_check.py           52/52
 OK   benchmarks/p6_key_check.py                   28/28
 OK   benchmarks/confidence_tau_check.py           7/7
 REFUSED benchmarks/checkpoint_resume_check.py    machine — the §34.1 governor will not offer tournament width >= 2 on this machine
-     └─ AssertionError: the tournament arm needs the governor's width >= 2 and this machine offers 1 (free memory 6.0GB < 6.9GB needed): put it on AC, let it 
+     └─ AssertionError: the tournament arm needs the governor's width >= 2 and this machine offers 1 (free memory 6.0GB < 6.9GB needed): put it on AC, let it
 OK   benchmarks/lora_path_check.py                33/33 (+ 15 mutants)
 OK   benchmarks/dbg_band_check.py                 172/172 (+ 5 mutants)
 OK   benchmarks/router_portable_check.py          20/20 (+ 5 mutants)
