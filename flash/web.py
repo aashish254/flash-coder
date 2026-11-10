@@ -19,6 +19,7 @@ Degradation ladder (§33.9 #4 offline-first, #7 fallbacks everywhere):
 Bounded resources (§33.9 #3): the 133MB embedder loads lazily, once per
 process, and never at all when force_kw/--offline-without-weights applies.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -29,8 +30,8 @@ from pathlib import Path
 
 CACHE = Path(__file__).resolve().parent.parent / "benchmarks" / "cache"
 DEFAULT_EMBEDDER = "BAAI/bge-small-en-v1.5"
-DEFAULT_BUDGET = 2500          # chars/doc — v3 A/B: bge needs ~2300 for the
-                               # hardest knob; 2000 cut it (near-miss lesson)
+DEFAULT_BUDGET = 2500  # chars/doc — v3 A/B: bge needs ~2300 for the
+# hardest knob; 2000 cut it (near-miss lesson)
 
 
 # ---------------------------------------------------------------- fetch layer
@@ -38,16 +39,16 @@ def strip_html(raw: str) -> str:
     raw = re.sub(r"(?is)<(script|style|nav|footer|header).*?</\1>", " ", raw)
     raw = re.sub(r"(?s)<[^>]+>", " ", raw)
     raw = html.unescape(raw)
-    return re.sub(r"[ \t]*\n[ \t]*", "\n",
-                  re.sub(r"[ \t]+", " ", raw)).strip()
+    return re.sub(r"[ \t]*\n[ \t]*", "\n", re.sub(r"[ \t]+", " ", raw)).strip()
 
 
 def _cache_key(url: str, cache: Path) -> Path:
     return cache / (hashlib.sha1(url.encode()).hexdigest()[:16] + ".txt")
 
 
-def fetch(url: str, cache: Path = CACHE, offline: bool = False,
-          timeout: int = 20) -> tuple[str, bool]:
+def fetch(
+    url: str, cache: Path = CACHE, offline: bool = False, timeout: int = 20
+) -> tuple[str, bool]:
     """Local-first fetch. Returns (text, from_cache).
 
     Degrades per §33.9: cache hit = no network; offline or network failure
@@ -62,10 +63,12 @@ def fetch(url: str, cache: Path = CACHE, offline: bool = False,
         raise RuntimeError(f"offline and no cache for {url}")
     try:
         import requests
-        r = requests.get(url, timeout=timeout,
-                         headers={"User-Agent": "flash-coder-web"})
+
+        r = requests.get(
+            url, timeout=timeout, headers={"User-Agent": "flash-coder-web"}
+        )
         r.raise_for_status()
-    except Exception as e:                       # network down, DNS, TLS...
+    except Exception as e:  # network down, DNS, TLS...
         raise RuntimeError(f"fetch failed and no cache for {url}: {e}") from e
     text = strip_html(r.text) if "<html" in r.text[:2000].lower() else r.text
     key.write_text(text)
@@ -100,10 +103,18 @@ def excerpt_kw(text: str, query: str, budget: int = DEFAULT_BUDGET) -> str:
     """Keyword-relevance excerpt (spike v1 ranker): doc start + lines sharing
     long lowercase terms with the query. The no-embedder fallback — 2/3 knobs
     vs bge's 3/3, so it ships only when bge can't load."""
-    terms = {w.lower().strip("()`:.",) for w in query.split()
-             if len(w) > 5 and w[0].islower()}
-    hits = [ln for ln in text.splitlines()
-            if terms & {w.lower().strip("()`:.,'") for w in ln.split()}]
+    terms = {
+        w.lower().strip(
+            "()`:.",
+        )
+        for w in query.split()
+        if len(w) > 5 and w[0].islower()
+    }
+    hits = [
+        ln
+        for ln in text.splitlines()
+        if terms & {w.lower().strip("()`:.,'") for w in ln.split()}
+    ]
     extra = "\n".join(hits[:40])
     return (text[:budget] + "\n...\n" + extra)[: budget * 2]
 
@@ -116,15 +127,14 @@ class TorchEmbedder:
 
     def __init__(self, repo: str, local_only: bool = False):
         from transformers import AutoModel, AutoTokenizer
-        self.tok = AutoTokenizer.from_pretrained(
-            repo, local_files_only=local_only)
-        self.model = AutoModel.from_pretrained(
-            repo, local_files_only=local_only).eval()
+
+        self.tok = AutoTokenizer.from_pretrained(repo, local_files_only=local_only)
+        self.model = AutoModel.from_pretrained(repo, local_files_only=local_only).eval()
 
     def embed(self, text: str):
         import torch
-        enc = self.tok(text, truncation=True, max_length=512,
-                       return_tensors="pt")
+
+        enc = self.tok(text, truncation=True, max_length=512, return_tensors="pt")
         with torch.no_grad():
             h = self.model(**enc).last_hidden_state[0]
         mask = enc["attention_mask"][0].unsqueeze(-1)
@@ -136,8 +146,9 @@ _EMBEDDER: TorchEmbedder | None = None
 _EMBEDDER_TRIED = False
 
 
-def get_embedder(repo: str = DEFAULT_EMBEDDER,
-                 offline: bool = False) -> TorchEmbedder | None:
+def get_embedder(
+    repo: str = DEFAULT_EMBEDDER, offline: bool = False
+) -> TorchEmbedder | None:
     """Lazy process-wide singleton (load once — the M2 hot-swap lesson).
     Returns None on ANY failure so callers degrade to excerpt_kw: missing
     deps, uncached weights while offline, OOM. A tool that sometimes ranks
@@ -158,18 +169,23 @@ def _prefixes(name: str) -> tuple[str, str]:
     if "nomic" in name:
         return "search_query: ", "search_document: "
     if "bge" in name.lower():
-        return ("Represent this sentence for searching relevant passages: ",
-                "")
+        return ("Represent this sentence for searching relevant passages: ", "")
     return "", ""
 
 
-def excerpt_embed(text: str, query: str, embed_fn,
-                  budget: int = DEFAULT_BUDGET,
-                  qpfx: str = "", dpfx: str = "") -> tuple[str, float]:
+def excerpt_embed(
+    text: str,
+    query: str,
+    embed_fn,
+    budget: int = DEFAULT_BUDGET,
+    qpfx: str = "",
+    dpfx: str = "",
+) -> tuple[str, float]:
     """Cosine-rank ~800-char chunks against the query, fill the budget
     best-first (skipping oversized chunks — smaller ones may still fit), then
     restore doc order for readability. Returns (excerpt, top1_sim)."""
     import numpy as np
+
     chunks = chunk(text)
     if not chunks:
         return "", 0.0
@@ -190,7 +206,7 @@ def excerpt_embed(text: str, query: str, embed_fn,
 class DocExcerpt:
     url: str
     text: str = ""
-    ranker: str = "none"       # "bge" | "kw" | "none"
+    ranker: str = "none"  # "bge" | "kw" | "none"
     top1_sim: float = 0.0
     cached: bool = False
     error: str = ""
@@ -200,9 +216,14 @@ class DocExcerpt:
         return bool(self.text) and not self.error
 
 
-def lookup(query: str, urls: list[str], budget: int = DEFAULT_BUDGET,
-           offline: bool = False, force_kw: bool = False,
-           cache: Path = CACHE) -> list[DocExcerpt]:
+def lookup(
+    query: str,
+    urls: list[str],
+    budget: int = DEFAULT_BUDGET,
+    offline: bool = False,
+    force_kw: bool = False,
+    cache: Path = CACHE,
+) -> list[DocExcerpt]:
     """fetch -> chunk -> rank per doc; per-doc failures degrade, never kill."""
     emb = None if force_kw else get_embedder(offline=offline)
     qpfx, dpfx = _prefixes(DEFAULT_EMBEDDER) if emb else ("", "")
@@ -213,7 +234,8 @@ def lookup(query: str, urls: list[str], budget: int = DEFAULT_BUDGET,
             text, rec.cached = fetch(url, cache=cache, offline=offline)
             if emb is not None:
                 rec.text, rec.top1_sim = excerpt_embed(
-                    text, query, emb.embed, budget, qpfx, dpfx)
+                    text, query, emb.embed, budget, qpfx, dpfx
+                )
                 rec.ranker = "bge"
             else:
                 rec.text = excerpt_kw(text, query, budget)
@@ -234,10 +256,12 @@ def format_for_prompt(excerpts: list[DocExcerpt]) -> str:
             parts.append(f"--- {e.url} ---\n{e.text}")
     if not parts:
         return ""
-    return ("Library documentation (fetched excerpts — this is ground truth "
-            "for these APIs: use the exact function names and keyword "
-            "arguments shown below, even if you think you know them):\n\n"
-            + "\n\n".join(parts))
+    return (
+        "Library documentation (fetched excerpts — this is ground truth "
+        "for these APIs: use the exact function names and keyword "
+        "arguments shown below, even if you think you know them):\n\n"
+        + "\n\n".join(parts)
+    )
 
 
 # ------------------------------------------------------------------ selftest
@@ -252,17 +276,27 @@ def selftest() -> list[tuple[str, bool, str]]:
         checks.append((name, bool(ok), detail))
 
     # strip_html: boilerplate gone, entities unescaped, text kept
-    t = strip_html("<html><head><style>x{}</style></head><body>"
-                   "<script>evil()</script><p>Hello &amp; goodbye</p></body>")
-    check("strip_html", "Hello & goodbye" in t and "evil" not in t
-          and "<p>" not in t, t[:40])
+    t = strip_html(
+        "<html><head><style>x{}</style></head><body>"
+        "<script>evil()</script><p>Hello &amp; goodbye</p></body>"
+    )
+    check(
+        "strip_html",
+        "Hello & goodbye" in t and "evil" not in t and "<p>" not in t,
+        t[:40],
+    )
 
     # chunk: all chunks <= target or a hard-split of an oversized paragraph
     doc = "\n\n".join(f"para {i} " + "x" * 100 for i in range(10))
     cs = chunk(doc, target=300)
-    check("chunk", cs and all(len(c) <= 300 for c in cs)
-          and "para 0" in cs[0] and "para 9" in "".join(cs),
-          f"{len(cs)} chunks")
+    check(
+        "chunk",
+        cs
+        and all(len(c) <= 300 for c in cs)
+        and "para 0" in cs[0]
+        and "para 9" in "".join(cs),
+        f"{len(cs)} chunks",
+    )
 
     # fetch: cache round-trip, offline hit, offline miss -> RuntimeError
     with tempfile.TemporaryDirectory() as td:
@@ -279,39 +313,55 @@ def selftest() -> list[tuple[str, bool, str]]:
     # excerpt_embed with a STUB embedder: knob containment, budget fill,
     # doc-order restore — the retrieval contract, deterministic
     import numpy as np
-    chunks_doc = "\n\n".join(["filler " + "f" * 700,
-                              "KNOB the answer " + "k" * 680,
-                              "tail " + "t" * 700])
 
-    def stub(s):                            # knob+query aligned, rest not
-        v = np.full(16, 1.0) if ("KNOB" in s or s == "query") \
-            else np.eye(16)[0]
+    chunks_doc = "\n\n".join(
+        ["filler " + "f" * 700, "KNOB the answer " + "k" * 680, "tail " + "t" * 700]
+    )
+
+    def stub(s):  # knob+query aligned, rest not
+        v = np.full(16, 1.0) if ("KNOB" in s or s == "query") else np.eye(16)[0]
         return v / np.linalg.norm(v)
 
     ex, sim = excerpt_embed(chunks_doc, "query", stub, budget=800)
-    check("embed-rank-knob", "KNOB" in ex and len(ex) <= 800,
-          f"{len(ex)}c sim={sim:.2f}")
+    check(
+        "embed-rank-knob", "KNOB" in ex and len(ex) <= 800, f"{len(ex)}c sim={sim:.2f}"
+    )
     ex2, _ = excerpt_embed(chunks_doc, "query", stub, budget=1600)
-    check("embed-rank-order", ex2.find("filler") < ex2.find("KNOB")
-          or "filler" not in ex2, "doc order restored")
+    check(
+        "embed-rank-order",
+        ex2.find("filler") < ex2.find("KNOB") or "filler" not in ex2,
+        "doc order restored",
+    )
 
     # kw fallback surfaces a matching line past the doc-start budget
     knob_line = "strict : bool — type coercion rules apply"
     far_doc = "intro " + "i" * 6000 + "\n" + knob_line + "\nend"
-    check("kw-fallback", knob_line in excerpt_kw(far_doc,
-                                                 "convert strict coercion"))
+    check("kw-fallback", knob_line in excerpt_kw(far_doc, "convert strict coercion"))
 
     # lookup end-to-end offline: cached doc ranks, missing doc errors not fatal
     with tempfile.TemporaryDirectory() as td:
         cp = Path(td)
         _cache_key("u://doc", cp).write_text(far_doc)
-        recs = lookup("strict coercion", ["u://doc", "u://gone"],
-                      offline=True, force_kw=True, cache=cp)
-        check("lookup-degrades", len(recs) == 2 and recs[0].ok
-              and recs[0].ranker == "kw" and not recs[1].ok and recs[1].error)
+        recs = lookup(
+            "strict coercion",
+            ["u://doc", "u://gone"],
+            offline=True,
+            force_kw=True,
+            cache=cp,
+        )
+        check(
+            "lookup-degrades",
+            len(recs) == 2
+            and recs[0].ok
+            and recs[0].ranker == "kw"
+            and not recs[1].ok
+            and recs[1].error,
+        )
         block = format_for_prompt(recs)
-        check("format-skips-errors", "u://doc" in block and "u://gone"
-              not in block and "ground truth" in block)
+        check(
+            "format-skips-errors",
+            "u://doc" in block and "u://gone" not in block and "ground truth" in block,
+        )
 
     return checks
 
@@ -325,9 +375,9 @@ def run_selftest() -> int:
     return 1 if n_bad else 0
 
 
-if __name__ == "__main__":                       # pragma: no cover
+if __name__ == "__main__":  # pragma: no cover
     import sys
+
     if "--selftest" in sys.argv or len(sys.argv) == 1:
         raise SystemExit(run_selftest())
     print(__doc__)
-

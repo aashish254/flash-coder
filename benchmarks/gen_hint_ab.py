@@ -48,6 +48,7 @@ tier that cannot reproduce its own first answer cannot anchor a frozen suite.
 
 Then certify: `python benchmarks/hint_ab_check.py`.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -59,10 +60,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from flash import graph, harness                                # noqa: E402
-from flash.harness import extract_code                          # noqa: E402
-from flash.lsp import SymbolIndex, symbols_involved              # noqa: E402
-from flash.perceive import format_errors, static_check          # noqa: E402
+from flash import graph, harness  # noqa: E402
+from flash.harness import extract_code  # noqa: E402
+from flash.lsp import SymbolIndex, symbols_involved  # noqa: E402
+from flash.perceive import format_errors, static_check  # noqa: E402
 
 POOL = ROOT / "benchmarks" / "tasks" / "hint_ab_candidates.jsonl"
 OUT = ROOT / "benchmarks" / "tasks" / "hint_ab_tasks.jsonl"
@@ -89,8 +90,8 @@ def attempt_zero(rows: list[dict]) -> dict[str, dict]:
         if r.get("type") == "generate" and int(r.get("attempt", -1)) == 0:
             out[r["task_id"]] = {
                 "code": extract_code(r.get("output", "")),
-                "capped": int(r.get("completion_tokens", 0)) >= int(
-                    r.get("max_tokens", 1 << 30)),
+                "capped": int(r.get("completion_tokens", 0))
+                >= int(r.get("max_tokens", 1 << 30)),
             }
         elif r.get("type") == "verify" and int(r.get("attempt", -1)) == 0:
             got = out.get(r["task_id"])
@@ -139,10 +140,8 @@ def vclass(verdict: str) -> str:
     not a false green.
     """
     if verdict.startswith("STATIC:"):
-        m = re.search(r"(undefined name|syntax error|before assignment)", verdict,
-                      re.I)
-        return "static:" + (m.group(1).lower().replace(" ", "-") if m
-                            else "other")
+        m = re.search(r"(undefined name|syntax error|before assignment)", verdict, re.I)
+        return "static:" + (m.group(1).lower().replace(" ", "-") if m else "other")
     names = sorted(set(re.findall(r"\b([A-Z]\w*(?:Error|Exception))\b", verdict)))
     return names[0] if names else ("assert-diff" if verdict else "no verdict")
 
@@ -151,8 +150,7 @@ def rank(idx: SymbolIndex, verdict: str, naive: str) -> list[str]:
     return [s.name for s in symbols_involved(idx, verdict, naive, 3)]
 
 
-def select(pilots: list[str], pool_path: Path,
-           report: bool) -> tuple[list[dict], list]:
+def select(pilots: list[str], pool_path: Path, report: bool) -> tuple[list[dict], list]:
     tasks = {t["id"]: t for t in load(pool_path)}
     answers: dict[str, dict] = {}
     for p in pilots:
@@ -162,8 +160,10 @@ def select(pilots: list[str], pool_path: Path,
                 # Greedy attempt 0 is temperature 0 with a fixed seed, so two
                 # pilots of one task agreeing is the control; a disagreement
                 # means the tier is not reproducible and the band is not frozen.
-                raise SystemExit(f"{tid}: pilots {old['from']} and {p} disagree "
-                                 f"on attempt 0 ({old['ok']} vs {rec['ok']})")
+                raise SystemExit(
+                    f"{tid}: pilots {old['from']} and {p} disagree "
+                    f"on attempt 0 ({old['ok']} vs {rec['ok']})"
+                )
             if old is None:
                 rec["from"] = p
                 answers[tid] = rec
@@ -185,14 +185,20 @@ def select(pilots: list[str], pool_path: Path,
             continue
         verdict = loop_verdict(task, {tid: rec})
         if not compiles(rec["code"]):
-            drops.append((tid, "extracted answer does not compile",
-                          "a cut-off program, not a symbol"))
+            drops.append(
+                (
+                    tid,
+                    "extracted answer does not compile",
+                    "a cut-off program, not a symbol",
+                )
+            )
             continue
         idx = indexes.setdefault(ctx, SymbolIndex.build(ctx))
         names = rank(idx, verdict, rec["code"])
         if not names:
-            drops.append((tid, "no repo-defined symbol at issue",
-                          "both blocks are silent"))
+            drops.append(
+                (tid, "no repo-defined symbol at issue", "both blocks are silent")
+            )
             continue
         dep = graph.scope_hint(ctx, verdict, rec["code"], index=idx)
         if not dep:
@@ -203,14 +209,22 @@ def select(pilots: list[str], pool_path: Path,
             # One signature, one task: three tasks that all fail on forgetting to
             # import `BULK_MIN_QTY` are one observation counted three times, and
             # `hint_ab_check.py`'s signature gate would (correctly) refuse them.
-            drops.append((tid, f"{sig[0]} on {sig[1]} again",
-                          "one signature scores once"))
+            drops.append(
+                (tid, f"{sig[0]} on {sig[1]} again", "one signature scores once")
+            )
             continue
         kept_sig.add(sig)
-        keep.append({"id": tid, "context": task["context"],
-                     "prompt": task["prompt"], "test": task["test"],
-                     "solution": task["solution"], "naive": rec["code"],
-                     "naive_from": Path(rec["from"]).stem})
+        keep.append(
+            {
+                "id": tid,
+                "context": task["context"],
+                "prompt": task["prompt"],
+                "test": task["test"],
+                "solution": task["solution"],
+                "naive": rec["code"],
+                "naive_from": Path(rec["from"]).stem,
+            }
+        )
     keep.sort(key=lambda t: t["id"])
     if report:
         for tid, why, because in drops:
@@ -220,9 +234,13 @@ def select(pilots: list[str], pool_path: Path,
 
 def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--pilot", action="append", required=True,
-                    help="pilot session id or trace path (attempts=1, "
-                         "--trace-full); repeatable, and the band is their union")
+    ap.add_argument(
+        "--pilot",
+        action="append",
+        required=True,
+        help="pilot session id or trace path (attempts=1, "
+        "--trace-full); repeatable, and the band is their union",
+    )
     ap.add_argument("--pool", default=str(POOL))
     ap.add_argument("--out", default=str(OUT))
     ap.add_argument("--report", action="store_true", help="print the rejects too")
@@ -230,13 +248,18 @@ def main(argv: list[str]) -> int:
     args = ap.parse_args(argv)
     keep, drops = select(args.pilot, Path(args.pool), args.report)
     for t in keep:
-        print(f"  keep {t['id']:<28} naive={len(t['naive'])} chars "
-              f"from {t['naive_from']}")
-    print(f"\nhint_ab: {len(keep)}/{len(keep) + len(drops)} pool tasks are in "
-          f"the retry-and-eligible band")
+        print(
+            f"  keep {t['id']:<28} naive={len(t['naive'])} chars from {t['naive_from']}"
+        )
+    print(
+        f"\nhint_ab: {len(keep)}/{len(keep) + len(drops)} pool tasks are in "
+        f"the retry-and-eligible band"
+    )
     if not keep:
-        print("FAIL nothing qualified — the band is empty, so the A/B has no "
-              "denominator; widen the pool or lower the tier")
+        print(
+            "FAIL nothing qualified — the band is empty, so the A/B has no "
+            "denominator; widen the pool or lower the tier"
+        )
         return 1
     if args.dry_run:
         return 0

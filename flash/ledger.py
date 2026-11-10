@@ -6,6 +6,7 @@ features (task text, ctx size, suite) -> label (did the small tier solve it?
 how many attempts? what did escalation cost?). Every `solve_routed` call
 appends here automatically.
 """
+
 from __future__ import annotations
 
 import json
@@ -13,8 +14,9 @@ import time
 from collections import Counter
 from pathlib import Path
 
-LEDGER_FILE = (Path(__file__).resolve().parent.parent
-               / "benchmarks" / "results" / "ledger.jsonl")
+LEDGER_FILE = (
+    Path(__file__).resolve().parent.parent / "benchmarks" / "results" / "ledger.jsonl"
+)
 
 
 def record(entry: dict, path: Path = LEDGER_FILE) -> None:
@@ -56,14 +58,19 @@ def summary(rows: list[dict]) -> str:
     ]
     if shed:
         why = Counter(r.get("shed", "?") for r in rows if r["tier"] == "shed")
-        lines.append("shed because (§34.1 governor): "
-                     + "; ".join(f"{k} x{v}" for k, v in why.most_common(3)))
+        lines.append(
+            "shed because (§34.1 governor): "
+            + "; ".join(f"{k} x{v}" for k, v in why.most_common(3))
+        )
     # per-task view: the future router's training signal
     by_task: dict[str, list[dict]] = {}
     for r in rows:
         by_task.setdefault(r["task_id"], []).append(r)
-    flaky = [tid for tid, rs in by_task.items()
-             if len({r["solved"] for r in rs}) > 1 or any(r["tier"] != "small" for r in rs)]
+    flaky = [
+        tid
+        for tid, rs in by_task.items()
+        if len({r["solved"] for r in rs}) > 1 or any(r["tier"] != "small" for r in rs)
+    ]
     if flaky:
         lines.append(f"needs-big or flaky (router labels): {', '.join(sorted(flaky))}")
     return "\n".join(lines)

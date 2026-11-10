@@ -19,6 +19,7 @@ Run: `python benchmarks/trainable_audit.py`  (one 7B load for ~69 uncached
 prompt embeddings if the cache is cold; generation-free, forward passes only)
 Offline selftest of the audit's own machinery: `--selftest`.
 """
+
 import json
 import sys
 from pathlib import Path
@@ -52,16 +53,17 @@ def policy_row(row: dict) -> bool:
     tier=shed: escalation was denied by the governor; the label would teach
     the router the machine's power state, not the task's difficulty.
     """
-    return (str(row.get("routed", "")).startswith("big")
-            or row.get("tier") == "shed")
+    return str(row.get("routed", "")).startswith("big") or row.get("tier") == "shed"
 
 
 def honest_eval(row: dict, fam: dict) -> bool:
     """Eval rows carry real outcomes on the code-repair distribution:
     tier in {small, big, failed}, from a held-out family."""
-    return (row.get("task_id") in fam
-            and row.get("tier") in ("small", "big", "failed")
-            and not str(row.get("routed", "")).startswith("big"))
+    return (
+        row.get("task_id") in fam
+        and row.get("tier") in ("small", "big", "failed")
+        and not str(row.get("routed", "")).startswith("big")
+    )
 
 
 def auc(pos_scores: list, neg_scores: list) -> float:
@@ -89,6 +91,7 @@ def boot_diff_auc(ev_a: list, ev_b: list, n: int = 4000, seed: int = 0):
     a measurement or a mirage. `ev_a`/`ev_b` are aligned (score, label) lists
     over the same rows. Returns (point_diff, lo, hi, n_replicates).
     """
+
     def _auc_of(ev, idx):
         pos = [ev[i][0] for i in idx if ev[i][1] == 1]
         neg = [ev[i][0] for i in idx if ev[i][1] == 0]
@@ -122,13 +125,17 @@ def run_audit() -> int:
     fit_b = [r for r in rows if not policy_row(r)]
     eval_rows = [r for r in rows if honest_eval(r, fam)]
     extra_b = [r for r in fit_b if not trainable(r)]
-    print(f"ledger: {len(rows)} rows | fit A (trainable): {len(fit_a)} "
-          f"| fit B (all minus policy rows): {len(fit_b)} "
-          f"| B keeps {len(extra_b)} row(s) A excludes "
-          f"(tier: {sorted({r.get('tier') for r in extra_b})})")
-    print(f"eval: {len(eval_rows)} held-out rows "
-          f"({sum(label(r) for r in eval_rows):.0f} positive) "
-          f"over {len({fam[r['task_id']] for r in eval_rows})} families")
+    print(
+        f"ledger: {len(rows)} rows | fit A (trainable): {len(fit_a)} "
+        f"| fit B (all minus policy rows): {len(fit_b)} "
+        f"| B keeps {len(extra_b)} row(s) A excludes "
+        f"(tier: {sorted({r.get('tier') for r in extra_b})})"
+    )
+    print(
+        f"eval: {len(eval_rows)} held-out rows "
+        f"({sum(label(r) for r in eval_rows):.0f} positive) "
+        f"over {len({fam[r['task_id']] for r in eval_rows})} families"
+    )
 
     # one cache pass for every prompt the audit touches
     all_needed = list({r["task_id"]: r for r in fit_b + eval_rows}.values())
@@ -153,36 +160,49 @@ def run_audit() -> int:
         out.append((name, len(fr), auc(pos, neg), per_fam))
 
     for name, n, a, per_fam in out:
-        print(f"fit {name:<20} {n:>3} rows   pooled AUC = {a:.3f}   "
-              + "  ".join(f"{f}:{v:.3f}" if v == v else f"{f}:n/a"
-                          for f, v in per_fam))
+        print(
+            f"fit {name:<20} {n:>3} rows   pooled AUC = {a:.3f}   "
+            + "  ".join(f"{f}:{v:.3f}" if v == v else f"{f}:n/a" for f, v in per_fam)
+        )
     (_, _, a_auc, _), (_, _, b_auc, _) = out
     obs, lo, hi, reps = boot_diff_auc(ev_lists[0], ev_lists[1])
-    print(f"\ndifference (A - B): pooled {obs:+.3f}, bootstrap 95% interval "
-          f"[{lo:+.3f}, {hi:+.3f}] over {reps} replicates on {len(ev)} eval rows")
+    print(
+        f"\ndifference (A - B): pooled {obs:+.3f}, bootstrap 95% interval "
+        f"[{lo:+.3f}, {hi:+.3f}] over {reps} replicates on {len(ev)} eval rows"
+    )
     if lo == lo and lo <= 0 <= hi:
-        print("VERDICT: the gap does not separate from zero at this eval size — "
-              "the two re-fits are the same AUC within measurement precision, "
-              "and the exclusion demonstrably costs no SIGNAL yet. The eval "
-              "holds few positives; state the precision, not just the point.")
+        print(
+            "VERDICT: the gap does not separate from zero at this eval size — "
+            "the two re-fits are the same AUC within measurement precision, "
+            "and the exclusion demonstrably costs no SIGNAL yet. The eval "
+            "holds few positives; state the precision, not just the point."
+        )
     elif obs > 0:
-        print("VERDICT: trainable()-only is measurably BETTER — the extra "
-              "exclusions sharpen the router, not blunt it.")
+        print(
+            "VERDICT: trainable()-only is measurably BETTER — the extra "
+            "exclusions sharpen the router, not blunt it."
+        )
     else:
-        print("VERDICT: the gap separates from zero AGAINST trainable() — the "
-              "excluded rows carried signal; record the size as the measured "
-              "price and revisit the predicate.")
+        print(
+            "VERDICT: the gap separates from zero AGAINST trainable() — the "
+            "excluded rows carried signal; record the size as the measured "
+            "price and revisit the predicate."
+        )
     return 0
 
 
 # ------------------------------------------------------------------ selftest
+
 
 def run_selftest() -> int:
     checks = []
 
     def ck(label_, cond, detail=""):
         checks.append((label_, bool(cond), str(detail)))
-        print(f"  {'OK  ' if cond else 'FAIL'} {label_}" + (f"  [{detail}]" if detail and not cond else ""))
+        print(
+            f"  {'OK  ' if cond else 'FAIL'} {label_}"
+            + (f"  [{detail}]" if detail and not cond else "")
+        )
 
     a = auc([3.0, 2.0], [1.0, 0.5])
     ck("auc: perfect separation is 1.0", abs(a - 1.0) < 1e-12, a)
@@ -192,50 +212,73 @@ def run_selftest() -> int:
     ck("auc: a tie is half credit", abs(a - 0.5) < 1e-12, a)
     a = auc([3.0, 1.0], [2.0, 2.0])
     ck("auc: mixed ranks average correctly", abs(a - 0.5) < 1e-12, a)
-    ck("auc: an empty class is reported, not guessed",
-       np.isnan(auc([], [1.0])))
+    ck("auc: an empty class is reported, not guessed", np.isnan(auc([], [1.0])))
 
     p = lambda routed, tier: {"routed": routed, "tier": tier, "task_id": "x"}
     ck("policy rows: gate-routed big is excluded", policy_row(p("big(0.9)", "big")))
     ck("policy rows: shed is excluded", policy_row(p("small", "shed")))
-    ck("policy rows: a small-first honest outcome stays",
-       not policy_row(p("small", "failed")))
-    ck("policy rows: vision is NOT a mandated exclusion "
-       "(that is trainable()'s extra, the thing the audit measures)",
-       not policy_row(p("", "vision")))
-    ck("trainable() is a subset of all-minus-policy (A never keeps a B drop)",
-       all(trainable(r) for r in
-           [p("small", s) for s in ("small", "big", "failed")]))
-    ck("the audit's question is well-posed: B strictly contains A when "
-       "vision rows exist",
-       policy_row({"routed": "", "tier": "vision"}) is False
-       and trainable({"routed": "", "tier": "vision"}) is False)
+    ck(
+        "policy rows: a small-first honest outcome stays",
+        not policy_row(p("small", "failed")),
+    )
+    ck(
+        "policy rows: vision is NOT a mandated exclusion "
+        "(that is trainable()'s extra, the thing the audit measures)",
+        not policy_row(p("", "vision")),
+    )
+    ck(
+        "trainable() is a subset of all-minus-policy (A never keeps a B drop)",
+        all(trainable(r) for r in [p("small", s) for s in ("small", "big", "failed")]),
+    )
+    ck(
+        "the audit's question is well-posed: B strictly contains A when "
+        "vision rows exist",
+        policy_row({"routed": "", "tier": "vision"}) is False
+        and trainable({"routed": "", "tier": "vision"}) is False,
+    )
 
-    ev = lambda tier, routed, tid: honest_eval({"tier": tier, "routed": routed,
-                                                "task_id": tid}, {"t9": "m4"})
-    ck("eval keeps honest held-out outcomes in all three classes",
-       all(ev(s, "small", "t9") for s in ("small", "big", "failed")))
-    ck("eval excludes shed, vision and big-routed held-out rows",
-       not ev("shed", "small", "t9") and not ev("vision", "", "t9")
-       and not ev("big", "big(0.9)", "t9"))
+    ev = lambda tier, routed, tid: honest_eval(
+        {"tier": tier, "routed": routed, "task_id": tid}, {"t9": "m4"}
+    )
+    ck(
+        "eval keeps honest held-out outcomes in all three classes",
+        all(ev(s, "small", "t9") for s in ("small", "big", "failed")),
+    )
+    ck(
+        "eval excludes shed, vision and big-routed held-out rows",
+        not ev("shed", "small", "t9")
+        and not ev("vision", "", "t9")
+        and not ev("big", "big(0.9)", "t9"),
+    )
 
     import random
+
     rng = random.Random(7)
     base = [(rng.random(), float(i % 3 == 0)) for i in range(300)]
     obs, lo, hi, reps = boot_diff_auc(base, list(base))
-    ck("bootstrap: identical score lists give a zero gap with zero in the band",
-       obs == 0.0 and lo <= 0 <= hi and reps > 1000, f"{obs} [{lo},{hi}] n={reps}")
+    ck(
+        "bootstrap: identical score lists give a zero gap with zero in the band",
+        obs == 0.0 and lo <= 0 <= hi and reps > 1000,
+        f"{obs} [{lo},{hi}] n={reps}",
+    )
     better = [((0.9 if l == 1 else 0.1), l) for _, l in base]
     worse = [((0.1 if l == 1 else 0.9), l) for _, l in base]
     obs, lo, hi, _ = boot_diff_auc(better, worse)
-    ck("bootstrap: a true separation gap has its whole band above zero",
-       lo > 0.9, f"obs={obs:.3f} [{lo:.3f},{hi:.3f}]")
+    ck(
+        "bootstrap: a true separation gap has its whole band above zero",
+        lo > 0.9,
+        f"obs={obs:.3f} [{lo:.3f},{hi:.3f}]",
+    )
     obs, lo, hi, _ = boot_diff_auc(better, better)
-    ck("bootstrap: same-ranking fits give a degenerate zero band",
-       obs == 0.0 and lo == 0.0 and hi == 0.0)
+    ck(
+        "bootstrap: same-ranking fits give a degenerate zero band",
+        obs == 0.0 and lo == 0.0 and hi == 0.0,
+    )
 
     n_bad = sum(not ok for _, ok, _ in checks)
-    print(f"\ntrainable_audit selftest: {len(checks) - n_bad}/{len(checks)} checks passed")
+    print(
+        f"\ntrainable_audit selftest: {len(checks) - n_bad}/{len(checks)} checks passed"
+    )
     return 1 if n_bad else 0
 
 

@@ -38,6 +38,7 @@ limitation ships with the number.
 Offline: `python -m flash.confidence --selftest` (no model; real subprocess
 runs, scripted answers).
 """
+
 from __future__ import annotations
 
 import ast
@@ -53,15 +54,15 @@ from flash import sandbox, trace
 from flash.debug import watch
 from flash.perceive import static_check
 
-COVERAGE_TAU = 0.55               # measured on benchmarks/tasks/subtle_tasks.jsonl
-                                  # and the 20 m0 references: the two seeded
-                                  # untested-block answers sit at 0.18 and 0.46,
-                                  # every other answer in both populations is
-                                  # >= 0.75 — including the correct references of
-                                  # those two tasks, whose visible tests are thin
-                                  # by construction and so ARE offered, correctly
-HASH_SEEDS = (0, 1, 7)            # verdict must be stable across these
-EDGE_BUDGET_S = 2                 # per edge call before it is counted as a hang
+COVERAGE_TAU = 0.55  # measured on benchmarks/tasks/subtle_tasks.jsonl
+# and the 20 m0 references: the two seeded
+# untested-block answers sit at 0.18 and 0.46,
+# every other answer in both populations is
+# >= 0.75 — including the correct references of
+# those two tasks, whose visible tests are thin
+# by construction and so ARE offered, correctly
+HASH_SEEDS = (0, 1, 7)  # verdict must be stable across these
+EDGE_BUDGET_S = 2  # per edge call before it is counted as a hang
 
 
 @dataclass
@@ -69,27 +70,35 @@ class Signals:
     """The evidence table one answer earned. `offer` is the decision §34.2
     gates; `reasons` names which stream(s) demanded it, and the numbers that
     did, so a reviewer can replay the judgement without re-running anything."""
-    ok: bool = True                       # did the visible oracle pass at all
+
+    ok: bool = True  # did the visible oracle pass at all
     static_errors: int = 0
-    coverage: float = 1.0                 # executed / executable statement lines
+    coverage: float = 1.0  # executed / executable statement lines
     covered: int = 0
     total: int = 0
-    seeds: list = field(default_factory=list)   # verdict per hash seed
+    seeds: list = field(default_factory=list)  # verdict per hash seed
     edge_events: list = field(default_factory=list)
     offer: bool = False
     reasons: list = field(default_factory=list)
 
     def fields(self) -> dict:
-        return {"conf_static": self.static_errors, "conf_cov": round(self.coverage, 3),
-                "conf_seeds": len(self.seeds), "conf_edges": len(self.edge_events),
-                "conf_offer": self.offer, "conf_reasons": ",".join(self.reasons)}
+        return {
+            "conf_static": self.static_errors,
+            "conf_cov": round(self.coverage, 3),
+            "conf_seeds": len(self.seeds),
+            "conf_edges": len(self.edge_events),
+            "conf_offer": self.offer,
+            "conf_reasons": ",".join(self.reasons),
+        }
 
     def describe(self) -> str:
-        return (f"offer={'YES' if self.offer else 'no'} "
-                f"static={self.static_errors} cov={self.coverage:.2f}"
-                f"({self.covered}/{self.total}) seeds={''.join('P' if v else 'F' for v in self.seeds)}"
-                f" edges={len(self.edge_events)}"
-                + (" (" + "; ".join(self.reasons) + ")" if self.reasons else ""))
+        return (
+            f"offer={'YES' if self.offer else 'no'} "
+            f"static={self.static_errors} cov={self.coverage:.2f}"
+            f"({self.covered}/{self.total}) seeds={''.join('P' if v else 'F' for v in self.seeds)}"
+            f" edges={len(self.edge_events)}"
+            + (" (" + "; ".join(self.reasons) + ")" if self.reasons else "")
+        )
 
 
 def _statement_lines(code: str) -> set[int]:
@@ -109,8 +118,11 @@ def _statement_lines(code: str) -> set[int]:
         if isinstance(node, ast.stmt):
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
                 continue
-            if isinstance(node, ast.Expr) and isinstance(node.value, ast.Constant) \
-                    and isinstance(node.value.value, str):
+            if (
+                isinstance(node, ast.Expr)
+                and isinstance(node.value, ast.Constant)
+                and isinstance(node.value.value, str)
+            ):
                 continue
             lines.add(getattr(node, "lineno", 0) or 0)
     return {n for n in lines if n}
@@ -133,7 +145,9 @@ def coverage_of(code: str, test: str) -> tuple[float, int, int]:
     return covered / len(stmts), covered, len(stmts)
 
 
-def _seeded_run(code: str, test: str, seed: int, timeout: int) -> subprocess.CompletedProcess:
+def _seeded_run(
+    code: str, test: str, seed: int, timeout: int
+) -> subprocess.CompletedProcess:
     """The visible oracle once more, with dict/set iteration order moved by
     PYTHONHASHSEED. The program shape is harness.run_test's.
 
@@ -145,10 +159,16 @@ def _seeded_run(code: str, test: str, seed: int, timeout: int) -> subprocess.Com
     preamble removes sys.path[0], which is all -I would have done for -c.
     """
     from flash.harness import _hoist_path_bootstrap
+
     boot, body = _hoist_path_bootstrap(test)
-    prog = (boot + "\nimport sys\n"
-            "sys.path = [p for p in sys.path if p not in ('', '.')]\n"
-            + code + "\n\n" + body + "\nprint('__PASS__')\n")
+    prog = (
+        boot + "\nimport sys\n"
+        "sys.path = [p for p in sys.path if p not in ('', '.')]\n"
+        + code
+        + "\n\n"
+        + body
+        + "\nprint('__PASS__')\n"
+    )
     env = dict(os.environ, PYTHONHASHSEED=str(seed))
     env.pop("PYTHONPATH", None)
     try:
@@ -162,8 +182,9 @@ def _seeded_run(code: str, test: str, seed: int, timeout: int) -> subprocess.Com
         # files of its own, but it is still candidate code, and `-s` (NOT `-I`)
         # plus the env copy are what keep PYTHONHASHSEED alive through it.
         with tempfile.TemporaryDirectory() as d:
-            return sandbox.run([sys.executable, "-s", "-"], d, timeout,
-                               input=prog, env=env)
+            return sandbox.run(
+                [sys.executable, "-s", "-"], d, timeout, input=prog, env=env
+            )
     except subprocess.TimeoutExpired:
         return None
 
@@ -226,44 +247,75 @@ def _shape(v):
 # a string function flagged 8 of 20 correct reference answers as suspect).
 PROBE_BATTERIES = {
     "str": ["", " ", "x" * 40, "a-b-c", "  pad  ", "A b C", "\n", "1,2", "-"],
-    "int": [0, 1, -1, 2, 7, 100, -100, 10 ** 3, -10 ** 3],
+    "int": [0, 1, -1, 2, 7, 100, -100, 10**3, -(10**3)],
     "float": [0.0, -0.0, 1.0, 3.5, -3.5, 0.1],
-    "list[int]": [[], [0], [1], [1, 1], [3, 1, 2], [2, 1], [0, 0, 0], [-1, -2],
-                  list(range(20))],
+    "list[int]": [
+        [],
+        [0],
+        [1],
+        [1, 1],
+        [3, 1, 2],
+        [2, 1],
+        [0, 0, 0],
+        [-1, -2],
+        list(range(20)),
+    ],
     "list[str]": [[], [""], ["a"], ["a", "a"], ["b", "a"], ["Z", "a"], [" a "]],
     "list[float]": [[], [0.0], [-1.5, 2.5], [1e6, -1e6]],
-    "list[tuple]": [[], [(1, 2)], [(2, 1)], [(1, 2), (1, 3)], [(1, 2), (1, 2)],
-                    [(3, 4), (1, 2)]],
-    "list[list[int]]": [[], [[1, 2]], [[2, 3], [1, 4]], [[1, 4], [2, 3]],
-                        [[1, 2], [1, 2]], [[5, 6], [1, 2]]],
+    "list[tuple]": [
+        [],
+        [(1, 2)],
+        [(2, 1)],
+        [(1, 2), (1, 3)],
+        [(1, 2), (1, 2)],
+        [(3, 4), (1, 2)],
+    ],
+    "list[list[int]]": [
+        [],
+        [[1, 2]],
+        [[2, 3], [1, 4]],
+        [[1, 4], [2, 3]],
+        [[1, 2], [1, 2]],
+        [[5, 6], [1, 2]],
+    ],
     "dict": [{}, {"a": 1}, {"b": 2, "a": 1}, {"a": {"b": 1}}],
 }
 
 # Which escapes count as a missing guard. A function that answers an
 # adversarial input with ValueError/LookupError made a choice; one that dies
 # with ZeroDivisionError or IndexError never looked.
-GUARD_ERRORS = {"AttributeError", "IndexError", "KeyError", "NameError",
-                "ZeroDivisionError", "StopIteration", "TypeError",
-                "UnboundLocalError", "RecursionError", "OverflowError",
-                "HANG", "TIMEOUT"}
+GUARD_ERRORS = {
+    "AttributeError",
+    "IndexError",
+    "KeyError",
+    "NameError",
+    "ZeroDivisionError",
+    "StopIteration",
+    "TypeError",
+    "UnboundLocalError",
+    "RecursionError",
+    "OverflowError",
+    "HANG",
+    "TIMEOUT",
+}
 
 # The probe budget, in argument size. Cost is a property of the ANSWER
 # (spiral(n) is quadratic), so it cannot be computed per call — but the
 # argument's size is readable, and a battery member too big to afford is a
 # hang waiting to be reported as the answer's fault.
-PROBE_MAX_INT = 10 ** 3           # the shipped 10 ** 4 made h39's correct
-                                  # reference plan spiral(10000): a 10 ** 8
-                                  # cell build, measured here at 0.068 s / 54 MB
-                                  # for n=1000 and growing as n squared — which
-                                  # the 2 s alarm fires through, so the module
-                                  # reports `spiral(10000) -> HANG` about an
-                                  # answer that is simply correct. The child
-                                  # cannot be given a memory ceiling instead:
-                                  # setrlimit(RLIMIT_AS, anything finite) raises
-                                  # ValueError on this box (verified), so the
-                                  # only lever is what we ask for.
-PROBE_MAX_ITEMS = 32              # elements in a list, keys in a dict
-PROBE_MAX_CHARS = 64              # characters in a string
+PROBE_MAX_INT = 10**3  # the shipped 10 ** 4 made h39's correct
+# reference plan spiral(10000): a 10 ** 8
+# cell build, measured here at 0.068 s / 54 MB
+# for n=1000 and growing as n squared — which
+# the 2 s alarm fires through, so the module
+# reports `spiral(10000) -> HANG` about an
+# answer that is simply correct. The child
+# cannot be given a memory ceiling instead:
+# setrlimit(RLIMIT_AS, anything finite) raises
+# ValueError on this box (verified), so the
+# only lever is what we ask for.
+PROBE_MAX_ITEMS = 32  # elements in a list, keys in a dict
+PROBE_MAX_CHARS = 64  # characters in a string
 
 
 def _affordable(v) -> bool:
@@ -279,15 +331,15 @@ def _affordable(v) -> bool:
     if isinstance(v, int):
         return abs(v) <= PROBE_MAX_INT
     if isinstance(v, float):
-        return abs(v) <= 10 ** 6
+        return abs(v) <= 10**6
     if isinstance(v, str):
         return len(v) <= PROBE_MAX_CHARS
     if isinstance(v, dict):
-        return (len(v) <= PROBE_MAX_ITEMS
-                and all(_affordable(k) and _affordable(x) for k, x in v.items()))
+        return len(v) <= PROBE_MAX_ITEMS and all(
+            _affordable(k) and _affordable(x) for k, x in v.items()
+        )
     if isinstance(v, (list, tuple, set, frozenset)):
-        return (len(v) <= PROBE_MAX_ITEMS
-                and all(_affordable(x) for x in v))
+        return len(v) <= PROBE_MAX_ITEMS and all(_affordable(x) for x in v)
     return True
 
 
@@ -329,8 +381,11 @@ def _probe_calls(code: str, test: str) -> list:
         tree = ast.parse(code)
     except SyntaxError:
         return []
-    names = {n.name for n in tree.body
-             if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))}
+    names = {
+        n.name
+        for n in tree.body
+        if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
+    }
     if not names:
         return []
     try:
@@ -343,8 +398,11 @@ def _probe_calls(code: str, test: str) -> list:
         if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Name):
             continue
         fn = node.func.id
-        if fn not in names or node.keywords \
-                or any(isinstance(a, ast.Starred) for a in node.args):
+        if (
+            fn not in names
+            or node.keywords
+            or any(isinstance(a, ast.Starred) for a in node.args)
+        ):
             continue
         vals = [_literal(a) for a in node.args]
         shapes = [_shape(v) if v is not None else None for v in vals]
@@ -352,9 +410,9 @@ def _probe_calls(code: str, test: str) -> list:
         for i, shape in enumerate(shapes):
             for v in PROBE_BATTERIES.get(shape or "", []):
                 if not _affordable(v):
-                    continue          # too big to afford is not too big to be a bug
+                    continue  # too big to afford is not too big to be a bug
                 if any(not k for j, k in enumerate(known) if j != i):
-                    continue          # another positional arg is computed
+                    continue  # another positional arg is computed
                 args = list(vals)
                 args[i] = v
                 key = (fn, tuple(map(repr, args)))
@@ -373,13 +431,16 @@ def edge_probe(code: str, test: str, budget: int = EDGE_BUDGET_S) -> list:
     if not calls:
         return []
     with tempfile.TemporaryDirectory() as d:
-        root = Path(d).resolve()          # Seatbelt wants the realpath, not /var
+        root = Path(d).resolve()  # Seatbelt wants the realpath, not /var
         (root / "answer.py").write_text(code)
         driver = _edge_script(root=str(root), budget=budget, calls=calls)
         (root / "_edge_driver.py").write_text(driver)
         try:
-            r = sandbox.run([sys.executable, "-I", str(root / "_edge_driver.py")],
-                            root, budget * len(calls) + 15)
+            r = sandbox.run(
+                [sys.executable, "-I", str(root / "_edge_driver.py")],
+                root,
+                budget * len(calls) + 15,
+            )
         except subprocess.TimeoutExpired:
             return [("<whole probe>", "*", "TIMEOUT")]
         try:
@@ -388,9 +449,14 @@ def edge_probe(code: str, test: str, budget: int = EDGE_BUDGET_S) -> list:
             # The child died in a way that is OURS, not the answer's. The raw
             # stderr of a traceback is multi-line and full of temp paths, so it
             # goes into the evidence slot flattened to one line.
-            return [("<probe crashed>", "",
-                     " ".join((r.stderr or "").split())[-120:]
-                     or f"no output, exit {r.returncode}")]
+            return [
+                (
+                    "<probe crashed>",
+                    "",
+                    " ".join((r.stderr or "").split())[-120:]
+                    or f"no output, exit {r.returncode}",
+                )
+            ]
         if out.get("import_crash"):
             return [("<module import>", "", out["import_crash"])]
         return [tuple(e) for e in _filtered(out["events"])]
@@ -400,7 +466,7 @@ def _edge_script(root: str, budget: int, calls: list) -> str:
     """The child program: import the answer, make each planned call under an
     alarm, and log every escape with the line that raised it. The child judges
     nothing — triage happens in `_filtered`, where it can be tested."""
-    return f'''
+    return f"""
 import json, signal, sys, traceback
 sys.path.insert(0, {root!r})
 
@@ -452,7 +518,7 @@ for name, args in ([] if IMPORT_CRASH else CALLS):
     finally:
         signal.alarm(0)
 print(json.dumps({{"events": events, "import_crash": IMPORT_CRASH}}))
-'''
+"""
 
 
 def _counts_as_guard(kind: str, raise_line: str) -> bool:
@@ -484,8 +550,9 @@ def _filtered(raw: list) -> list:
     return out
 
 
-def evaluate(code: str, test: str, timeout: int = 15,
-             tau: float = COVERAGE_TAU) -> Signals:
+def evaluate(
+    code: str, test: str, timeout: int = 15, tau: float = COVERAGE_TAU
+) -> Signals:
     """The prospective verdict on an answer the visible oracle already passed.
 
     Offer = ANY thin strand of evidence: one static error, coverage under
@@ -505,8 +572,15 @@ def evaluate(code: str, test: str, timeout: int = 15,
         # that is noise (and the edge probe's crash report buries the reason).
         sig.reasons.append(f"static: {sig.static_errors} error(s)")
         sig.offer = True
-        trace.event("confidence", offer=True, reasons="; ".join(sig.reasons),
-                    static=sig.static_errors, cov=None, seeds=[], edges=[])
+        trace.event(
+            "confidence",
+            offer=True,
+            reasons="; ".join(sig.reasons),
+            static=sig.static_errors,
+            cov=None,
+            seeds=[],
+            edges=[],
+        )
         return sig
     sig.coverage, sig.covered, sig.total = coverage_of(code, test)
     sig.seeds = [_visible_verdict(code, test, s, timeout) for s in HASH_SEEDS]
@@ -517,22 +591,27 @@ def evaluate(code: str, test: str, timeout: int = 15,
         sig.reasons.append("seeds: verdict moves with hash order")
     if sig.edge_events:
         fn, arg, exc = sig.edge_events[0]
-        sig.reasons.append(f"edges: answer does not import ({exc})"
-                           if fn == "<module import>"
-                           else f"edges: {fn}({arg}) -> {exc}")
+        sig.reasons.append(
+            f"edges: answer does not import ({exc})"
+            if fn == "<module import>"
+            else f"edges: {fn}({arg}) -> {exc}"
+        )
     sig.offer = bool(sig.reasons)
-    trace.event("confidence", offer=sig.offer, reasons="; ".join(sig.reasons) or None,
-                static=sig.static_errors, cov=round(sig.coverage, 3),
-                seeds=sig.seeds, edges=sig.edge_events[:5])
+    trace.event(
+        "confidence",
+        offer=sig.offer,
+        reasons="; ".join(sig.reasons) or None,
+        static=sig.static_errors,
+        cov=round(sig.coverage, 3),
+        seeds=sig.seeds,
+        edges=sig.edge_events[:5],
+    )
     return sig
 
 
 # ------------------------------------------------------------------ selftest
 
-_ANS_CLEAN = (
-    "def total_cents(qty, unit=25):\n"
-    "    return qty * unit\n"
-)
+_ANS_CLEAN = "def total_cents(qty, unit=25):\n    return qty * unit\n"
 _T_CLEAN = "assert total_cents(2) == 50\nassert total_cents(3) == 75\n"
 
 # untested block: the visible tests exercise slugify only; export_report's
@@ -573,11 +652,7 @@ _T_NO_GUARD = "assert mean([2, 4]) == 3\nassert mean([1]) == 1\n"
 
 # a quadratic reference, i.e. the answer shape whose COST is what the probe
 # budget is measured against (h39_spiral_matrix, trimmed to its reading)
-_ANS_SPIRAL = (
-    "def spiral(n):\n"
-    "    m = [[0] * n for _ in range(n)]\n"
-    "    return m\n"
-)
+_ANS_SPIRAL = "def spiral(n):\n    m = [[0] * n for _ in range(n)]\n    return m\n"
 _T_SPIRAL = "assert spiral(2) == [[1, 2], [4, 3]]\n"
 
 # the shape of the 7B's answer for h15_shell_split, read off the arm's own log
@@ -593,7 +668,7 @@ _ANS_IMPORT_CRASH = (
     "def shell_split(text):\n"
     "    return text.split()\n"
     "rt = __import__('sys').modules[__name__]\n"
-    "assert rt.shell_split(\"unmatched 'quote\") == ValueError\n"
+    'assert rt.shell_split("unmatched \'quote") == ValueError\n'
 )
 _T_IMPORT_CRASH = "assert shell_split('a b') == ['a', 'b']\n"
 
@@ -616,9 +691,13 @@ def _hashseed_ignored_under(flag: str) -> bool:
     command gives a different hash each time. `-s` keeps the seed live."""
     outs = set()
     for _ in range(2):
-        r = subprocess.run([sys.executable, flag, "-c", "print(hash('a'))"],
-                           capture_output=True, text=True, timeout=15,
-                           env=dict(os.environ, PYTHONHASHSEED="0"))
+        r = subprocess.run(
+            [sys.executable, flag, "-c", "print(hash('a'))"],
+            capture_output=True,
+            text=True,
+            timeout=15,
+            env=dict(os.environ, PYTHONHASHSEED="0"),
+        )
         outs.add(r.stdout)
     return len(outs) > 1
 
@@ -628,89 +707,147 @@ def run_selftest() -> int:
 
     def ck(name, cond, note=""):
         checks.append((name, bool(cond), str(note)))
-        print(f"  {'OK  ' if cond else 'FAIL'} {name}" + (f"  [{note}]" if note and not cond else ""))
+        print(
+            f"  {'OK  ' if cond else 'FAIL'} {name}"
+            + (f"  [{note}]" if note and not cond else "")
+        )
 
-    ck("_statement_lines: a def-line runs at import, so it is not evidence",
-       _statement_lines("def f():\n    return 1\n") == {2})
-    ck("_statement_lines: docstrings are not evidence",
-       _statement_lines('def f():\n    """note"""\n    return 1\n') == {3})
+    ck(
+        "_statement_lines: a def-line runs at import, so it is not evidence",
+        _statement_lines("def f():\n    return 1\n") == {2},
+    )
+    ck(
+        "_statement_lines: docstrings are not evidence",
+        _statement_lines('def f():\n    """note"""\n    return 1\n') == {3},
+    )
 
     s = evaluate(_ANS_CLEAN, _T_CLEAN)
     ck("a clean, fully-tested answer gets NO offer", not s.offer, s.describe())
     ck("clean answer: coverage is total", s.coverage == 1.0, s.describe())
 
     s = evaluate(_ANS_UNCOVERED, _T_UNCOVERED)
-    ck("an answer with a block the tests never reach is offered on coverage",
-       s.offer and any(r.startswith("coverage") for r in s.reasons), s.describe())
-    ck("coverage names the fraction", s.covered == 1 and s.total == 7,
-       f"{s.covered}/{s.total}")
+    ck(
+        "an answer with a block the tests never reach is offered on coverage",
+        s.offer and any(r.startswith("coverage") for r in s.reasons),
+        s.describe(),
+    )
+    ck(
+        "coverage names the fraction",
+        s.covered == 1 and s.total == 7,
+        f"{s.covered}/{s.total}",
+    )
 
     s = evaluate(_ANS_NO_GUARD, _T_NO_GUARD)
-    ck("missing guard: edges fire even though visible tests pass coverage",
-       any(r.startswith("edges") for r in s.reasons), s.describe())
-    ck("the edge event names the function, arg and exception",
-       any(e[0] == "mean" and "ZeroDivision" in e[2] for e in s.edge_events),
-       str(s.edge_events))
+    ck(
+        "missing guard: edges fire even though visible tests pass coverage",
+        any(r.startswith("edges") for r in s.reasons),
+        s.describe(),
+    )
+    ck(
+        "the edge event names the function, arg and exception",
+        any(e[0] == "mean" and "ZeroDivision" in e[2] for e in s.edge_events),
+        str(s.edge_events),
+    )
 
     s = evaluate(_ANS_ORDER, _T_ORDER)
-    ck("hash-seed instability is detected as a moving verdict",
-       s.offer and any("seeds" in r for r in s.reasons)
-       and s.seeds == [True, False, True], s.describe())
+    ck(
+        "hash-seed instability is detected as a moving verdict",
+        s.offer
+        and any("seeds" in r for r in s.reasons)
+        and s.seeds == [True, False, True],
+        s.describe(),
+    )
 
-    ck("-I would break the seeds stream: it ignores PYTHONHASHSEED",
-       _hashseed_ignored_under("-I"))
-    ck("-s keeps the seed live, so a seeded re-run is reproducible",
-       not _hashseed_ignored_under("-s"))
+    ck(
+        "-I would break the seeds stream: it ignores PYTHONHASHSEED",
+        _hashseed_ignored_under("-I"),
+    )
+    ck(
+        "-s keeps the seed live, so a seeded re-run is reproducible",
+        not _hashseed_ignored_under("-s"),
+    )
 
     # --- the edge probe's shape discipline (its first version had none) ------
-    ck("_shape: what a test's literal arguments teach",
-       _shape([2, 4]) == "list[int]" and _shape("ab") == "str" and _shape(3) == "int"
-       and _shape([]) is None and _shape(True) is None and _shape({"a": 1}) == "dict")
+    ck(
+        "_shape: what a test's literal arguments teach",
+        _shape([2, 4]) == "list[int]"
+        and _shape("ab") == "str"
+        and _shape(3) == "int"
+        and _shape([]) is None
+        and _shape(True) is None
+        and _shape({"a": 1}) == "dict",
+    )
     _RW = "def reverse_words(text):\n    return ' '.join(text.split()[::-1])\n"
     _T_RW = "assert reverse_words('a b') == 'b a'\n"
     plan_rw = _probe_calls(_RW, _T_RW)
-    ck("_probe_calls: a string function is fed strings only — [] and 0 and None "
-       "are not evidence about it",
-       plan_rw and all(isinstance(a[0], str) for _, a in plan_rw), str(plan_rw[:3]))
-    ck("_probe_calls: a test that passes a variable teaches nothing, so nothing "
-       "is probed", _probe_calls(_RW, "assert reverse_words(xs) == 'b a'\n") == [])
-    ck("_probe_calls: the empty container IS in the plan for a list-taking "
-       "function — the guard class needs it",
-       any(a == [[]] for _, a in _probe_calls(_ANS_NO_GUARD, _T_NO_GUARD)),
-       str(_probe_calls(_ANS_NO_GUARD, _T_NO_GUARD)[:2]))
-    ck("_counts_as_guard: an accident counts, a `raise` the answer wrote does not",
-       _counts_as_guard("ZeroDivisionError", "return t / len(values)")
-       and not _counts_as_guard("TypeError", "raise TypeError('numeric only')")
-       and not _counts_as_guard("ValueError", "raise ValueError('bad')")
-       and _counts_as_guard("HANG", ""))
-    ck("_filtered: the child's raw log becomes the events, with the reason string",
-       _filtered([["f", "[]", "IndexError", "list index out of range", "return v[1]"],
-                  ["g", "0", "ValueError", "nope", "raise ValueError('nope')"]])
-       == [["f", "[]", "IndexError: list index out of range"]])
+    ck(
+        "_probe_calls: a string function is fed strings only — [] and 0 and None "
+        "are not evidence about it",
+        plan_rw and all(isinstance(a[0], str) for _, a in plan_rw),
+        str(plan_rw[:3]),
+    )
+    ck(
+        "_probe_calls: a test that passes a variable teaches nothing, so nothing "
+        "is probed",
+        _probe_calls(_RW, "assert reverse_words(xs) == 'b a'\n") == [],
+    )
+    ck(
+        "_probe_calls: the empty container IS in the plan for a list-taking "
+        "function — the guard class needs it",
+        any(a == [[]] for _, a in _probe_calls(_ANS_NO_GUARD, _T_NO_GUARD)),
+        str(_probe_calls(_ANS_NO_GUARD, _T_NO_GUARD)[:2]),
+    )
+    ck(
+        "_counts_as_guard: an accident counts, a `raise` the answer wrote does not",
+        _counts_as_guard("ZeroDivisionError", "return t / len(values)")
+        and not _counts_as_guard("TypeError", "raise TypeError('numeric only')")
+        and not _counts_as_guard("ValueError", "raise ValueError('bad')")
+        and _counts_as_guard("HANG", ""),
+    )
+    ck(
+        "_filtered: the child's raw log becomes the events, with the reason string",
+        _filtered(
+            [
+                ["f", "[]", "IndexError", "list index out of range", "return v[1]"],
+                ["g", "0", "ValueError", "nope", "raise ValueError('nope')"],
+            ]
+        )
+        == [["f", "[]", "IndexError: list index out of range"]],
+    )
     s = evaluate(_ANS_NO_GUARD, _T_NO_GUARD)
-    ck("an edge reason prints the call as written — mean([]), not mean([[]])",
-       any("mean([])" in r for r in s.reasons)
-       and not any("[[]]" in r for r in s.reasons), "; ".join(s.reasons))
+    ck(
+        "an edge reason prints the call as written — mean([]), not mean([[]])",
+        any("mean([])" in r for r in s.reasons)
+        and not any("[[]]" in r for r in s.reasons),
+        "; ".join(s.reasons),
+    )
     s = evaluate(_ANS_IMPORT_CRASH, _T_IMPORT_CRASH)
-    ck("an answer whose own module body raises is an import crash, not a probe "
-       "crash — the child used to die with it and file the raw traceback",
-       s.edge_events == [("<module import>", "", "AssertionError")],
-       str(s.edge_events))
-    ck("the import crash reads as a finding about the answer and cannot leak a "
-       "temp path or a newline into the arm's one-line-per-task log",
-       any("answer does not import" in r for r in s.reasons)
-       and all("\n" not in r and "tmp" not in r for r in s.reasons),
-       "; ".join(s.reasons))
-    ck("_filtered flattens a multi-line exception message (an answer that "
-       "interpolates a multi-line value into its raise does)",
-       _filtered([["f", "[]", "TypeError", "bad rows: line1\n   line2",
-                   "return x"]])
-       == [["f", "[]", "TypeError: bad rows: line1 line2"]])
+    ck(
+        "an answer whose own module body raises is an import crash, not a probe "
+        "crash — the child used to die with it and file the raw traceback",
+        s.edge_events == [("<module import>", "", "AssertionError")],
+        str(s.edge_events),
+    )
+    ck(
+        "the import crash reads as a finding about the answer and cannot leak a "
+        "temp path or a newline into the arm's one-line-per-task log",
+        any("answer does not import" in r for r in s.reasons)
+        and all("\n" not in r and "tmp" not in r for r in s.reasons),
+        "; ".join(s.reasons),
+    )
+    ck(
+        "_filtered flattens a multi-line exception message (an answer that "
+        "interpolates a multi-line value into its raise does)",
+        _filtered([["f", "[]", "TypeError", "bad rows: line1\n   line2", "return x"]])
+        == [["f", "[]", "TypeError: bad rows: line1 line2"]],
+    )
     dead = edge_probe(_ANS_PROBE_DEATH, "assert f(1) == 1\n")
-    ck("a probe child that dies before printing its JSON line reports one "
-       "flattened line, not a raw traceback with temp paths",
-       len(dead) == 1 and "\n" not in dead[0][2] and "<probe crashed>" == dead[0][0],
-       str(dead))
+    ck(
+        "a probe child that dies before printing its JSON line reports one "
+        "flattened line, not a raw traceback with temp paths",
+        len(dead) == 1 and "\n" not in dead[0][2] and "<probe crashed>" == dead[0][0],
+        str(dead),
+    )
 
     # --- the probe BUDGET: an argument we cannot afford is not evidence ------
     # h39_spiral_matrix's shipped reference, measured on this box: the battery's
@@ -718,46 +855,72 @@ def run_selftest() -> int:
     # 1445 MB and the 2-second alarm fired, so edge_probe reported
     # ('spiral', '10000', 'HANG') about an answer that is CORRECT — our budget
     # failing, written into the trace as the answer's bug.
-    ck("_affordable: size is checked, and the largest int is the stated bound",
-       _affordable(10 ** 3) and not _affordable(10 ** 4)
-       and _affordable("x" * PROBE_MAX_CHARS) and not _affordable("x" * 10 ** 3)
-       and _affordable(list(range(PROBE_MAX_ITEMS)))
-       and not _affordable(list(range(PROBE_MAX_ITEMS + 1))))
-    ck("_affordable: a nested value is only as cheap as its biggest member",
-       _affordable([[1, 2]] * 4) and not _affordable({"k": list(range(200))}))
-    ck("every shipped battery member is inside the probe budget by construction",
-       all(_affordable(v) for vals in PROBE_BATTERIES.values() for v in vals),
-       [v for vals in PROBE_BATTERIES.values() for v in vals if not _affordable(v)])
+    ck(
+        "_affordable: size is checked, and the largest int is the stated bound",
+        _affordable(10**3)
+        and not _affordable(10**4)
+        and _affordable("x" * PROBE_MAX_CHARS)
+        and not _affordable("x" * 10**3)
+        and _affordable(list(range(PROBE_MAX_ITEMS)))
+        and not _affordable(list(range(PROBE_MAX_ITEMS + 1))),
+    )
+    ck(
+        "_affordable: a nested value is only as cheap as its biggest member",
+        _affordable([[1, 2]] * 4) and not _affordable({"k": list(range(200))}),
+    )
+    ck(
+        "every shipped battery member is inside the probe budget by construction",
+        all(_affordable(v) for vals in PROBE_BATTERIES.values() for v in vals),
+        [v for vals in PROBE_BATTERIES.values() for v in vals if not _affordable(v)],
+    )
     _saved = dict(PROBE_BATTERIES)
-    PROBE_BATTERIES["int"] = [100, 10 ** 4]
+    PROBE_BATTERIES["int"] = [100, 10**4]
     try:
-        ck("_probe_calls: a battery member over budget is never planned — the "
-           "bound lives in the planner, so a hand-edited battery cannot re-open "
-           "the hang",
-           [v for _, a in _probe_calls(_ANS_SPIRAL, _T_SPIRAL) for v in a]
-           == [100], str(_probe_calls(_ANS_SPIRAL, _T_SPIRAL)))
+        ck(
+            "_probe_calls: a battery member over budget is never planned — the "
+            "bound lives in the planner, so a hand-edited battery cannot re-open "
+            "the hang",
+            [v for _, a in _probe_calls(_ANS_SPIRAL, _T_SPIRAL) for v in a] == [100],
+            str(_probe_calls(_ANS_SPIRAL, _T_SPIRAL)),
+        )
     finally:
         PROBE_BATTERIES.clear()
         PROBE_BATTERIES.update(_saved)
 
     s = evaluate("def f(:\n    pass\n", "assert True\n")
-    ck("unparsable answer is a static error, offered without any subprocess",
-       s.static_errors >= 1 and s.offer and s.reasons == [f"static: {s.static_errors} error(s)"]
-       and s.seeds == [] and s.edge_events == [], s.describe())
+    ck(
+        "unparsable answer is a static error, offered without any subprocess",
+        s.static_errors >= 1
+        and s.offer
+        and s.reasons == [f"static: {s.static_errors} error(s)"]
+        and s.seeds == []
+        and s.edge_events == [],
+        s.describe(),
+    )
 
-    ck("signals serialize for the ledger with every number behind the offer",
-       set(Signals(offer=True, reasons=["x"]).fields()) ==
-       {"conf_static", "conf_cov", "conf_seeds", "conf_edges", "conf_offer",
-        "conf_reasons"})
-    ck("describe prints the evidence table in one line",
-       "cov=" in Signals(coverage=0.5, covered=2, total=4).describe())
+    ck(
+        "signals serialize for the ledger with every number behind the offer",
+        set(Signals(offer=True, reasons=["x"]).fields())
+        == {
+            "conf_static",
+            "conf_cov",
+            "conf_seeds",
+            "conf_edges",
+            "conf_offer",
+            "conf_reasons",
+        },
+    )
+    ck(
+        "describe prints the evidence table in one line",
+        "cov=" in Signals(coverage=0.5, covered=2, total=4).describe(),
+    )
 
     n_bad = sum(not ok for _, ok, _ in checks)
     print(f"\nconfidence selftest: {len(checks) - n_bad}/{len(checks)} checks passed")
     return 1 if n_bad else 0
 
 
-if __name__ == "__main__":                       # pragma: no cover
+if __name__ == "__main__":  # pragma: no cover
     if "--selftest" in sys.argv or len(sys.argv) == 1:
         raise SystemExit(run_selftest())
     print(__doc__)

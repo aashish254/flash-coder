@@ -32,6 +32,7 @@ count, the task's own wall seconds and the settling span's decode milliseconds.
     python benchmarks/live_checkpoint_arm.py --tasks 5 --suite m2_tasks.jsonl
     python benchmarks/live_checkpoint_arm.py --no-control    # arm only, no comparison run
 """
+
 from __future__ import annotations
 
 import argparse
@@ -67,6 +68,7 @@ def settled_from_trace(sid) -> dict:
     import hashlib
 
     from flash import trace
+
     ev = trace.read(sid)
     gen = {}
     for e in ev:
@@ -81,9 +83,13 @@ def settled_from_trace(sid) -> dict:
         ans = g.get("output")
         out[e["task_id"]] = dict(
             sha1=(None if ans is None else hashlib.sha1(ans.encode()).hexdigest()[:12]),
-            attempts=e["attempts"], ms=g.get("ms"), seconds=e.get("seconds"),
-            completion=g.get("completion_tokens"), prompt=g.get("prompt_tokens"),
-            resumed=g.get("resumed_tokens"))
+            attempts=e["attempts"],
+            ms=g.get("ms"),
+            seconds=e.get("seconds"),
+            completion=g.get("completion_tokens"),
+            prompt=g.get("prompt_tokens"),
+            resumed=g.get("resumed_tokens"),
+        )
     return out
 
 
@@ -100,8 +106,9 @@ def session_of(out) -> str | None:
 def cli(*args, capture=False):
     cmd = [sys.executable, "-u", "-m", "flash.cli"] + list(args)
     if capture:
-        return subprocess.Popen(cmd, stdout=subprocess.PIPE,
-                                stderr=subprocess.STDOUT, text=True, cwd=ROOT)
+        return subprocess.Popen(
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, cwd=ROOT
+        )
     return subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True)
 
 
@@ -111,21 +118,38 @@ def main() -> int:
     ap.add_argument("--tasks", type=int, default=3)
     ap.add_argument("--small", default=SMALL)
     ap.add_argument("--attempts", type=int, default=2)
-    ap.add_argument("--no-control", action="store_true",
-                    help="skip the no-kill comparison run (the arm then reports "
-                         "the resumed span with nothing beside it)")
+    ap.add_argument(
+        "--no-control",
+        action="store_true",
+        help="skip the no-kill comparison run (the arm then reports "
+        "the resumed span with nothing beside it)",
+    )
     a = ap.parse_args()
 
     from flash import checkpoint, power
     from flash import trace
 
     st, caps = power.governor(power.peak_gb(a.small), refresh=True)
-    print(f"[arm] profile={caps.profile} ac={caps.reasons[0]} "
-          f"width={caps.tournament_width}", flush=True)
+    print(
+        f"[arm] profile={caps.profile} ac={caps.reasons[0]} "
+        f"width={caps.tournament_width}",
+        flush=True,
+    )
     tasks_file = ROOT / "benchmarks" / "tasks" / a.suite
-    argv = ["run-suite", "--tasks", str(tasks_file), "--max-tasks", str(a.tasks),
-            "--attempts", str(a.attempts), "--small", a.small,
-            "--allow-big", "never", "--trace-full"]
+    argv = [
+        "run-suite",
+        "--tasks",
+        str(tasks_file),
+        "--max-tasks",
+        str(a.tasks),
+        "--attempts",
+        str(a.attempts),
+        "--small",
+        a.small,
+        "--allow-big",
+        "never",
+        "--trace-full",
+    ]
     t_start = time.perf_counter()
 
     p1 = cli(*argv, capture=True)
@@ -137,24 +161,30 @@ def main() -> int:
 
     def midflight():
         f = checkpoint.load(sid)
-        if (f is None or not f.partial or f.decoded == 0
-                or p1.poll() is not None):
+        if f is None or not f.partial or f.decoded == 0 or p1.poll() is not None:
             return None
         return f
+
     frame = wait_for(midflight, timeout=600)
     if frame is None:
         print("[arm] FAIL — never caught a generation mid-span on a real model")
-        p1.kill(); p1.wait(timeout=30)
+        p1.kill()
+        p1.wait(timeout=30)
         return 1
     p1.send_signal(signal.SIGKILL)
     p1.wait(timeout=30)
     dead = checkpoint.load(sid)
-    print(f"[arm] KILLED mid-generation: task={dead.task_id} "
-          f"arm={dead.kind} stage={dead.stage} attempt={dead.attempt} "
-          f"decoded={dead.decoded} tokens kept={len(dead.partial)} chars "
-          f"(frame seq={dead.seq})", flush=True)
-    print(f"[arm] kill landed {time.perf_counter() - t_start:.1f}s into the run",
-          flush=True)
+    print(
+        f"[arm] KILLED mid-generation: task={dead.task_id} "
+        f"arm={dead.kind} stage={dead.stage} attempt={dead.attempt} "
+        f"decoded={dead.decoded} tokens kept={len(dead.partial)} chars "
+        f"(frame seq={dead.seq})",
+        flush=True,
+    )
+    print(
+        f"[arm] kill landed {time.perf_counter() - t_start:.1f}s into the run",
+        flush=True,
+    )
 
     checkpoint.disarm()
     p2 = cli("resume", sid, "--trace-full", capture=True)
@@ -164,48 +194,66 @@ def main() -> int:
     print("\n".join(out2.splitlines()[-12:]), flush=True)
 
     ev = trace.read(sid)
-    gens = [e for e in ev if e["type"] == "generate"
-            and e.get("task_id") == dead.task_id]
-    resumed_gen = next((e for e in gens if e.get("attempt") == dead.attempt),
-                       None)
+    gens = [
+        e for e in ev if e["type"] == "generate" and e.get("task_id") == dead.task_id
+    ]
+    resumed_gen = next((e for e in gens if e.get("attempt") == dead.attempt), None)
     ends = [e for e in ev if e["type"] == "task_end"]
-    print(f"\n[arm] === what the {dead.task_id} attempt {dead.attempt} span "
-          f"cost, per process ===")
-    print(f"  dead process: {dead.decoded} tokens decoded, "
-          f"{len(dead.partial)} characters durable at its last flush")
+    print(
+        f"\n[arm] === what the {dead.task_id} attempt {dead.attempt} span "
+        f"cost, per process ==="
+    )
+    print(
+        f"  dead process: {dead.decoded} tokens decoded, "
+        f"{len(dead.partial)} characters durable at its last flush"
+    )
     for e in gens:
-        print(f"  generate (attempt {e.get('attempt')}): ms={e['ms']} "
-              f"prompt_tokens={e['prompt_tokens']} "
-              f"completion_tokens={e['completion_tokens']} "
-              f"checkpointed={e.get('checkpointed')} "
-              f"resumed_tokens={e.get('resumed_tokens')}")
+        print(
+            f"  generate (attempt {e.get('attempt')}): ms={e['ms']} "
+            f"prompt_tokens={e['prompt_tokens']} "
+            f"completion_tokens={e['completion_tokens']} "
+            f"checkpointed={e.get('checkpointed')} "
+            f"resumed_tokens={e.get('resumed_tokens')}"
+        )
     if resumed_gen is not None and resumed_gen.get("prompt"):
         # The killed process never reaches its own trace write, so the cold
         # prompt comes from the frame and the continued one from the resume's
         # record. Both are stored verbatim under --trace-full.
         given = resumed_gen["prompt"]
         exact = given == dead.prompt + dead.partial
-        print(f"  the resume's prompt IS the cold prompt plus the dead text: "
-              f"{exact} ({len(dead.prompt)} + {len(dead.partial)} chars → "
-              f"{len(given)} chars handed to mlx)")
+        print(
+            f"  the resume's prompt IS the cold prompt plus the dead text: "
+            f"{exact} ({len(dead.prompt)} + {len(dead.partial)} chars → "
+            f"{len(given)} chars handed to mlx)"
+        )
         carried = resumed_gen.get("resumed_tokens") or 0
         new = (resumed_gen["completion_tokens"] or 0) - carried
-        print(f"  answer tokens: {resumed_gen['completion_tokens']} total, "
-              f"{carried} carried in over the prompt, {new} actually decoded "
-              f"this time in {resumed_gen['ms']}ms — a cold restart of this "
-              f"attempt decodes all {resumed_gen['completion_tokens']} again")
+        print(
+            f"  answer tokens: {resumed_gen['completion_tokens']} total, "
+            f"{carried} carried in over the prompt, {new} actually decoded "
+            f"this time in {resumed_gen['ms']}ms — a cold restart of this "
+            f"attempt decodes all {resumed_gen['completion_tokens']} again"
+        )
     print("[arm] === the session's task_end records ===")
     for e in ends:
-        print(f"  {e['task_id']:<26} solved={e['solved']} tier={e['tier']} "
-              f"attempts={e['attempts']}")
+        print(
+            f"  {e['task_id']:<26} solved={e['solved']} tier={e['tier']} "
+            f"attempts={e['attempts']}"
+        )
     left = checkpoint.pending(sid)
     print(f"[arm] frame left behind after the resumed run: {left or 'none'}")
     print(f"[arm] resume exit={rc2} total wall {wall:.0f}s")
-    ok = (rc2 == 0 and resumed_gen is not None
-          and (resumed_gen.get("resumed_tokens") or 0) > 0
-          and resumed_gen.get("prompt") == dead.prompt + dead.partial
-          and left is None and "mid-flight and resumes inside" in out2)
-    print(f"\n[arm] VERDICT: {'the in-flight task resumed INSIDE its span' if ok else 'GATE NOT MET'}")
+    ok = (
+        rc2 == 0
+        and resumed_gen is not None
+        and (resumed_gen.get("resumed_tokens") or 0) > 0
+        and resumed_gen.get("prompt") == dead.prompt + dead.partial
+        and left is None
+        and "mid-flight and resumes inside" in out2
+    )
+    print(
+        f"\n[arm] VERDICT: {'the in-flight task resumed INSIDE its span' if ok else 'GATE NOT MET'}"
+    )
 
     if not a.no_control and ok:
         # The same suite, the same flags, the same armed/streaming path — minus
@@ -215,28 +263,35 @@ def main() -> int:
         csid = wait_for(lambda: session_of(cp.stdout), timeout=300)
         if csid is None:
             print("[arm] control run printed no session id — no comparison")
-            cp.kill(); cp.wait(timeout=30)
+            cp.kill()
+            cp.wait(timeout=30)
             return 1
         cp.wait(timeout=1800)
         print(f"[arm] control session {csid} closed rc={cp.returncode}", flush=True)
         mine, theirs = settled_from_trace(sid), settled_from_trace(csid)
-        print("\ntask                 answer-sha1  attempts   "
-              "task s killed|control   span ms killed|control   tokens "
-              "completion|prompt|resumed")
+        print(
+            "\ntask                 answer-sha1  attempts   "
+            "task s killed|control   span ms killed|control   tokens "
+            "completion|prompt|resumed"
+        )
         for t in theirs:
             m, c = mine.get(t, {}), theirs[t]
-            same = (m.get("sha1") == c.get("sha1") and m.get("sha1") is not None)
-            print(f"{t:<20} {str(same):<11} "
-                  f"{m.get('attempts')}/{c.get('attempts')}       "
-                  f"{m.get('seconds')}s|{c.get('seconds')}s      "
-                  f"{m.get('ms')}|{c.get('ms')}   "
-                  f"completion={m.get('completion')}/{c.get('completion')} "
-                  f"prompt={m.get('prompt')}/{c.get('prompt')} "
-                  f"resumed={m.get('resumed') or 'None'}")
-        print("\n[arm] one ledger row per task across the kill and its resume "
-              "(the killed process wrote no task_end): "
-              f"{len(mine)} tasks in the resumed session, "
-              f"{len(theirs)} in the control")
+            same = m.get("sha1") == c.get("sha1") and m.get("sha1") is not None
+            print(
+                f"{t:<20} {str(same):<11} "
+                f"{m.get('attempts')}/{c.get('attempts')}       "
+                f"{m.get('seconds')}s|{c.get('seconds')}s      "
+                f"{m.get('ms')}|{c.get('ms')}   "
+                f"completion={m.get('completion')}/{c.get('completion')} "
+                f"prompt={m.get('prompt')}/{c.get('prompt')} "
+                f"resumed={m.get('resumed') or 'None'}"
+            )
+        print(
+            "\n[arm] one ledger row per task across the kill and its resume "
+            "(the killed process wrote no task_end): "
+            f"{len(mine)} tasks in the resumed session, "
+            f"{len(theirs)} in the control"
+        )
     return 0 if ok else 1
 
 

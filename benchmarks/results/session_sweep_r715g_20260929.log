@@ -65,16 +65,16 @@ R-7.15 interactive session: 58/58 checks passed
   fresh>ok  MUTATION: `quit` becomes a turn: the session asks the model to 'quit', which is the shape a person hitting
   fresh>ok  MUTATION: blank lines are turns: a pasted request with an empty line sends an empty prompt and charges for
   fresh>ok  MUTATION: the per-turn verdict line disappears, leaving prose and a final report — every turn's answer bec
-  fresh>ok  MUTATION: a failing turn stops printing the oracle's own words, so 'no' arrives without a reason a person 
+  fresh>ok  MUTATION: a failing turn stops printing the oracle's own words, so 'no' arrives without a reason a person
   fresh>ok  MUTATION: the write-back becomes the default: a session writes to the project the moment it is opened
   fresh>ok  MUTATION: the oracle is protected on no turn at all — a session whose third turn can rewrite its own exam
   fresh>ok  MUTATION: `written=` counts turns that were solved instead of turns that moved a file, which is a report c
   fresh>ok  MUTATION: seconds reports the last turn rather than the session, so a five-turn cost looks like a one-turn
-  fresh>ok  MUTATION: the exit code comes from the FIRST turn: a session that ended in failure exits 0 because it had 
+  fresh>ok  MUTATION: the exit code comes from the FIRST turn: a session that ended in failure exits 0 because it had
   fresh>ok  MUTATION: the session honours a --edit flag it no longer has, so a turn without the patch arm is scored bu
-  fresh>ok  MUTATION: stdin is drained before turn 1 runs: every turn still answers, every count still matches, and a 
+  fresh>ok  MUTATION: stdin is drained before turn 1 runs: every turn still answers, every count still matches, and a
   fresh>ok  MUTATION: no marker on a terminal: the session is waiting and prints nothing at all, which is how a runnin
-  fresh>ok  MUTATION: the turn stops carrying the oracle's key: `land` still recomputes it, so the tree is safe while 
+  fresh>ok  MUTATION: the turn stops carrying the oracle's key: `land` still recomputes it, so the tree is safe while
   fresh>ok  MUTATION: a turn is generated from the typed line alone: the session still reads the tree, still lands the
   fresh>ok  MUTATION: VERIFY writes the patch and then grades the tree that was there before it: every count in the re
   fresh>ok  MUTATION: the precedence statement lands behind the oracle's own comment: the fix is present, correct, and
