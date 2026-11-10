@@ -6,14 +6,24 @@ compact digest the DECIDE/ACT models get: file tree + per-file signatures
 executed, works on any Python tree. Budgeted so the small model's context
 window stays free for the actual work.
 """
+
 from __future__ import annotations
 
 import ast
 import os
 from dataclasses import dataclass, field
 
-_SKIP_DIRS = {".git", ".venv", "__pycache__", "node_modules", ".pytest_cache",
-              "dist", "build", ".mypy_cache", ".ruff_cache"}
+_SKIP_DIRS = {
+    ".git",
+    ".venv",
+    "__pycache__",
+    "node_modules",
+    ".pytest_cache",
+    "dist",
+    "build",
+    ".mypy_cache",
+    ".ruff_cache",
+}
 
 
 @dataclass
@@ -22,7 +32,7 @@ class FileInfo:
     lines: int
     docstring: str = ""
     imports: list[str] = field(default_factory=list)
-    symbols: list[str] = field(default_factory=list)   # "def f(a, b)" / "class C"
+    symbols: list[str] = field(default_factory=list)  # "def f(a, b)" / "class C"
 
 
 def scan_file(path: str, root: str) -> FileInfo | None:
@@ -37,16 +47,23 @@ def scan_file(path: str, root: str) -> FileInfo | None:
     doc = ast.get_docstring(tree)
     if doc:
         info.docstring = doc.splitlines()[0][:80]
-    for node in tree.body:                      # top-level only: the API surface
+    for node in tree.body:  # top-level only: the API surface
         if isinstance(node, (ast.Import, ast.ImportFrom)):
-            names = getattr(node, "module", None) or ",".join(a.name for a in node.names[:3])
+            names = getattr(node, "module", None) or ",".join(
+                a.name for a in node.names[:3]
+            )
             info.imports.append(str(names).split(".")[0])
-        elif isinstance(node, ast.Assign) and len(node.targets) == 1 \
-                and isinstance(node.targets[0], ast.Name) \
-                and node.targets[0].id.isupper():
+        elif (
+            isinstance(node, ast.Assign)
+            and len(node.targets) == 1
+            and isinstance(node.targets[0], ast.Name)
+            and node.targets[0].id.isupper()
+        ):
             # module constants — often the business rules (live find: r03)
             try:
-                info.symbols.append(f"{node.targets[0].id} = {ast.unparse(node.value)[:40]}")
+                info.symbols.append(
+                    f"{node.targets[0].id} = {ast.unparse(node.value)[:40]}"
+                )
             except Exception:
                 pass
         elif isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
@@ -55,21 +72,32 @@ def scan_file(path: str, root: str) -> FileInfo | None:
             info.symbols.append(f"{prefix} {node.name}({args})")
         elif isinstance(node, ast.ClassDef):
             bases = [ast.unparse(b) for b in node.bases[:2]]
-            info.symbols.append(f"class {node.name}({', '.join(bases)})" if bases
-                                else f"class {node.name}")
-            for item in node.body:              # one level: public methods/fields
-                if isinstance(item, ast.AnnAssign) and isinstance(item.target, ast.Name) \
-                        and not item.target.id.startswith("_"):
+            info.symbols.append(
+                f"class {node.name}({', '.join(bases)})"
+                if bases
+                else f"class {node.name}"
+            )
+            for item in node.body:  # one level: public methods/fields
+                if (
+                    isinstance(item, ast.AnnAssign)
+                    and isinstance(item.target, ast.Name)
+                    and not item.target.id.startswith("_")
+                ):
                     # dataclass/attr fields — the data model (live find: r01)
-                    info.symbols.append(f"  .{item.target.id}: {ast.unparse(item.annotation)}")
-                elif isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)) \
-                        and not item.name.startswith("_"):
+                    info.symbols.append(
+                        f"  .{item.target.id}: {ast.unparse(item.annotation)}"
+                    )
+                elif isinstance(
+                    item, (ast.FunctionDef, ast.AsyncFunctionDef)
+                ) and not item.name.startswith("_"):
                     args = ", ".join(a.arg for a in item.args.args if a.arg != "self")
                     decos = {ast.unparse(d) for d in item.decorator_list}
                     doc = (ast.get_docstring(item) or "").split("\n")[0][:60]
                     note = f"  # {doc}" if doc else ""
-                    if "property" in decos:      # callability is semantic truth:
-                        info.symbols.append(f"  .{item.name}  # @property (NO parens){note}")
+                    if "property" in decos:  # callability is semantic truth:
+                        info.symbols.append(
+                            f"  .{item.name}  # @property (NO parens){note}"
+                        )
                     else:
                         info.symbols.append(f"  .{item.name}({args}){note}")
     return info

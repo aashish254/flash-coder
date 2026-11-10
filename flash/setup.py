@@ -22,6 +22,7 @@ is the only way to see a traceback: a first-run command that dies with a stack
 of frame names sends the user to an issue tracker instead of telling them what
 to do.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -42,11 +43,13 @@ PROOF_PROMPT = "Reply with exactly one word: READY"
 #: the ceiling rather than by the model.
 PROOF_TOKENS = 24
 
+
 #: The MLX snapshot a Mac generates on when no GGUF is asked for. Read off the
 #: CLI's own default at call time rather than copied, so `flash setup` proves the
 #: same weights `flash chat` is about to load.
 def mlx_default() -> str:
     from flash import cli
+
     return cli.DEFAULT_MODEL
 
 
@@ -101,9 +104,12 @@ def pull(tier_name: str, yes: bool, out) -> int:
         return models.fetch(t, yes=yes, progress=True, out=out)
     except OSError as e:
         d = models.cache()
-        say(f"setup stopped: {d} cannot be written ({e}). Point flash at a "
+        say(
+            f"setup stopped: {d} cannot be written ({e}). Point flash at a "
             f"directory you own with FLASH_GGUF_DIR=/path and run `flash setup` "
-            f"again.", out=out)
+            f"again.",
+            out=out,
+        )
         return 1
 
 
@@ -130,29 +136,39 @@ def prove(tier_name: str, backend_name: str, out) -> tuple[bool, str, float]:
     ref = tier_name if backend_name == "llama.cpp" else mlx_default()
     t0 = time.perf_counter()
     model, tok = backend.load(ref)
-    task = {"id": "setup", "prompt": PROOF_PROMPT, "test": "", "chat": True,
-            "context": os.getcwd(), "files": {}, "edit": False, "multi": True}
+    task = {
+        "id": "setup",
+        "prompt": PROOF_PROMPT,
+        "test": "",
+        "chat": True,
+        "context": os.getcwd(),
+        "files": {},
+        "edit": False,
+        "multi": True,
+    }
     loop.ADAPTER = ""
-    r = loop.solve_chat(model, tok, task, max_attempts=1,
-                        max_tokens=PROOF_TOKENS, stage="small")
+    r = loop.solve_chat(
+        model, tok, task, max_attempts=1, max_tokens=PROOF_TOKENS, stage="small"
+    )
     secs = time.perf_counter() - t0
     text = (r.attempts[-1].code if r.attempts else "").strip()
     return bool(r.solved and text), text, secs
 
 
 # ------------------------------------------------------------------ step 5
-def capabilities(ans: dict, tier_name: str, present: bool, secs: float,
-                 out) -> None:
+def capabilities(ans: dict, tier_name: str, present: bool, secs: float, out) -> None:
     profiles = ans["backend"].get("profiles") or []
     for p in profiles:
-        say(f"       {p['backend']:10s} {'ready' if p['available'] else 'not here'}"
-            f"   {p.get('library') or p.get('why') or ''}", out=out)
+        say(
+            f"       {p['backend']:10s} {'ready' if p['available'] else 'not here'}"
+            f"   {p.get('library') or p.get('why') or ''}",
+            out=out,
+        )
     say("", out=out)
     say("  you can now run:", out=out)
     say("    flash chat            ask about this folder, in prose", out=out)
     say("    flash run --test t.py one task, scored against your own test", out=out)
-    say("    flash verify          is this install and this project healthy?",
-        out=out)
+    say("    flash verify          is this install and this project healthy?", out=out)
     say("    flash ui              the same chat in a local page", out=out)
     if present:
         say(f"    weights: tier `{tier_name}` in {models.cache()}", out=out)
@@ -165,17 +181,31 @@ def capabilities(ans: dict, tier_name: str, present: bool, secs: float,
 
 
 def add_flags(p: argparse.ArgumentParser) -> None:
-    p.add_argument("--tier", choices=sorted(models.TIERS), default="fast",
-                   help="which pinned GGUF tier to make sure is on disk "
-                        "(default: fast, the one a first chat should use)")
-    p.add_argument("--yes", action="store_true",
-                   help="accept the download's size without asking (required "
-                        "when stdin is not a terminal)")
-    p.add_argument("--skip-pull", dest="pull", action="store_false",
-                   help="check and prove what is already here; download nothing")
-    p.add_argument("--verbose", action="store_true",
-                   help="let an unexpected error raise its traceback instead of "
-                        "printing one sentence")
+    p.add_argument(
+        "--tier",
+        choices=sorted(models.TIERS),
+        default="fast",
+        help="which pinned GGUF tier to make sure is on disk "
+        "(default: fast, the one a first chat should use)",
+    )
+    p.add_argument(
+        "--yes",
+        action="store_true",
+        help="accept the download's size without asking (required "
+        "when stdin is not a terminal)",
+    )
+    p.add_argument(
+        "--skip-pull",
+        dest="pull",
+        action="store_false",
+        help="check and prove what is already here; download nothing",
+    )
+    p.add_argument(
+        "--verbose",
+        action="store_true",
+        help="let an unexpected error raise its traceback instead of "
+        "printing one sentence",
+    )
 
 
 def run(a, out=None) -> int:
@@ -206,12 +236,18 @@ def run(a, out=None) -> int:
     gguf = route == "llama.cpp" or present
     fetching = gguf and not present and a.pull
 
-    step(2, total,
-         "the weights come down" if fetching else
-         "nothing to fetch — the tier is already in the cache" if gguf and present
-         else "no download (--skip-pull), so step 4 has no GGUF to load" if gguf
-         else f"no download — {route} answers from its own Hub snapshot",
-         out=out)
+    step(
+        2,
+        total,
+        "the weights come down"
+        if fetching
+        else "nothing to fetch — the tier is already in the cache"
+        if gguf and present
+        else "no download (--skip-pull), so step 4 has no GGUF to load"
+        if gguf
+        else f"no download — {route} answers from its own Hub snapshot",
+        out=out,
+    )
     if fetching:
         rc = pull(a.tier, a.yes, out)
         if rc:
@@ -228,12 +264,18 @@ def run(a, out=None) -> int:
 
     step(3, total, "the bytes on disk are the bytes this repo pins", out=out)
     if not present:
-        say(f"       nothing on disk for tier `{a.tier}`, so there is no hash to "
-            f"check here.", out=out)
+        say(
+            f"       nothing on disk for tier `{a.tier}`, so there is no hash to "
+            f"check here.",
+            out=out,
+        )
     elif not verify(a.tier, out):
-        say("setup stopped: the weight is not verified, so nothing was run. "
+        say(
+            "setup stopped: the weight is not verified, so nothing was run. "
             "The line above names the file and the tier; `flash models pull "
-            f"{a.tier} --force` replaces it.", out=out)
+            f"{a.tier} --force` replaces it.",
+            out=out,
+        )
         return 1
     say("", out=out)
 
@@ -243,8 +285,11 @@ def run(a, out=None) -> int:
         # honest thing is to name it before the library starts fetching it:
         # a stranger watching a multi-gigabyte bar they did not agree to is the
         # first-run failure this command exists to prevent.
-        say(f"       loading {mlx_default()} — the Hub fetches it once, "
-            f"if this box has never answered", out=out)
+        say(
+            f"       loading {mlx_default()} — the Hub fetches it once, "
+            f"if this box has never answered",
+            out=out,
+        )
     try:
         ok, text, secs = prove(a.tier, route, out)
     except (backend.NoBackend, backend.NoFeature) as e:
@@ -253,10 +298,12 @@ def run(a, out=None) -> int:
         say(str(e), out=out)
         return 2
     if not ok:
-        say(f"setup stopped: the model loaded but the turn came back empty in "
+        say(
+            f"setup stopped: the model loaded but the turn came back empty in "
             f"{secs:.1f}s. Run `flash chat` and ask one question — if that "
             "answers too, this step was too strict and belongs in an issue.",
-            out=out)
+            out=out,
+        )
         return 1
     say(f"       answered in {secs:.1f}s: {text[:60]!r}", out=out)
     say("", out=out)
@@ -273,19 +320,24 @@ def dispatch(a) -> int:
     try:
         return run(a)
     except KeyboardInterrupt:
-        say("\nsetup stopped: you pressed Ctrl-C. Run `flash setup` again; the "
-            "download resumes where it stopped.", out=sys.stderr)
+        say(
+            "\nsetup stopped: you pressed Ctrl-C. Run `flash setup` again; the "
+            "download resumes where it stopped.",
+            out=sys.stderr,
+        )
         return 130
-    except Exception as e:                                   # noqa: BLE001
+    except Exception as e:  # noqa: BLE001
         if getattr(a, "verbose", False):
             raise
-        say(f"setup stopped: {type(e).__name__}: {e}. Re-run with `flash setup "
-            "--verbose` to see where it came from.", out=sys.stderr)
+        say(
+            f"setup stopped: {type(e).__name__}: {e}. Re-run with `flash setup "
+            "--verbose` to see where it came from.",
+            out=sys.stderr,
+        )
         return 1
 
 
-def main(argv: list) -> int:                              # pragma: no cover
-    ap = argparse.ArgumentParser(prog="flash setup",
-                                 description=__doc__.split("\n")[0])
+def main(argv: list) -> int:  # pragma: no cover
+    ap = argparse.ArgumentParser(prog="flash setup", description=__doc__.split("\n")[0])
     add_flags(ap)
     return dispatch(ap.parse_args(argv))

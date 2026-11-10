@@ -7,7 +7,7 @@
   OK   apply: the lines outside the addressed ranges are copied, not rewritten
   OK   apply: a column-0 replacement is restored to the class's nesting  col=4
   OK   apply: a method-body change keeps the method's own name
-  OK   refuse: a symbol that does not exist  no symbol 'Cart.no_such' in cart.py (it defines: Cart, TAX, __init__, 
+  OK   refuse: a symbol that does not exist  no symbol 'Cart.no_such' in cart.py (it defines: Cart, TAX, __init__,
   OK   refuse: an ambiguous address names its candidates  'total' is ambiguous in cart.py: Cart.total L11-L13, total L20-L21 — a
   OK   refuse: a range past the end of the file  L300-L305 is past the end of a 22-line file
   OK   refuse: a range that is not inside one symbol  L9-L20 is not inside any symbol — a range patch must sit within one de
@@ -43,7 +43,7 @@
   OK   create: a create and a revision in ONE set both land — the money demo's real shape is a helper added and its caller changed  cart.py:Cart.TAX L6-L6, cart.py:+shout L22-L21
   OK   create: `Container.+name` lands INSIDE the container at its members' nesting, and after its last member — the only place a body can go and still be a method  Cart.discount L19-L20
   OK   create: an empty class gets its method before the `pass`, so the class body keeps owning it  class Box:\n\n    def side(self, n):\n        self.n = n\n    pass\n
-  OK   refuse: a create on a name that EXISTS is refused, and the sentence names the revise form — a landed create and a refused one cannot be confused, which is the pair this clause is gated on  'with_tax' already exists in cart.py at L15-L17 — a create refuses to duplicate 
+  OK   refuse: a create on a name that EXISTS is refused, and the sentence names the revise form — a landed create and a refused one cannot be confused, which is the pair this clause is gated on  'with_tax' already exists in cart.py at L15-L17 — a create refuses to duplicate
   OK   refuse: a create whose body defines a DIFFERENT name is refused: the address is the contract the oracle is about to test  the result does not define 'shout', which is what '+shout' asked it to create
   OK   refuse: a create whose container is not in the file names the containers that are  no class or container 'Wheel' in cart.py to add 'spin' to (its top-level definit
   OK   refuse: a bare `+` names nothing to create, and the refusal spells the form rather than leaving the model to guess it  '+' names nothing to create — a create address is '+Symbol' or '+Container.symbo
@@ -51,9 +51,9 @@
   OK   create: the address parses with NO parser change — `+Name` was always a `\S+`, so the tolerance that let it through is pinned here rather than discovered later
   OK   create: the PROTOCOL the model is shown actually names the form — a capability the prompt does not mention is a capability the model cannot ask for
   OK   create: one bad create voids the whole set, like every other refusal
-  OK   oracle: the refusal comes before the address is resolved, so R-7.15e's measured case — `L10-L12` on a short oracle — is answered about the file and not about a line count  t.py is the oracle this run scores against, so it is not a patch target — an assertion is 
-  OK   oracle: a patch that needs no rule but this one is refused too — the range is inside a definition, the body is legal, the file is long enough, so only the oracle's name can stop it  t.py is the oracle this run scores against, so it is not a patch target — an assertion is 
-  OK   oracle: ...and the sentence names the oracle and the module to change, not the coordinates — an assertion is never edited to fit the code, so a retry after a line-number complaint chases the wrong thing  t.py is the oracle this run scores against, so it is not a patch target — an assertion is 
+  OK   oracle: the refusal comes before the address is resolved, so R-7.15e's measured case — `L10-L12` on a short oracle — is answered about the file and not about a line count  t.py is the oracle this run scores against, so it is not a patch target — an assertion is
+  OK   oracle: a patch that needs no rule but this one is refused too — the range is inside a definition, the body is legal, the file is long enough, so only the oracle's name can stop it  t.py is the oracle this run scores against, so it is not a patch target — an assertion is
+  OK   oracle: ...and the sentence names the oracle and the module to change, not the coordinates — an assertion is never edited to fit the code, so a retry after a line-number complaint chases the wrong thing  t.py is the oracle this run scores against, so it is not a patch target — an assertion is
   OK   oracle: all four address kinds are refused, because the file is out of scope before anything about the address is read — a gap in one kind would be a way to edit the assertion after all  range:t.py is the oracle this run scores again; symbol:t.py is the oracle this run scores again; whole:t.py is the oracle this run scores again; create:t.py is the oracle this run scores again
   OK   oracle: naming the oracle takes nothing away from the real target — the same symbol patch still applies while it is set, which is the difference between a guard and a shutdown  ok=True
   OK   oracle: one oracle patch voids the set, so a fix that arrives with an edited assertion writes neither  False [(Patch(file='t.py', address='*', body='print(1)\n'), 't.py is the oracle this run scores against, so it is not a patch target — an assertion is never edited to fit the code. Change the module the test imports.')]

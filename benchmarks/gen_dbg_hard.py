@@ -13,6 +13,7 @@ tier failed on attempt 1 in `benchmarks/results/probe/*_one_attempt.log`
 run those with the same tier and the same attempt budget, and the only thing
 that differs is the feedback.
 """
+
 import json
 import re
 from pathlib import Path
@@ -27,8 +28,11 @@ def failing() -> dict[str, list[str]]:
     out: dict[str, list[str]] = {}
     for log in sorted(PROBE.glob("*_one_attempt.log")):
         suite = log.name.replace("_one_attempt.log", "")
-        ids = [m.group(1) for m in (FAIL.match(l)
-                                    for l in log.read_text().splitlines()) if m]
+        ids = [
+            m.group(1)
+            for m in (FAIL.match(l) for l in log.read_text().splitlines())
+            if m
+        ]
         if ids:
             out[suite] = ids
     return out
@@ -55,11 +59,15 @@ def main() -> int:
                 t["dbg_reason"] = "failed the small tier's first greedy attempt"
                 rows.append(t)
     if missing:
-        print("suites named by a probe log but not found: " + ", ".join(sorted(missing)))
+        print(
+            "suites named by a probe log but not found: " + ", ".join(sorted(missing))
+        )
     rows.sort(key=lambda t: t["id"])
     OUT.write_text("".join(json.dumps(r) + "\n" for r in rows))
-    print(f"wrote {len(rows)} tasks to {OUT.name} "
-          f"({', '.join(f'{k}:{len(v)}' for k, v in sorted(picked.items()))})")
+    print(
+        f"wrote {len(rows)} tasks to {OUT.name} "
+        f"({', '.join(f'{k}:{len(v)}' for k, v in sorted(picked.items()))})"
+    )
     return 0
 
 
