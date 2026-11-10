@@ -18,6 +18,7 @@ Two rules the design is built around:
 
     python -m flash.debug --selftest        # offline: seeded bugs, no model
 """
+
 from __future__ import annotations
 
 import json
@@ -30,9 +31,9 @@ from pathlib import Path
 
 from flash import sandbox
 
-MAX_LINES = 240          # executed candidate lines kept per session
-MAX_VALUE = 48           # characters of any recorded repr
-FEEDBACK_CHARS = 2000    # the digest's budget inside a retry prompt
+MAX_LINES = 240  # executed candidate lines kept per session
+MAX_VALUE = 48  # characters of any recorded repr
+FEEDBACK_CHARS = 2000  # the digest's budget inside a retry prompt
 
 # Runs in the child. `solution.py` holds the candidate, `test.py` the oracle,
 # `_dbg_spec.json` the filenames to trace; the trail goes to a side file so a
@@ -164,12 +165,12 @@ with open(os.path.join(HERE, "_dbg_result.json"), "w") as f:
 class Digest:
     """What execution did, serialised for a model to read."""
 
-    verdict: str = "pass"                 # pass | assert | <ExceptionName> | timeout
-    where: str = ""                       # 'solution.py:4  return total // n'
+    verdict: str = "pass"  # pass | assert | <ExceptionName> | timeout
+    where: str = ""  # 'solution.py:4  return total // n'
     frames: list = field(default_factory=list)
-    trail: list = field(default_factory=list)     # 'solution.py:3 total += v'
-    history: list = field(default_factory=list)   # 'total: 0 @:3 -> 10 @:3'
-    mutated: list = field(default_factory=list)   # lines that last changed them
+    trail: list = field(default_factory=list)  # 'solution.py:3 total += v'
+    history: list = field(default_factory=list)  # 'total: 0 @:3 -> 10 @:3'
+    mutated: list = field(default_factory=list)  # lines that last changed them
     note: str = ""
 
     @property
@@ -181,19 +182,24 @@ class Digest:
         if self.note:
             blocks.append(self.note)
         if self.history:
-            blocks.append("VALUE HISTORY (what the compared names did):\n  "
-                          + "\n  ".join(self.history[-12:]))
+            blocks.append(
+                "VALUE HISTORY (what the compared names did):\n  "
+                + "\n  ".join(self.history[-12:])
+            )
         if self.mutated:
             blocks.append("LAST MUTATED AT: " + "; ".join(self.mutated))
         if self.trail:
-            blocks.append(f"EXECUTED ({len(self.trail)} steps shown, oldest first):\n  "
-                          + "\n  ".join(self.trail[-40:]))
+            blocks.append(
+                f"EXECUTED ({len(self.trail)} steps shown, oldest first):\n  "
+                + "\n  ".join(self.trail[-40:])
+            )
         if self.frames:
             locs = self.frames[-1].get("locals") or {}
             if locs:
-                blocks.append("LOCALS AT FAILURE: "
-                              + ", ".join(f"{k}={v}" for k, v in
-                                          sorted(locs.items())[:14]))
+                blocks.append(
+                    "LOCALS AT FAILURE: "
+                    + ", ".join(f"{k}={v}" for k, v in sorted(locs.items())[:14])
+                )
         out = "\n\n".join(blocks)
         return out[-limit:] if len(out) > limit else out
 
@@ -226,15 +232,15 @@ def _history(executed: list[tuple[str, int, str, str]], names: list[str]) -> lis
 def _run(files: dict[str, str], test: str, timeout: int) -> Digest:
     """Trace a candidate file set against its oracle. Never in-process."""
     from flash.harness import _hoist_path_bootstrap
+
     boot, body = _hoist_path_bootstrap(test)
     with tempfile.TemporaryDirectory() as d:
         root = Path(d).resolve()
         names: list[str] = []
         for rel, src in files.items():
             dest = (root / rel).resolve()
-            if root not in dest.parents:          # path-escape guard (R-4.1)
-                return Digest(verdict="error",
-                              where=f"unsafe file path: {rel}")
+            if root not in dest.parents:  # path-escape guard (R-4.1)
+                return Digest(verdict="error", where=f"unsafe file path: {rel}")
             names.append(Path(rel).name)
             dest.parent.mkdir(parents=True, exist_ok=True)
             dest.write_text(src)
@@ -245,13 +251,18 @@ def _run(files: dict[str, str], test: str, timeout: int) -> Digest:
         (root / "_dbg_driver.py").write_text(_DRIVER)
         note, proc = "", None
         try:
-            proc = sandbox.run([sys.executable, "-I",
-                                str(root / "_dbg_driver.py")],
-                               root, timeout, cwd=str(root))
+            proc = sandbox.run(
+                [sys.executable, "-I", str(root / "_dbg_driver.py")],
+                root,
+                timeout,
+                cwd=str(root),
+            )
         except subprocess.TimeoutExpired:
-            note = (f"The run exceeded {timeout}s. The trail below is what it "
-                    "executed before it was killed — its last lines are where "
-                    "it hung or spun.")
+            note = (
+                f"The run exceeded {timeout}s. The trail below is what it "
+                "executed before it was killed — its last lines are where "
+                "it hung or spun."
+            )
         steps, executed = [], []
         try:
             lines = (root / "_dbg_trail.ndjson").read_text().splitlines()
@@ -266,20 +277,32 @@ def _run(files: dict[str, str], test: str, timeout: int) -> Digest:
             for k, v in (rec.get("set") or {}).items():
                 if not k.startswith("_"):
                     executed.append((rec["f"], rec["l"], k, v))
-            shown = ", ".join(f"{k}={v}" for k, v in sorted(
-                (rec.get("set") or {}).items()) if not k.startswith("_"))
+            shown = ", ".join(
+                f"{k}={v}"
+                for k, v in sorted((rec.get("set") or {}).items())
+                if not k.startswith("_")
+            )
             steps.append(f"{step}  [{shown}]" if shown else step)
         try:
             res = json.loads((root / "_dbg_result.json").read_text())
         except Exception:
             res = None
-        if res is None:                       # killed, or died before the trace
+        if res is None:  # killed, or died before the trace
             tail = steps[-1] if steps else "(no executed line was recorded)"
-            return Digest(verdict="timeout" if proc is None else "error",
-                          where=tail, trail=steps, note=note or (
-                              "" if proc is None else
-                              "child exited " + str(proc.returncode) + ": "
-                              + (proc.stderr or "").strip()[-200:]))
+            return Digest(
+                verdict="timeout" if proc is None else "error",
+                where=tail,
+                trail=steps,
+                note=note
+                or (
+                    ""
+                    if proc is None
+                    else "child exited "
+                    + str(proc.returncode)
+                    + ": "
+                    + (proc.stderr or "").strip()[-200:]
+                ),
+            )
         names_cmp = _compared_names(res.get("where", ""))
         hist = _history(executed, names_cmp)
         if not hist:
@@ -288,13 +311,19 @@ def _run(files: dict[str, str], test: str, timeout: int) -> Digest:
             # That is the story the assert cannot tell: an aliasing bug's
             # `data.pop(old>` has no name in `assert src == {...}`.
             from collections import Counter
+
             hot = [k for k, _ in Counter(k for _, _, k, _ in executed).most_common(3)]
             hist = _history(executed, hot)
-        mut = sorted({h.rsplit("@", 1)[1].strip()
-                      for h in hist if "@" in h})
-        return Digest(verdict=res["verdict"], where=res["where"],
-                      frames=res["frames"], trail=steps, history=hist,
-                      mutated=mut, note=note)
+        mut = sorted({h.rsplit("@", 1)[1].strip() for h in hist if "@" in h})
+        return Digest(
+            verdict=res["verdict"],
+            where=res["where"],
+            frames=res["frames"],
+            trail=steps,
+            history=hist,
+            mutated=mut,
+            note=note,
+        )
 
 
 def watch(code: str, test: str, timeout: int = 15) -> Digest:
@@ -311,26 +340,36 @@ def watch_files(files: dict[str, str], test: str, timeout: int = 15) -> Digest:
 # Seeded so the traceback misleads: the assert fires far from the line that
 # made the value wrong. Each entry is (code, test, text the digest must blame).
 _BUGS: list[tuple[str, str, str]] = [
-    ("def top(scores, n=3):\n    ordered = scores\n    ordered.sort(reverse=True)\n"
-     "    return ordered[:n]\n",
-     "xs = [5, 3, 9, 1]\nassert top(xs) == [9, 5, 3]\nassert xs == [5, 3, 9, 1]\n",
-     "ordered.sort"),
-    ("def running(items, _acc=[]):\n    for v in items:\n        _acc.append(v)\n"
-     "    return sum(_acc)\n",
-     "assert running([1, 2]) == 3\nassert running([4]) == 4\n",
-     "_acc.append"),
-    ("def mean(values):\n    total = 0\n    for v in values:\n        total += v\n"
-     "    return total // len(values)\n",
-     "assert mean([1, 2, 3, 4]) == 2.5\n",
-     "total //"),
-    ("def pairs(seq):\n    out = []\n    for i in range(len(seq) - 2):\n"
-     "        out.append((seq[i], seq[i + 1]))\n    return out\n",
-     "assert pairs([1, 2, 3]) == [(1, 2), (2, 3)]\n",
-     "len(seq) - 2"),
-    ("def scale(xs, k):\n    out = []\n    for x in xs:\n        out.append(x * k)\n"
-     "    return out\n",
-     "assert scale([1, 2], 2) == [2, 3]\n",
-     "out.append(x * k)"),
+    (
+        "def top(scores, n=3):\n    ordered = scores\n    ordered.sort(reverse=True)\n"
+        "    return ordered[:n]\n",
+        "xs = [5, 3, 9, 1]\nassert top(xs) == [9, 5, 3]\nassert xs == [5, 3, 9, 1]\n",
+        "ordered.sort",
+    ),
+    (
+        "def running(items, _acc=[]):\n    for v in items:\n        _acc.append(v)\n"
+        "    return sum(_acc)\n",
+        "assert running([1, 2]) == 3\nassert running([4]) == 4\n",
+        "_acc.append",
+    ),
+    (
+        "def mean(values):\n    total = 0\n    for v in values:\n        total += v\n"
+        "    return total // len(values)\n",
+        "assert mean([1, 2, 3, 4]) == 2.5\n",
+        "total //",
+    ),
+    (
+        "def pairs(seq):\n    out = []\n    for i in range(len(seq) - 2):\n"
+        "        out.append((seq[i], seq[i + 1]))\n    return out\n",
+        "assert pairs([1, 2, 3]) == [(1, 2), (2, 3)]\n",
+        "len(seq) - 2",
+    ),
+    (
+        "def scale(xs, k):\n    out = []\n    for x in xs:\n        out.append(x * k)\n"
+        "    return out\n",
+        "assert scale([1, 2], 2) == [2, 3]\n",
+        "out.append(x * k)",
+    ),
 ]
 
 
@@ -354,6 +393,7 @@ def run_suite_check(path: str | Path | None = None) -> list[tuple[str, bool, str
     `benchmarks/dbg_band_check.py` reads; there is no digest to prove here.
     """
     from flash.harness import diagnose, load_tasks
+
     rows = load_tasks(str(path or (_DATA_ROOT / DBG_TASKS)))
     checks = []
     for t in rows:
@@ -361,8 +401,7 @@ def run_suite_check(path: str | Path | None = None) -> list[tuple[str, bool, str
             continue
         blames = t["blame"] if isinstance(t["blame"], list) else [t["blame"]]
         sol_ok, sol_err = diagnose(t["solution"], t["test"])
-        checks.append((f"{t['id']}: stored solution passes", sol_ok,
-                       sol_err[:70]))
+        checks.append((f"{t['id']}: stored solution passes", sol_ok, sol_err[:70]))
         if not sol_ok:
             continue
         bug_ok, tb = diagnose(t["seeded"], t["test"])
@@ -370,15 +409,22 @@ def run_suite_check(path: str | Path | None = None) -> list[tuple[str, bool, str
         d = watch(t["seeded"], t["test"])
         fb = d.as_feedback()
         for blame in blames:
-            checks.append((f"{t['id']}: the traceback cannot see {blame!r}",
-                           blame not in tb, repr(blame)))
-            checks.append((f"{t['id']}: the digest names {blame!r}",
-                           blame in fb, repr(blame)))
+            checks.append(
+                (
+                    f"{t['id']}: the traceback cannot see {blame!r}",
+                    blame not in tb,
+                    repr(blame),
+                )
+            )
+            checks.append(
+                (f"{t['id']}: the digest names {blame!r}", blame in fb, repr(blame))
+            )
     return checks
 
 
 def run_selftest() -> int:
     from flash import doctor
+
     refused = doctor.vector_refusal("debug", _DATA_ROOT)
     if refused:
         return refused
@@ -390,50 +436,82 @@ def run_selftest() -> int:
 
     for i, (code, test, blame) in enumerate(_BUGS):
         d = watch(code, test)
-        ck(f"bug {i + 1}: the run fails on the oracle's line",
-           d.verdict == "assert" and d.where.startswith("test.py:"), d.where)
-        ck(f"bug {i + 1}: the digest blames the line that made it wrong",
-           blame in " ".join(d.trail + d.mutated + d.history),
-           "wanted " + repr(blame))
-        ck(f"bug {i + 1}: feedback fits its budget",
-           0 < len(d.as_feedback()) <= FEEDBACK_CHARS,
-           f"{len(d.as_feedback())} chars")
+        ck(
+            f"bug {i + 1}: the run fails on the oracle's line",
+            d.verdict == "assert" and d.where.startswith("test.py:"),
+            d.where,
+        )
+        ck(
+            f"bug {i + 1}: the digest blames the line that made it wrong",
+            blame in " ".join(d.trail + d.mutated + d.history),
+            "wanted " + repr(blame),
+        )
+        ck(
+            f"bug {i + 1}: feedback fits its budget",
+            0 < len(d.as_feedback()) <= FEEDBACK_CHARS,
+            f"{len(d.as_feedback())} chars",
+        )
 
-    d = watch("def spin():\n    n = 0\n    while True:\n        n += 1\n",
-              "assert spin() == 0\n", timeout=3)
-    ck("an infinite loop reports a killed run, not a blank",
-       d.verdict == "timeout" and "killed" in d.note.lower(),
-       f"{d.verdict} / {d.note[:50]}")
-    ck("the hung run still shows the line it spun on",
-       any("n += 1" in s for s in d.trail), f"{len(d.trail)} steps kept")
+    d = watch(
+        "def spin():\n    n = 0\n    while True:\n        n += 1\n",
+        "assert spin() == 0\n",
+        timeout=3,
+    )
+    ck(
+        "an infinite loop reports a killed run, not a blank",
+        d.verdict == "timeout" and "killed" in d.note.lower(),
+        f"{d.verdict} / {d.note[:50]}",
+    )
+    ck(
+        "the hung run still shows the line it spun on",
+        any("n += 1" in s for s in d.trail),
+        f"{len(d.trail)} steps kept",
+    )
 
     d = watch("def f(x):\n    return x / 0\n", "assert f(1) == 0\n")
-    ck("a raised error names its frame and its locals",
-       d.verdict == "ZeroDivisionError" and d.frames
-       and "x" in d.frames[-1]["locals"], d.verdict)
+    ck(
+        "a raised error names its frame and its locals",
+        d.verdict == "ZeroDivisionError" and d.frames and "x" in d.frames[-1]["locals"],
+        d.verdict,
+    )
 
     d = watch("def f(x):\n    return x + 1\n", "assert f(1) == 2\n")
-    ck("a correct candidate reports pass, with its trail",
-       d.ok and any("return x + 1" in s for s in d.trail), d.verdict)
+    ck(
+        "a correct candidate reports pass, with its trail",
+        d.ok and any("return x + 1" in s for s in d.trail),
+        d.verdict,
+    )
 
     import os
+
     d = watch("import os\nPID = os.getpid()\nANSWER = 1\n", "assert ANSWER == 2\n")
     seen = re.search(r"PID=(\d+)", " ".join(d.trail))
-    ck("execution was observed in a child process, not in this one",
-       seen is not None and int(seen.group(1)) != os.getpid(),
-       seen.group(0) if seen else "no PID in the trail")
+    ck(
+        "execution was observed in a child process, not in this one",
+        seen is not None and int(seen.group(1)) != os.getpid(),
+        seen.group(0) if seen else "no PID in the trail",
+    )
 
     d = watch("def f(:\n    pass\n", "assert True\n")
-    ck("a candidate that will not compile is blamed on the candidate",
-       d.verdict == "SyntaxError" and "_dbg_driver" not in d.where, d.where)
+    ck(
+        "a candidate that will not compile is blamed on the candidate",
+        d.verdict == "SyntaxError" and "_dbg_driver" not in d.where,
+        d.where,
+    )
 
-    ck("a path-escaping file set is refused before anything runs",
-       watch_files({"../evil.py": "x = 1"}, "assert True").verdict == "error")
+    ck(
+        "a path-escaping file set is refused before anything runs",
+        watch_files({"../evil.py": "x = 1"}, "assert True").verdict == "error",
+    )
 
-    ck("the trail is capped, however long the run",
-       len(watch("s = 0\nfor i in range(4000):\n    s += i\n",
-                 "assert s == 1\n").trail) <= MAX_LINES,
-       f"cap {MAX_LINES}")
+    ck(
+        "the trail is capped, however long the run",
+        len(
+            watch("s = 0\nfor i in range(4000):\n    s += i\n", "assert s == 1\n").trail
+        )
+        <= MAX_LINES,
+        f"cap {MAX_LINES}",
+    )
 
     # the suite's premise, offline: each seeded bug must be invisible to the
     # traceback and named by the digest
@@ -443,13 +521,15 @@ def run_selftest() -> int:
     fails = 0
     for name, cond, note in checks:
         fails += 0 if cond else 1
-        print(f"  {'ok  ' if cond else 'FAIL'} {name:<{width}}"
-              + (f"  [{note}]" if note else ""))
+        print(
+            f"  {'ok  ' if cond else 'FAIL'} {name:<{width}}"
+            + (f"  [{note}]" if note else "")
+        )
     print(f"\nflash.debug selftest: {len(checks) - fails}/{len(checks)}")
     return 1 if fails else 0
 
 
-if __name__ == "__main__":                       # pragma: no cover
+if __name__ == "__main__":  # pragma: no cover
     if "--suite" in sys.argv:
         i = sys.argv.index("--suite")
         nxt = sys.argv[i + 1] if i + 1 < len(sys.argv) else None
@@ -458,9 +538,11 @@ if __name__ == "__main__":                       # pragma: no cover
         bad = [n for n, ok, _ in cs if not ok]
         for n, ok, note in cs:
             print(f"  {'ok  ' if ok else 'FAIL'} {n}" + (f"  [{note}]" if note else ""))
-        print(f"\nflash.debug suite premise ({path or DBG_TASKS}): "
-              f"{'FAILS: ' + ', '.join(bad) if bad else 'holds'} "
-              f"({len(cs) - len(bad)}/{len(cs)})")
+        print(
+            f"\nflash.debug suite premise ({path or DBG_TASKS}): "
+            f"{'FAILS: ' + ', '.join(bad) if bad else 'holds'} "
+            f"({len(cs) - len(bad)}/{len(cs)})"
+        )
         raise SystemExit(1 if bad else 0)
     if "--selftest" in sys.argv:
         raise SystemExit(run_selftest())

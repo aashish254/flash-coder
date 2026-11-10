@@ -21,6 +21,7 @@ additive clause; one model load serves all four arms.
 Measured with mlx-community/Qwen2.5-Coder-7B-Instruct-4bit, temp 0.0 on attempt 0
 then 0.8, max_tokens 1024, the gate opened by a synthetic idle+AC profile state.
 """
+
 import shutil
 import subprocess
 import sys
@@ -33,18 +34,20 @@ from flash import ambient, harness, power  # noqa: E402
 
 MODEL = "mlx-community/Qwen2.5-Coder-7B-Instruct-4bit"
 
-SMALL_MAP = ('"""Demo package:\n'
-             '  M1: flash.known    (the module the map does name)\n'
-             '"""\n')
+SMALL_MAP = (
+    '"""Demo package:\n  M1: flash.known    (the module the map does name)\n"""\n'
+)
 NAMES = {1: ("zeta",), 3: ("zeta", "eta", "theta")}
 
 
 def commit_all(root: Path) -> None:
-    for cmd in (["init", "-q", "-b", "main", str(root)],
-                ["-C", str(root), "config", "user.email", "a@b.c"],
-                ["-C", str(root), "config", "user.name", "probe"],
-                ["-C", str(root), "add", "-A"],
-                ["-C", str(root), "commit", "-q", "-m", "baseline"]):
+    for cmd in (
+        ["init", "-q", "-b", "main", str(root)],
+        ["-C", str(root), "config", "user.email", "a@b.c"],
+        ["-C", str(root), "config", "user.name", "probe"],
+        ["-C", str(root), "add", "-A"],
+        ["-C", str(root), "commit", "-q", "-m", "baseline"],
+    ):
         subprocess.run(["git", *cmd], check=True, capture_output=True)
 
 
@@ -67,10 +70,19 @@ def make_repo(root: Path, big: bool, inserts: int) -> Path:
 
 
 def idle():
-    return power.SystemState(on_ac=True, battery_pct=100.0, low_power_mode=False,
-                             thermal_limit_pct=100.0, thermal_warning=False,
-                             mem_free_pct=60.0, mem_total_gb=24.0, swap_used_gb=0.0,
-                             load_per_core=0.2, idle_seconds=600.0, cores=8)
+    return power.SystemState(
+        on_ac=True,
+        battery_pct=100.0,
+        low_power_mode=False,
+        thermal_limit_pct=100.0,
+        thermal_warning=False,
+        mem_free_pct=60.0,
+        mem_total_gb=24.0,
+        swap_used_gb=0.0,
+        load_per_core=0.2,
+        idle_seconds=600.0,
+        cores=8,
+    )
 
 
 def inspect(repo: Path, tmp: Path, generate) -> None:
@@ -80,8 +92,11 @@ def inspect(repo: Path, tmp: Path, generate) -> None:
     right but written in a form the map parser does not read', which is the finding
     that decides whether R-7.2 needs a bigger model or a placement seam.
     """
-    red = [f for f in ambient.scan(ambient.head_tree(repo)) if f.kind == "drift"
-           and f.id.endswith(":unmapped")]
+    red = [
+        f
+        for f in ambient.scan(ambient.head_tree(repo))
+        if f.kind == "drift" and f.id.endswith(":unmapped")
+    ]
     if not red:
         print("[inspect] no unmapped-module finding at HEAD — nothing to diagnose")
         return
@@ -90,24 +105,34 @@ def inspect(repo: Path, tmp: Path, generate) -> None:
     out = generate([{"role": "user", "content": f.prompt}], 0)
     files = harness.extract_files(out, expected=f.files)
     print(f"[inspect] {repo}\n    unmapped: {', '.join(wanted)}")
-    print(f"    response: {len(out)} chars, {len(out.splitlines())} lines, "
-          f"`# file:` header in {sorted(files)}")
+    print(
+        f"    response: {len(out)} chars, {len(out.splitlines())} lines, "
+        f"`# file:` header in {sorted(files)}"
+    )
     probe = tmp / "inspect"
     probe.mkdir(parents=True, exist_ok=True)
     (probe / "flash").mkdir(parents=True, exist_ok=True)
-    (probe / "flash" / "__init__.py").write_text(
-        files.get("flash/__init__.py", ""))
+    (probe / "flash" / "__init__.py").write_text(files.get("flash/__init__.py", ""))
     still = [x.id for x in ambient.check_drift(probe)]
-    print(f"    re-run of the drift check on the extracted text alone: {still or 'clean'}")
-    doc_lines = (files.get("flash/__init__.py", "").splitlines())
+    print(
+        f"    re-run of the drift check on the extracted text alone: {still or 'clean'}"
+    )
+    doc_lines = files.get("flash/__init__.py", "").splitlines()
     for name in wanted:
-        hits = [(i + 1, l.strip()) for i, l in enumerate(doc_lines)
-                if name in l and l.strip() != original_line(name, repo)]
-        forms = [("flash." + name in l, "`" + name + "`" in l, name + ".py" in l)
-                 for _, l in hits]
-        print(f"    {name}: {len(hits)} line(s) mention it; "
-              f"recognized form (flash.x or backticked x) = "
-              f"{any(a or b for a, b, _ in forms)}")
+        hits = [
+            (i + 1, l.strip())
+            for i, l in enumerate(doc_lines)
+            if name in l and l.strip() != original_line(name, repo)
+        ]
+        forms = [
+            ("flash." + name in l, "`" + name + "`" in l, name + ".py" in l)
+            for _, l in hits
+        ]
+        print(
+            f"    {name}: {len(hits)} line(s) mention it; "
+            f"recognized form (flash.x or backticked x) = "
+            f"{any(a or b for a, b, _ in forms)}"
+        )
         for ln, l in hits[:3]:
             print(f"        line {ln}: {l[:120]}")
 
@@ -125,37 +150,56 @@ gen = None if dry else ambient.make_generator(MODEL)
 rows = []
 
 if "--inspect" in sys.argv:
-    for target in (Path(ambient.ROOT),
-                   make_repo(tmp / "repo-D", True, 3)):
+    for target in (Path(ambient.ROOT), make_repo(tmp / "repo-D", True, 3)):
         inspect(target, tmp, gen)
     sys.exit(0)
 
-for label, big, inserts in [("A", False, 1), ("B", True, 1),
-                            ("C", False, 3), ("D", True, 3)]:
+for label, big, inserts in [
+    ("A", False, 1),
+    ("B", True, 1),
+    ("C", False, 3),
+    ("D", True, 3),
+]:
     repo = make_repo(tmp / f"repo-{label}", big, inserts)
     echo = len((repo / "flash" / "__init__.py").read_text().splitlines())
     red = [f for f in ambient.scan(ambient.head_tree(repo)) if f.kind == "drift"]
-    print(f"\n=== {label}: echo {echo} lines x {inserts} insert(s) "
-          f"-> {len(red)} drift finding(s)")
+    print(
+        f"\n=== {label}: echo {echo} lines x {inserts} insert(s) "
+        f"-> {len(red)} drift finding(s)"
+    )
     if len(red) != 1:
         print("    probe premise broken: expected exactly one drift finding")
         rows.append((label, echo, inserts, None, None, "premise broken"))
         continue
     f = red[0]
     src = f.prompt.split("```python\n", 1)[1].rsplit("\n```", 1)[0]
-    print(f"    finding: {f.id} | echo length in prompt: {len(src.splitlines())} "
-          f"lines | additive={f.additive}")
-    rec = ambient.run(repo=repo, home=tmp / f"home-{label}", generate=gen,
-                      limit=1, max_attempts=3, verbose=True, dry=dry, state=idle())
+    print(
+        f"    finding: {f.id} | echo length in prompt: {len(src.splitlines())} "
+        f"lines | additive={f.additive}"
+    )
+    rec = ambient.run(
+        repo=repo,
+        home=tmp / f"home-{label}",
+        generate=gen,
+        limit=1,
+        max_attempts=3,
+        verbose=True,
+        dry=dry,
+        state=idle(),
+    )
     for d in rec["drafts"]:
         diff = Path(d["diff"]).read_text() if d["diff"] else ""
         rows.append((label, echo, inserts, d["verified"], d["attempts"], d["note"]))
         damage = "yes" if "No newline at end of file" in diff else "no"
-        print(f"    -> verified={d['verified']} attempts={d['attempts']} "
-              f"seconds={d['seconds']:.1f} diff_lines={len(diff.splitlines())} "
-              f"de_newlined={damage} | {d['note'][:160]}")
+        print(
+            f"    -> verified={d['verified']} attempts={d['attempts']} "
+            f"seconds={d['seconds']:.1f} diff_lines={len(diff.splitlines())} "
+            f"de_newlined={damage} | {d['note'][:160]}"
+        )
 
 print("\n=== matrix (verified drafts; None = no draft reached the oracle)")
 for label, echo, inserts, verified, attempts, note in rows:
-    print(f"  {label}  echo={echo:>2}  inserts={inserts}  verified={verified}  "
-          f"attempts={attempts}  {note[:90]}")
+    print(
+        f"  {label}  echo={echo:>2}  inserts={inserts}  verified={verified}  "
+        f"attempts={attempts}  {note[:90]}"
+    )

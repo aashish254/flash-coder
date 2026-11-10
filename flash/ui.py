@@ -28,6 +28,7 @@ never be mistaken for a measured run.
 
 Run it: `flash ui` → prints `http://127.0.0.1:<port>/`.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -54,34 +55,40 @@ PANELS = ("chat", "diff", "verify", "models")
 #: cannot tell a broken VERIFY panel from an empty one. Turn 2 is the one that
 #: PASSES it, so the same gate proves both halves.
 DEMO_TURNS = (
-    {"prompt": "what does this project do?",
-     "text": "Two files: `notifier.py` sends mail through a `send_email` "
-             "function, and `test_notifier.py` asserts what it must do. Ask me "
-             "to change either."},
-    {"prompt": "add a retry with backoff to send_email",
-     "text": "I added a retry: `send_email` now tries three times with a "
-             "doubling wait.\n"
-             "# edit: notifier.py :: send_email\n"
-             "```python\n"
-             "def send_email(to, body):\n"
-             "    for attempt in range(3):\n"
-             "        try:\n"
-             "            return _smtp.send(to, body)\n"
-             "        except OSError as e:\n"
-             "            if attempt == 2:\n"
-             "                raise\n"
-             "            time.sleep(2 ** attempt)\n"
-             "```\n"},
-    {"prompt": "now make send_email swallow every error and return None",
-     "text": "Done — every failure is now ignored.\n"
-             "# edit: notifier.py :: send_email\n"
-             "```python\n"
-             "def send_email(to, body):\n"
-             "    try:\n"
-             "        return _smtp.send(to, body)\n"
-             "    except Exception:\n"
-             "        return None\n"
-             "```\n"},
+    {
+        "prompt": "what does this project do?",
+        "text": "Two files: `notifier.py` sends mail through a `send_email` "
+        "function, and `test_notifier.py` asserts what it must do. Ask me "
+        "to change either.",
+    },
+    {
+        "prompt": "add a retry with backoff to send_email",
+        "text": "I added a retry: `send_email` now tries three times with a "
+        "doubling wait.\n"
+        "# edit: notifier.py :: send_email\n"
+        "```python\n"
+        "def send_email(to, body):\n"
+        "    for attempt in range(3):\n"
+        "        try:\n"
+        "            return _smtp.send(to, body)\n"
+        "        except OSError as e:\n"
+        "            if attempt == 2:\n"
+        "                raise\n"
+        "            time.sleep(2 ** attempt)\n"
+        "```\n",
+    },
+    {
+        "prompt": "now make send_email swallow every error and return None",
+        "text": "Done — every failure is now ignored.\n"
+        "# edit: notifier.py :: send_email\n"
+        "```python\n"
+        "def send_email(to, body):\n"
+        "    try:\n"
+        "        return _smtp.send(to, body)\n"
+        "    except Exception:\n"
+        "        return None\n"
+        "```\n",
+    },
 )
 
 #: The demo workspace, written to a temporary directory so a demo Apply can never
@@ -89,35 +96,35 @@ DEMO_TURNS = (
 #: demo turn 3 is the change that makes it fail.
 DEMO_FILES = {
     "notifier.py": "import time\n"
-                   "\n"
-                   "import smtp_stub as _smtp\n"
-                   "\n"
-                   "\n"
-                   "def send_email(to, body):\n"
-                   "    return _smtp.send(to, body)\n",
+    "\n"
+    "import smtp_stub as _smtp\n"
+    "\n"
+    "\n"
+    "def send_email(to, body):\n"
+    "    return _smtp.send(to, body)\n",
     # VERIFY runs the oracle under `python -I`, which puts neither the temp copy
     # nor the cwd on `sys.path`, so the oracle bootstraps to its own directory the
     # way every multi-file oracle in this repo does (see flash.harness). Without
     # the two lines below the panel reports an import error and the demo looks
     # broken for the wrong reason.
     "test_notifier.py": "import sys\n"
-                        "sys.path.insert(0, '<TMPDIR>')\n"
-                        "\n"
-                        "import notifier\n"
-                        "\n"
-                        "assert notifier.send_email('a@b.c', 'hi') == 'sent'\n"
-                        "try:\n"
-                        "    notifier.send_email('bad', 'boom')\n"
-                        "    raise AssertionError('the failure was swallowed')\n"
-                        "except OSError:\n"
-                        "    pass\n"
-                        "print('ok')\n",
+    "sys.path.insert(0, '<TMPDIR>')\n"
+    "\n"
+    "import notifier\n"
+    "\n"
+    "assert notifier.send_email('a@b.c', 'hi') == 'sent'\n"
+    "try:\n"
+    "    notifier.send_email('bad', 'boom')\n"
+    "    raise AssertionError('the failure was swallowed')\n"
+    "except OSError:\n"
+    "    pass\n"
+    "print('ok')\n",
     # The oracle imports a name rather than a module, so the demo proves the VERIFY
     # panel runs the asserts without needing a mail server.
     "smtp_stub.py": "def send(to, body):\n"
-                    "    if to == 'bad':\n"
-                    "        raise OSError('no route to host')\n"
-                    "    return 'sent'\n",
+    "    if to == 'bad':\n"
+    "        raise OSError('no route to host')\n"
+    "    return 'sent'\n",
 }
 
 
@@ -137,7 +144,8 @@ def demo_text(n: int, marked: bool) -> str:
         raise DemoRefused(
             "flash ui: the canned demo backend only runs under `--demo-backend`. "
             "Without that flag this command loads a real model, and it will not "
-            "quietly answer with scripted text instead.")
+            "quietly answer with scripted text instead."
+        )
     return DEMO_TURNS[n % len(DEMO_TURNS)]["text"]
 
 
@@ -173,17 +181,20 @@ class Session:
         """
         if self._model is None:
             from flash import cli
+
             # `selected()` hands back a Backend, not its name, and the two backends
             # take different shapes for `ref`: a tier word for a GGUF, a repo id for
             # MLX. `flash setup` resolves the same pair; the page must not carry a
             # second, different answer about what to load.
-            ref = ("fast" if backend.selected().name == "llama.cpp"
-                   else cli.DEFAULT_MODEL)
+            ref = (
+                "fast" if backend.selected().name == "llama.cpp" else cli.DEFAULT_MODEL
+            )
             self._model, self._tokenizer = backend.load(ref)
         return self._model, self._tokenizer
 
     def files(self) -> dict[str, str]:
         from flash.patches import workspace_from_dir
+
         return workspace_from_dir(self.context)
 
     # -- one turn --------------------------------------------------------
@@ -194,7 +205,9 @@ class Session:
         what `flash.patches.apply_patches` produced, whether the words came from a
         GGUF or from `DEMO_TURNS`.
         """
-        text = demo_text(self.turns, self.demo) if self.demo else self._real_text(prompt)
+        text = (
+            demo_text(self.turns, self.demo) if self.demo else self._real_text(prompt)
+        )
         workspace, ok, err, n = propose(self.files(), text, self.test_path)
         self.turns += 1
         # Only the files that actually differ are proposals; a turn that re-emitted
@@ -204,19 +217,32 @@ class Session:
         # The verdict counts what the DIFF panel can show, not what the parser
         # accepted — a line promising a change with no change under it is the
         # sentence this project's first-run rule exists to stop.
-        row = {"i": self.turns, "prompt": prompt, "answer": text,
-               "verdict": _verdict(ok, len(self.proposed) if ok else n, err,
-                                   self.demo),
-               "ok": ok, "err": err, "files": sorted(self.proposed)}
+        row = {
+            "i": self.turns,
+            "prompt": prompt,
+            "answer": text,
+            "verdict": _verdict(ok, len(self.proposed) if ok else n, err, self.demo),
+            "ok": ok,
+            "err": err,
+            "files": sorted(self.proposed),
+        }
         self.history.append(row)
         return row
 
     def _real_text(self, prompt: str) -> str:
         from flash import loop
+
         model, tok = self.load()
-        task = {"id": f"ui{self.turns}", "prompt": prompt, "test": "",
-                "chat": True, "context": self.context, "files": self.files(),
-                "edit": True, "multi": True}
+        task = {
+            "id": f"ui{self.turns}",
+            "prompt": prompt,
+            "test": "",
+            "chat": True,
+            "context": self.context,
+            "files": self.files(),
+            "edit": True,
+            "multi": True,
+        }
         loop.ADAPTER = ""
         # One attempt per turn: the retry-with-feedback chain belongs to a terminal
         # that can show each try, and the second try of a wrong answer is a wrong
@@ -228,24 +254,29 @@ class Session:
     def apply(self, path: str) -> dict:
         """Write ONE proposed file, through the CLI's own write-back guard."""
         from flash.patches import LandError, land
+
         if path not in self.proposed:
-            return {"ok": False,
-                    "err": f"flash ui: `{path}` has no proposal to apply — the "
-                           "DIFF panel lists what this session proposed"}
+            return {
+                "ok": False,
+                "err": f"flash ui: `{path}` has no proposal to apply — the "
+                "DIFF panel lists what this session proposed",
+            }
         before = self.files()
         try:
-            changed = land(self.context, before, {path: self.proposed[path]},
-                           protected=(self.test_path,) if self.test_path else ())
+            changed = land(
+                self.context,
+                before,
+                {path: self.proposed[path]},
+                protected=(self.test_path,) if self.test_path else (),
+            )
         except LandError as e:
             return {"ok": False, "err": f"flash ui: nothing was written — {e}"}
         self.proposed.pop(path)
-        return {"ok": True, "path": path,
-                "changed": [list(c) for c in changed]}
+        return {"ok": True, "path": path, "changed": [list(c) for c in changed]}
 
     def reject(self, path: str) -> dict:
         if path not in self.proposed:
-            return {"ok": False,
-                    "err": f"flash ui: `{path}` has no proposal to reject"}
+            return {"ok": False, "err": f"flash ui: `{path}` has no proposal to reject"}
         self.proposed.pop(path)
         return {"ok": True, "path": path}
 
@@ -258,19 +289,28 @@ class Session:
         the test pass", and the answer must be about those bytes.
         """
         from flash import harness
+
         body = test or (self._oracle_text() or "")
         if not body.strip():
-            err = ("no oracle: type asserts in the box or start "
-                   "`flash ui --test path/to/test_x.py` — nothing was run"
-                   if not self.test_path else
-                   f"no oracle: `--test {self.test_path}` names a file with nothing "
-                   "runnable in it — type asserts in the box or point --test at a "
-                   "file that exists")
+            err = (
+                "no oracle: type asserts in the box or start "
+                "`flash ui --test path/to/test_x.py` — nothing was run"
+                if not self.test_path
+                else f"no oracle: `--test {self.test_path}` names a file with nothing "
+                "runnable in it — type asserts in the box or point --test at a "
+                "file that exists"
+            )
             return {"ok": False, "ran": False, "err": err}
         files = {**self.files(), **self.proposed}
         s = harness.score_files(files, body)
-        return {"ok": s.ok, "ran": True, "passed": s.passed, "total": s.total,
-                "err": s.err, "graded": sorted(files)}
+        return {
+            "ok": s.ok,
+            "ran": True,
+            "passed": s.passed,
+            "total": s.total,
+            "err": s.err,
+            "graded": sorted(files),
+        }
 
     def _oracle_text(self) -> str:
         """The file `--test` named, read from disk.
@@ -297,18 +337,24 @@ class Session:
             answering = backend.selected().name
         except backend.NoBackend:
             answering = ""
-        return {"demo": self.demo, "context": self.context,
-                "backend": answering,
-                "available": any(p["available"] for p in profiles),
-                "profiles": [{k: v for k, v in p.items() if k != "supports"}
-                             for p in profiles],
-                "supports": [p.get("supports") for p in profiles],
-                "cache": models.status(),
-                "files": sorted(self.files()),
-                "proposed": {k: _diff(self.files().get(k, ""), v, k)
-                             for k, v in self.proposed.items()},
-                "history": self.history,
-                "test_path": self.test_path or ""}
+        return {
+            "demo": self.demo,
+            "context": self.context,
+            "backend": answering,
+            "available": any(p["available"] for p in profiles),
+            "profiles": [
+                {k: v for k, v in p.items() if k != "supports"} for p in profiles
+            ],
+            "supports": [p.get("supports") for p in profiles],
+            "cache": models.status(),
+            "files": sorted(self.files()),
+            "proposed": {
+                k: _diff(self.files().get(k, ""), v, k)
+                for k, v in self.proposed.items()
+            },
+            "history": self.history,
+            "test_path": self.test_path or "",
+        }
 
 
 def _verdict(ok: bool, n: int, err: str, demo: bool) -> str:
@@ -317,34 +363,47 @@ def _verdict(ok: bool, n: int, err: str, demo: bool) -> str:
     if n == 0:
         return head + "answered in prose; this turn changes no files"
     if ok:
-        return (head + f"proposes {n} file change(s) — nothing is written until "
-                       "you press Apply")
+        return (
+            head + f"proposes {n} file change(s) — nothing is written until "
+            "you press Apply"
+        )
     return head + (err.splitlines()[0] if err else "the turn changed nothing")
 
 
-def propose(files: dict[str, str], text: str, oracle: str = "") -> tuple[dict, bool, str, int]:
+def propose(
+    files: dict[str, str], text: str, oracle: str = ""
+) -> tuple[dict, bool, str, int]:
     """Model text -> (workspace, ok, err, n_patches), with the chat loop's own parser.
 
     Prose with no patch header is an answer, not a failure, and stays green; a
     patch set the parser refuses is said out loud rather than shown as a change.
     """
     from flash.patches import apply_patches, parse_patches
+
     ps = parse_patches(text)
     if not ps:
         return dict(files), True, "", 0
     res = apply_patches(files, ps, oracle=oracle or "")
     if res.ok and res.applied:
         return res.files, True, "", len(res.applied)
-    err = "PATCH REFUSED: " + "; ".join(f"{p.file}:{p.address} — {w}"
-                                        for p, w in res.refusals)
+    err = "PATCH REFUSED: " + "; ".join(
+        f"{p.file}:{p.address} — {w}" for p, w in res.refusals
+    )
     return (res.files if res.ok else dict(files)), bool(res.applied), err, len(ps)
 
 
 def _diff(before: str, after: str, path: str) -> list[str]:
     """A unified diff with real line numbers, for the DIFF panel to render."""
-    return [l.rstrip("\n") for l in difflib.unified_diff(
-        before.splitlines(keepends=True), after.splitlines(keepends=True),
-        fromfile=f"a/{path}", tofile=f"b/{path}", lineterm="")]
+    return [
+        l.rstrip("\n")
+        for l in difflib.unified_diff(
+            before.splitlines(keepends=True),
+            after.splitlines(keepends=True),
+            fromfile=f"a/{path}",
+            tofile=f"b/{path}",
+            lineterm="",
+        )
+    ]
 
 
 # ---------------------------------------------------------------- the jobs
@@ -376,10 +435,11 @@ def _job(sess: Session, work, kind: str) -> str:
             job["lines"].extend(str(e).splitlines())
             job["state"] = "failed"
             job["result"] = {"ok": False, "err": str(e)}
-        except Exception as e:                              # noqa: BLE001
+        except Exception as e:  # noqa: BLE001
             job["lines"].append(f"{type(e).__name__}: {e}")
             job["state"] = "failed"
             job["result"] = {"ok": False, "err": f"{type(e).__name__}: {e}"}
+
     threading.Thread(target=go, daemon=True).start()
     return jid
 
@@ -533,21 +593,22 @@ class Handler(BaseHTTPRequestHandler):
     """Nine routes, all JSON but the page. No cookies, no auth, no cache."""
 
     server_version = "flash-ui"
-    session: Session                                  # set on the subclass below
+    session: Session  # set on the subclass below
 
-    def do_GET(self) -> None:                         # noqa: N802
+    def do_GET(self) -> None:  # noqa: N802
         if self.path.startswith("/api/job"):
             jid = (parse_qs(self.path.partition("?")[2]).get("id") or [""])[0]
-            return self._json(self.session.jobs.get(jid) or
-                              {"state": "failed", "lines": ["no such job"],
-                               "result": None})
+            return self._json(
+                self.session.jobs.get(jid)
+                or {"state": "failed", "lines": ["no such job"], "result": None}
+            )
         if self.path.startswith("/api/state"):
             return self._json(self.session.state())
         if self.path in ("/", "/index.html"):
             return self._bytes(PAGE.encode(), "text/html; charset=utf-8")
         self._json({"ok": False, "err": f"flash ui: no route {self.path}"}, 404)
 
-    def do_POST(self) -> None:                        # noqa: N802
+    def do_POST(self) -> None:  # noqa: N802
         body = self._body()
         if self.path == "/api/turn":
             if not body.get("prompt", "").strip():
@@ -558,12 +619,14 @@ class Handler(BaseHTTPRequestHandler):
                 row = self.session.run_turn(p)
                 self._log(f"turn {row['i']}: {row['verdict']}")
                 return row
-            return self._json({"ok": True,
-                               "job": _job(self.session, work, "turn")})
+
+            return self._json({"ok": True, "job": _job(self.session, work, "turn")})
         if self.path in ("/api/apply", "/api/reject"):
-            r = (self.session.apply(body.get("path", ""))
-                 if self.path.endswith("apply")
-                 else self.session.reject(body.get("path", "")))
+            r = (
+                self.session.apply(body.get("path", ""))
+                if self.path.endswith("apply")
+                else self.session.reject(body.get("path", ""))
+            )
             if self.path.endswith("apply") and r["ok"]:
                 self._log(f"applied {r['path']}")
             return self._json(r)
@@ -571,20 +634,31 @@ class Handler(BaseHTTPRequestHandler):
             v = self.session.verify(body.get("test", ""))
             # `ran` is the difference between an oracle that said no and an oracle
             # that was never asked: the second must not print a FAIL.
-            v["text"] = v["err"] if not v["ran"] else (
-                ("PASS " if v["ok"] else "FAIL ")
-                + (f"{v['passed']}/{v['total']} asserts reached\n"
-                   if v.get("total") else "")
-                + ("" if v["ok"] else "\n" + v["err"]))
+            v["text"] = (
+                v["err"]
+                if not v["ran"]
+                else (
+                    ("PASS " if v["ok"] else "FAIL ")
+                    + (
+                        f"{v['passed']}/{v['total']} asserts reached\n"
+                        if v.get("total")
+                        else ""
+                    )
+                    + ("" if v["ok"] else "\n" + v["err"])
+                )
+            )
             return self._json(v)
         if self.path == "/api/pull":
             tier = body.get("tier", "")
             if tier not in models.TIERS:
-                return self._json({"ok": False,
-                                   "err": f"flash ui: no tier named `{tier}` is "
-                                          f"pinned. Pinned: {', '.join(models.TIERS)}"})
-            jid = _job(self.session, lambda job, t=tier: self._pull(job, t),
-                       "pull")
+                return self._json(
+                    {
+                        "ok": False,
+                        "err": f"flash ui: no tier named `{tier}` is "
+                        f"pinned. Pinned: {', '.join(models.TIERS)}",
+                    }
+                )
+            jid = _job(self.session, lambda job, t=tier: self._pull(job, t), "pull")
             return self._json({"ok": True, "job": jid})
         self._json({"ok": False, "err": f"flash ui: no route {self.path}"}, 404)
 
@@ -603,7 +677,7 @@ class Handler(BaseHTTPRequestHandler):
     # -- plumbing --------------------------------------------------------
     def _body(self) -> dict:
         n = int(self.headers.get("Content-Length") or 0)
-        if n > 65536:                                 # one page, one box each
+        if n > 65536:  # one page, one box each
             raise ValueError("flash ui: request body too large")
         raw = self.rfile.read(n) if n else b""
         return json.loads(raw or b"{}")
@@ -618,10 +692,12 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Cache-Control", "no-store")
         # This page can write files in the project it is pointed at, so it is served
         # as its own origin and nothing else may frame or script it.
-        self.send_header("Content-Security-Policy",
-                         "default-src 'none'; script-src 'unsafe-inline'; "
-                         "style-src 'unsafe-inline'; connect-src 'self'; "
-                         "img-src 'none'; form-action 'none'; frame-ancestors 'none'")
+        self.send_header(
+            "Content-Security-Policy",
+            "default-src 'none'; script-src 'unsafe-inline'; "
+            "style-src 'unsafe-inline'; connect-src 'self'; "
+            "img-src 'none'; form-action 'none'; frame-ancestors 'none'",
+        )
         self.end_headers()
         self.wfile.write(data)
 
@@ -629,20 +705,27 @@ class Handler(BaseHTTPRequestHandler):
         print(f"flash ui: {line}", file=sys.stderr, flush=True)
 
     def log_message(self, fmt: str, *a) -> None:
-        pass                           # the two lines above are the whole record
+        pass  # the two lines above are the whole record
 
 
-def make_server(context: str = ".", port: int = 0, test: str = "",
-                demo: bool = False, host: str = "127.0.0.1") -> tuple[ThreadingHTTPServer, Session]:
+def make_server(
+    context: str = ".",
+    port: int = 0,
+    test: str = "",
+    demo: bool = False,
+    host: str = "127.0.0.1",
+) -> tuple[ThreadingHTTPServer, Session]:
     """The server and its session, not started.
 
     `host` is not a free parameter: anything but loopback is refused here, at the
     one place a bind can happen, rather than by a docstring asking.
     """
     if host != "127.0.0.1":
-        raise ValueError("flash ui: this server can write to your project, so it "
-                         "only binds 127.0.0.1. Put a real reverse proxy in front "
-                         "if you meant to share it.")
+        raise ValueError(
+            "flash ui: this server can write to your project, so it "
+            "only binds 127.0.0.1. Put a real reverse proxy in front "
+            "if you meant to share it."
+        )
     sess = Session(demo_workspace() if demo else context, test=test, demo=demo)
     handler = type("Bound", (Handler,), {"session": sess})
     return ThreadingHTTPServer((host, port), handler), sess
@@ -661,18 +744,29 @@ def demo_workspace() -> str:
 
 
 def add_flags(p: argparse.ArgumentParser) -> None:
-    p.add_argument("--context", default=".",
-                   help="the project the page reads and may write "
-                        "(default: this folder)")
-    p.add_argument("--test", default="",
-                   help="an oracle file the VERIFY panel pre-loads and protects "
-                        "from edits")
-    p.add_argument("--port", type=int, default=0,
-                   help="the port to listen on (default: any free one)")
-    p.add_argument("--demo-backend", action="store_true",
-                   help="answer from a canned script and edit a throwaway project "
-                        "instead of a real one — for `benchmarks/ui_check.py` and "
-                        "for seeing the page before any weight is downloaded")
+    p.add_argument(
+        "--context",
+        default=".",
+        help="the project the page reads and may write (default: this folder)",
+    )
+    p.add_argument(
+        "--test",
+        default="",
+        help="an oracle file the VERIFY panel pre-loads and protects from edits",
+    )
+    p.add_argument(
+        "--port",
+        type=int,
+        default=0,
+        help="the port to listen on (default: any free one)",
+    )
+    p.add_argument(
+        "--demo-backend",
+        action="store_true",
+        help="answer from a canned script and edit a throwaway project "
+        "instead of a real one — for `benchmarks/ui_check.py` and "
+        "for seeing the page before any weight is downloaded",
+    )
 
 
 def dispatch(a) -> int:
@@ -680,19 +774,22 @@ def dispatch(a) -> int:
     if a.demo_backend and a.context != ".":
         # A demo that points at a real tree could still write to it, and the one
         # promise `--demo-backend` makes is that it cannot.
-        print("flash ui: --demo-backend edits its own throwaway project, so "
-              "--context is ignored on that run")
+        print(
+            "flash ui: --demo-backend edits its own throwaway project, so "
+            "--context is ignored on that run"
+        )
     srv, sess = make_server(a.context, a.port, a.test, a.demo_backend)
     url = f"http://127.0.0.1:{srv.server_address[1]}/"
     # Flushed, all four lines. `serve_forever()` below never returns until Ctrl-C,
     # so when stdout is a pipe rather than a terminal these are the only bytes that
     # would ever arrive — and a command that opens a server and prints nothing is
     # indistinguishable from one that failed to start.
-    for line in (f"flash ui — {sess.turns} turns, four panels, nothing leaves this "
-                 "machine",
-                 f"  open {url}",
-                 f"  project: {sess.context}",
-                 "  Ctrl-C stops it"):
+    for line in (
+        f"flash ui — {sess.turns} turns, four panels, nothing leaves this machine",
+        f"  open {url}",
+        f"  project: {sess.context}",
+        "  Ctrl-C stops it",
+    ):
         print(line, flush=True)
     try:
         srv.serve_forever()
@@ -704,8 +801,7 @@ def dispatch(a) -> int:
 
 
 def main(argv: list) -> int:
-    ap = argparse.ArgumentParser(prog="flash ui",
-                                 description=__doc__.split("\n")[0])
+    ap = argparse.ArgumentParser(prog="flash ui", description=__doc__.split("\n")[0])
     add_flags(ap)
     return dispatch(ap.parse_args(argv))
 

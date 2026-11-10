@@ -7,28 +7,28 @@
 # Every line below is stamped at the moment the terminal received it.
 [t+  0.00s] zero-pad the cents and keep a negative sign in front of the dollar sign, exactly as t.py asserts
 [t+  0.14s] flash session on /tmp/flash-chat-demo against the oracle /tmp/flash-chat-demo/t.py — one ask per line, and each answer arrives before you type the next. `quit` or Ctrl-D ends it.
-[t+  3.07s] you> 
-[t+  3.09s] 
-[t+  3.09s] 
-[t+ 14.31s] 
-[t+ 14.31s] 
-[t+ 14.31s] 
+[t+  3.07s] you>
+[t+  3.09s]
+[t+  3.09s]
+[t+ 14.31s]
+[t+ 14.31s]
+[t+ 14.31s]
 [t+ 27.47s] [turn 1] routed=small tier=failed solved=False attempts=4 (17.3s) patches=1 refused=0 whole=0 outside=0
 [t+ 27.47s]   oracle| FAILING_ASSERT: assert cents_to_str(150) == "$1.50" | GOT: '$1.5' | WANT: '$1.50'
 [t+ 27.47s] [R-3.2] NOT APPLIED: the task was not solved, so --apply wrote nothing to /tmp/flash-chat-demo
-[t+ 27.68s] 
+[t+ 27.68s]
 [t+ 27.68s] <<< typed: 'make cents_to_str raise ValueError when cents is not an int'
 [t+ 27.68s] you> make cents_to_str raise ValueError when cents is not an int
-[t+ 28.41s] 
-[t+ 28.41s] 
-[t+ 28.41s] 
-[t+ 38.68s] 
-[t+ 38.68s] 
-[t+ 38.68s] 
+[t+ 28.41s]
+[t+ 28.41s]
+[t+ 28.41s]
+[t+ 38.68s]
+[t+ 38.68s]
+[t+ 38.68s]
 [t+ 49.64s] [turn 2] routed=small tier=failed solved=False attempts=4 (15.6s) patches=1 refused=0 whole=0 outside=0
 [t+ 49.64s]   oracle| FAILING_ASSERT: assert cents_to_str(150) == "$1.50" | GOT: '$1.5' | WANT: '$1.50'
 [t+ 49.64s] [R-3.2] NOT APPLIED: the task was not solved, so --apply wrote nothing to /tmp/flash-chat-demo
-[t+ 49.85s] 
+[t+ 49.85s]
 [t+ 49.85s] <<< typed: 'quit'
 [t+ 49.85s] you> quit
 [t+ 49.85s] [session] turns=2 solved=0 written=0 seconds=32.9 last_rc=1
