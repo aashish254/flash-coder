@@ -54,7 +54,7 @@ jobs:
             --name flash-coder \
             --distpath dist \
             flash/cli.py
-          
+
           # Verify it works
           ./dist/flash-coder --version
           ./dist/flash-coder doctor
@@ -64,7 +64,7 @@ jobs:
           # flash --version should print the version string
           VERSION=$(.venv/bin/python -m flash.cli --version 2>&1 | awk '{print $NF}')
           echo "Expected version: $VERSION"
-          
+
           # The frozen binary should also have help working
           ./dist/flash-coder --help > /dev/null || \
             (echo "frozen binary --help failed" && exit 1)

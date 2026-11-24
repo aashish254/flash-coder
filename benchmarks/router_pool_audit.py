@@ -14,6 +14,7 @@ ledger) and every later run costs no load at all.
 
     python benchmarks/router_pool_audit.py
 """
+
 from __future__ import annotations
 
 import json
@@ -26,7 +27,7 @@ import numpy as np
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from flash import learn, ledger                                  # noqa: E402
+from flash import learn, ledger  # noqa: E402
 
 REPO = "mlx-community/Qwen2.5-Coder-7B-Instruct-4bit"
 CUTOFFS = (0.5, 0.85)
@@ -45,12 +46,16 @@ def main() -> int:
     prompts = [r["prompt"] for r in rows if r["prompt"] in cache]
     prompts = list(dict.fromkeys(prompts))
     if not prompts:
-        print("no trainable ledger row is in the cached embeddings — nothing to "
-              "compare; this audit refuses to score a pool it cannot pair")
+        print(
+            "no trainable ledger row is in the cached embeddings — nothing to "
+            "compare; this audit refuses to score a pool it cannot pair"
+        )
         return 1
-    print(f"{len(prompts)} prompt(s) of {len(rows)} trainable row(s) have a cached "
-          f"last-pool vector; bundle dim {int(np.asarray(bundle['xmu']).shape[0])}, "
-          f"labels {learn.bundle_labels(bundle)}")
+    print(
+        f"{len(prompts)} prompt(s) of {len(rows)} trainable row(s) have a cached "
+        f"last-pool vector; bundle dim {int(np.asarray(bundle['xmu']).shape[0])}, "
+        f"labels {learn.bundle_labels(bundle)}"
+    )
 
     x_last = np.stack([cache[p] for p in prompts])
     mean_path = learn.ensure_cache_path(REPO, "mean")
@@ -59,14 +64,17 @@ def main() -> int:
     if need:
         from mlx_lm import load
         import mlx.core as mx
+
         model, tok = load(REPO)
         for p in need:
             meancache[p] = learn.embed_text(model, tok, p, pool="mean")
         del model, tok
         mx.clear_cache()
         learn.save_cache(meancache, mean_path)
-        print(f"computed {len(need)} mean-pooled vector(s) with forward passes "
-              f"only, cached at {mean_path.name}")
+        print(
+            f"computed {len(need)} mean-pooled vector(s) with forward passes "
+            f"only, cached at {mean_path.name}"
+        )
     else:
         print("both pools already cached — no model load needed")
     x_mean = np.stack([meancache[p] for p in prompts])
@@ -74,18 +82,26 @@ def main() -> int:
     p_last = np.array([learn.score(bundle, v) for v in x_last])
     p_mean = np.array([learn.score(bundle, v) for v in x_mean])
     d = np.abs(p_last - p_mean)
-    print(f"\nP(need-big) with the pool the fit used : median {np.median(p_last):.3f} "
-          f"mean {p_last.mean():.3f}")
-    print(f"P(need-big) with the old serve-time pool: median {np.median(p_mean):.3f} "
-          f"mean {p_mean.mean():.3f}")
-    print(f"|difference| : median {np.median(d):.3f}  mean {d.mean():.3f}  "
-          f"max {d.max():.3f}")
+    print(
+        f"\nP(need-big) with the pool the fit used : median {np.median(p_last):.3f} "
+        f"mean {p_last.mean():.3f}"
+    )
+    print(
+        f"P(need-big) with the old serve-time pool: median {np.median(p_mean):.3f} "
+        f"mean {p_mean.mean():.3f}"
+    )
+    print(
+        f"|difference| : median {np.median(d):.3f}  mean {d.mean():.3f}  "
+        f"max {d.max():.3f}"
+    )
     for cut in CUTOFFS:
         up = int(((p_mean >= cut) & (p_last < cut)).sum())
         down = int(((p_last >= cut) & (p_mean < cut)).sum())
-        print(f"decisions at cutoff {cut}: {up} would have big-directed that the "
-              f"fix would not, {down} the other way "
-              f"(of {len(prompts)} prompt(s))")
+        print(
+            f"decisions at cutoff {cut}: {up} would have big-directed that the "
+            f"fix would not, {down} the other way "
+            f"(of {len(prompts)} prompt(s))"
+        )
 
     # Does the bundle on disk even reproduce the ledger's own route_p column? If
     # a row reproduces from one pool and not the other, the skew explains that
@@ -94,9 +110,11 @@ def main() -> int:
     # every row that way keeps the audit from claiming the skew explains a column
     # a refit already overwrote.
     pos = {p: i for i, p in enumerate(prompts)}
-    scored = [(pos[r["prompt"]], float(r["route_p"]), float(r.get("ts", 0)))
-              for r in all_rows
-              if r.get("route_p") is not None and r["prompt"] in pos]
+    scored = [
+        (pos[r["prompt"]], float(r["route_p"]), float(r.get("ts", 0)))
+        for r in all_rows
+        if r.get("route_p") is not None and r["prompt"] in pos
+    ]
     rec: dict[str, tuple[float, float]] = {}
     for r in all_rows:
         if r.get("route_p") is not None and r.get("prompt") in pos:
@@ -109,36 +127,55 @@ def main() -> int:
         rr = np.array([rec[prompts[i]][0] for i in sub])
         dl = np.abs(rr - p_last[sub])
         dm = np.abs(rr - p_mean[sub])
-        return (f"n={len(sub)} latest recorded route_p vs this bundle: |Δ| last-pool "
-                f"median {np.median(dl):.3f} (within {TOL}: {int((dl <= TOL).sum())}"
-                f"/{len(sub)}), mean-pool median {np.median(dm):.3f} "
-                f"(within {TOL}: {int((dm <= TOL).sum())}/{len(sub)})")
+        return (
+            f"n={len(sub)} latest recorded route_p vs this bundle: |Δ| last-pool "
+            f"median {np.median(dl):.3f} (within {TOL}: {int((dl <= TOL).sum())}"
+            f"/{len(sub)}), mean-pool median {np.median(dm):.3f} "
+            f"(within {TOL}: {int((dm <= TOL).sum())}/{len(sub)})"
+        )
 
     print(f"\n{repro(hit)}")
-    buckets: dict[str, list[tuple[int, float, float]]] = {"mean": [], "last": [],
-                                                          "both": [], "neither": []}
+    buckets: dict[str, list[tuple[int, float, float]]] = {
+        "mean": [],
+        "last": [],
+        "both": [],
+        "neither": [],
+    }
     for i, v, ts in scored:
         m, l = abs(v - float(p_mean[i])), abs(v - float(p_last[i]))
-        key = ("both" if m <= TOL and l <= TOL
-               else "mean" if m <= TOL else "last" if l <= TOL else "neither")
+        key = (
+            "both"
+            if m <= TOL and l <= TOL
+            else "mean"
+            if m <= TOL
+            else "last"
+            if l <= TOL
+            else "neither"
+        )
         buckets[key].append((i, v, ts))
-    print(f"every ledger row whose prompt is cached, classified by which pool of "
-          f"this bundle reproduces its route_p (tolerance {TOL}):")
+    print(
+        f"every ledger row whose prompt is cached, classified by which pool of "
+        f"this bundle reproduces its route_p (tolerance {TOL}):"
+    )
     for key in ("mean", "last", "both", "neither"):
         b = buckets[key]
         if not b:
             print(f"  {key:<8} 0 rows")
             continue
-        span = (datetime.fromtimestamp(min(t for _, _, t in b)).strftime("%m-%d")
-                + "…+"
-                + datetime.fromtimestamp(max(t for _, _, t in b)).strftime("%m-%d"))
+        span = (
+            datetime.fromtimestamp(min(t for _, _, t in b)).strftime("%m-%d")
+            + "…+"
+            + datetime.fromtimestamp(max(t for _, _, t in b)).strftime("%m-%d")
+        )
         print(f"  {key:<8} {len(b):>4} row(s), recorded {span}")
     n_both = len(buckets["both"]) + len(buckets["mean"])
-    print(f"  -> {n_both}/{len(scored)} cached route_p row(s) are reproduced by the "
-          "MEAN pool of this bundle — the wrong pool, which is the skew this fix "
-          "removes; "
-          f"{len(buckets['neither'])} match neither pool, so they predate the fit "
-          "on disk and pooling cannot be blamed for them")
+    print(
+        f"  -> {n_both}/{len(scored)} cached route_p row(s) are reproduced by the "
+        "MEAN pool of this bundle — the wrong pool, which is the skew this fix "
+        "removes; "
+        f"{len(buckets['neither'])} match neither pool, so they predate the fit "
+        "on disk and pooling cannot be blamed for them"
+    )
 
     # Per suite, because the finding this is aimed at is a named one: PLAN's
     # m7 held-out note (2026-09-24) recorded "EVERY m7 prompt scored P>=0.83
@@ -171,35 +208,50 @@ def main() -> int:
     for name in sorted(per_suite, key=lambda k: (-len(per_suite[k]), k)):
         idx = per_suite[name]
         pl, pm = p_last[idx], p_mean[idx]
-        print(f"  {name:<22} n={len(idx):<4} last {np.median(pl):.3f} -> "
-              f"mean {np.median(pm):.3f}   >=0.83 "
-              f"{int((pl >= 0.83).sum())}->{int((pm >= 0.83).sum())}/{len(idx)}   "
-              f"flips {int(((pm >= 0.5) & (pl < 0.5)).sum())}/"
-              f"{int(((pl >= 0.5) & (pm < 0.5)).sum())}")
+        print(
+            f"  {name:<22} n={len(idx):<4} last {np.median(pl):.3f} -> "
+            f"mean {np.median(pm):.3f}   >=0.83 "
+            f"{int((pl >= 0.83).sum())}->{int((pm >= 0.83).sum())}/{len(idx)}   "
+            f"flips {int(((pm >= 0.5) & (pl < 0.5)).sum())}/"
+            f"{int(((pl >= 0.5) & (pm < 0.5)).sum())}"
+        )
     if orphans:
         print(f"  ({len(orphans)} prompt(s) have a task_id that is in no suite file)")
-    m7i = [i for i, p in enumerate(prompts)
-           if "m7_heldout_tasks" in by_id.get(id_of[p], ())]
-    print(f"\nm7_heldout_tasks rows in this cached population: {len(m7i)}"
-          + (f" ({', '.join(id_of[prompts[i]] for i in m7i)})" if m7i else
-             " — so this run CANNOT re-attribute the m7 >=0.83 finding: it "
-             "contains no m7 prompt"))
+    m7i = [
+        i
+        for i, p in enumerate(prompts)
+        if "m7_heldout_tasks" in by_id.get(id_of[p], ())
+    ]
+    print(
+        f"\nm7_heldout_tasks rows in this cached population: {len(m7i)}"
+        + (
+            f" ({', '.join(id_of[prompts[i]] for i in m7i)})"
+            if m7i
+            else " — so this run CANNOT re-attribute the m7 >=0.83 finding: it "
+            "contains no m7 prompt"
+        )
+    )
     if m7i:
-        vals = sorted({round(rec[prompts[i]][0], 3) for i in m7i
-                       if prompts[i] in rec})
+        vals = sorted({round(rec[prompts[i]][0], 3) for i in m7i if prompts[i] in rec})
         pairs = int((p_last[m7i] >= 0.83).sum()) + int((p_mean[m7i] >= 0.83).sum())
-        print(f"  m7 scored now: last-pool median {np.median(p_last[m7i]):.3f}, "
-              f"mean-pool median {np.median(p_mean[m7i]):.3f}; the ledger's own "
-              f"recorded route_p for those prompts: {vals}")
+        print(
+            f"  m7 scored now: last-pool median {np.median(p_last[m7i]):.3f}, "
+            f"mean-pool median {np.median(p_mean[m7i]):.3f}; the ledger's own "
+            f"recorded route_p for those prompts: {vals}"
+        )
         print("  " + repro([i for i in m7i if prompts[i] in rec]))
-        print(f"  read: >=0.83 on this bundle is {pairs}/{2 * len(m7i)} "
-              "pool-prompt pairs, so the recorded 0.83s are not this bundle's "
-              "output at all. The m7 note predates the current fit, and pooling "
-              "cannot re-attribute it in either direction.")
-    print("The gate is DISARMED at run-suite's default --threshold 1.1, so no "
-          "recorded pass rate moved; what the skew produced is a wrong column in "
-          "the ledger (route_p) and a wrong answer for anyone who passed "
-          "--threshold 0.5.")
+        print(
+            f"  read: >=0.83 on this bundle is {pairs}/{2 * len(m7i)} "
+            "pool-prompt pairs, so the recorded 0.83s are not this bundle's "
+            "output at all. The m7 note predates the current fit, and pooling "
+            "cannot re-attribute it in either direction."
+        )
+    print(
+        "The gate is DISARMED at run-suite's default --threshold 1.1, so no "
+        "recorded pass rate moved; what the skew produced is a wrong column in "
+        "the ledger (route_p) and a wrong answer for anyone who passed "
+        "--threshold 0.5."
+    )
     return 0
 
 

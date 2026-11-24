@@ -14,6 +14,7 @@ Usage:
 NOTE: Qwen3-VL (vision path) needs `mlx-vlm` and is benchmarked separately
 (M0b) — this script covers the text/coding path via mlx-lm.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -29,9 +30,9 @@ RESULTS_DIR = ROOT / "benchmarks" / "results"
 
 # Default contenders (M0). Names must exist under mlx-community on HF.
 MODELS = {
-    "qwen25-coder-7b": "mlx-community/Qwen2.5-Coder-7B-Instruct-4bit",   # smoke test
+    "qwen25-coder-7b": "mlx-community/Qwen2.5-Coder-7B-Instruct-4bit",  # smoke test
     "qwen3-coder-30b": "mlx-community/Qwen3-Coder-30B-A3B-Instruct-4bit",  # contender A
-    "gpt-oss-20b": "mlx-community/gpt-oss-20b-MXFP4-Q8",                 # contender B
+    "gpt-oss-20b": "mlx-community/gpt-oss-20b-MXFP4-Q8",  # contender B
     "qwen3-30b-instruct": "mlx-community/Qwen3-30B-A3B-Instruct-2507-4bit",  # contender C
 }
 
@@ -58,7 +59,7 @@ sys.path.insert(0, str(ROOT))
 # R-9.2's boundary is the verifier itself — a duplicate that spawns python
 # directly would be an execution path with no sandbox on it (and the 20 oracle
 # numbers would come from a different program than the one the product uses).
-from flash.harness import run_test      # noqa: E402
+from flash.harness import run_test  # noqa: E402
 
 
 def dry_run() -> int:
@@ -71,13 +72,17 @@ def dry_run() -> int:
         mark = "PASS" if ok else "FAIL"
         if not ok:
             failures += 1
-        print(f"  {mark}  {t['id']}" + ("" if ok else f"  -> {err.splitlines()[-1] if err else ''}"))
+        print(
+            f"  {mark}  {t['id']}"
+            + ("" if ok else f"  -> {err.splitlines()[-1] if err else ''}")
+        )
     print(f"[dry-run] {len(tasks) - failures}/{len(tasks)} reference solutions pass")
     return 1 if failures else 0
 
 
 def download_models(names: list[str]) -> int:
     from huggingface_hub import snapshot_download
+
     rc = 0
     for name in names:
         repo = MODELS[name]
@@ -91,8 +96,13 @@ def download_models(names: list[str]) -> int:
     return rc
 
 
-def bench_model(name: str, max_tokens: int, max_tasks: int,
-                draft: str | None = None, draft_tokens: int = 4) -> dict:
+def bench_model(
+    name: str,
+    max_tokens: int,
+    max_tasks: int,
+    draft: str | None = None,
+    draft_tokens: int = 4,
+) -> dict:
     """One model through the frozen suite. `draft` turns on speculative
     decoding (R-8.1): the draft proposes `draft_tokens` tokens, the target
     verifies them in one pass, and accepted tokens are what the stream yields —
@@ -107,14 +117,17 @@ def bench_model(name: str, max_tokens: int, max_tasks: int,
 
     repo = MODELS.get(name, name)
     tasks = load_tasks()[:max_tasks]
-    print(f"\n=== {name} ({repo})"
-          + (f" + draft {draft}" if draft else "") + " ===", flush=True)
+    print(
+        f"\n=== {name} ({repo})" + (f" + draft {draft}" if draft else "") + " ===",
+        flush=True,
+    )
 
     t0 = time.perf_counter()
     model, tokenizer = load(repo)
     draft_model = None
     if draft:
         from mlx_lm import load as _load
+
         draft_repo = MODELS.get(draft, draft)
         # the draft shares the target's tokenizer family only if it is the same
         # architecture; mlx checks and raises, which is the useful answer here
@@ -128,15 +141,21 @@ def bench_model(name: str, max_tokens: int, max_tasks: int,
         prompt = tokenizer.apply_chat_template(
             msgs, tokenize=False, add_generation_prompt=True
         )
-        reset_peak = getattr(mx, "reset_peak_memory", None) or getattr(mx.metal, "reset_peak_memory", None)
+        reset_peak = getattr(mx, "reset_peak_memory", None) or getattr(
+            mx.metal, "reset_peak_memory", None
+        )
         if reset_peak:
             reset_peak()
         t0, ttft, text = time.perf_counter(), None, []
         ntok = 0
-        kw = {"draft_model": draft_model, "num_draft_tokens": draft_tokens} \
-            if draft_model else {}
-        for resp in stream_generate(model, tokenizer, prompt=prompt,
-                                    max_tokens=max_tokens, **kw):
+        kw = (
+            {"draft_model": draft_model, "num_draft_tokens": draft_tokens}
+            if draft_model
+            else {}
+        )
+        for resp in stream_generate(
+            model, tokenizer, prompt=prompt, max_tokens=max_tokens, **kw
+        ):
             if ttft is None and resp.text:
                 ttft = time.perf_counter() - t0
             text.append(resp.text)
@@ -148,11 +167,23 @@ def bench_model(name: str, max_tokens: int, max_tasks: int,
         tps = ntok / elapsed if elapsed else 0.0
         ttfts.append((ttft or elapsed) * 1000)
         tpss.append(tps)
-        details.append({"id": t["id"], "pass": ok, "ms": round(elapsed * 1000),
-                        "tok_s": round(tps, 1), "err": err[:120] if not ok else ""})
-        print(f"  {'PASS' if ok else 'FAIL'} {t['id']:<22} {elapsed:5.1f}s  {tps:5.1f} tok/s", flush=True)
+        details.append(
+            {
+                "id": t["id"],
+                "pass": ok,
+                "ms": round(elapsed * 1000),
+                "tok_s": round(tps, 1),
+                "err": err[:120] if not ok else "",
+            }
+        )
+        print(
+            f"  {'PASS' if ok else 'FAIL'} {t['id']:<22} {elapsed:5.1f}s  {tps:5.1f} tok/s",
+            flush=True,
+        )
 
-    get_peak = getattr(mx, "get_peak_memory", None) or getattr(mx.metal, "get_peak_memory", None)
+    get_peak = getattr(mx, "get_peak_memory", None) or getattr(
+        mx.metal, "get_peak_memory", None
+    )
     peak_gb = (get_peak() / 1e9) if get_peak else None
     result = {
         "model": repo,
@@ -178,26 +209,40 @@ def print_report(results: list[dict]) -> None:
     print("\n" + hdr + "\n" + "-" * len(hdr))
     for r in results:
         label = r["model"] + (" +draft" if r.get("draft") else "")
-        print(f"{label:<44} {r['pass']:>6} {r['ttft_ms_avg']:>8} "
-              f"{r['tok_s_avg']:>7} {str(r['peak_mem_gb']):>7} {r['load_s']:>7}")
+        print(
+            f"{label:<44} {r['pass']:>6} {r['ttft_ms_avg']:>8} "
+            f"{r['tok_s_avg']:>7} {str(r['peak_mem_gb']):>7} {r['load_s']:>7}"
+        )
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="Flash Coder M0 bake-off")
-    ap.add_argument("--models", nargs="+", default=["qwen25-coder-7b"],
-                    choices=list(MODELS), help="which models to use")
+    ap.add_argument(
+        "--models",
+        nargs="+",
+        default=["qwen25-coder-7b"],
+        choices=list(MODELS),
+        help="which models to use",
+    )
     ap.add_argument("--download", action="store_true", help="download selected models")
     ap.add_argument("--run", action="store_true", help="run the benchmark")
     ap.add_argument("--dry-run", action="store_true", help="validate harness only")
     ap.add_argument("--report", action="store_true", help="print saved results table")
     ap.add_argument("--max-tokens", type=int, default=1024)
     ap.add_argument("--max-tasks", type=int, default=20)
-    ap.add_argument("--draft", default=None,
-                    help="R-8.1: draft model (key from --list or a repo id) used by "
-                         "the target for speculative decoding. Costs extra memory: "
-                         "both models stay resident")
-    ap.add_argument("--draft-tokens", type=int, default=4,
-                    help="tokens proposed per verification pass")
+    ap.add_argument(
+        "--draft",
+        default=None,
+        help="R-8.1: draft model (key from --list or a repo id) used by "
+        "the target for speculative decoding. Costs extra memory: "
+        "both models stay resident",
+    )
+    ap.add_argument(
+        "--draft-tokens",
+        type=int,
+        default=4,
+        help="tokens proposed per verification pass",
+    )
     args = ap.parse_args()
 
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -216,9 +261,15 @@ def main() -> int:
         results = []
         for n in args.models:
             try:
-                results.append(bench_model(n, args.max_tokens, args.max_tasks,
-                                        draft=args.draft,
-                                        draft_tokens=args.draft_tokens))
+                results.append(
+                    bench_model(
+                        n,
+                        args.max_tokens,
+                        args.max_tasks,
+                        draft=args.draft,
+                        draft_tokens=args.draft_tokens,
+                    )
+                )
             except Exception as e:  # noqa: BLE001 — one bad model must not kill the bake-off
                 print(f"  MODEL FAILED {n}: {e}")
         if not results:

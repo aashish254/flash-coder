@@ -27,6 +27,7 @@ not the count — which is claimed. The three R-1.1b checks raise two of the old
 counts (the dropped block 7→8, the nested ranking 2→6) because the switch checks
 drive the same seam.
 """
+
 from __future__ import annotations
 
 import re
@@ -38,36 +39,46 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-import flash.loop as loop                               # noqa: E402
-from flash import graph                                 # noqa: E402
-from flash.graph import (_SHOP, SCOPE_CACHE, SCOPE_HEADER, SCOPE_HITS,  # noqa: E402
-                         _write_repo)
-from flash import lsp                                   # noqa: E402
-from flash.lsp import Symbol                            # noqa: E402
+import flash.loop as loop  # noqa: E402
+from flash import graph  # noqa: E402
+from flash.graph import (
+    _SHOP,
+    SCOPE_CACHE,
+    SCOPE_HEADER,
+    SCOPE_HITS,  # noqa: E402
+    _write_repo,
+)
+from flash import lsp  # noqa: E402
+from flash.lsp import Symbol  # noqa: E402
 
 FIXTURES = ROOT / "benchmarks" / "fixtures" / "minishop"
-CTX_ROOT = FIXTURES.parent                # so context="minishop" resolves
+CTX_ROOT = FIXTURES.parent  # so context="minishop" resolves
 
 # A four-deep call chain, so "which hops does the block carry" is answerable from
 # the text alone: d <- c <- b <- a, read as "a is reached by b at depth 1".
 _CHAIN = {
     "chain.py": (
         '"""A chain, for a depth question."""\n\n\n'
-        'def d(x):\n    return x + 1\n\n\n'
-        'def c(x):\n    return d(x)\n\n\n'
-        'def b(x):\n    return c(x)\n\n\n'
-        'def a(x):\n    return b(x)\n'),
+        "def d(x):\n    return x + 1\n\n\n"
+        "def c(x):\n    return d(x)\n\n\n"
+        "def b(x):\n    return c(x)\n\n\n"
+        "def a(x):\n    return b(x)\n"
+    ),
 }
 # One hot symbol, many honest callers: the budget's test subject.
 _HUB = {"hub.py": '"""The hub."""\n\n\ndef shared(x):\n    return x + 1\n'}
-_SPOKES = {f"s{i:02d}.py": f'"""Spoke {i}."""\nfrom hub import shared\n\n\n'
-                           f"def go{i}(x):\n    return shared(x)\n"
-           for i in range(30)}
+_SPOKES = {
+    f"s{i:02d}.py": f'"""Spoke {i}."""\nfrom hub import shared\n\n\n'
+    f"def go{i}(x):\n    return shared(x)\n"
+    for i in range(30)
+}
 
-SUB_AT_ISSUE = ("Traceback (most recent call last):\n"
-                '  File "tests/test_cart.py", line 12, in test_total\n'
-                "    assert cart.subtotal_cents() == 900\n"
-                "AssertionError: 950 != 900")
+SUB_AT_ISSUE = (
+    "Traceback (most recent call last):\n"
+    '  File "tests/test_cart.py", line 12, in test_total\n'
+    "    assert cart.subtotal_cents() == 900\n"
+    "AssertionError: 950 != 900"
+)
 SUB_CODE = "def fix(cart):\n    return cart.subtotal_cents() - 50\n"
 
 CHECKS: list[tuple[str, bool, str]] = []
@@ -89,11 +100,13 @@ def _call_site_honest(hint: str) -> bool:
 
 # ------------------------------------------------------------------ the units
 
+
 def _unit_checks() -> dict[str, float]:
     timing: dict[str, float] = {}
 
     # --- what it says
     import time
+
     t = time.perf_counter()
     hint = graph.scope_hint(FIXTURES, SUB_AT_ISSUE, SUB_CODE)
     first_ms = (time.perf_counter() - t) * 1000
@@ -101,120 +114,183 @@ def _unit_checks() -> dict[str, float]:
     again = graph.scope_hint(FIXTURES, SUB_AT_ISSUE, SUB_CODE)
     second_ms = (time.perf_counter() - t) * 1000
     timing["first_ms"], timing["second_ms"] = first_ms, second_ms
-    ck("R-1.3b's clause shape: a failure that turns on `Cart.subtotal_cents` "
-       "gets the symbol that would BREAK if it changed — `Cart.total_cents`, with "
-       "the line that calls it",
-       hint.startswith(SCOPE_HEADER)
-       and "cart.py::Cart.total_cents" in hint
-       and "self.subtotal_cents()" in hint, repr(hint))
-    ck("...and the provenance rides along AND IS TRUE: the `via` rule is printed, "
-       "and the file:line plus the quoted call-site text match the repo's own "
-       "source read off disk — an injected hint that misquotes the file it cites "
-       "is worse than none, because the model has no other way to check it",
-       bool(re.search(r"\[cart\.py:\d+ via enclosing-class\]", hint))
-       and _call_site_honest(hint), hint)
-    ck("...and the merge pass is not a second opinion: the same failure against "
-       "the cached-and-merged graph yields a byte-identical block, so `merge()` "
-       "cannot quietly rebuild a different graph on every retry",
-       again == hint, f"{len(hint)} vs {len(again)} chars")
+    ck(
+        "R-1.3b's clause shape: a failure that turns on `Cart.subtotal_cents` "
+        "gets the symbol that would BREAK if it changed — `Cart.total_cents`, with "
+        "the line that calls it",
+        hint.startswith(SCOPE_HEADER)
+        and "cart.py::Cart.total_cents" in hint
+        and "self.subtotal_cents()" in hint,
+        repr(hint),
+    )
+    ck(
+        "...and the provenance rides along AND IS TRUE: the `via` rule is printed, "
+        "and the file:line plus the quoted call-site text match the repo's own "
+        "source read off disk — an injected hint that misquotes the file it cites "
+        "is worse than none, because the model has no other way to check it",
+        bool(re.search(r"\[cart\.py:\d+ via enclosing-class\]", hint))
+        and _call_site_honest(hint),
+        hint,
+    )
+    ck(
+        "...and the merge pass is not a second opinion: the same failure against "
+        "the cached-and-merged graph yields a byte-identical block, so `merge()` "
+        "cannot quietly rebuild a different graph on every retry",
+        again == hint,
+        f"{len(hint)} vs {len(again)} chars",
+    )
     g = graph.scope_graph(FIXTURES)
     ids = hint.split("cart.py::Cart.subtotal_cents", 1)[-1]
-    own = [h.node.id for h in g.blast("Cart.subtotal_cents",
-                                       graph.SCOPE_DEPTH).hits]
-    ck("what the block injects IS what `flash graph` answers for the same symbol "
-       "— the same `blast()` call, not a prose summary of it",
-       own and all(n in ids for n in own[:SCOPE_HITS]),
-       f"blast={own} block={ids[:200]}")
-    ck("the block is only as long as it says it is: under `max_chars`, always",
-       len(hint) <= graph.SCOPE_MAX_CHARS, f"{len(hint)} chars")
+    own = [h.node.id for h in g.blast("Cart.subtotal_cents", graph.SCOPE_DEPTH).hits]
+    ck(
+        "what the block injects IS what `flash graph` answers for the same symbol "
+        "— the same `blast()` call, not a prose summary of it",
+        own and all(n in ids for n in own[:SCOPE_HITS]),
+        f"blast={own} block={ids[:200]}",
+    )
+    ck(
+        "the block is only as long as it says it is: under `max_chars`, always",
+        len(hint) <= graph.SCOPE_MAX_CHARS,
+        f"{len(hint)} chars",
+    )
 
     # --- what it refuses to say
-    ck("nothing repo-defined is at issue — a stdlib failure gains no block, "
-       "rather than a header over an empty body",
-       graph.scope_hint(FIXTURES, "NameError: name 'json' is not defined",
-                  "import json\nprint(json.dumps({}))\n") == "", "")
+    ck(
+        "nothing repo-defined is at issue — a stdlib failure gains no block, "
+        "rather than a header over an empty body",
+        graph.scope_hint(
+            FIXTURES,
+            "NameError: name 'json' is not defined",
+            "import json\nprint(json.dumps({}))\n",
+        )
+        == "",
+        "",
+    )
     empty = Path(tempfile.mkdtemp(prefix="flash-perceive-empty-"))
-    ck("an empty repo gains no block either — the graph is real and says nobody is "
-       "at issue",
-       graph.scope_hint(empty, SUB_AT_ISSUE, SUB_CODE) == "", "")
+    ck(
+        "an empty repo gains no block either — the graph is real and says nobody is "
+        "at issue",
+        graph.scope_hint(empty, SUB_AT_ISSUE, SUB_CODE) == "",
+        "",
+    )
 
-    dup = _write_repo({
-        "pkg/a.py": '"""A."""\ndef helper(x):\n    return x + 1\n\n\n'
-                    'def use_a(x):\n    return helper(x)\n',
-        "pkg/b.py": '"""B."""\ndef helper(x):\n    return x * 2\n\n\n'
-                    'def use_b(x):\n    return helper(x)\n'}, "dup")
-    dup_hint = graph.scope_hint(dup, "helper() raised TypeError",
-                                "y = helper(3)\n")
-    ck("two same-named symbols in two files never BLEND into one caller list: the "
-       "block carries one file's dependents and says which file it resolved to — "
-       "the `Cart.total_cents` vs `CartLine.total_cents` confusion App. A bills as "
-       "the costliest hallucination in the suite",
-       ("pkg/a.py::use_a" in dup_hint or "pkg/b.py::use_b" in dup_hint)
-       and not ("pkg/a.py::use_a" in dup_hint and "pkg/b.py::use_b" in dup_hint)
-       and ("[pkg/a.py:" in dup_hint or "[pkg/b.py:" in dup_hint), repr(dup_hint))
-    foreign = Symbol(name="helper", kind="function",
-                     path=Path("/not-in-the-graph/helper.py"), line=1, end_line=2)
-    ck("...and the tie-break is the FILE, not the name: a symbol the AST index "
-       "read from a file the graph never scanned names no node, so the block "
-       "drops it instead of borrowing another file's callers",
-       graph._one_node(graph.scope_graph(dup), dup, foreign) is None, "")
+    dup = _write_repo(
+        {
+            "pkg/a.py": '"""A."""\ndef helper(x):\n    return x + 1\n\n\n'
+            "def use_a(x):\n    return helper(x)\n",
+            "pkg/b.py": '"""B."""\ndef helper(x):\n    return x * 2\n\n\n'
+            "def use_b(x):\n    return helper(x)\n",
+        },
+        "dup",
+    )
+    dup_hint = graph.scope_hint(dup, "helper() raised TypeError", "y = helper(3)\n")
+    ck(
+        "two same-named symbols in two files never BLEND into one caller list: the "
+        "block carries one file's dependents and says which file it resolved to — "
+        "the `Cart.total_cents` vs `CartLine.total_cents` confusion App. A bills as "
+        "the costliest hallucination in the suite",
+        ("pkg/a.py::use_a" in dup_hint or "pkg/b.py::use_b" in dup_hint)
+        and not ("pkg/a.py::use_a" in dup_hint and "pkg/b.py::use_b" in dup_hint)
+        and ("[pkg/a.py:" in dup_hint or "[pkg/b.py:" in dup_hint),
+        repr(dup_hint),
+    )
+    foreign = Symbol(
+        name="helper",
+        kind="function",
+        path=Path("/not-in-the-graph/helper.py"),
+        line=1,
+        end_line=2,
+    )
+    ck(
+        "...and the tie-break is the FILE, not the name: a symbol the AST index "
+        "read from a file the graph never scanned names no node, so the block "
+        "drops it instead of borrowing another file's callers",
+        graph._one_node(graph.scope_graph(dup), dup, foreign) is None,
+        "",
+    )
 
     chain = _write_repo(_CHAIN, "chain")
     # `d` is the leaf: c reaches it at 1, b at 2, a at 3.
     depth2 = graph.scope_hint(chain, "d() divided by zero", "q = d(2)\n")
     depth3 = graph.scope_hint(chain, "d() divided by zero", "q = d(2)\n", depth=3)
-    ck("§28.2's 'small context' is a number, not a mood: at depth 2 the block "
-       "carries c and b but NOT the third hop a, which a depth-3 ask does get — "
-       "and the depth is printed per line, so a truncated list cannot read as a "
-       "complete one",
-       "chain.py::c" in depth2 and "chain.py::b" in depth2
-       and "chain.py::a" not in depth2 and "chain.py::a" in depth3
-       and depth2.count("d1 ") == 1 and depth2.count("d2 ") == 1,
-       f"d2={depth2!r}\nd3={depth3!r}")
+    ck(
+        "§28.2's 'small context' is a number, not a mood: at depth 2 the block "
+        "carries c and b but NOT the third hop a, which a depth-3 ask does get — "
+        "and the depth is printed per line, so a truncated list cannot read as a "
+        "complete one",
+        "chain.py::c" in depth2
+        and "chain.py::b" in depth2
+        and "chain.py::a" not in depth2
+        and "chain.py::a" in depth3
+        and depth2.count("d1 ") == 1
+        and depth2.count("d2 ") == 1,
+        f"d2={depth2!r}\nd3={depth3!r}",
+    )
 
     # --- the budget
     hub = _write_repo({**_HUB, **_SPOKES}, "hub")
-    wide = graph.scope_hint(hub, "shared() blew up", "v = shared(1)\n",
-                      max_chars=440)
-    ck("a hub with 30 callers and a 440-char budget says so: it trims the list AND "
-       "prints how many it left out, because a silently short answer reads as "
-       "'those are all the callers'",
-       len(wide) <= 460 and "not shown (context budget)" in wide
-       and 0 < wide.count("      d1 ") < SCOPE_HITS
-       and "      d1 s00.py" in wide, repr(wide))
-    tight = graph.scope_hint(hub, "shared() blew up", "v = shared(1)\n",
-                       max_chars=len(SCOPE_HEADER) + 12)
-    ck("a budget too small for the first symbol's own header yields nothing at "
-       "all, rather than a header with no answer under it",
-       tight == "", repr(tight))
+    wide = graph.scope_hint(hub, "shared() blew up", "v = shared(1)\n", max_chars=440)
+    ck(
+        "a hub with 30 callers and a 440-char budget says so: it trims the list AND "
+        "prints how many it left out, because a silently short answer reads as "
+        "'those are all the callers'",
+        len(wide) <= 460
+        and "not shown (context budget)" in wide
+        and 0 < wide.count("      d1 ") < SCOPE_HITS
+        and "      d1 s00.py" in wide,
+        repr(wide),
+    )
+    tight = graph.scope_hint(
+        hub, "shared() blew up", "v = shared(1)\n", max_chars=len(SCOPE_HEADER) + 12
+    )
+    ck(
+        "a budget too small for the first symbol's own header yields nothing at "
+        "all, rather than a header with no answer under it",
+        tight == "",
+        repr(tight),
+    )
 
     # --- the cache, which is the injection's cost AND its risk
     live = _write_repo(_SHOP, "fresh")
     base = graph.scope_hint(live, "gross() is wrong", "g = gross(120)\n")
-    ck("first contact builds the graph, and the block heads the symbol with its "
-       "own file and line before listing who reaches it",
-       "gross [function] shop/pricing.py:9" in base
-       and "shop/cart.py::Cart.total" in base, repr(base))
+    ck(
+        "first contact builds the graph, and the block heads the symbol with its "
+        "own file and line before listing who reaches it",
+        "gross [function] shop/pricing.py:9" in base
+        and "shop/cart.py::Cart.total" in base,
+        repr(base),
+    )
     (live / "shop/fmt.py").write_text(
         '"""Money."""\nfrom pricing import gross\n\n\n'
-        'def coins(cents):\n    return gross(cents)\n', encoding="utf-8")
+        "def coins(cents):\n    return gross(cents)\n",
+        encoding="utf-8",
+    )
     after = graph.scope_hint(live, "gross() is wrong", "g = gross(120)\n")
-    ck("FRESHNESS, which is what makes a cached graph dangerous: add a caller and "
-       "the next block names it — the reuse path runs `merge()`, not a re-serve "
-       "of a stale index",
-       "shop/fmt.py::coins" in after and "shop/fmt.py::coins" not in base,
-       f"before={base!r}\nafter={after!r}")
+    ck(
+        "FRESHNESS, which is what makes a cached graph dangerous: add a caller and "
+        "the next block names it — the reuse path runs `merge()`, not a re-serve "
+        "of a stale index",
+        "shop/fmt.py::coins" in after and "shop/fmt.py::coins" not in base,
+        f"before={base!r}\nafter={after!r}",
+    )
     (live / "shop/fmt.py").write_text(
         '"""Money."""\n\n\ndef coins(cents):\n    return f"${cents}"\n',
-        encoding="utf-8")
-    ck("...and it un-names one too: delete the import and the same block loses "
-       "that caller, so a merge that only ADDS cannot pass this",
-       "shop/fmt.py::coins" not in graph.scope_hint(
-           live, "gross() is wrong", "g = gross(120)\n"), "")
-    ck(f"the per-process cache is bounded ({SCOPE_CACHE} repos): a 9th root "
-       f"evicts the least-recently-used graph instead of holding one per task "
-       f"forever in a long-running run",
-       _eviction_check() <= SCOPE_CACHE, f"{len(graph._scope_cache)} roots held")
+        encoding="utf-8",
+    )
+    ck(
+        "...and it un-names one too: delete the import and the same block loses "
+        "that caller, so a merge that only ADDS cannot pass this",
+        "shop/fmt.py::coins"
+        not in graph.scope_hint(live, "gross() is wrong", "g = gross(120)\n"),
+        "",
+    )
+    ck(
+        f"the per-process cache is bounded ({SCOPE_CACHE} repos): a 9th root "
+        f"evicts the least-recently-used graph instead of holding one per task "
+        f"forever in a long-running run",
+        _eviction_check() <= SCOPE_CACHE,
+        f"{len(graph._scope_cache)} roots held",
+    )
     timing.update(_shared_index_cost())
     return timing
 
@@ -227,8 +303,9 @@ def _shared_index_cost() -> dict[str, float]:
     size of what that count saves.
     """
     import time
+
     pkg = ROOT / "flash"
-    graph.scope_graph(pkg)                  # warm the graph: only the index varies
+    graph.scope_graph(pkg)  # warm the graph: only the index varies
     idx = lsp.SymbolIndex.build(pkg)
     # `python_files` and not `symbol_source`, which is the name this probe first
     # tried: symbol_source's own source is 1631 chars, `symbol_hint`'s budget check
@@ -247,10 +324,12 @@ def _shared_index_cost() -> dict[str, float]:
     src2 = lsp.symbol_hint(pkg, err, code)
     dep2 = graph.scope_hint(pkg, err, code)
     twice = (time.perf_counter() - t) * 1000
-    ck("sharing the index changes no answer: the hint pair built on a passed-in "
-       "ranking is byte-identical to the pair that builds its own",
-       (src1, dep1) == (src2, dep2) and bool(src1) and bool(dep1),
-       f"{len(src1)}+{len(dep1)} chars")
+    ck(
+        "sharing the index changes no answer: the hint pair built on a passed-in "
+        "ranking is byte-identical to the pair that builds its own",
+        (src1, dep1) == (src2, dep2) and bool(src1) and bool(dep1),
+        f"{len(src1)}+{len(dep1)} chars",
+    )
     return {"shared_ms": shared, "twice_ms": twice}
 
 
@@ -262,6 +341,7 @@ def _eviction_check() -> int:
 
 
 # ---------------------------------------------------------------- the wiring
+
 
 def _retry_prompt(task: dict, err: str, code: str) -> tuple[str, list]:
     """Drive `loop.solve` for real and hand back what the model was SHOWN.
@@ -282,8 +362,7 @@ def _retry_prompt(task: dict, err: str, code: str) -> tuple[str, list]:
     loop._generate = fake_generate
     loop.diagnose = lambda c, t: (False, err)
     try:
-        loop.solve(None, None, task, max_attempts=2, max_tokens=64,
-                   debug=False)
+        loop.solve(None, None, task, max_attempts=2, max_tokens=64, debug=False)
     finally:
         loop._generate, loop.diagnose = real
     retry = seen[1][-1]["content"] if len(seen) > 1 else ""
@@ -291,37 +370,60 @@ def _retry_prompt(task: dict, err: str, code: str) -> tuple[str, list]:
 
 
 def _wiring_checks() -> None:
-    task = loop.enrich_task({"id": "gp1",
-                             "prompt": "make subtotal_cents honour the qty",
-                             "test": "assert False", "context": "minishop"},
-                            CTX_ROOT)
+    task = loop.enrich_task(
+        {
+            "id": "gp1",
+            "prompt": "make subtotal_cents honour the qty",
+            "test": "assert False",
+            "context": "minishop",
+        },
+        CTX_ROOT,
+    )
     retry, seen = _retry_prompt(task, SUB_AT_ISSUE, SUB_CODE)
-    ck("R-1.3b's clause, at the seam that names it: the retry message "
-       "`loop.solve` sends carries the dependents block. A hint computed for the "
-       "record and not appended to `err` passes every unit check and tells the "
-       "model nothing — that is the bug corrected in R-1.1, one line from here",
-       len(seen) == 2 and SCOPE_HEADER in retry, repr(retry)[-400:])
-    ck("...and it arrives verbatim and exactly once, not once per retry path",
-       retry.count(SCOPE_HEADER) == 1
-       and retry.count("cart.py::Cart.total_cents") >= 1, "")
-    ck("the block `solve` injects IS the block `scope_hint` returns for the same "
-       "failure — the loop adds nothing to it and truncates none of it",
-       bool(hint := graph.scope_hint(task["_ctx_dir"], SUB_AT_ISSUE, SUB_CODE))
-       and retry.count(hint) == 1, f"{len(hint)} chars of hint")
-    ck("both perception blocks coexist: the LSP's source hint ('Symbols in play') "
-       "and the graph's dependents hint, each once — one answers 'what is this', "
-       "the other 'what depends on it'",
-       "Symbols in play" in retry and SCOPE_HEADER in retry, "")
+    ck(
+        "R-1.3b's clause, at the seam that names it: the retry message "
+        "`loop.solve` sends carries the dependents block. A hint computed for the "
+        "record and not appended to `err` passes every unit check and tells the "
+        "model nothing — that is the bug corrected in R-1.1, one line from here",
+        len(seen) == 2 and SCOPE_HEADER in retry,
+        repr(retry)[-400:],
+    )
+    ck(
+        "...and it arrives verbatim and exactly once, not once per retry path",
+        retry.count(SCOPE_HEADER) == 1
+        and retry.count("cart.py::Cart.total_cents") >= 1,
+        "",
+    )
+    ck(
+        "the block `solve` injects IS the block `scope_hint` returns for the same "
+        "failure — the loop adds nothing to it and truncates none of it",
+        bool(hint := graph.scope_hint(task["_ctx_dir"], SUB_AT_ISSUE, SUB_CODE))
+        and retry.count(hint) == 1,
+        f"{len(hint)} chars of hint",
+    )
+    ck(
+        "both perception blocks coexist: the LSP's source hint ('Symbols in play') "
+        "and the graph's dependents hint, each once — one answers 'what is this', "
+        "the other 'what depends on it'",
+        "Symbols in play" in retry and SCOPE_HEADER in retry,
+        "",
+    )
     idx = lsp.SymbolIndex.build(FIXTURES)
-    quoted = set(re.findall(r"^# \S+:\d+  (\S+) \[",
-                            lsp.symbol_hint(FIXTURES, SUB_AT_ISSUE, SUB_CODE,
-                                            index=idx), re.M))
-    heads = set(re.findall(r"^  (\S+) \[", retry.partition(SCOPE_HEADER)[2],
-                            re.M))
-    ck("one ranking, two readers: every symbol the dependents block heads is one "
-       "the source block quoted in the same retry — the loop cannot be shown two "
-       "different notions of 'what is at issue' about one failure",
-       bool(heads) and heads <= quoted, f"heads={sorted(heads)} quoted={sorted(quoted)}")
+    quoted = set(
+        re.findall(
+            r"^# \S+:\d+  (\S+) \[",
+            lsp.symbol_hint(FIXTURES, SUB_AT_ISSUE, SUB_CODE, index=idx),
+            re.M,
+        )
+    )
+    heads = set(re.findall(r"^  (\S+) \[", retry.partition(SCOPE_HEADER)[2], re.M))
+    ck(
+        "one ranking, two readers: every symbol the dependents block heads is one "
+        "the source block quoted in the same retry — the loop cannot be shown two "
+        "different notions of 'what is at issue' about one failure",
+        bool(heads) and heads <= quoted,
+        f"heads={sorted(heads)} quoted={sorted(quoted)}",
+    )
     builds: list[str] = []
     real_build = lsp.SymbolIndex.build
 
@@ -337,21 +439,33 @@ def _wiring_checks() -> None:
         _retry_prompt(task, SUB_AT_ISSUE, SUB_CODE)
     finally:
         lsp.SymbolIndex.build = real_build
-    ck(f"one parse per retry, two readers: two failing attempts built the symbol "
-       f"index {len(builds)} time(s) — the graph hint rides the source hint's "
-       f"parse instead of repeating it",
-       len(builds) == 2, str(builds))
-    ck("a first attempt that passes pays nothing extra: the opening prompt — the "
-       "task and the repo skeleton — carries neither hint",
-       seen and "Symbols in play" not in seen[0][-1]["content"]
-       and SCOPE_HEADER not in seen[0][-1]["content"], "")
+    ck(
+        f"one parse per retry, two readers: two failing attempts built the symbol "
+        f"index {len(builds)} time(s) — the graph hint rides the source hint's "
+        f"parse instead of repeating it",
+        len(builds) == 2,
+        str(builds),
+    )
+    ck(
+        "a first attempt that passes pays nothing extra: the opening prompt — the "
+        "task and the repo skeleton — carries neither hint",
+        seen
+        and "Symbols in play" not in seen[0][-1]["content"]
+        and SCOPE_HEADER not in seen[0][-1]["content"],
+        "",
+    )
     bare = {"id": "gp2", "prompt": "write a fizzbuzz", "test": "assert False"}
     retry2, seen2 = _retry_prompt(bare, SUB_AT_ISSUE, SUB_CODE)
-    ck("control: a task with no repo context gains no block — the injection is "
-       "silent by the same contract `_symbol_hint` is silent, and the bare error "
-       "still reaches the model exactly once",
-       len(seen2) == 2 and SCOPE_HEADER not in retry2
-       and retry2.count(SUB_AT_ISSUE) == 1, repr(retry2)[-300:])
+    ck(
+        "control: a task with no repo context gains no block — the injection is "
+        "silent by the same contract `_symbol_hint` is silent, and the bare error "
+        "still reaches the model exactly once",
+        len(seen2) == 2
+        and SCOPE_HEADER not in retry2
+        and retry2.count(SUB_AT_ISSUE) == 1,
+        repr(retry2)[-300:],
+    )
+
     def dead(root, *a, **kw):
         raise RuntimeError("no graph on this box")
 
@@ -364,15 +478,22 @@ def _wiring_checks() -> None:
         retry3, seen3 = _retry_prompt(task, SUB_AT_ISSUE, SUB_CODE)
     finally:
         graph.scope_hint = saved
-    ck("and the seam is clean on the way out: with the graph restored, a later "
-       "retry still carries the block",
-       SCOPE_HEADER in _retry_prompt(task, SUB_AT_ISSUE, SUB_CODE)[0], "")
-    ck("a graph that raises costs the run nothing but the block: the retry still "
-       "goes out, with the bare error and the source hint intact "
-       "(§33.9 invariant 7)",
-       len(seen3) == 2 and SCOPE_HEADER not in retry3
-       and "Symbols in play" in retry3 and SUB_AT_ISSUE in retry3,
-       repr(retry3)[-300:])
+    ck(
+        "and the seam is clean on the way out: with the graph restored, a later "
+        "retry still carries the block",
+        SCOPE_HEADER in _retry_prompt(task, SUB_AT_ISSUE, SUB_CODE)[0],
+        "",
+    )
+    ck(
+        "a graph that raises costs the run nothing but the block: the retry still "
+        "goes out, with the bare error and the source hint intact "
+        "(§33.9 invariant 7)",
+        len(seen3) == 2
+        and SCOPE_HEADER not in retry3
+        and "Symbols in play" in retry3
+        and SUB_AT_ISSUE in retry3,
+        repr(retry3)[-300:],
+    )
 
 
 def _switch_checks() -> None:
@@ -386,34 +507,46 @@ def _switch_checks() -> None:
     throws away would make §10.5's latency gate measure the switch rather than the
     hint, so the OFF arms are counted, not assumed.
     """
-    task = loop.enrich_task({"id": "gp3",
-                             "prompt": "make subtotal_cents honour the qty",
-                             "test": "assert False", "context": "minishop"},
-                            CTX_ROOT)
+    task = loop.enrich_task(
+        {
+            "id": "gp3",
+            "prompt": "make subtotal_cents honour the qty",
+            "test": "assert False",
+            "context": "minishop",
+        },
+        CTX_ROOT,
+    )
     real_hints = loop.HINTS
     try:
         loop.HINTS = ("graph",)
         src_off, _ = _retry_prompt(task, SUB_AT_ISSUE, SUB_CODE)
-        ck("--no-source-hint hides exactly its own block: the retry carries the "
-           "dependents block and NOT a trace of the source header — an A/B whose "
-           "OFF arm leaks its hint measures nothing and looks like a result",
-           SCOPE_HEADER in src_off and "Symbols in play" not in src_off,
-           repr(src_off)[-260:])
+        ck(
+            "--no-source-hint hides exactly its own block: the retry carries the "
+            "dependents block and NOT a trace of the source header — an A/B whose "
+            "OFF arm leaks its hint measures nothing and looks like a result",
+            SCOPE_HEADER in src_off and "Symbols in play" not in src_off,
+            repr(src_off)[-260:],
+        )
         loop.HINTS = ("source",)
         dep_off, _ = _retry_prompt(task, SUB_AT_ISSUE, SUB_CODE)
-        ck("--no-graph-hint is the mirror image, so the two flags cannot both be "
-           "pointing at the same block: the source block arrives, the dependents "
-           "header does not",
-           "Symbols in play" in dep_off and SCOPE_HEADER not in dep_off,
-           repr(dep_off)[-260:])
+        ck(
+            "--no-graph-hint is the mirror image, so the two flags cannot both be "
+            "pointing at the same block: the source block arrives, the dependents "
+            "header does not",
+            "Symbols in play" in dep_off and SCOPE_HEADER not in dep_off,
+            repr(dep_off)[-260:],
+        )
         loop.HINTS = ()
         both_off, _ = _retry_prompt(task, SUB_AT_ISSUE, SUB_CODE)
-        ck("both off: the retry is the verdict and nothing else — the control the "
-           "A/B is scored against exists, carries neither header, and repeats the "
-           "error exactly once",
-           "Symbols in play" not in both_off and SCOPE_HEADER not in both_off
-           and both_off.count(SUB_AT_ISSUE.splitlines()[-1]) == 1,
-           f"{len(both_off)} chars, neither header")
+        ck(
+            "both off: the retry is the verdict and nothing else — the control the "
+            "A/B is scored against exists, carries neither header, and repeats the "
+            "error exactly once",
+            "Symbols in play" not in both_off
+            and SCOPE_HEADER not in both_off
+            and both_off.count(SUB_AT_ISSUE.splitlines()[-1]) == 1,
+            f"{len(both_off)} chars, neither header",
+        )
         builds: list[str] = []
         real_build = lsp.SymbolIndex.build
 
@@ -426,25 +559,34 @@ def _switch_checks() -> None:
             _retry_prompt(task, SUB_AT_ISSUE, SUB_CODE)
         finally:
             lsp.SymbolIndex.build = real_build
-        ck("...and an OFF arm pays no AST parse: with both hints off, two failing "
-           "attempts built the symbol index zero times, so a latency delta between "
-           "arms is the hint's and not the switch's",
-           not builds, f"{len(builds)} build(s) {builds}")
+        ck(
+            "...and an OFF arm pays no AST parse: with both hints off, two failing "
+            "attempts built the symbol index zero times, so a latency delta between "
+            "arms is the hint's and not the switch's",
+            not builds,
+            f"{len(builds)} build(s) {builds}",
+        )
     finally:
         loop.HINTS = real_hints
 
     from flash import cli
+
     args = cli.build_parser().parse_args(
-        ["run-suite", "--tasks", "m2_tasks.jsonl", "--no-source-hint"])
-    ck("the flag reaches the seam it names: `run-suite --no-source-hint` parses, "
-       "and the arm it selects is ('graph',) — not the empty tuple, not both",
-       args.no_source_hint and cli._hint_names(args.no_source_hint,
-                                               args.no_graph_hint) == ("graph",),
-       str(cli._hint_names(args.no_source_hint, args.no_graph_hint)))
-    ck("and the arm is written into the session, so a trace states which arm it is "
-       "rather than relying on the command line someone remembers",
-       "no_source_hint" in cli.SUITE_PARAMS and "no_graph_hint" in cli.SUITE_PARAMS,
-       f"{len(cli.SUITE_PARAMS)} suite params recorded")
+        ["run-suite", "--tasks", "m2_tasks.jsonl", "--no-source-hint"]
+    )
+    ck(
+        "the flag reaches the seam it names: `run-suite --no-source-hint` parses, "
+        "and the arm it selects is ('graph',) — not the empty tuple, not both",
+        args.no_source_hint
+        and cli._hint_names(args.no_source_hint, args.no_graph_hint) == ("graph",),
+        str(cli._hint_names(args.no_source_hint, args.no_graph_hint)),
+    )
+    ck(
+        "and the arm is written into the session, so a trace states which arm it is "
+        "rather than relying on the command line someone remembers",
+        "no_source_hint" in cli.SUITE_PARAMS and "no_graph_hint" in cli.SUITE_PARAMS,
+        f"{len(cli.SUITE_PARAMS)} suite params recorded",
+    )
 
 
 def run_checks() -> dict[str, float]:
@@ -457,7 +599,7 @@ def run_checks() -> dict[str, float]:
 
 # ------------------------------------------------------------- mutation cover
 
-NUM_BUGS = 12       # what --sweep spawns; mutate() fails if `bugs` disagrees
+NUM_BUGS = 12  # what --sweep spawns; mutate() fails if `bugs` disagrees
 
 
 def mutate(verbose: bool = True, one: int | None = None) -> int:
@@ -471,9 +613,10 @@ def mutate(verbose: bool = True, one: int | None = None) -> int:
     the repo's working tree stays honest.
     """
     import flash.loop as _loop
+
     g = graph
     real_blast = g.Graph.blast
-    real_scope = g.scope_hint        # what the dropped-hint mutant computes
+    real_scope = g.scope_hint  # what the dropped-hint mutant computes
 
     def stale(root):
         """The cache is a cache: hand back what it holds, never re-merge."""
@@ -496,16 +639,19 @@ def mutate(verbose: bool = True, one: int | None = None) -> int:
         for n in nodes:
             rad = real_blast(graph.scope_graph(root), n.id, 99)
             lines.append(f"  {n.symbol} ({n.file}:{n.start})")
-            lines += [f"      d{h.depth} {h.node.id} {h.edge.kind} it: "
-                      f"{h.edge.text}  [{h.edge.file}:{h.edge.line} "
-                      f"via {h.edge.via}]" for h in rad.hits]
+            lines += [
+                f"      d{h.depth} {h.node.id} {h.edge.kind} it: "
+                f"{h.edge.text}  [{h.edge.file}:{h.edge.line} "
+                f"via {h.edge.via}]"
+                for h in rad.hits
+            ]
         return "\n".join(lines)
 
     def flat_depth(self, needle, depth=g.DEFAULT_DEPTH):
-        return real_blast(self, needle, 1)     # depth accepted, ignored
+        return real_blast(self, needle, 1)  # depth accepted, ignored
 
     def always_header(root, err="", code="", **kw):
-        return SCOPE_HEADER        # a header over nothing, dressed as an answer
+        return SCOPE_HEADER  # a header over nothing, dressed as an answer
 
     def no_evict(root):
         key = str(Path(root).resolve())
@@ -518,7 +664,7 @@ def mutate(verbose: bool = True, one: int | None = None) -> int:
         if ctx and err:
             try:
                 real_scope(ctx, err, code, index=index)
-            except Exception:                       # the record never sees it either
+            except Exception:  # the record never sees it either
                 pass
         return ""
 
@@ -536,7 +682,7 @@ def mutate(verbose: bool = True, one: int | None = None) -> int:
         i = _loop._repo_index(task)
         src = _loop._symbol_hint(task, err, code, i)
         ranked = f"{err}\n\n{src}" if src else err
-        try:                                        # the seam guards; so must this
+        try:  # the seam guards; so must this
             dep = g.scope_hint(ctx, ranked, code, index=i)
         except Exception:
             dep = ""
@@ -564,37 +710,92 @@ def mutate(verbose: bool = True, one: int | None = None) -> int:
             _loop._repo_index(task)
         return real_perceive(task, err, code, hints=hints)
 
-    bugs: list[tuple[str, object, object, str]] = [        ("serves the cached graph without merging, so a caller added after the "
-         "first retry is invisible", (g, "scope_graph"), stale, "FRESHNESS"),
-        ("binds an at-issue symbol by NAME alone, so it can borrow another file's "
-         "callers", (g, "_one_node"), guess, "the tie-break is the FILE"),
-        ("ignores the character budget", (g, "scope_hint"), uncapped,
-         "too small for the first symbol's own header"),
-        ("accepts `depth` and injects one hop", (g.Graph, "blast"), flat_depth,
-         "'small context' is a number"),
-        ("prints its header even when it has no answer", (g, "scope_hint"),
-         always_header, "gains no block"),
-        ("keeps one graph per repo root forever", (g, "scope_graph"), no_evict,
-         "bounded"),
-        ("computes the block for the record and never appends it — R-1.1's bug, "
-         "put back", (_loop, "_graph_hint"), record_only, "at the seam"),
-        ("parses the repo once per hint instead of once per retry",
-         (_loop, "_repo_index"), no_share, "one parse per retry"),
-        ("feeds the second hint the text the first one quoted, so the two rank "
-         "different symbols for one failure", (_loop, "_perceive"), nested,
-         "one ranking, two readers"),
-        ("has its R-1.1b switch wired to nothing, so every arm shows both blocks "
-         "and the A/B compares an arm against itself",
-         (_loop, "_perceive"), switch_dead, "hides exactly its own block"),
-        ("reads the two arm names backwards, attributing every delta to the wrong "
-         "hint", (_loop, "_perceive"), arms_swapped, "mirror image"),
-        ("makes the OFF arm pay for the AST parse it throws away",
-         (_loop, "_perceive"), off_arm_pays, "OFF arm pays no AST parse"),
+    bugs: list[tuple[str, object, object, str]] = [
+        (
+            "serves the cached graph without merging, so a caller added after the "
+            "first retry is invisible",
+            (g, "scope_graph"),
+            stale,
+            "FRESHNESS",
+        ),
+        (
+            "binds an at-issue symbol by NAME alone, so it can borrow another file's "
+            "callers",
+            (g, "_one_node"),
+            guess,
+            "the tie-break is the FILE",
+        ),
+        (
+            "ignores the character budget",
+            (g, "scope_hint"),
+            uncapped,
+            "too small for the first symbol's own header",
+        ),
+        (
+            "accepts `depth` and injects one hop",
+            (g.Graph, "blast"),
+            flat_depth,
+            "'small context' is a number",
+        ),
+        (
+            "prints its header even when it has no answer",
+            (g, "scope_hint"),
+            always_header,
+            "gains no block",
+        ),
+        (
+            "keeps one graph per repo root forever",
+            (g, "scope_graph"),
+            no_evict,
+            "bounded",
+        ),
+        (
+            "computes the block for the record and never appends it — R-1.1's bug, "
+            "put back",
+            (_loop, "_graph_hint"),
+            record_only,
+            "at the seam",
+        ),
+        (
+            "parses the repo once per hint instead of once per retry",
+            (_loop, "_repo_index"),
+            no_share,
+            "one parse per retry",
+        ),
+        (
+            "feeds the second hint the text the first one quoted, so the two rank "
+            "different symbols for one failure",
+            (_loop, "_perceive"),
+            nested,
+            "one ranking, two readers",
+        ),
+        (
+            "has its R-1.1b switch wired to nothing, so every arm shows both blocks "
+            "and the A/B compares an arm against itself",
+            (_loop, "_perceive"),
+            switch_dead,
+            "hides exactly its own block",
+        ),
+        (
+            "reads the two arm names backwards, attributing every delta to the wrong "
+            "hint",
+            (_loop, "_perceive"),
+            arms_swapped,
+            "mirror image",
+        ),
+        (
+            "makes the OFF arm pay for the AST parse it throws away",
+            (_loop, "_perceive"),
+            off_arm_pays,
+            "OFF arm pays no AST parse",
+        ),
     ]
     escaped = 0
     if len(bugs) != NUM_BUGS:
-        raise SystemExit(f"NUM_BUGS is stale: {len(bugs)} bugs listed, "
-                         f"{NUM_BUGS} promised to --sweep")
+        raise SystemExit(
+            f"NUM_BUGS is stale: {len(bugs)} bugs listed, "
+            f"{NUM_BUGS} promised to --sweep"
+        )
     for i, (label, (holder, attr), bug, catcher) in enumerate(bugs):
         if one is not None and i != one:
             continue
@@ -608,12 +809,19 @@ def mutate(verbose: bool = True, one: int | None = None) -> int:
         hit = any(catcher in f for f in fails)
         escaped += not hit
         if verbose or not hit:
-            print(f"  {'ok  ' if hit else 'MISS'} MUTATION: {label} -> "
-                  f"{len(fails)} check(s) fail"
-                  + ("" if hit else f", none of them the one that catches it: "
-                                    f"{fails[:2]}"))
-    print(f"perceive mutants: {len(bugs) - escaped}/{len(bugs)} caught"
-          + ("" if one is None else f"  [{one}]"))
+            print(
+                f"  {'ok  ' if hit else 'MISS'} MUTATION: {label} -> "
+                f"{len(fails)} check(s) fail"
+                + (
+                    ""
+                    if hit
+                    else f", none of them the one that catches it: {fails[:2]}"
+                )
+            )
+    print(
+        f"perceive mutants: {len(bugs) - escaped}/{len(bugs)} caught"
+        + ("" if one is None else f"  [{one}]")
+    )
     return escaped
 
 
@@ -629,26 +837,34 @@ def sweep() -> int:
     """
     caught = 0
     for i in range(NUM_BUGS):
-        proc = subprocess.run([sys.executable, str(Path(__file__).resolve()),
-                               "--mutant", str(i)],
-                              capture_output=True, text=True, cwd=str(ROOT))
+        proc = subprocess.run(
+            [sys.executable, str(Path(__file__).resolve()), "--mutant", str(i)],
+            capture_output=True,
+            text=True,
+            cwd=str(ROOT),
+        )
         lines = [ln for ln in proc.stdout.splitlines() if "MUTATION:" in ln]
         if len(lines) != 1 or proc.returncode not in (0, 1):
-            print(f"  MISS MUTATION [{i}]: no clean verdict "
-                  f"(rc={proc.returncode})\n{proc.stdout[-400:]}{proc.stderr[-400:]}")
+            print(
+                f"  MISS MUTATION [{i}]: no clean verdict "
+                f"(rc={proc.returncode})\n{proc.stdout[-400:]}{proc.stderr[-400:]}"
+            )
             continue
         print(lines[0].rstrip())
         caught += proc.returncode == 0
     print(f"perceive mutants, fresh process each: {caught}/{NUM_BUGS} caught")
     here = mutate(verbose=False)
-    print(f"perceive mutants, one process:        {NUM_BUGS - here}/{NUM_BUGS} "
-          "caught")
+    print(f"perceive mutants, one process:        {NUM_BUGS - here}/{NUM_BUGS} caught")
     ok = caught == NUM_BUGS and here == 0
-    print(("OK  each mutant is caught by its named check in a fresh process too, "
-           "so no count here is a leftover from the previous bug"
-           if ok else
-           "FAIL  the two sweeps disagree or one escaped — the mutation claim is "
-           "process-order-dependent"))
+    print(
+        (
+            "OK  each mutant is caught by its named check in a fresh process too, "
+            "so no count here is a leftover from the previous bug"
+            if ok
+            else "FAIL  the two sweeps disagree or one escaped — the mutation claim is "
+            "process-order-dependent"
+        )
+    )
     return 0 if ok else 1
 
 
@@ -657,24 +873,34 @@ def _report_checks() -> int:
     timing = run_checks()
     bad = 0
     for name, ok, detail in CHECKS:
-        print(f"  {'OK  ' if ok else 'FAIL'} {name}"
-              + (f"\n       {detail}" if detail and not ok else ""))
+        print(
+            f"  {'OK  ' if ok else 'FAIL'} {name}"
+            + (f"\n       {detail}" if detail and not ok else "")
+        )
         bad += not ok
-    print(f"  ..  cost of the injection on the fixtures repo: "
-          f"{timing['first_ms']:.1f} ms cold (build + query), "
-          f"{timing['second_ms']:.2f} ms once cached (merge + query)")
-    print(f"  ..  one parse per retry, on flash/ (26 files): both hints together "
-          f"{timing['shared_ms']:.0f} ms on a shared index vs "
-          f"{timing['twice_ms']:.0f} ms building it twice")
-    print(f"\nR-1.3b graph-into-context: {len(CHECKS) - bad}/{len(CHECKS)} "
-          f"checks passed")
+    print(
+        f"  ..  cost of the injection on the fixtures repo: "
+        f"{timing['first_ms']:.1f} ms cold (build + query), "
+        f"{timing['second_ms']:.2f} ms once cached (merge + query)"
+    )
+    print(
+        f"  ..  one parse per retry, on flash/ (26 files): both hints together "
+        f"{timing['shared_ms']:.0f} ms on a shared index vs "
+        f"{timing['twice_ms']:.0f} ms building it twice"
+    )
+    print(
+        f"\nR-1.3b graph-into-context: {len(CHECKS) - bad}/{len(CHECKS)} checks passed"
+    )
     return bad
 
 
 def main() -> int:
     if "--mutant" in sys.argv and "--sweep" not in sys.argv:
-        return 1 if mutate(verbose=True,
-                           one=int(sys.argv[sys.argv.index("--mutant") + 1])) else 0
+        return (
+            1
+            if mutate(verbose=True, one=int(sys.argv[sys.argv.index("--mutant") + 1]))
+            else 0
+        )
     bad = _report_checks()
     if "--sweep" in sys.argv:
         # SPEC §6's line for this vector: the checks and both mutation sweeps, in

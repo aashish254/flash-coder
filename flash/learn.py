@@ -6,6 +6,7 @@ logistic regression on route-time-available features (pure numpy — no new
 deps) and evaluates with leave-one-out CV. With few positives this is a
 pipeline proof, not a deployable model; the ledger makes n grow for free.
 """
+
 from __future__ import annotations
 
 import json
@@ -22,12 +23,12 @@ def features(row: dict) -> list[float]:
     p = row.get("prompt", "")
     words = p.split()
     return [
-        np.log1p(len(p)),                              # prompt chars
-        np.log1p(len(words)),                          # prompt words
+        np.log1p(len(p)),  # prompt chars
+        np.log1p(len(words)),  # prompt words
         sum(c.isdigit() for c in p) / max(len(p), 1),  # digit density
         sum(c in ":'{}[]()" for c in p) / max(len(p), 1),  # structure density
-        len(re.findall(r"`[^`]+`", p)),                # inline-code spans
-        float(bool(row.get("ctx"))),                   # repo context attached
+        len(re.findall(r"`[^`]+`", p)),  # inline-code spans
+        float(bool(row.get("ctx"))),  # repo context attached
     ]
 
 
@@ -53,11 +54,9 @@ def emb_cache_path(small_repo: str, pool: str = POOL) -> Path:
 
 def ensure_cache_path(small_repo: str, pool: str = POOL) -> Path:
     path = emb_cache_path(small_repo, pool)
-    if (LEGACY_EMB_CACHE.exists() and not path.exists()
-            and small_repo == LEGACY_REPO):
+    if LEGACY_EMB_CACHE.exists() and not path.exists() and small_repo == LEGACY_REPO:
         LEGACY_EMB_CACHE.rename(path)
     return path
-
 
 
 def trainable(row: dict) -> bool:
@@ -75,26 +74,32 @@ def trainable(row: dict) -> bool:
       big-heavy mw/label-noise window, EVERY m7 prompt scored P>=0.83 and
       the gate big-directed 8/8 tasks the 7B one-shots).
     """
-    return (row.get("tier") not in ("vision", "shed")
-            and not str(row.get("routed", "")).startswith("big"))
+    return row.get("tier") not in ("vision", "shed") and not str(
+        row.get("routed", "")
+    ).startswith("big")
 
-def embed_text(model, tok, text: str, max_len: int = 512, pool: str = "mean") -> np.ndarray:
+
+def embed_text(
+    model, tok, text: str, max_len: int = 512, pool: str = "mean"
+) -> np.ndarray:
     """Single-prompt embedding: pooled last hidden state ('mean' or 'last' token)."""
     from flash import backend
+
     backend.require("mlx.core")
     import mlx.core as mx
+
     ids = mx.array(tok.encode(text)[:max_len], dtype=mx.int32)[None]
     h = model.model(ids)[0]
     v = mx.mean(h, axis=0) if pool == "mean" else h[-1]
     return np.array(v.astype(mx.float32))
 
 
-
-
 def load_cache(path: Path | None = None) -> dict:
     if path is None:
-        raise TypeError("load_cache needs the embedding cache for ONE model — "
-                        "pass learn.emb_cache_path(repo)")
+        raise TypeError(
+            "load_cache needs the embedding cache for ONE model — "
+            "pass learn.emb_cache_path(repo)"
+        )
     if Path(path).exists():
         z = np.load(path)
         return {k: z[k] for k in z.files}
@@ -116,9 +121,15 @@ def save_cache(cache: dict, path: Path) -> None:
     os.replace(tmp, path)
 
 
-def embed_backfill(prompts: list[str], embed_fn, cache_path: Path,
-                   chunk: int = 8, budget_s: float | None = None,
-                   clock=time.monotonic, on_progress=None) -> tuple[dict, list[str]]:
+def embed_backfill(
+    prompts: list[str],
+    embed_fn,
+    cache_path: Path,
+    chunk: int = 8,
+    budget_s: float | None = None,
+    clock=time.monotonic,
+    on_progress=None,
+) -> tuple[dict, list[str]]:
     """Embed the missing prompts in CHUNKS, flushing the cache after each one.
 
     §34.3's acceptance test is 'resume verified by killing a run mid-flight':
@@ -134,24 +145,26 @@ def embed_backfill(prompts: list[str], embed_fn, cache_path: Path,
     missing = [p for p in dict.fromkeys(prompts) if p not in cache]
     t0 = clock()
     for i in range(0, len(missing), chunk):
-        for p in missing[i:i + chunk]:
+        for p in missing[i : i + chunk]:
             cache[p] = embed_fn(p)
         save_cache(cache, cache_path)
         if on_progress:
             on_progress(min(i + chunk, len(missing)), len(missing))
         if budget_s is not None and clock() - t0 >= budget_s:
-            return cache, missing[i + chunk:]
+            return cache, missing[i + chunk :]
     return cache, []
 
 
-def embed_prompts(rows: list[dict], small_repo: str, max_len: int = 512,
-                  budget_s: float | None = None):
+def embed_prompts(
+    rows: list[dict], small_repo: str, max_len: int = 512, budget_s: float | None = None
+):
     """Pooled last-hidden-state embeddings from the small tier, cached by prompt.
 
     Pre-prompt-telemetry ledger rows get their prompt backfilled from
     benchmarks/tasks/*.jsonl by task_id. Returns (X, kept_rows).
     """
     from flash import backend
+
     backend.require("mlx.core", "mlx_lm")
     from mlx_lm import load
     import mlx.core as mx
@@ -176,18 +189,21 @@ def embed_prompts(rows: list[dict], small_repo: str, max_len: int = 512,
     already = load_cache(cache_path)
     need = [p for p in dict.fromkeys(prompts) if p not in already]
     if need:
-        model, tok = load(small_repo)         # load once, reuse for every prompt
+        model, tok = load(small_repo)  # load once, reuse for every prompt
 
         def embed_fn(p):
             return embed_text(model, tok, p, max_len, pool=POOL)
 
-        cache, remaining = embed_backfill(prompts, embed_fn, cache_path=cache_path,
-                                          budget_s=budget_s)
+        cache, remaining = embed_backfill(
+            prompts, embed_fn, cache_path=cache_path, budget_s=budget_s
+        )
         del model, tok
         mx.clear_cache()
         if remaining:
-            raise RuntimeError(f"embedding budget spent: {len(remaining)} prompt(s) "
-                               f"still unembedded — rerun to resume")
+            raise RuntimeError(
+                f"embedding budget spent: {len(remaining)} prompt(s) "
+                f"still unembedded — rerun to resume"
+            )
     return np.stack([load_cache(cache_path)[p] for p in prompts]), kept
 
 
@@ -198,11 +214,12 @@ def pca(X: np.ndarray, k: int) -> np.ndarray:
     return Xc @ vt[:k].T
 
 
-def fit_matrix(X: np.ndarray, y: np.ndarray, l2: float = 1.0,
-               steps: int = 3000, lr: float = 0.1):
+def fit_matrix(
+    X: np.ndarray, y: np.ndarray, l2: float = 1.0, steps: int = 3000, lr: float = 0.1
+):
     mu, sd = X.mean(0), X.std(0) + 1e-9
     Z = (X - mu) / sd
-    w = np.zeros(Z.shape[1] + 1)                       # + bias
+    w = np.zeros(Z.shape[1] + 1)  # + bias
     Zw = np.hstack([Z, np.ones((len(Z), 1))])
     for _ in range(steps):
         p = 1 / (1 + np.exp(-Zw @ w))
@@ -223,26 +240,33 @@ def loo_report(X: np.ndarray, rows: list[dict], title: str) -> str:
     for i in range(len(rows)):
         tr = [j for j in range(len(rows)) if j != i]
         if len(set(y[tr])) < 2:
-            continue                                   # need both classes
+            continue  # need both classes
         w, mu, sd = fit_matrix(X[tr], y[tr])
         scores.append((rows[i]["task_id"], predict_vec(w, mu, sd, X[i]), bool(y[i])))
     scores.sort(key=lambda s: -s[1])
     n_pos = sum(s[2] for s in scores)
-    lines = [f"[{title}] leave-one-out over {len(scores)} runs ({n_pos} positives):",
-             f"{'task':<22} {'P(need-big)':<12} truth"]
+    lines = [
+        f"[{title}] leave-one-out over {len(scores)} runs ({n_pos} positives):",
+        f"{'task':<22} {'P(need-big)':<12} truth",
+    ]
     for tid, p, truth in scores[:8]:
         lines.append(f"{tid:<22} {p:<12.3f} {'ESC/FAIL' if truth else ''}")
     k = min(3, len(scores))
-    lines.append(f"precision@{k} = {sum(s[2] for s in scores[:k])}/{k}   "
-                 f"precision@{n_pos} = {sum(s[2] for s in scores[:n_pos])}/{n_pos}")
+    lines.append(
+        f"precision@{k} = {sum(s[2] for s in scores[:k])}/{k}   "
+        f"precision@{n_pos} = {sum(s[2] for s in scores[:n_pos])}/{n_pos}"
+    )
     return "\n".join(lines)
 
 
-ROUTER_FILE = Path(__file__).resolve().parent.parent / "benchmarks" / "results" / "router.npz"
+ROUTER_FILE = (
+    Path(__file__).resolve().parent.parent / "benchmarks" / "results" / "router.npz"
+)
 
 
-def fit_router(rows: list[dict], X: np.ndarray, k: int = 8,
-               small_repo: str = "", pool: str = POOL) -> dict:
+def fit_router(
+    rows: list[dict], X: np.ndarray, k: int = 8, small_repo: str = "", pool: str = POOL
+) -> dict:
     """Full fit on all rows: PCA(k) + logistic regression. Returns the bundle.
 
     The bundle records which model's hidden states it was fit on and how they
@@ -256,8 +280,15 @@ def fit_router(rows: list[dict], X: np.ndarray, k: int = 8,
     _, _, vt = np.linalg.svd(X - xmu, full_matrices=False)
     Xp = (X - xmu) @ vt[:k].T
     w, mu, sd = fit_matrix(Xp, y)
-    return {"w": w, "mu": mu, "sd": sd, "vt": vt[:k], "xmu": xmu,
-            "small_repo": np.array(small_repo), "pool": np.array(pool)}
+    return {
+        "w": w,
+        "mu": mu,
+        "sd": sd,
+        "vt": vt[:k],
+        "xmu": xmu,
+        "small_repo": np.array(small_repo),
+        "pool": np.array(pool),
+    }
 
 
 def bundle_labels(bundle: dict) -> tuple[str, str]:
@@ -266,9 +297,11 @@ def bundle_labels(bundle: dict) -> tuple[str, str]:
     Bundles fit before the labels existed read back as 'unlabeled'; the caller
     still gets the dimension check, which is the part that cannot be guessed.
     """
+
     def one(key: str, fall: str) -> str:
         v = bundle.get(key)
         return fall if v is None else (str(v) or fall)
+
     return one("small_repo", "unlabeled"), one("pool", "unlabeled")
 
 
@@ -284,7 +317,6 @@ def probe_pool(bundle: dict) -> str:
     return POOL if pool == "unlabeled" else pool
 
 
-
 def route_score(bundle: dict, emb: np.ndarray) -> tuple[float | None, str]:
     """P(needs-big) for one embedding, or (None, why-not) for another model's.
 
@@ -295,8 +327,9 @@ def route_score(bundle: dict, emb: np.ndarray) -> tuple[float | None, str]:
     d = int(np.asarray(bundle["xmu"]).shape[0])
     if len(emb) != d:
         repo, pool = bundle_labels(bundle)
-        return None, (f"router fit for {repo} at dim {d} cannot score a "
-                      f"{len(emb)}-dim embedding")
+        return None, (
+            f"router fit for {repo} at dim {d} cannot score a {len(emb)}-dim embedding"
+        )
     return score(bundle, emb), ""
 
 
@@ -323,7 +356,6 @@ def score(bundle: dict, emb: np.ndarray) -> float:
     return float(1 / (1 + np.exp(-(np.r_[z, 1.0] @ bundle["w"]))))
 
 
-
 def autofit_if_stale(small_repo: str, min_new: int = 10) -> str | None:
     """Refit the router when the ledger has >= min_new rows since the last fit.
 
@@ -331,11 +363,14 @@ def autofit_if_stale(small_repo: str, min_new: int = 10) -> str | None:
     fresh outcomes with no manual step. Returns a status line, or None if fresh.
     """
     from flash import ledger
+
     # Staleness counts all router-eligible rows (any activity), but the fit uses
     # only trainable() rows — honest labels, see trainable() docstring.
     rows = [r for r in ledger.load() if r.get("tier") not in ("vision", "shed")]
     bundle = load_router()
-    trained_n = int(bundle["n_rows"]) if bundle is not None and "n_rows" in bundle else 0
+    trained_n = (
+        int(bundle["n_rows"]) if bundle is not None and "n_rows" in bundle else 0
+    )
     stale = len(rows) - trained_n >= min_new
     # A tier switch is staleness of a different kind: the bundle is fresh in rows
     # and useless anyway, because its vectors came from another model's hidden
@@ -347,8 +382,12 @@ def autofit_if_stale(small_repo: str, min_new: int = 10) -> str | None:
         return None
     fit_rows = [r for r in rows if trainable(r)]
     X, kept = embed_prompts(fit_rows, small_repo)
-    save_router({**fit_router(kept, X, small_repo=small_repo),
-                 "n_rows": np.array(len(rows))})
-    why = (f"+{len(rows) - trained_n} new ledger rows" if stale else
-           f"tier switch: {fit_repo} -> {small_repo}")
-    return (f"[autofit] router refit on {len(kept)} labeled outcomes ({why})")
+    save_router(
+        {**fit_router(kept, X, small_repo=small_repo), "n_rows": np.array(len(rows))}
+    )
+    why = (
+        f"+{len(rows) - trained_n} new ledger rows"
+        if stale
+        else f"tier switch: {fit_repo} -> {small_repo}"
+    )
+    return f"[autofit] router refit on {len(kept)} labeled outcomes ({why})"

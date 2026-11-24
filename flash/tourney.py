@@ -28,6 +28,7 @@ Three decisions worth their evidence:
 Offline: `python -m flash.tourney --selftest` drives the whole thing with a
 scripted generator, so the wiring is proven without charging a model.
 """
+
 from __future__ import annotations
 
 import time
@@ -38,18 +39,21 @@ from flash import checkpoint, trace
 from flash.harness import Score, extract_code, score
 from flash.perceive import format_errors, static_check
 
-TEMP = 0.7                      # candidates 1..k-1; candidate 0 stays greedy
+TEMP = 0.7  # candidates 1..k-1; candidate 0 stays greedy
 
 
 def describe(t: dict) -> str:
     """One line for a tournament record — the same text whether it came from a
     live Result or from a resumed run's trace, so a report cannot describe the
     two differently."""
-    verdicts = ",".join("P" if s["ok"] else f"{s['passed']}/{s['total']}"
-                        for s in t["scores"])
-    return (f"k={t['k']}/{t['requested_k']} width={t['width']} gens={t['gens']} "
-            f"[{verdicts}] adopted={t['adopted']}"
-            + (f" ({t['clamp']})" if t.get("clamp") else ""))
+    verdicts = ",".join(
+        "P" if s["ok"] else f"{s['passed']}/{s['total']}" for s in t["scores"]
+    )
+    return (
+        f"k={t['k']}/{t['requested_k']} width={t['width']} gens={t['gens']} "
+        f"[{verdicts}] adopted={t['adopted']}"
+        + (f" ({t['clamp']})" if t.get("clamp") else "")
+    )
 
 
 @dataclass
@@ -67,12 +71,12 @@ class Candidate:
 class Result:
     task_id: str
     solved: bool
-    adopted: int                        # index into candidates; -1 when none passed
+    adopted: int  # index into candidates; -1 when none passed
     candidates: list[Candidate] = field(default_factory=list)
     requested_k: int = 1
-    k: int = 1                          # width actually used
-    width: int = 1                      # the governor's cap
-    why: str = ""                       # why k < requested (or why the arm declined)
+    k: int = 1  # width actually used
+    width: int = 1  # the governor's cap
+    why: str = ""  # why k < requested (or why the arm declined)
     seconds: float = 0.0
 
     @property
@@ -93,8 +97,9 @@ class Result:
         and the ranking is only ever used for this choice."""
         if self.solved:
             return self.adopted
-        return max(range(len(self.candidates)),
-                   key=lambda i: (self.candidates[i].passed, -i))
+        return max(
+            range(len(self.candidates)), key=lambda i: (self.candidates[i].passed, -i)
+        )
 
     def summary(self) -> str:
         return describe(self.fields())
@@ -102,13 +107,25 @@ class Result:
     def fields(self) -> dict:
         """The ledger shape of this tournament. Owned here so the loop's record
         and the CLI's report cannot mean different things by `adopted`."""
-        return {"k": self.k, "requested_k": self.requested_k, "width": self.width,
-                "adopted": self.adopted, "gens": self.n_generations,
-                "surfaced": self.surfaced,
-                "scores": [{"passed": c.passed, "total": c.total, "ok": c.ok,
-                            "gen_ms": c.gen_ms, "ms": c.ms}
-                           for c in self.candidates],
-                **({"clamp": self.why} if self.why else {})}
+        return {
+            "k": self.k,
+            "requested_k": self.requested_k,
+            "width": self.width,
+            "adopted": self.adopted,
+            "gens": self.n_generations,
+            "surfaced": self.surfaced,
+            "scores": [
+                {
+                    "passed": c.passed,
+                    "total": c.total,
+                    "ok": c.ok,
+                    "gen_ms": c.gen_ms,
+                    "ms": c.ms,
+                }
+                for c in self.candidates
+            ],
+            **({"clamp": self.why} if self.why else {}),
+        }
 
 
 def eligible(tournament: int, width: int, task: dict) -> tuple[bool, str]:
@@ -158,9 +175,16 @@ def score_candidate(code: str, test: str, timeout: int = 15) -> Score:
     return Score(s.ok, s.passed, s.total, s.err)
 
 
-def run(model, tokenizer, task: dict, requested_k: int = 3,
-        max_tokens: int = 1024, width: int = 4, temp: float = TEMP,
-        stage: str = "small") -> Result:
+def run(
+    model,
+    tokenizer,
+    task: dict,
+    requested_k: int = 3,
+    max_tokens: int = 1024,
+    width: int = 4,
+    temp: float = TEMP,
+    stage: str = "small",
+) -> Result:
     """Fire up to `k` candidates at one task and let the oracle pick.
 
     Stops at the first candidate that passes — a task the greedy answer already
@@ -171,12 +195,19 @@ def run(model, tokenizer, task: dict, requested_k: int = 3,
     the candidate that was in flight with every already-scored candidate in
     hand — a kill after candidate 1 does not buy candidate 0's generation again.
     """
-    from flash import loop as loop_mod    # late: loop imports us in its policy
+    from flash import loop as loop_mod  # late: loop imports us in its policy
 
     k, why = plan(requested_k, width, multi=bool(task.get("multi")))
     t0 = time.perf_counter()
-    res = Result(task_id=task["id"], solved=False, adopted=-1,
-                 requested_k=requested_k, k=k, width=width, why=why)
+    res = Result(
+        task_id=task["id"],
+        solved=False,
+        adopted=-1,
+        requested_k=requested_k,
+        k=k,
+        width=width,
+        why=why,
+    )
     messages = [{"role": "user", "content": task["prompt"]}]
     start = 0
     f = checkpoint.owns(task["id"], "tourney", stage)
@@ -186,47 +217,86 @@ def run(model, tokenizer, task: dict, requested_k: int = 3,
     for i in range(start, k):
         # The candidate index is this arm's attempt index: `_generate` keys its
         # span on (task, attempt), and a candidate IS a tournament attempt.
-        checkpoint.begin(task["id"], "tourney", stage, i, messages=messages,
-                         max_tokens=max_tokens,
-                         done=[asdict(c) for c in res.candidates])
+        checkpoint.begin(
+            task["id"],
+            "tourney",
+            stage,
+            i,
+            messages=messages,
+            max_tokens=max_tokens,
+            done=[asdict(c) for c in res.candidates],
+        )
         g0 = time.perf_counter()
         # candidate 0 greedy, the rest sampled with a per-candidate seed: the
         # seeds are what makes them different ANSWERS rather than one answer
-        out = loop_mod._generate(model, tokenizer, messages, max_tokens,
-                                 temp=0.0 if i == 0 else temp, seed=i,
-                                 task_id=task["id"], attempt=i)
+        out = loop_mod._generate(
+            model,
+            tokenizer,
+            messages,
+            max_tokens,
+            temp=0.0 if i == 0 else temp,
+            seed=i,
+            task_id=task["id"],
+            attempt=i,
+        )
         gen_ms = round((time.perf_counter() - g0) * 1000)
         code = extract_code(out)
         v0 = time.perf_counter()
         s = score_candidate(code, task["test"])
-        res.candidates.append(Candidate(code=code, ok=s.ok, passed=s.passed,
-                                       total=s.total, err=s.err,
-                                       ms=round((time.perf_counter() - v0) * 1000),
-                                       gen_ms=gen_ms))
+        res.candidates.append(
+            Candidate(
+                code=code,
+                ok=s.ok,
+                passed=s.passed,
+                total=s.total,
+                err=s.err,
+                ms=round((time.perf_counter() - v0) * 1000),
+                gen_ms=gen_ms,
+            )
+        )
         if s.ok:
             res.solved, res.adopted = True, i
             break
     # Nothing passing leaves adopted=-1, which is what `surfaced` then ranks.
     res.seconds = round(time.perf_counter() - t0, 1)
-    trace.event("tournament", task_id=task["id"], requested_k=requested_k,
-                k=k, width=width, solved=res.solved, adopted=res.adopted,
-                gens=res.n_generations, why=why or None,
-                verdicts=[{"ok": c.ok, "passed": c.passed, "total": c.total,
-                           "gen_ms": c.gen_ms, "ms": c.ms} for c in res.candidates],
-                seconds=res.seconds)
+    trace.event(
+        "tournament",
+        task_id=task["id"],
+        requested_k=requested_k,
+        k=k,
+        width=width,
+        solved=res.solved,
+        adopted=res.adopted,
+        gens=res.n_generations,
+        why=why or None,
+        verdicts=[
+            {
+                "ok": c.ok,
+                "passed": c.passed,
+                "total": c.total,
+                "gen_ms": c.gen_ms,
+                "ms": c.ms,
+            }
+            for c in res.candidates
+        ],
+        seconds=res.seconds,
+    )
     return res
 
 
 # ------------------------------------------------------------------ selftest
 
 _TZ_TEST = "assert f(2) == 4\nassert f(3) == 9\nassert f(4) == 16\n"
-_TZ = {"id": "tz_square", "prompt": "Write `def f(x)` returning x squared.",
-       "test": _TZ_TEST}
+_TZ = {
+    "id": "tz_square",
+    "prompt": "Write `def f(x)` returning x squared.",
+    "test": _TZ_TEST,
+}
 _IMPS = {
-    "zero": "def f(x):\n    return 0\n",        # dies on assert 1   -> 0/3
+    "zero": "def f(x):\n    return 0\n",  # dies on assert 1   -> 0/3
     "double": "def f(x):\n    return x * 2\n",  # passes 1, dies on 2 -> 1/3
     "square": "def f(x):\n    return x * x\n",  # the answer          -> ok
-    "broken": "def f(x):\n    return x*#\n",    # never runs          -> STATIC
+    "broken": "def f(x):\n    return x*#\n",  # never runs          -> STATIC
 }
 
 
@@ -238,8 +308,9 @@ HARD_TASKS = "benchmarks/tasks/m3_hard_tasks.jsonl"
 _DATA_ROOT = Path(__file__).resolve().parent.parent
 
 
-def run_wiring(verbose: bool = True, into: list | None = None,
-               hard_tasks: str | Path | None = None) -> int:
+def run_wiring(
+    verbose: bool = True, into: list | None = None, hard_tasks: str | Path | None = None
+) -> int:
     """The whole tournament with no model: a scripted generator stands in for
     the samples, so what is under test is the mechanism — order, early exit,
     adoption, ranking, the governor's clamp and the trace record."""
@@ -255,8 +326,10 @@ def run_wiring(verbose: bool = True, into: list | None = None,
     def ck(label, cond, detail=""):
         checks.append((label, bool(cond), str(detail)))
         if verbose:
-            print(f"  {'OK  ' if cond else 'FAIL'} {label}"
-                  + (f"  [{detail}]" if detail else ""))
+            print(
+                f"  {'OK  ' if cond else 'FAIL'} {label}"
+                + (f"  [{detail}]" if detail else "")
+            )
 
     def run_with(names, k=3):
         calls: list[dict] = []
@@ -272,50 +345,82 @@ def run_wiring(verbose: bool = True, into: list | None = None,
             r = run(None, None, _TZ, requested_k=k)
         finally:
             loop._generate = original
-        r._calls = calls                      # for the schedule checks below
+        r._calls = calls  # for the schedule checks below
         return r
 
     # --- the governor's clamp is the AC-only rule (§33.4)
-    ck("plan: full width on maximum-performance", plan(4, 4) == (4, ""), str(plan(4, 4)))
+    ck(
+        "plan: full width on maximum-performance",
+        plan(4, 4) == (4, ""),
+        str(plan(4, 4)),
+    )
     ck("plan: balanced caps the tournament at 2", plan(4, 2)[0] == 2, str(plan(4, 2)))
-    ck("plan: on battery width 1 degenerates to the single attempt",
-       plan(3, 1)[0] == 1 and "width" in plan(3, 1)[1], str(plan(3, 1)))
-    ck("plan: a multi-file task is declined, not half-supported",
-       plan(3, 4, multi=True) == (1, "multi-file task: tournament is single-file"))
+    ck(
+        "plan: on battery width 1 degenerates to the single attempt",
+        plan(3, 1)[0] == 1 and "width" in plan(3, 1)[1],
+        str(plan(3, 1)),
+    )
+    ck(
+        "plan: a multi-file task is declined, not half-supported",
+        plan(3, 4, multi=True) == (1, "multi-file task: tournament is single-file"),
+    )
 
     # --- the candidate schedule
     r = run_with(["zero", "double", "square"])
-    ck("candidate 0 is the greedy answer (so pass@k contains pass@1)",
-       r._calls[0].get("temp") == 0.0, str([c.get("temp") for c in r._calls]))
-    ck("later candidates sample, each from its own seed",
-       all(c.get("temp", 0) > 0 for c in r._calls[1:])
-       and [c.get("seed") for c in r._calls] == [0, 1, 2],
-       str([(c.get("temp"), c.get("seed")) for c in r._calls]))
-    ck("one model object serves every candidate (no extra load)",
-       len(r._calls) == 3)
+    ck(
+        "candidate 0 is the greedy answer (so pass@k contains pass@1)",
+        r._calls[0].get("temp") == 0.0,
+        str([c.get("temp") for c in r._calls]),
+    )
+    ck(
+        "later candidates sample, each from its own seed",
+        all(c.get("temp", 0) > 0 for c in r._calls[1:])
+        and [c.get("seed") for c in r._calls] == [0, 1, 2],
+        str([(c.get("temp"), c.get("seed")) for c in r._calls]),
+    )
+    ck("one model object serves every candidate (no extra load)", len(r._calls) == 3)
 
     # --- adoption and early exit
     r = run_with(["zero", "square", "zero"])
-    ck("a passing candidate ends the tournament",
-       r.solved and r.adopted == 1 and r.n_generations == 2, r.summary())
+    ck(
+        "a passing candidate ends the tournament",
+        r.solved and r.adopted == 1 and r.n_generations == 2,
+        r.summary(),
+    )
     r = run_with(["square", "zero", "zero"])
-    ck("the greedy answer alone costs exactly one generation",
-       r.solved and r.adopted == 0 and r.n_generations == 1, r.summary())
+    ck(
+        "the greedy answer alone costs exactly one generation",
+        r.solved and r.adopted == 0 and r.n_generations == 1,
+        r.summary(),
+    )
     r = run_with(["zero", "double", "broken"])
-    ck("nothing passing: unsolved, adopted=-1, all k spent",
-       not r.solved and r.adopted == -1 and r.n_generations == 3, r.summary())
-    ck("the surfaced diagnostic is the candidate that got furthest",
-       r.best is r.candidates[1] and r.best.passed == 1,
-       str([c.passed for c in r.candidates]))
+    ck(
+        "nothing passing: unsolved, adopted=-1, all k spent",
+        not r.solved and r.adopted == -1 and r.n_generations == 3,
+        r.summary(),
+    )
+    ck(
+        "the surfaced diagnostic is the candidate that got furthest",
+        r.best is r.candidates[1] and r.best.passed == 1,
+        str([c.passed for c in r.candidates]),
+    )
     r2 = run_with(["double", "double", "zero"])
-    ck("a tie in the ranking breaks toward the earlier candidate",
-       r2.best is r2.candidates[0], str([c.passed for c in r2.candidates]))
+    ck(
+        "a tie in the ranking breaks toward the earlier candidate",
+        r2.best is r2.candidates[0],
+        str([c.passed for c in r2.candidates]),
+    )
     r = run_with(["broken", "square"])
-    ck("an unparsable candidate is refused by PERCEIVE before any subprocess",
-       r.candidates[0].passed == 0 and r.candidates[0].err.startswith("STATIC"),
-       r.candidates[0].err[:70])
-    ck("a broken first candidate does not sink the task",
-       r.solved and r.adopted == 1, r.summary())
+    ck(
+        "an unparsable candidate is refused by PERCEIVE before any subprocess",
+        r.candidates[0].passed == 0 and r.candidates[0].err.startswith("STATIC"),
+        r.candidates[0].err[:70],
+    )
+    ck(
+        "a broken first candidate does not sink the task",
+        r.solved and r.adopted == 1,
+        r.summary(),
+    )
 
     # --- real suite, real oracle: the reference solution of an h-task
     t = load_tasks(tasks)[0]
@@ -323,17 +428,22 @@ def run_wiring(verbose: bool = True, into: list | None = None,
 
     def _gen2(model, tokenizer, messages, max_tokens, **kw):
         return next(stream)
+
     original = loop._generate
     loop._generate = _gen2
     try:
         r = run(None, None, t, requested_k=3)
     finally:
         loop._generate = original
-    ck("a real hard task's reference answer is adopted on candidate 0",
-       r.solved and r.adopted == 0 and r.candidates[0].total == 2, r.summary())
+    ck(
+        "a real hard task's reference answer is adopted on candidate 0",
+        r.solved and r.adopted == 0 and r.candidates[0].total == 2,
+        r.summary(),
+    )
 
     # --- the trace record (§33.6: the decision must be replayable)
     from flash import trace
+
     with tempfile.TemporaryDirectory() as d:
         saved, trace.DIR = trace.DIR, Path(d)
         try:
@@ -343,10 +453,14 @@ def run_wiring(verbose: bool = True, into: list | None = None,
             evs = [e for e in trace.read(sid, dir=d) if e["type"] == "tournament"]
         finally:
             trace.DIR = saved
-    ck("the tournament writes one replayable event with its candidate table",
-       len(evs) == 1 and len(evs[0]["verdicts"]) == 3
-       and evs[0]["verdicts"][2]["ok"] and evs[0]["adopted"] == 2,
-       str(evs)[:160])
+    ck(
+        "the tournament writes one replayable event with its candidate table",
+        len(evs) == 1
+        and len(evs[0]["verdicts"]) == 3
+        and evs[0]["verdicts"][2]["ok"]
+        and evs[0]["adopted"] == 2,
+        str(evs)[:160],
+    )
 
     n_bad = sum(not ok for _, ok, _ in checks)
     if verbose:
@@ -356,14 +470,16 @@ def run_wiring(verbose: bool = True, into: list | None = None,
 
 def run_selftest() -> int:
     from flash import doctor
+
     refused = doctor.vector_refusal("tourney", _DATA_ROOT)
     if refused:
         return refused
     return run_wiring()
 
 
-if __name__ == "__main__":                       # pragma: no cover
+if __name__ == "__main__":  # pragma: no cover
     import sys
+
     if "--selftest" in sys.argv or len(sys.argv) == 1:
         raise SystemExit(run_selftest())
     print(__doc__)

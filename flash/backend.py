@@ -58,6 +58,7 @@ class against a stand-in `llama_cpp` whose argument names were read off the
 installed library — after the installed library rejected a name this file had
 guessed, which is the lesson that arm now carries.
 """
+
 from __future__ import annotations
 
 import os
@@ -100,15 +101,19 @@ def remedy() -> str:
     measured PyPI release is an sdist with no wheels).
     """
     if sys.platform == "darwin":
-        return ("pip install 'flash-coder[mac]'          "
-                "(in a checkout: pip install -e '.[mac]')")
-    return ("MLX does not build outside Apple Silicon, so no install line fixes THAT "
-            "route. The route that does work here: pip install 'flash-coder[local]' "
-            "(it compiles llama.cpp, so it needs a C++ toolchain), then `flash "
-            "models pull fast`, then any generating command with `--backend "
-            "llama.cpp --small fast`. Until then the offline half — the whole "
-            "verification battery, the graph, the oracle loop's grading — runs "
-            "anyway")
+        return (
+            "pip install 'flash-coder[mac]'          "
+            "(in a checkout: pip install -e '.[mac]')"
+        )
+    return (
+        "MLX does not build outside Apple Silicon, so no install line fixes THAT "
+        "route. The route that does work here: pip install 'flash-coder[local]' "
+        "(it compiles llama.cpp, so it needs a C++ toolchain), then `flash "
+        "models pull fast`, then any generating command with `--backend "
+        "llama.cpp --small fast`. Until then the offline half — the whole "
+        "verification battery, the graph, the oracle loop's grading — runs "
+        "anyway"
+    )
 
 
 def doctor_line() -> str:
@@ -118,22 +123,25 @@ def doctor_line() -> str:
     and then prints a paraphrase of what doctor says is two sources for one fact.
     """
     from flash import doctor
+
     return doctor.backend_line(doctor.backend())
 
 
 def message(why: str) -> str:
     """The full refusal a user reads. One message, built here, printed by the CLI."""
-    return "\n".join([
-        "flash: this install has no generation backend, so it cannot answer.",
-        "",
-        f"  what is missing  {why}",
-        f"  doctor says      {doctor_line()}",
-        f"  remedy           {remedy()}",
-        "",
-        "  nothing left this machine, and no test was run. What this install can "
-        "still",
-        "  do — including re-running every published number offline:  flash doctor",
-    ])
+    return "\n".join(
+        [
+            "flash: this install has no generation backend, so it cannot answer.",
+            "",
+            f"  what is missing  {why}",
+            f"  doctor says      {doctor_line()}",
+            f"  remedy           {remedy()}",
+            "",
+            "  nothing left this machine, and no test was run. What this install can "
+            "still",
+            "  do — including re-running every published number offline:  flash doctor",
+        ]
+    )
 
 
 def require(*names: str) -> None:
@@ -145,10 +153,11 @@ def require(*names: str) -> None:
     the same interpreter, so a pass here cannot be followed by a failure there.
     """
     import importlib
+
     for name in names:
         try:
             importlib.import_module(name)
-        except Exception as e:                              # noqa: BLE001
+        except Exception as e:  # noqa: BLE001
             raise NoBackend(message(reason(e, name))) from None
 
 
@@ -174,6 +183,7 @@ def load(repo: str, adapter: str | None = None):
 # knowing who wrote them. That shared shape is the whole reason the tournament,
 # the ledger, the power governor and the confidence table can stay as they are.
 
+
 @dataclass
 class Generation:
     """One answer and the contract numbers that go with it, in neutral fields.
@@ -185,6 +195,7 @@ class Generation:
     stamps the record, so one run has one timing source instead of a backend's and
     a loop's disagreeing about the same span.
     """
+
     text: str = ""
     constrained: bool = False
     mask_steps: int | None = None
@@ -225,8 +236,12 @@ class Backend:
         installed something — and which of the two candidates is the one to install.
         """
         ok, why = self.available()
-        return {"backend": self.name, "available": ok, "why": why or None,
-                "supports": dict(self.supports)}
+        return {
+            "backend": self.name,
+            "available": ok,
+            "why": why or None,
+            "supports": dict(self.supports),
+        }
 
     def load_model(self, ref: str, adapter: str | None = None):
         """`(model, tokenizer)` for one tier, this library's shape of `ref`."""
@@ -248,18 +263,19 @@ class Backend:
             raise NoFeature(
                 f"{self.name}: --constrain needs a logits hook at every decode "
                 "step and this backend does not expose one. Run without "
-                "--constrain, or with --backend mlx on Apple Silicon.")
+                "--constrain, or with --backend mlx on Apple Silicon."
+            )
         raise NotImplementedError
 
     def seed(self, seed: int) -> None:
         """Fix the RNG so a retry draws a DIFFERENT stream (see loop._generate)."""
 
-    def generate(self, model, tokenizer, prompt: str, max_tokens: int,
-                 sampler, guard) -> Generation:
+    def generate(
+        self, model, tokenizer, prompt: str, max_tokens: int, sampler, guard
+    ) -> Generation:
         raise NotImplementedError
 
-    def stream(self, model, tokenizer, prompt: str, max_tokens: int,
-               sampler, guard):
+    def stream(self, model, tokenizer, prompt: str, max_tokens: int, sampler, guard):
         """Yield `(token_id, text_piece)` so a killed span can be resumed."""
         raise NotImplementedError
 
@@ -273,17 +289,20 @@ class Backend:
         """
         if guard is None:
             return Generation(text=text)
-        return Generation(text=text + guard.finish(), constrained=True,
-                          mask_steps=guard.steps,
-                          mask_breaches=guard.illegal_picks)
+        return Generation(
+            text=text + guard.finish(),
+            constrained=True,
+            mask_steps=guard.steps,
+            mask_breaches=guard.illegal_picks,
+        )
 
-    def probe(self, model, tokenizer, prompt: str,
-              ids: list[int]) -> list[float]:
+    def probe(self, model, tokenizer, prompt: str, ids: list[int]) -> list[float]:
         """Log-probabilities of these next-token ids after `prompt`, one prefill."""
         if not self.supports.get("probe"):
             raise NoFeature(
                 f"{self.name}: the router needs a single forward pass over the "
-                "prompt and this backend does not expose one.")
+                "prompt and this backend does not expose one."
+            )
         raise NotImplementedError
 
     def idle(self) -> None:
@@ -302,8 +321,9 @@ class Backend:
 #: a download that lands next to four repo snapshots nobody can read is not a
 #: cache anybody can manage. `FLASH_GGUF_DIR` moves it for a box whose home is
 #: small — the same reason `HF_HOME` exists.
-GGUF_DIR = Path(os.environ.get("FLASH_GGUF_DIR")
-               or str(Path.home() / ".cache" / "flash" / "gguf"))
+GGUF_DIR = Path(
+    os.environ.get("FLASH_GGUF_DIR") or str(Path.home() / ".cache" / "flash" / "gguf")
+)
 
 #: tier word -> the file `flash models pull` verified against its SHA256. A tier
 #: name resolves through this and ONLY through this, so `--small fast` can never
@@ -319,9 +339,10 @@ def manifest() -> dict[str, str]:
     than this module deciding that a half-read JSON is close enough to a weight.
     """
     import json
+
     try:
         raw = json.loads((GGUF_DIR / MANIFEST).read_text())
-    except Exception:                                     # noqa: BLE001
+    except Exception:  # noqa: BLE001
         return {}
     return {str(k): str(v) for k, v in raw.items()} if isinstance(raw, dict) else {}
 
@@ -342,24 +363,29 @@ def gguf_path(ref: str) -> str:
         f = GGUF_DIR / have[ref]
         if f.is_file():
             return str(f)
-        raise NoBackend(f"flash: the manifest says tier `{ref}` is "
-                        f"{f}, and that file is not on disk. Re-pull it: "
-                        f"`flash models pull {ref}`.")
+        raise NoBackend(
+            f"flash: the manifest says tier `{ref}` is "
+            f"{f}, and that file is not on disk. Re-pull it: "
+            f"`flash models pull {ref}`."
+        )
     if not (p.is_absolute() or "/" in ref):
         f = GGUF_DIR / ref
         if f.is_file():
             return str(f)
     raise NoBackend(
-        "\n".join([
-            f"flash: no GGUF behind `{ref}`, so --backend llama.cpp has no model "
-            "to run.",
-            "",
-            f"  looked in    {GGUF_DIR}   (FLASH_GGUF_DIR moves it)",
-            f"  pulled       {', '.join(sorted(have)) or 'nothing yet'}",
-            "",
-            "  remedy       flash models pull fast     (or name a file: "
-            "--small /path/to/model.gguf)",
-        ]))
+        "\n".join(
+            [
+                f"flash: no GGUF behind `{ref}`, so --backend llama.cpp has no model "
+                "to run.",
+                "",
+                f"  looked in    {GGUF_DIR}   (FLASH_GGUF_DIR moves it)",
+                f"  pulled       {', '.join(sorted(have)) or 'nothing yet'}",
+                "",
+                "  remedy       flash models pull fast     (or name a file: "
+                "--small /path/to/model.gguf)",
+            ]
+        )
+    )
 
 
 class MLXBackend(Backend):
@@ -380,15 +406,21 @@ class MLXBackend(Backend):
     """
 
     name = "mlx"
-    supports = {"constrain": True, "probe": True, "adapter": True,
-                "stream": True, "embed": True}
+    supports = {
+        "constrain": True,
+        "probe": True,
+        "adapter": True,
+        "stream": True,
+        "embed": True,
+    }
 
     def available(self) -> tuple[bool, str]:
         import importlib
+
         for mod in ("mlx.core", "mlx_lm"):
             try:
                 importlib.import_module(mod)
-            except Exception as e:                          # noqa: BLE001
+            except Exception as e:  # noqa: BLE001
                 return False, reason(e, mod)
         return True, ""
 
@@ -396,29 +428,34 @@ class MLXBackend(Backend):
         out = Backend.profile(self)
         try:
             from flash import doctor
+
             out["library"] = doctor.backend()
-        except Exception:                                   # noqa: BLE001
+        except Exception:  # noqa: BLE001
             pass
         return out
 
     def load_model(self, ref: str, adapter: str | None = None):
         require("mlx.core", "mlx_lm")
         from mlx_lm import load as _load
+
         return _load(ref) if not adapter else _load(ref, adapter_path=adapter)
 
     def format(self, tokenizer, messages: list[dict]) -> str:
-        return tokenizer.apply_chat_template(messages, tokenize=False,
-                                             add_generation_prompt=True)
+        return tokenizer.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True
+        )
 
     def guard(self, contract, tokenizer):
         if contract is None:
             return None
         from flash.grammar import ConstrainedSampler
+
         return ConstrainedSampler(contract, tokenizer)
 
     def seed(self, seed: int) -> None:
         require("mlx.core")
         import mlx.core as mx
+
         mx.random.seed(seed)
 
     def sampler(self, temp: float):
@@ -426,30 +463,43 @@ class MLXBackend(Backend):
             return None
         require("mlx_lm.sample_utils")
         from mlx_lm.sample_utils import make_sampler
+
         return make_sampler(temp=temp)
 
-    def generate(self, model, tokenizer, prompt: str, max_tokens: int,
-                 sampler, guard) -> Generation:
+    def generate(
+        self, model, tokenizer, prompt: str, max_tokens: int, sampler, guard
+    ) -> Generation:
         if not max_tokens:
             return self.result("", guard)
         require("mlx_lm")
         from mlx_lm import generate
-        out = generate(model, tokenizer, prompt=prompt, max_tokens=max_tokens,
-                       verbose=False, sampler=sampler,
-                       logits_processors=[guard] if guard else None)
+
+        out = generate(
+            model,
+            tokenizer,
+            prompt=prompt,
+            max_tokens=max_tokens,
+            verbose=False,
+            sampler=sampler,
+            logits_processors=[guard] if guard else None,
+        )
         return self.result(out, guard)
 
-    def stream(self, model, tokenizer, prompt: str, max_tokens: int,
-               sampler, guard):
+    def stream(self, model, tokenizer, prompt: str, max_tokens: int, sampler, guard):
         require("mlx_lm")
         from mlx_lm import stream_generate
-        for r in stream_generate(model, tokenizer, prompt=prompt,
-                                 max_tokens=max_tokens, sampler=sampler,
-                                 logits_processors=[guard] if guard else None):
+
+        for r in stream_generate(
+            model,
+            tokenizer,
+            prompt=prompt,
+            max_tokens=max_tokens,
+            sampler=sampler,
+            logits_processors=[guard] if guard else None,
+        ):
             yield r.token, r.text
 
-    def probe(self, model, tokenizer, prompt: str,
-              ids: list[int]) -> list[float]:
+    def probe(self, model, tokenizer, prompt: str, ids: list[int]) -> list[float]:
         """One prefill, the last position's log-probs, restricted to `ids`.
 
         This is `flash.decide`'s forward pass, which used to be the one place in
@@ -459,8 +509,9 @@ class MLXBackend(Backend):
         """
         require("mlx.core")
         import mlx.core as mx
+
         tokens = mx.array([tokenizer.encode(prompt, add_special_tokens=False)])
-        logits = model(tokens)[:, -1, :]                    # [1, vocab] — one pass
+        logits = model(tokens)[:, -1, :]  # [1, vocab] — one pass
         logits = logits - mx.logsumexp(logits, axis=-1, keepdims=True)
         mx.eval(logits)
         return [float(logits[0, i]) for i in ids]
@@ -468,6 +519,7 @@ class MLXBackend(Backend):
     def idle(self) -> None:
         require("mlx.core")
         import mlx.core as mx
+
         mx.clear_cache()
 
 
@@ -523,7 +575,9 @@ class _GgufTokenizer:
     def name(self) -> str:
         return self._m.path
 
-    def encode(self, text: str, add_special_tokens: bool = False, **ignored) -> list[int]:
+    def encode(
+        self, text: str, add_special_tokens: bool = False, **ignored
+    ) -> list[int]:
         # MEASURED against the installed library, not against this file's own guess:
         # `inspect.signature(Llama.tokenize)` on llama-cpp-python 0.3.36 is
         # `(text: bytes, add_bos: bool = True, special: bool = False)`. There is no
@@ -539,25 +593,40 @@ class _GgufTokenizer:
         # caller did not ask for would make
         # every count one token too high. `special=True` is what lets a chat template's
         # own markers tokenize as single tokens instead of as literal text.
-        return list(self._m.ll.tokenize(text.encode("utf-8"),
-                                        add_bos=bool(add_special_tokens),
-                                        special=True))
+        return list(
+            self._m.ll.tokenize(
+                text.encode("utf-8"), add_bos=bool(add_special_tokens), special=True
+            )
+        )
 
     def decode(self, ids: list[int], skip_special_tokens: bool = False) -> str:
         raw = self._m.ll.detokenize(list(ids))
-        return (raw.decode("utf-8", "replace")
-                if isinstance(raw, (bytes, bytearray)) else str(raw))
+        return (
+            raw.decode("utf-8", "replace")
+            if isinstance(raw, (bytes, bytearray))
+            else str(raw)
+        )
 
-    def apply_chat_template(self, messages: list[dict], tokenize: bool = False,
-                            add_generation_prompt: bool = True, **ignored) -> str:
+    def apply_chat_template(
+        self,
+        messages: list[dict],
+        tokenize: bool = False,
+        add_generation_prompt: bool = True,
+        **ignored,
+    ) -> str:
         if not self._template:
             raise NoFeature(
                 f"llama.cpp: {self._m.path} carries no tokenizer.chat_template, "
                 "so flash cannot render a prompt the way this model was trained. "
-                "Pull a chat-tuned GGUF, or use --backend mlx.")
+                "Pull a chat-tuned GGUF, or use --backend mlx."
+            )
         import jinja2
-        out = jinja2.Environment().from_string(self._template).render(
-            messages=messages, add_generation_prompt=add_generation_prompt)
+
+        out = (
+            jinja2.Environment()
+            .from_string(self._template)
+            .render(messages=messages, add_generation_prompt=add_generation_prompt)
+        )
         return out if not tokenize else self.encode(out)
 
 
@@ -610,8 +679,14 @@ class LlamaCppBackend(Backend):
     #: and a 152,064-token vocab, which flash will not pay to route a question;
     #: `ids` is False because its stream chunks carry no token id without that same
     #: buffer, and `flash.checkpoint.note` counts on an int.
-    supports = {"constrain": False, "probe": False, "adapter": False,
-                "stream": True, "embed": False, "ids": False}
+    supports = {
+        "constrain": False,
+        "probe": False,
+        "adapter": False,
+        "stream": True,
+        "embed": False,
+        "ids": False,
+    }
 
     #: The context the GGUF is loaded with. flash's prompts are the whole repo
     #: skeleton plus an oracle file, so the llama.cpp default of 512 truncates the
@@ -620,15 +695,18 @@ class LlamaCppBackend(Backend):
     DEFAULT_N_CTX = 8192
 
     def __init__(self, n_ctx: int | None = None):
-        self.n_ctx = int(n_ctx if n_ctx is not None
-                         else os.environ.get("FLASH_GGUF_N_CTX",
-                                             self.DEFAULT_N_CTX))
+        self.n_ctx = int(
+            n_ctx
+            if n_ctx is not None
+            else os.environ.get("FLASH_GGUF_N_CTX", self.DEFAULT_N_CTX)
+        )
 
     def available(self) -> tuple[bool, str]:
         import importlib
+
         try:
             importlib.import_module("llama_cpp")
-        except Exception as e:                                # noqa: BLE001
+        except Exception as e:  # noqa: BLE001
             return False, reason(e, "llama_cpp")
         return True, ""
 
@@ -636,8 +714,9 @@ class LlamaCppBackend(Backend):
         out = Backend.profile(self)
         try:
             import importlib.metadata as md
+
             out["library"] = f"llama-cpp-python {md.version('llama-cpp-python')}"
-        except Exception:                                     # noqa: BLE001
+        except Exception:  # noqa: BLE001
             out["library"] = "llama-cpp-python: version unreadable"
         out["gguf_cache"] = str(GGUF_DIR)
         out["n_ctx"] = self.n_ctx
@@ -649,17 +728,20 @@ class LlamaCppBackend(Backend):
             raise NoFeature(
                 "llama.cpp: a LoRA adapter is applied when MLX builds the model, "
                 "and llama-cpp-python loads GGUF weights as they are. Pull an "
-                "adapted GGUF, or run this arm with --backend mlx.")
+                "adapted GGUF, or run this arm with --backend mlx."
+            )
         require("llama_cpp")
         from llama_cpp import Llama
+
         path = gguf_path(ref)
         handle = Llama(model_path=path, n_ctx=self.n_ctx, verbose=False)
         model = _LlamaModel(handle, path, self)
         return model, _GgufTokenizer(model)
 
     def format(self, tokenizer, messages: list[dict]) -> str:
-        return tokenizer.apply_chat_template(messages, tokenize=False,
-                                             add_generation_prompt=True)
+        return tokenizer.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True
+        )
 
     def sampler(self, temp: float):
         return None if temp <= 0 else float(temp)
@@ -667,35 +749,43 @@ class LlamaCppBackend(Backend):
     def _temperature(self, sampler) -> float:
         return 0.0 if sampler is None else float(sampler)
 
-    def generate(self, model, tokenizer, prompt: str, max_tokens: int,
-                 sampler, guard) -> Generation:
+    def generate(
+        self, model, tokenizer, prompt: str, max_tokens: int, sampler, guard
+    ) -> Generation:
         if not max_tokens:
             return self.result("", guard)
-        out = model.handle(prompt, max_tokens=max_tokens,
-                           temperature=self._temperature(sampler), echo=False,
-                           seed=getattr(self, "_seed", None))
+        out = model.handle(
+            prompt,
+            max_tokens=max_tokens,
+            temperature=self._temperature(sampler),
+            echo=False,
+            seed=getattr(self, "_seed", None),
+        )
         return self.result(out["choices"][0]["text"], guard)
 
-    def stream(self, model, tokenizer, prompt: str, max_tokens: int,
-               sampler, guard):
+    def stream(self, model, tokenizer, prompt: str, max_tokens: int, sampler, guard):
         # `delta` is the chat-completions shape; the completion API this call uses
         # returns `text` per chunk. Both are read because llama-cpp-python's
         # streaming dict has carried either, and a resumed checkpoint that lost a
         # token to a field-name guess would silently re-decode it.
-        for chunk in model.handle(prompt, max_tokens=max_tokens,
-                                  temperature=self._temperature(sampler),
-                                  stream=True, echo=False):
+        for chunk in model.handle(
+            prompt,
+            max_tokens=max_tokens,
+            temperature=self._temperature(sampler),
+            stream=True,
+            echo=False,
+        ):
             choice = chunk["choices"][0]
-            piece = choice.get("text") or (choice.get("delta") or {}).get(
-                "content") or ""
+            piece = (
+                choice.get("text") or (choice.get("delta") or {}).get("content") or ""
+            )
             if not piece:
                 continue
             lp = choice.get("logprobs") or {}
             ids = lp.get("tokens") or []
             yield (ids[0] if ids else None), piece
 
-    def probe(self, model, tokenizer, prompt: str,
-              ids: list[int]) -> list[float]:
+    def probe(self, model, tokenizer, prompt: str, ids: list[int]) -> list[float]:
         """One generated token with the top log-probs, read for the labels only.
 
         `max_tokens=1, echo=False` makes llama.cpp run the prefill and hand back
@@ -722,17 +812,20 @@ class LlamaCppBackend(Backend):
                 "llama-cpp-python returns no distribution to route on — and turning "
                 "it on costs an (n_ctx x vocab) buffer, about 5.0 GB at this "
                 "backend's 8192-token context. Route with --backend mlx, or pin the "
-                "tier (--tier small / --tier big) so nothing has to be routed.")
+                "tier (--tier small / --tier big) so nothing has to be routed."
+            )
         NEG_INF = -1e30
-        out = model.handle(prompt, max_tokens=1, temperature=0.0, logprobs=26,
-                           echo=False)
+        out = model.handle(
+            prompt, max_tokens=1, temperature=0.0, logprobs=26, echo=False
+        )
         table = (out["choices"][0].get("logprobs") or {}).get("top_logprobs") or [{}]
         table = table[0] if isinstance(table, list) else table
         if not table:
             raise NoFeature(
                 "llama.cpp: this build returned no top-logprob table, so the "
                 "router has no scores. Run with --tier big (or --tier small) to "
-                "skip routing, or use --backend mlx.")
+                "skip routing, or use --backend mlx."
+            )
         scores = []
         for tid in ids:
             piece = tokenizer.decode([tid])
@@ -740,8 +833,10 @@ class LlamaCppBackend(Backend):
             if hit is None:
                 hit = table.get(piece.lstrip())
                 if hit is None:
-                    hit = next((v for k, v in table.items()
-                                if k.strip() == piece.strip()), NEG_INF)
+                    hit = next(
+                        (v for k, v in table.items() if k.strip() == piece.strip()),
+                        NEG_INF,
+                    )
             scores.append(float(hit))
         return scores
 
@@ -790,8 +885,10 @@ def use(name: str | None) -> "Backend | None":
         return None
     key = {k.lower(): k for k in REGISTRY}.get(str(name).lower())
     if key is None:
-        raise NoBackend(f"flash: `--backend {name}` is not a backend this build "
-                        f"knows. Known: {', '.join(ORDER)}, or 'auto'.")
+        raise NoBackend(
+            f"flash: `--backend {name}` is not a backend this build "
+            f"knows. Known: {', '.join(ORDER)}, or 'auto'."
+        )
     ok, why = REGISTRY[key].available()
     if not ok:
         raise NoBackend(message(f"{key}: {why}"))
@@ -852,8 +949,13 @@ def report() -> list[dict]:
         be = REGISTRY[key]
         try:
             out.append(be.profile())
-        except Exception as e:                              # noqa: BLE001
-            out.append({"backend": be.name, "available": False,
-                        "error": f"{type(e).__name__}: {e}",
-                        "supports": dict(be.supports)})
+        except Exception as e:  # noqa: BLE001
+            out.append(
+                {
+                    "backend": be.name,
+                    "available": False,
+                    "error": f"{type(e).__name__}: {e}",
+                    "supports": dict(be.supports),
+                }
+            )
     return out
