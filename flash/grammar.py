@@ -41,6 +41,7 @@ and SPEC P3 carries that as a condition of the arm.
     python -m flash.grammar --census [--n 100]      # live: violation census
     python -m flash.grammar --overhead              # live: ms/step of the mask
 """
+
 from __future__ import annotations
 
 import copy
@@ -146,22 +147,20 @@ class Contract:
         it allocates nothing: the mutable fields are saved and put back. One
         DFA, one transition table — `_consume` stays the single authority.
         """
-        if self.ends_turn(text):            # the stop, wherever it is offered
+        if self.ends_turn(text):  # the stop, wherever it is offered
             return True
-        held = (self.state, self.lit, self.path, self.ticks, self.blocks,
-                self.left)
+        held = (self.state, self.lit, self.path, self.ticks, self.blocks, self.left)
         ok = True
         for ch in text:
             if not self._consume(ch):
                 ok = False
                 break
-        (self.state, self.lit, self.path, self.ticks, self.blocks,
-         self.left) = held
+        (self.state, self.lit, self.path, self.ticks, self.blocks, self.left) = held
         return ok
 
     def _consume(self, ch: str) -> bool:
         s = self.state
-        if s == "s0":                        # before the first block
+        if s == "s0":  # before the first block
             if ch.isspace():
                 return True
             if self.mode == "multi":
@@ -175,15 +174,15 @@ class Contract:
                 self.state, self.ticks = "s3", 1
                 return True
             return False
-        if s == "s1":                        # the '# file: ' literal
-            want = HEADER[len(self.lit):]
+        if s == "s1":  # the '# file: ' literal
+            want = HEADER[len(self.lit) :]
             if not want or ch != want[0]:
                 return False
             self.lit += ch
             if self.lit == HEADER:
                 self.state, self.path = "s2", ""
             return True
-        if s == "s2":                        # path, then a newline
+        if s == "s2":  # path, then a newline
             if ch == "\n":
                 return self._close_path()
             nxt = ch if not self.path else self.path + ch
@@ -193,19 +192,19 @@ class Contract:
                 return False
             self.path = nxt
             return True
-        if s == "s3":                        # opening fence: three backticks
+        if s == "s3":  # opening fence: three backticks
             if ch != "`":
                 return False
             self.ticks += 1
             if self.ticks >= 3:
                 self.state = "s4"
             return True
-        if s == "s4":                        # optional language tag
+        if s == "s4":  # optional language tag
             if ch == "\n":
                 self.state, self.ticks = "s5", 0
                 return True
             return ch.isalnum()
-        if s == "s5":                        # the code body
+        if s == "s5":  # the code body
             if ch == "`":
                 self.ticks += 1
                 if self.ticks >= 3:
@@ -214,7 +213,7 @@ class Contract:
                 return True
             self.ticks = 0
             return True
-        if s == "s6":                        # between blocks / trailing text
+        if s == "s6":  # between blocks / trailing text
             if ch.isspace():
                 return True
             if self.mode == "multi" and ch == "#" and self.can_open:
@@ -228,7 +227,7 @@ class Contract:
         if not p.endswith(".py") or ".." in p or "/" in p:
             return False
         if self.names and p not in self.left:
-            return False                 # unknown, or already written
+            return False  # unknown, or already written
         self.left = tuple(n for n in self.left if n != p)
         self.state, self.path, self.ticks = "s3", "", 0
         return True
@@ -310,18 +309,18 @@ def vocab_texts(tokenizer, n: int) -> list[str]:
     rust = getattr(getattr(tokenizer, "_tokenizer", None), "_tokenizer", None)
     if rust is not None:
         try:
-            return list(rust.decode_batch([[i] for i in range(n)],
-                                          skip_special_tokens=False))
-        except Exception:                       # pragma: no cover
+            return list(
+                rust.decode_batch([[i] for i in range(n)], skip_special_tokens=False)
+            )
+        except Exception:  # pragma: no cover
             pass
-    return [tokenizer.decode([i], clean_up_tokenization_spaces=False)
-            for i in range(n)]
+    return [tokenizer.decode([i], clean_up_tokenization_spaces=False) for i in range(n)]
 
 
 _TABLES: dict = {}
 
 
-_STOP_TEXTS: list[str] = []   # terminator texts, with the table
+_STOP_TEXTS: list[str] = []  # terminator texts, with the table
 
 
 def _table(tokenizer):
@@ -331,10 +330,12 @@ def _table(tokenizer):
     if key not in _TABLES:
         n = vocab_size(tokenizer)
         texts = vocab_texts(tokenizer, n)
-        markers = {i for i, t in enumerate(texts)
-                   if t and _MARKER.fullmatch(t)}
-        markers.update(int(i) for i in (getattr(tokenizer, "all_special_ids", ())
-                                        or ()) if int(i) < n)
+        markers = {i for i, t in enumerate(texts) if t and _MARKER.fullmatch(t)}
+        markers.update(
+            int(i)
+            for i in (getattr(tokenizer, "all_special_ids", ()) or ())
+            if int(i) < n
+        )
         eos = getattr(tokenizer, "eos_token_id", None)
         by_first: dict[str, list[int]] = {}
         for i, t in enumerate(texts):
@@ -349,15 +350,27 @@ def _table(tokenizer):
         # Everything else shaped like a marker lands in the answer and has to
         # survive the DFA there.
         turns = {int(eos)} if isinstance(eos, int) else set()
-        turns |= {i for i, t in enumerate(texts)
-                  if _MARKER.fullmatch(t) and t.strip()
-                  in ("<|" + "im_end" + "|>", "<|" + "endoftext" + "|>")}
-        _STOP_TEXTS[:] = sorted({texts[i] for i in turns}
-                                | {texts[i].strip() for i in turns})
-        _TABLES[key] = (n, texts, markers,
-                        [int(eos)] if isinstance(eos, int) else [],
-                        sorted(by_first), by_first, ticked, sorted(turns))
+        turns |= {
+            i
+            for i, t in enumerate(texts)
+            if _MARKER.fullmatch(t)
+            and t.strip() in ("<|" + "im_end" + "|>", "<|" + "endoftext" + "|>")
+        }
+        _STOP_TEXTS[:] = sorted(
+            {texts[i] for i in turns} | {texts[i].strip() for i in turns}
+        )
+        _TABLES[key] = (
+            n,
+            texts,
+            markers,
+            [int(eos)] if isinstance(eos, int) else [],
+            sorted(by_first),
+            by_first,
+            ticked,
+            sorted(turns),
+        )
     return _TABLES[key]
+
 
 def _position(c: Contract):
     """The DFA's full position — what a mask must be keyed on.
@@ -398,9 +411,18 @@ class Masks:
 
     def __init__(self, contract: Contract, tokenizer):
         import mlx.core as mx
+
         self.tokenizer = tokenizer
-        (n, self.texts, self.all_markers, self.eos, self.firsts,
-         self.by_first, self.ticked, turns) = _table(tokenizer)
+        (
+            n,
+            self.texts,
+            self.all_markers,
+            self.eos,
+            self.firsts,
+            self.by_first,
+            self.ticked,
+            turns,
+        ) = _table(tokenizer)
         # The mask-immune family is EXACTLY the pieces the decoder never shows
         # the harness: the turn terminator (and its vocabulary twins). A role
         # header, a vision block or any other marker is ordinary vocabulary that
@@ -410,8 +432,11 @@ class Masks:
         # the walk disagree about the same bytes.
         self.turns = turns
         self.markers = turns
-        contract.stops = tuple(sorted({self.texts[i] for i in turns}
-                                     | {self.texts[i].strip() for i in turns}))
+        contract.stops = tuple(
+            sorted(
+                {self.texts[i] for i in turns} | {self.texts[i].strip() for i in turns}
+            )
+        )
         self.n = n
         self._cache = _CACHE.setdefault(id(self.texts), {})
         self._arr: dict = {}
@@ -439,14 +464,24 @@ class Masks:
         if c.state == "s5":
             # Body: everything that carries no backtick survives by
             # construction; only the ticked ids can reach a closing fence.
-            ids = (set(range(self.n)) - set(self.ticked)
-                   - {i for i in self.all_markers
-                      if i not in set(self.turns or ())
-                      and not c.ends_turn(self.texts[i])})
+            ids = (
+                set(range(self.n))
+                - set(self.ticked)
+                - {
+                    i
+                    for i in self.all_markers
+                    if i not in set(self.turns or ()) and not c.ends_turn(self.texts[i])
+                }
+            )
             ids.update(i for i in self.ticked if c._try(self.texts[i]))
         else:
-            ids = {i for ch in self.firsts if c._try(ch)
-                   for i in self.by_first.get(ch, ()) if c._try(self.texts[i])}
+            ids = {
+                i
+                for ch in self.firsts
+                if c._try(ch)
+                for i in self.by_first.get(ch, ())
+                if c._try(self.texts[i])
+            }
         return sorted(ids)
 
     def allowed(self, c: Contract) -> list[int]:
@@ -499,18 +534,19 @@ class ConstrainedSampler:
 
     def __init__(self, contract: Contract, tokenizer):
         import mlx.core as mx
+
         self.tokenizer = tokenizer
         self.contract = contract.clone()
         self.masks = Masks(contract, tokenizer)
         self._penalty = mx.array(-1e4, dtype=mx.float32)
         self._turns = frozenset(self.masks.turns)
-        self._cast: dict = {}          # penalty, materialised once per dtype
+        self._cast: dict = {}  # penalty, materialised once per dtype
         self._base: int | None = None
         self._fed = 0
         self.steps = 0
-        self.hook_ms = 0.0            # wall time spent inside the hook itself
+        self.hook_ms = 0.0  # wall time spent inside the hook itself
         self.illegal_picks = 0
-        self.first_breach = ""        # ids/text/position of the first refusal
+        self.first_breach = ""  # ids/text/position of the first refusal
 
     # ---------------------------------------------------------- bookkeeping
     def allowed_ids(self) -> list[int]:
@@ -531,8 +567,9 @@ class ConstrainedSampler:
             return True
         if len(ids) == 1:
             i = ids[0]
-            nxt = True if i in self._turns else self.contract.absorb(
-                self.masks.texts[i])
+            nxt = (
+                True if i in self._turns else self.contract.absorb(self.masks.texts[i])
+            )
             if nxt is True:
                 return True
         elif self._turns & set(ids):
@@ -549,9 +586,11 @@ class ConstrainedSampler:
                 # Named, not counted: "99 breaches" is a statistic, this is a
                 # diagnosis, and a count without an instance invites a confident
                 # wrong explanation of it.
-                self.first_breach = (" ".join(f"{k}:{self.masks.texts[k]!r}"
-                                              for k in ids)
-                                     + " at " + self.contract.snapshot())
+                self.first_breach = (
+                    " ".join(f"{k}:{self.masks.texts[k]!r}" for k in ids)
+                    + " at "
+                    + self.contract.snapshot()
+                )
             return False
         self.contract = nxt
         return True
@@ -571,6 +610,7 @@ class ConstrainedSampler:
 
     def _mask(self, tokens, logits):
         import mlx.core as mx
+
         if self._base is None:
             # The first call's array is the whole prompt and nothing else: the
             # baseline is its length, not its last index. Reading the last
@@ -578,21 +618,21 @@ class ConstrainedSampler:
             # breaches — a prompt ending in '.' fed the DFA a piece no answer
             # may start with, and the refusal was counted against the mask.
             self._base = len(tokens)
-        new = tokens[self._base + self._fed:]
+        new = tokens[self._base + self._fed :]
         k = len(new)
         if k:
             self.consume(new.tolist())
             self._fed += k
-        if (logits.shape[-1] == self.masks.n
-                and self.masks.unrestricted(self.contract)):   # nothing to forbid
+        if logits.shape[-1] == self.masks.n and self.masks.unrestricted(
+            self.contract
+        ):  # nothing to forbid
             self.steps += 1
             return logits
         self.steps += 1
         pen = self._cast.get(logits.dtype)
         if pen is None:
             pen = self._cast[logits.dtype] = self._penalty.astype(logits.dtype)
-        return mx.where(self.masks.allow(self.contract, logits.shape[-1]),
-                        logits, pen)
+        return mx.where(self.masks.allow(self.contract, logits.shape[-1]), logits, pen)
 
     def finish(self) -> str:
         """Companion text to append once the turn has ended."""
@@ -600,19 +640,27 @@ class ConstrainedSampler:
 
 
 # ----------------------------------------------------------------- live census
-def _sample(model, tokenizer, prompt: str, max_tokens: int, seed: int,
-            contract: Contract | None):
+def _sample(
+    model, tokenizer, prompt: str, max_tokens: int, seed: int, contract: Contract | None
+):
     """One sampled generation: (text, seconds, tokens, sampler or None)."""
     import time
     import mlx.core as mx
     from mlx_lm import generate
     from mlx_lm.sample_utils import make_sampler
+
     mx.random.seed(seed)
     sampler = ConstrainedSampler(contract, tokenizer) if contract else None
     t0 = time.perf_counter()
-    out = generate(model, tokenizer, prompt=prompt, max_tokens=max_tokens,
-                   verbose=False, sampler=make_sampler(temp=0.7),
-                   logits_processors=[sampler] if sampler else None)
+    out = generate(
+        model,
+        tokenizer,
+        prompt=prompt,
+        max_tokens=max_tokens,
+        verbose=False,
+        sampler=make_sampler(temp=0.7),
+        logits_processors=[sampler] if sampler else None,
+    )
     dt = time.perf_counter() - t0
     if sampler is not None:
         out = out + sampler.finish()
@@ -624,7 +672,8 @@ def conformance(text: str, names: list[str]) -> tuple[bool, str]:
     `extract_files` have to rescue it? That distinction is the whole point of
     R-4.2, so the vector measures the shape, not just the recovery."""
     from flash.harness import extract_files
-    for stop in _STOP_TEXTS:               # what the decoder leaves out
+
+    for stop in _STOP_TEXTS:  # what the decoder leaves out
         text = text.replace(stop, "")
     c = Contract(mode="multi", names=tuple(names)).feed(text)
     if c is None:
@@ -637,8 +686,9 @@ def conformance(text: str, names: list[str]) -> tuple[bool, str]:
     return True, "ok"
 
 
-def run_overhead(model: str | None = None, iters: int = 300,
-                 step_ms: float | None = None) -> int:
+def run_overhead(
+    model: str | None = None, iters: int = 300, step_ms: float | None = None
+) -> int:
     """The mask's per-step cost, measured against the decode step it joins.
 
     The census cannot answer the latency question on its own: the constraint
@@ -661,15 +711,17 @@ def run_overhead(model: str | None = None, iters: int = 300,
         return 1
     c = Contract(mode="multi", names=("ring.py", "stats.py"))
     samp = ConstrainedSampler(c, tok)
-    width = 152064                             # this checkpoint's padded width
+    width = 152064  # this checkpoint's padded width
     logits = mx.zeros((1, width), dtype=mx.float32)
     penalty = mx.array(-1e4, dtype=mx.float32)
-    positions = (("a header position", c.at("s0")),
-                 ("a path position", c.feed(HEADER)),
-                 ("a clean body position", c.at("s5")))
+    positions = (
+        ("a header position", c.at("s0")),
+        ("a path position", c.feed(HEADER)),
+        ("a clean body position", c.at("s5")),
+    )
     out = []
     for label, pos in positions:
-        arr = samp.masks.allow(pos, width)     # compiled once, then cached
+        arr = samp.masks.allow(pos, width)  # compiled once, then cached
         mx.eval(arr)
         t0 = time.perf_counter()
         for _ in range(iters):
@@ -684,23 +736,34 @@ def run_overhead(model: str | None = None, iters: int = 300,
         samp.masks.allow(pos, width)
         compile_ms = (time.perf_counter() - t0) * 1000
         out.append((label, pos.state, apply_ms, compile_ms))
-    base = step_ms or 1000.0 / 23.5            # measured free-arm rate, this box
-    print(f"[overhead] {iters} evaluated applications per position, "
-          f"logits {width} wide, model step ~{base:.1f} ms")
+    base = step_ms or 1000.0 / 23.5  # measured free-arm rate, this box
+    print(
+        f"[overhead] {iters} evaluated applications per position, "
+        f"logits {width} wide, model step ~{base:.1f} ms"
+    )
     worst = 0.0
     for label, state, apply_ms, compile_ms in out:
         worst = max(worst, apply_ms)
-        print(f"[overhead] {label:22s} ({state}) apply {apply_ms:6.3f} ms/step"
-              f"  = {apply_ms / base * 100:4.1f}%   "
-              f"compile {compile_ms:6.1f} ms once")
-    print(f"[overhead] worst position: {worst:.3f} ms/step = "
-          f"{worst / base * 100:.1f}% of the decode step (budget 5%)")
+        print(
+            f"[overhead] {label:22s} ({state}) apply {apply_ms:6.3f} ms/step"
+            f"  = {apply_ms / base * 100:4.1f}%   "
+            f"compile {compile_ms:6.1f} ms once"
+        )
+    print(
+        f"[overhead] worst position: {worst:.3f} ms/step = "
+        f"{worst / base * 100:.1f}% of the decode step (budget 5%)"
+    )
     return 0 if worst / base * 100 <= 5.0 else 1
 
 
-def run_census(n: int = 100, model: str | None = None,
-               tasks_file: str | None = None, max_tokens: int = 1500,
-               seed0: int = 1000, attempts: str = "both") -> int:
+def run_census(
+    n: int = 100,
+    model: str | None = None,
+    tasks_file: str | None = None,
+    max_tokens: int = 1500,
+    seed0: int = 1000,
+    attempts: str = "both",
+) -> int:
     """Sample the same prompts with and without the mask: violation counts per
     arm and the throughput cost.
 
@@ -720,8 +783,10 @@ def run_census(n: int = 100, model: str | None = None,
         print("no multi-file tasks — nothing to census")
         return 1
     arms = ("free", "constrained") if attempts == "both" else (attempts,)
-    print(f"[census] {repo}\n[census] {n} generations over {len(jobs)} "
-          f"prompt(s), max_tokens={max_tokens}, temp=0.7, arms={arms}")
+    print(
+        f"[census] {repo}\n[census] {n} generations over {len(jobs)} "
+        f"prompt(s), max_tokens={max_tokens}, temp=0.7, arms={arms}"
+    )
     stats: dict[str, dict] = {}
     loaded = None
     for arm in arms:
@@ -736,10 +801,14 @@ def run_census(n: int = 100, model: str | None = None,
         for i in range(n):
             t = jobs[i % len(jobs)]
             names = list(Contract.names_from_prompt(t["prompt"]))
-            c = (Contract(mode="multi", names=tuple(names))
-                 if arm == "constrained" else None)
-            text, dt, nt, samp = _sample(model, tok, t["prompt"], max_tokens,
-                                         seed0 + i, c)
+            c = (
+                Contract(mode="multi", names=tuple(names))
+                if arm == "constrained"
+                else None
+            )
+            text, dt, nt, samp = _sample(
+                model, tok, t["prompt"], max_tokens, seed0 + i, c
+            )
             secs += dt
             toks += nt
             if samp:
@@ -757,54 +826,72 @@ def run_census(n: int = 100, model: str | None = None,
             # The number that actually broke the mw suite: could the tolerant
             # parser recover exactly the file set the task asked for?
             from flash.harness import extract_files
+
             got = extract_files(text, expected=names)
-            rec += int(set(got) == set(names) and all(v.strip()
-                                                     for v in got.values()))
-            print(f"  [{arm:11s}] {i + 1:3d}/{n} {t['id']:16s} "
-                  f"{'ok ' if ok else 'BAD'} {reason:9s} rec={rec}/{i + 1} "
-                  f"{nt / max(dt, 1e-9):5.1f} tok/s {nt:4d} tok")
-        stats[arm] = dict(viol=viol, rec=rec, trunc=trunc, illegal=illegal,
-                          hook_pct=100.0 * (hook_ms / 1000.0) / max(gen_s, 1e-9),
-                          breach_example=breach_example, why=why,
-                          tps=toks / max(secs, 1e-9))
+            rec += int(set(got) == set(names) and all(v.strip() for v in got.values()))
+            print(
+                f"  [{arm:11s}] {i + 1:3d}/{n} {t['id']:16s} "
+                f"{'ok ' if ok else 'BAD'} {reason:9s} rec={rec}/{i + 1} "
+                f"{nt / max(dt, 1e-9):5.1f} tok/s {nt:4d} tok"
+            )
+        stats[arm] = dict(
+            viol=viol,
+            rec=rec,
+            trunc=trunc,
+            illegal=illegal,
+            hook_pct=100.0 * (hook_ms / 1000.0) / max(gen_s, 1e-9),
+            breach_example=breach_example,
+            why=why,
+            tps=toks / max(secs, 1e-9),
+        )
     for arm in arms:
         s = stats[arm]
-        print(f"\n[census] {arm:11s}: {s['viol']}/{n} contract violations "
-              f"{s['why']}  |  {s['trunc']} ended inside a block  |  "
-              f"{s['illegal']} mask breaches  |  "
-              f"{s['rec']}/{n} recoverable by the parser  |  {s['tps']:.1f} tok/s  |  "
-              f"hook {s['hook_pct']:.1f}% of wall (incl. the model step "
-              "the read-back waits for)")
+        print(
+            f"\n[census] {arm:11s}: {s['viol']}/{n} contract violations "
+            f"{s['why']}  |  {s['trunc']} ended inside a block  |  "
+            f"{s['illegal']} mask breaches  |  "
+            f"{s['rec']}/{n} recoverable by the parser  |  {s['tps']:.1f} tok/s  |  "
+            f"hook {s['hook_pct']:.1f}% of wall (incl. the model step "
+            "the read-back waits for)"
+        )
         if s.get("breach_example"):
             print(f"[census] first breach: {s['breach_example']}")
     free, con = stats.get("free"), stats.get("constrained")
     if free and con and free["tps"]:
-        print(f"[census] mask cost : {(1 - con['tps'] / free['tps']) * 100:+.1f}% "
-              f"throughput (budget 5%)")
+        print(
+            f"[census] mask cost : {(1 - con['tps'] / free['tps']) * 100:+.1f}% "
+            f"throughput (budget 5%)"
+        )
     if not con:
         return 0 if free and free["viol"] == 0 else 1
-    return 0 if (con["why"].get("malformed", 0) == 0
-                 and con["illegal"] == 0) else 1
+    return 0 if (con["why"].get("malformed", 0) == 0 and con["illegal"] == 0) else 1
 
 
 # -------------------------------------------------------------------- selftest
 def _reference(task: dict) -> str:
     """A task's stored solution, rendered in contract form."""
-    return "\n\n".join(f"{HEADER}{p}\n{FENCE}python\n{s}{FENCE}"
-                       for p, s in task["solution"].items())
+    return "\n\n".join(
+        f"{HEADER}{p}\n{FENCE}python\n{s}{FENCE}" for p, s in task["solution"].items()
+    )
 
 
 def _load_tokenizer():
     """The fast tier's tokenizer, weights never touched (offline battery)."""
     import glob
     from pathlib import Path
+
     try:
         from mlx_lm.tokenizer_utils import load as load_tok
-        snaps = glob.glob(str(Path.home() / ".cache/huggingface/hub"
-                              "/models--mlx-community--Qwen2.5-Coder-7B-"
-                              "Instruct-4bit/snapshots/*"))
+
+        snaps = glob.glob(
+            str(
+                Path.home() / ".cache/huggingface/hub"
+                "/models--mlx-community--Qwen2.5-Coder-7B-"
+                "Instruct-4bit/snapshots/*"
+            )
+        )
         return load_tok(Path(snaps[0])) if snaps else None
-    except Exception as e:                       # pragma: no cover
+    except Exception as e:  # pragma: no cover
         print("   tokenizer unavailable:", type(e).__name__, e)
         return None
 
@@ -829,8 +916,7 @@ def run_selftest() -> int:
         checks.append((name, bool(cond), str(note)))
 
     def rows(p):
-        return [json.loads(l) for l in Path(p).read_text().splitlines()
-                if l.strip()]
+        return [json.loads(l) for l in Path(p).read_text().splitlines() if l.strip()]
 
     multi = rows(root / "benchmarks/tasks/mw_tasks.jsonl")
     m0 = rows(root / "benchmarks/tasks/m0_tasks.jsonl")
@@ -840,61 +926,96 @@ def run_selftest() -> int:
     ref = _reference(t)
 
     # ---- 1-3 the contract accepts what ships as the reference answer
-    ck("mw references walk their contract",
-       all(Contract(mode="multi", names=tuple(x["solution"])).feed(_reference(x))
-           is not None for x in multi), f"{len(multi)} tasks")
-    ends = [Contract(mode="multi", names=tuple(x["solution"])).feed(_reference(x))
-            for x in multi]
-    ck("mw references end stoppable with every block closed",
-       all(e is not None and e.can_stop() and e.blocks == len(x["solution"])
-           for e, x in zip(ends, multi)))
-    ck("m0 references walk the fence contract",
-       all(fence.feed(f"{FENCE}python\n{x['solution']}{FENCE}") is not None
-           for x in m0), f"{len(m0)} tasks")
-    ck("a bare unfenced answer does not (the fence is required)",
-       fence.feed(m0[0]["solution"]) is None)
+    ck(
+        "mw references walk their contract",
+        all(
+            Contract(mode="multi", names=tuple(x["solution"])).feed(_reference(x))
+            is not None
+            for x in multi
+        ),
+        f"{len(multi)} tasks",
+    )
+    ends = [
+        Contract(mode="multi", names=tuple(x["solution"])).feed(_reference(x))
+        for x in multi
+    ]
+    ck(
+        "mw references end stoppable with every block closed",
+        all(
+            e is not None and e.can_stop() and e.blocks == len(x["solution"])
+            for e, x in zip(ends, multi)
+        ),
+    )
+    ck(
+        "m0 references walk the fence contract",
+        all(
+            fence.feed(f"{FENCE}python\n{x['solution']}{FENCE}") is not None for x in m0
+        ),
+        f"{len(m0)} tasks",
+    )
+    ck(
+        "a bare unfenced answer does not (the fence is required)",
+        fence.feed(m0[0]["solution"]) is None,
+    )
 
     # ---- 4-9 the shapes the harness had to learn to tolerate are illegal
     bad = {
-        "a heading before the fence":
-            "### file: " + names[0] + "\n" + ref.replace(
-                HEADER + names[0] + "\n", "", 1),
+        "a heading before the fence": "### file: "
+        + names[0]
+        + "\n"
+        + ref.replace(HEADER + names[0] + "\n", "", 1),
         "a fence with no header": ref.replace(HEADER + names[0] + "\n", "", 1),
         "a header with no fence": ref.replace(FENCE + "python\n", "", 1),
         "prose before the first header": "Sure, here you go:\n" + ref,
         "a path that escapes the root": ref.replace(
-            HEADER + names[0], HEADER + "../evil.py", 1),
+            HEADER + names[0], HEADER + "../evil.py", 1
+        ),
         "a file outside the required set": ref.replace(
-            HEADER + names[0], HEADER + "other.py", 1),
+            HEADER + names[0], HEADER + "other.py", 1
+        ),
     }
     for label, text in bad.items():
         c = Contract(mode="multi", names=names).feed(text)
         ck("rejects " + label, c is None, "" if c is None else c.snapshot())
     unknown = Contract(mode="multi", names=names).feed(HEADER + "oth")
-    ck("an unknown name dies as soon as it stops matching", unknown is None,
-       "" if unknown is None else unknown.snapshot())
+    ck(
+        "an unknown name dies as soon as it stops matching",
+        unknown is None,
+        "" if unknown is None else unknown.snapshot(),
+    )
 
     # ---- 10-11 truncation is open, and complete() repairs it
-    cut = ref[:ref.rindex("\n" + FENCE, 10)]
+    cut = ref[: ref.rindex("\n" + FENCE, 10)]
     c = Contract(mode="multi", names=names).feed(cut)
-    ck("truncation is legal-but-open, not illegal",
-       c is not None and c.truncated() and not c.can_stop(),
-       "" if c else "dead")
-    ck("complete() turns a cut answer back into a closed block",
-       c is not None and set(extract_files(cut + c.complete(),
-                                           expected=list(names))) <= set(names),
-       repr(c.complete() if c else None))
+    ck(
+        "truncation is legal-but-open, not illegal",
+        c is not None and c.truncated() and not c.can_stop(),
+        "" if c else "dead",
+    )
+    ck(
+        "complete() turns a cut answer back into a closed block",
+        c is not None
+        and set(extract_files(cut + c.complete(), expected=list(names))) <= set(names),
+        repr(c.complete() if c else None),
+    )
 
     # ---- 12-13 re-emitting a written file, and name bookkeeping
     twice = ref + "\n\n" + HEADER + names[0] + "\n" + FENCE + "\nx=1\n" + FENCE
-    ck("refuses to re-emit a file already written",
-       Contract(mode="multi", names=names).feed(twice) is None)
+    ck(
+        "refuses to re-emit a file already written",
+        Contract(mode="multi", names=names).feed(twice) is None,
+    )
     one = Contract(mode="multi", names=names).feed(
-        HEADER + names[1] + "\n" + FENCE + "\nx=1\n" + FENCE)
-    ck("a partial file set is legal but cannot end the turn",
-       one is not None and one.left == (names[0],)
-       and not one.can_stop() and not one.stop_ok(),
-       "" if one else "dead")
+        HEADER + names[1] + "\n" + FENCE + "\nx=1\n" + FENCE
+    )
+    ck(
+        "a partial file set is legal but cannot end the turn",
+        one is not None
+        and one.left == (names[0],)
+        and not one.can_stop()
+        and not one.stop_ok(),
+        "" if one else "dead",
+    )
 
     # ---- 14-15 tokenization independence
     def split_walk(text: str, con: Contract, rng) -> bool:
@@ -908,22 +1029,40 @@ def run_selftest() -> int:
         return True
 
     rng = random.Random(7)
-    ck("40 random splits per mw reference stay legal",
-       all(split_walk(_reference(x),
-                      Contract(mode="multi", names=tuple(x["solution"])), rng)
-           for x in multi for _ in range(40)))
-    ck("an illegal answer stays illegal under every split",
-       all(split_walk(bad["prose before the first header"],
-                      Contract(mode="multi", names=names), random.Random(s))
-           is False for s in range(40)))
+    ck(
+        "40 random splits per mw reference stay legal",
+        all(
+            split_walk(
+                _reference(x), Contract(mode="multi", names=tuple(x["solution"])), rng
+            )
+            for x in multi
+            for _ in range(40)
+        ),
+    )
+    ck(
+        "an illegal answer stays illegal under every split",
+        all(
+            split_walk(
+                bad["prose before the first header"],
+                Contract(mode="multi", names=names),
+                random.Random(s),
+            )
+            is False
+            for s in range(40)
+        ),
+    )
 
     # ---- 16-29 token masks: the real tokenizer, no weights loaded
     tok = _load_tokenizer()
     if tok is None:
-        ck("a tokenizer is available for the mask checks", False,
-           "HF cache miss — the mask checks are the offline half of R-4.2")
+        ck(
+            "a tokenizer is available for the mask checks",
+            False,
+            "HF cache miss — the mask checks are the offline half of R-4.2",
+        )
     else:
         import mlx.core as mx
+
         t0 = time.perf_counter()
         n, texts, markers, eos, firsts, by_first, ticked, turns = _table(tok)
         table_s = time.perf_counter() - t0
@@ -933,25 +1072,39 @@ def run_selftest() -> int:
         start_ids = samp.masks.ids_for(con0.at("s0"))
         body_ids = samp.masks.ids_for(con0.at("s5"))
         build_s = time.perf_counter() - t1
-        ck("the id table covers the logit width", len(texts) == n,
-           f"n={n}, {table_s:.2f}s")
-        ck("eos is a marker the DFA itself would reject",
-           bool(eos) and texts[eos[0]].startswith("<|"),
-           texts[eos[0]] if eos else "no eos id")
+        ck(
+            "the id table covers the logit width",
+            len(texts) == n,
+            f"n={n}, {table_s:.2f}s",
+        )
+        ck(
+            "eos is a marker the DFA itself would reject",
+            bool(eos) and texts[eos[0]].startswith("<|"),
+            texts[eos[0]] if eos else "no eos id",
+        )
         fence_ids = {i for i, x in enumerate(texts) if x.strip() == FENCE}
-        ck("no fence token is legal before the first header",
-           bool(fence_ids) and not (fence_ids & set(start_ids)),
-           f"{len(fence_ids)} excluded")
+        ck(
+            "no fence token is legal before the first header",
+            bool(fence_ids) and not (fence_ids & set(start_ids)),
+            f"{len(fence_ids)} excluded",
+        )
+
         # ---- the mask, excluding template control: at a tight position the
         # only things the DFA should admit are answer-shaped pieces (markers
         # ride along everywhere by design, and the template strips them).
         def answer_shaped(ids):
             return [i for i in ids if i not in markers]
 
-        odd = sorted(x for x in {texts[i] for i in answer_shaped(start_ids)}
-                     if not x.isspace() and not HEADER.startswith(x.lstrip()))
-        ck("only whitespace and a header prefix can open the answer",
-           not odd, f"{len(start_ids)} ids, odd={odd[:3]}")
+        odd = sorted(
+            x
+            for x in {texts[i] for i in answer_shaped(start_ids)}
+            if not x.isspace() and not HEADER.startswith(x.lstrip())
+        )
+        ck(
+            "only whitespace and a header prefix can open the answer",
+            not odd,
+            f"{len(start_ids)} ids, odd={odd[:3]}",
+        )
         # The fast body path rests on a property of the DFA: in a code body
         # only a backtick can move it. Checked against a direct walk of every
         # ticked id plus a wide stride of the unticked ones.
@@ -959,94 +1112,141 @@ def run_selftest() -> int:
         probe = list(ticked) + list(range(0, n, 37))
         # Only the terminator is excused. A role marker is answer text, and it
         # has to survive the DFA where it would be sampled — the body included.
-        L, S = "im_" + "end", "user"                  # built: no chat marker here
+        L, S = "im_" + "end", "user"  # built: no chat marker here
         role = ["<|" + S + "|>", "<|" + L + "|>assistant\n"]
         body_ids = set(body_ids)
-        ck("a role marker is refused even inside a code body",
-           all(texts[i] not in role for i in body_ids),
-           f"{len(role)} shapes checked")
-        ck("the terminator is the only mask-immune piece, and it is excused",
-           set(turns) <= set(samp.masks.markers)
-           and con0.ends_turn(texts[turns[0]])
-           and not con0.ends_turn("<|" + S + "|>")
-           and con0.absorb(texts[turns[0]]) is not None
-           and con0.feed(texts[turns[0]]) is None,
-           f"turns={[texts[i] for i in turns]}")
-        ck("the body mask matches a direct DFA walk",
-           all((con0.at("s5").feed(texts[i]) is not None) == (i in body_set)
-               for i in probe),
-           f"{len(probe)}/{n} ids walked, {len(body_set)} admitted")
+        ck(
+            "a role marker is refused even inside a code body",
+            all(texts[i] not in role for i in body_ids),
+            f"{len(role)} shapes checked",
+        )
+        ck(
+            "the terminator is the only mask-immune piece, and it is excused",
+            set(turns) <= set(samp.masks.markers)
+            and con0.ends_turn(texts[turns[0]])
+            and not con0.ends_turn("<|" + S + "|>")
+            and con0.absorb(texts[turns[0]]) is not None
+            and con0.feed(texts[turns[0]]) is None,
+            f"turns={[texts[i] for i in turns]}",
+        )
+        ck(
+            "the body mask matches a direct DFA walk",
+            all(
+                (con0.at("s5").feed(texts[i]) is not None) == (i in body_set)
+                for i in probe
+            ),
+            f"{len(probe)}/{n} ids walked, {len(body_set)} admitted",
+        )
 
         def path_ok(pos, ids):
             pool = pos.left or names
-            return all(any(nm.startswith(pos.path + texts[i]) for nm in pool)
-                       for i in answer_shaped(ids))
+            return all(
+                any(nm.startswith(pos.path + texts[i]) for nm in pool)
+                for i in answer_shaped(ids)
+            )
 
         at_path = con0.feed(HEADER)
         p_ids = samp.masks.ids_for(at_path) if at_path else []
-        ck("path pieces are restricted to the required names",
-           any(p_ids) and path_ok(at_path, p_ids), f"{len(p_ids)} ids")
+        ck(
+            "path pieces are restricted to the required names",
+            any(p_ids) and path_ok(at_path, p_ids),
+            f"{len(p_ids)} ids",
+        )
         deep = at_path.feed(names[0][0]) if at_path else None
         d_ids = samp.masks.ids_for(deep) if deep else []
-        ck("mid-path pieces track the remaining names",
-           any(d_ids) and path_ok(deep, d_ids), f"{len(d_ids)} ids")
+        ck(
+            "mid-path pieces track the remaining names",
+            any(d_ids) and path_ok(deep, d_ids),
+            f"{len(d_ids)} ids",
+        )
         done = con0.feed(_reference(t))
         a_ids = samp.masks.ids_for(done) if done else []
-        ck("once every file is written, no new block can open",
-           not any(texts[i].lstrip().startswith("#")
-                   for i in answer_shaped(a_ids)),
-           f"{len(a_ids)} ids, none of them a header")
+        ck(
+            "once every file is written, no new block can open",
+            not any(texts[i].lstrip().startswith("#") for i in answer_shaped(a_ids)),
+            f"{len(a_ids)} ids, none of them a header",
+        )
         # The exact bug this pins: a bare '#' offered after the last file leads
         # to a path position with nothing left to name — a dead end the model
         # can neither leave nor stop out of.
-        ck("a finished file set offers only whitespace and the stop",
-           done is not None and all(texts[i].isspace()
-                                    for i in answer_shaped(a_ids))
-           and done.stop_ok(), f"{len(answer_shaped(a_ids))} answer ids")
-        ck("mask compilation is cheap enough to amortize", build_s < 2.0,
-           f"{build_s:.2f}s for the start and body positions")
+        ck(
+            "a finished file set offers only whitespace and the stop",
+            done is not None
+            and all(texts[i].isspace() for i in answer_shaped(a_ids))
+            and done.stop_ok(),
+            f"{len(answer_shaped(a_ids))} answer ids",
+        )
+        ck(
+            "mask compilation is cheap enough to amortize",
+            build_s < 2.0,
+            f"{build_s:.2f}s for the start and body positions",
+        )
         logits = mx.ones((n,), dtype=mx.float32)
         masked = samp(mx.array([7], dtype=mx.uint32), logits)
-        un = int(mx.sum(mx.where(masked > -1e3, mx.ones_like(masked),
-                                 mx.zeros_like(masked))).item())
-        ck("a masked step leaves exactly the allowed ids unpenalised",
-           un == len(samp.allowed_ids()), f"{un} vs {len(samp.allowed_ids())}")
+        un = int(
+            mx.sum(
+                mx.where(masked > -1e3, mx.ones_like(masked), mx.zeros_like(masked))
+            ).item()
+        )
+        ck(
+            "a masked step leaves exactly the allowed ids unpenalised",
+            un == len(samp.allowed_ids()),
+            f"{un} vs {len(samp.allowed_ids())}",
+        )
         # The census's own crash: this checkpoint's logits are 152064 wide for
         # a 151657-token vocabulary, and a mask sized to the table does not
         # broadcast against them.
         wide = mx.ones((n + 4096,), dtype=mx.float32)
         wmask = samp(mx.array([7], dtype=mx.uint32), wide)
-        wun = int(mx.sum(mx.where(wmask > -1e3, mx.ones_like(wmask),
-                                  mx.zeros_like(wmask))).item())
-        ck("a logit width padded past the vocabulary is masked, not crashed",
-           wmask.shape == wide.shape and wun == len(samp.allowed_ids()),
-           f"{wide.shape[-1]} columns over a {n}-token table")
-        ck("end-of-turn is masked where a stop would not parse",
-           all(i not in samp.allowed_ids() for i in samp.masks.eos),
-           f"position {samp.contract.state}, {len(samp.allowed_ids())} ids")
+        wun = int(
+            mx.sum(
+                mx.where(wmask > -1e3, mx.ones_like(wmask), mx.zeros_like(wmask))
+            ).item()
+        )
+        ck(
+            "a logit width padded past the vocabulary is masked, not crashed",
+            wmask.shape == wide.shape and wun == len(samp.allowed_ids()),
+            f"{wide.shape[-1]} columns over a {n}-token table",
+        )
+        ck(
+            "end-of-turn is masked where a stop would not parse",
+            all(i not in samp.allowed_ids() for i in samp.masks.eos),
+            f"position {samp.contract.state}, {len(samp.allowed_ids())} ids",
+        )
         closed = ConstrainedSampler(con0, tok)
         closed.contract = done
         inbody = ConstrainedSampler(con0, tok)
         inbody.contract = con0.at("s5")
-        ck("end-of-turn survives after the last block and inside a live body",
-           all(closed.contract.stop_ok() and inbody.contract.stop_ok()
-               and set(samp.masks.eos) <= set(x.allowed_ids())
-               for x in (closed, inbody)), str(samp.masks.eos))
+        ck(
+            "end-of-turn survives after the last block and inside a live body",
+            all(
+                closed.contract.stop_ok()
+                and inbody.contract.stop_ok()
+                and set(samp.masks.eos) <= set(x.allowed_ids())
+                for x in (closed, inbody)
+            ),
+            str(samp.masks.eos),
+        )
         # The live census's 49 mask breaches, pinned offline: the first call's
         # array is the whole prompt, and its last token is not generated text.
         # Reading it as answer text fed the DFA a piece no answer may start
         # with — a prompt ending in '.' produced a refusal the mask was blamed
         # for.
         pre = ConstrainedSampler(con0, tok)
-        prompt_ids = tok.encode('File "ring.py": a ring buffer.',
-                                add_special_tokens=False)
+        prompt_ids = tok.encode(
+            'File "ring.py": a ring buffer.', add_special_tokens=False
+        )
         pre(mx.array(prompt_ids, dtype=mx.uint32), logits)
         after_prompt = pre.contract.snapshot()
         hash_id = [i for i in pre.allowed_ids() if texts[i] == "#"]
         pre(mx.array(prompt_ids + hash_id, dtype=mx.uint32), logits)
-        ck("the prompt is never walked as answer text",
-           pre.illegal_picks == 0 and after_prompt.startswith("s0")
-           and pre.contract.state == "s1", f"prompt call -> {after_prompt}")
+        ck(
+            "the prompt is never walked as answer text",
+            pre.illegal_picks == 0
+            and after_prompt.startswith("s0")
+            and pre.contract.state == "s1",
+            f"prompt call -> {after_prompt}",
+        )
 
         # In a clean body the mask refuses only the template markers. They are
         # answer text as far as the harness is concerned: a vision block or a
@@ -1054,21 +1254,27 @@ def run_selftest() -> int:
         # module exists to prevent, so nothing wider is excused here.
         off = set(inbody.allowed_ids())
         refused = [i for i in range(n) if i not in off]
-        ck("a clean body step refuses exactly the template markers",
-           refused and all(_MARKER.fullmatch(texts[i]) for i in refused)
-           and set(refused) == set(inbody.masks.all_markers) - set(inbody.masks.turns),
-           f"{len(refused)} refused, {len(off)} of {n} offered")
+        ck(
+            "a clean body step refuses exactly the template markers",
+            refused
+            and all(_MARKER.fullmatch(texts[i]) for i in refused)
+            and set(refused) == set(inbody.masks.all_markers) - set(inbody.masks.turns),
+            f"{len(refused)} refused, {len(off)} of {n} offered",
+        )
 
         # The bug this pins: a body that has already spent a backtick does NOT
         # admit the whole vocabulary — '```' there closes the fence and leaves
         # a stray tick, which is how the first mask breached the DFA.
         near = con0.feed(HEADER + names[0] + "\n" + FENCE + "\nx = 1\n`")
         near_ids = samp.masks.allowed(near) if near else []
-        ck("a body with a backtick pending masks the overshooting pieces",
-           near is not None and near.ticks == 1
-           and not inbody.masks.unrestricted(near)
-           and all(texts[i] != FENCE for i in near_ids),
-           f"{len(near_ids)} of {n} ids still legal")
+        ck(
+            "a body with a backtick pending masks the overshooting pieces",
+            near is not None
+            and near.ticks == 1
+            and not inbody.masks.unrestricted(near)
+            and all(texts[i] != FENCE for i in near_ids),
+            f"{len(near_ids)} of {n} ids still legal",
+        )
 
         # ---- adversarial walks: only ever pick ids the mask itself offered.
         # A loose position is biased toward the pieces that can close it, and a
@@ -1086,27 +1292,27 @@ def run_selftest() -> int:
                 legal = s.allowed_ids()
                 if not legal:
                     deadend += 1
-                    break                       # nothing to say, nowhere to go
-                if len(legal) > 200:                 # a loose (body) position
+                    break  # nothing to say, nowhere to go
+                if len(legal) > 200:  # a loose (body) position
                     q = r.random()
                     if q < 0.25 and s.contract.stop_ok():
                         stops += 1
-                        break                   # the stop the mask offered
+                        break  # the stop the mask offered
                     if q < 0.55:
                         close = [i for i in legal if i in tick_set]
                         legal = close or legal  # aim at the closing fence
                 pick = legal[r.randrange(len(legal))]
                 if pick in eos_set:
                     stops += 1
-                    break                       # the model ended the turn
+                    break  # the model ended the turn
                 if not s.consume([pick]):
                     breach += 1
                     break
-                pieces.append(texts[pick])       # markers included: as emitted
+                pieces.append(texts[pick])  # markers included: as emitted
                 pieces_seen += 1
             else:
-                cut += 1                        # out of steps: the budget case
-                continue                        # no mask can prevent it
+                cut += 1  # out of steps: the budget case
+                continue  # no mask can prevent it
             ended += 1
             text = "".join(pieces) + s.finish()
             ok, why = conformance(text, list(names))
@@ -1121,24 +1327,30 @@ def run_selftest() -> int:
                 illegal_end += 1
                 if len(worst) < 2:
                     worst.append(f"{why}@{s.contract.state}: {text[:60]!r}")
-        ck("40 mask-legal walks: no refusal, no dead end",
-           breach == 0 and deadend == 0,
-           f"{breach} breach, {deadend} dead ends over {pieces_seen} pieces, "
-           f"{cut} cut by budget")
-        ck("a walk that ends by choice never yields a malformed answer",
-           illegal_end == 0 and ended > 0,
-           f"{clean} complete, {partial} partial-but-parseable, "
-           f"{illegal_end} illegal "
-           f"of {ended} ended {worst}")
+        ck(
+            "40 mask-legal walks: no refusal, no dead end",
+            breach == 0 and deadend == 0,
+            f"{breach} breach, {deadend} dead ends over {pieces_seen} pieces, "
+            f"{cut} cut by budget",
+        )
+        ck(
+            "a walk that ends by choice never yields a malformed answer",
+            illegal_end == 0 and ended > 0,
+            f"{clean} complete, {partial} partial-but-parseable, "
+            f"{illegal_end} illegal "
+            f"of {ended} ended {worst}",
+        )
 
         # ---- liveness: a mask that only ever says "no" is worthless. Every
         # shipped reference must pass through its own mask token by token, so
         # the constraint can never block a correct answer.
         import bisect
+
         blocked = []
         for x in multi:
-            w = ConstrainedSampler(Contract(mode="multi",
-                                            names=tuple(x["solution"])), tok)
+            w = ConstrainedSampler(
+                Contract(mode="multi", names=tuple(x["solution"])), tok
+            )
             for i in tok.encode(_reference(x), add_special_tokens=False):
                 pool = w.allowed_ids()
                 k = bisect.bisect_left(pool, i)
@@ -1154,64 +1366,93 @@ def run_selftest() -> int:
         # the terminator has to read as the answer, not as a violation.
         stop_txt = texts[turns[0]]
         whole = _reference(t)
-        ck("stopping on the terminator leaves the answer conforming",
-           conformance(whole + stop_txt, list(names))[0]
-           and conformance(whole + stop_txt + "\n", list(names))[0],
-           repr(stop_txt))
+        ck(
+            "stopping on the terminator leaves the answer conforming",
+            conformance(whole + stop_txt, list(names))[0]
+            and conformance(whole + stop_txt + "\n", list(names))[0],
+            repr(stop_txt),
+        )
 
-        ck("no mw reference is blocked by its own mask", not blocked,
-           str(blocked[:3]))
+        ck("no mw reference is blocked by its own mask", not blocked, str(blocked[:3]))
     # ---- 30-31 the vector's own measure on shipped answers
-    ck("an answer the tolerant parser had to rescue counts as a violation",
-       not conformance(bad["a fence with no header"], list(names))[0])
+    ck(
+        "an answer the tolerant parser had to rescue counts as a violation",
+        not conformance(bad["a fence with no header"], list(names))[0],
+    )
     ck("the reference answer conforms", conformance(ref, list(names))[0])
 
     # ---- 32-36 the loop's wiring: which contract each attempt is masked to
     from flash.loop import _contract_for
-    mw = {"id": "mw1", "multi": True,
-          "prompt": 'Write two files.\nFile "ring.py": a ring buffer.\n'
-                    'File "stats.py": running stats.'}
-    ck("the switch off leaves the loop unconstrained",
-       _contract_for(mw, None, None, constrain=False) is None)
+
+    mw = {
+        "id": "mw1",
+        "multi": True,
+        "prompt": 'Write two files.\nFile "ring.py": a ring buffer.\n'
+        'File "stats.py": running stats.',
+    }
+    ck(
+        "the switch off leaves the loop unconstrained",
+        _contract_for(mw, None, None, constrain=False) is None,
+    )
     first = _contract_for(mw, None, None, constrain=True)
-    ck("attempt 1 is masked to the file set the prompt declares",
-       first is not None and first.names == names, "" if first else "none")
+    ck(
+        "attempt 1 is masked to the file set the prompt declares",
+        first is not None and first.names == names,
+        "" if first else "none",
+    )
     fixed = _contract_for(mw, list(names), ["stats.py"], constrain=True)
-    ck("a targeted repair is masked to only the files it must fix",
-       fixed is not None and fixed.names == ("stats.py",),
-       "" if fixed else "none")
-    ck("a single-file task is masked to a fenced block",
-       _contract_for({"id": "t01", "test": "assert 1"}, None, None,
-                     constrain=True).mode == "fence")
-    ck("a multi task with no nameable file set degrades to free generation",
-       _contract_for({"id": "x", "multi": True, "prompt": "fix it"}, None, None,
-                     constrain=True) is None)
+    ck(
+        "a targeted repair is masked to only the files it must fix",
+        fixed is not None and fixed.names == ("stats.py",),
+        "" if fixed else "none",
+    )
+    ck(
+        "a single-file task is masked to a fenced block",
+        _contract_for(
+            {"id": "t01", "test": "assert 1"}, None, None, constrain=True
+        ).mode
+        == "fence",
+    )
+    ck(
+        "a multi task with no nameable file set degrades to free generation",
+        _contract_for(
+            {"id": "x", "multi": True, "prompt": "fix it"}, None, None, constrain=True
+        )
+        is None,
+    )
     width = max(len(name) for name, _, _ in checks)
     fails = 0
     for name, cond, note in checks:
         fails += 0 if cond else 1
-        print(f"  {'ok  ' if cond else 'FAIL'} {name:<{width}}"
-              + (f"  [{note}]" if note else ""))
+        print(
+            f"  {'ok  ' if cond else 'FAIL'} {name:<{width}}"
+            + (f"  [{note}]" if note else "")
+        )
     print(f"\nflash.grammar selftest: {len(checks) - fails}/{len(checks)}")
     return 1 if fails else 0
 
 
-if __name__ == "__main__":                       # pragma: no cover
+if __name__ == "__main__":  # pragma: no cover
     a = sys.argv[1:]
     if a and a[0] == "--overhead":
         kw = {}
-        for flag, name, cast in (("--model", "model", str),
-                                 ("--iters", "iters", int),
-                                 ("--step-ms", "step_ms", float)):
+        for flag, name, cast in (
+            ("--model", "model", str),
+            ("--iters", "iters", int),
+            ("--step-ms", "step_ms", float),
+        ):
             if flag in a:
                 kw[name] = cast(a[a.index(flag) + 1])
         raise SystemExit(run_overhead(**kw))
     if a and a[0] == "--census":
         kw = {}
-        for flag, name, cast in (("--n", "n", int), ("--model", "model", str),
-                                 ("--tasks", "tasks_file", str),
-                                 ("--arm", "attempts", str),
-                                 ("--max-tokens", "max_tokens", int)):
+        for flag, name, cast in (
+            ("--n", "n", int),
+            ("--model", "model", str),
+            ("--tasks", "tasks_file", str),
+            ("--arm", "attempts", str),
+            ("--max-tokens", "max_tokens", int),
+        ):
             if flag in a:
                 kw[name] = cast(a[a.index(flag) + 1])
         raise SystemExit(run_census(**kw))

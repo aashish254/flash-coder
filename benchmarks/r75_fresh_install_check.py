@@ -35,6 +35,7 @@ USAGE
     python benchmarks/r75_fresh_install_check.py --keep
     python benchmarks/r75_fresh_install_check.py --witness benchmarks/results/x.log
 """
+
 from __future__ import annotations
 
 import argparse
@@ -46,7 +47,7 @@ import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import battery_reread                                        # noqa: E402
+import battery_reread  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 # The subset print names the whole battery ("run of 3/N lines"), so N comes from
@@ -65,11 +66,17 @@ def tool() -> str:
     `r75_sdist_battery_check.py` chooses one. Every child that is ASKED about the install
     is a console script of the throwaway venv; this interpreter only ever builds and
     creates venvs, so it cannot answer for the package under test."""
-    candidates = [sys.executable, *(p for name in ("python3.11", "python3")
-                                   if (p := shutil.which(name)))]
+    candidates = [
+        sys.executable,
+        *(p for name in ("python3.11", "python3") if (p := shutil.which(name))),
+    ]
     for cand in candidates:
-        if subprocess.run([cand, "-c", "import build"],
-                          capture_output=True, text=True).returncode == 0:
+        if (
+            subprocess.run(
+                [cand, "-c", "import build"], capture_output=True, text=True
+            ).returncode
+            == 0
+        ):
             return cand
     return ""
 
@@ -88,8 +95,9 @@ def check(name: str, ok: bool, detail: str = "") -> bool:
 def run(cmd: list[str], cwd: Path, timeout: int = 600) -> tuple[int, str]:
     """Run a child. `cwd` has no default: a child that inherits this checkout's
     directory can import the package under test from it and answer for the wrong copy."""
-    proc = subprocess.run(cmd, cwd=str(cwd), capture_output=True, text=True,
-                          timeout=timeout)
+    proc = subprocess.run(
+        cmd, cwd=str(cwd), capture_output=True, text=True, timeout=timeout
+    )
     return proc.returncode, proc.stdout + proc.stderr
 
 
@@ -131,22 +139,30 @@ def main(argv: list[str]) -> int:
     if not builder:
         emit("R-7.5 clause 1 — the two installs a stranger can make")
         emit("")
-        emit("BAD  no interpreter here can `import build`, so no sdist can be made to "
-             "install — `pip install -e .[dev]` ships it")
+        emit(
+            "BAD  no interpreter here can `import build`, so no sdist can be made to "
+            "install — `pip install -e .[dev]` ships it"
+        )
         return 2
     emit("R-7.5 clause 1 — the two installs a stranger can make")
-    _, builder_version = run([builder, "-c", "import sys; print(sys.version.split()[0])"],
-                             cwd=base)
-    emit(f"interpreter: python {sys.version.split()[0]}, builder: "
-         f"python {builder_version.strip()}")
+    _, builder_version = run(
+        [builder, "-c", "import sys; print(sys.version.split()[0])"], cwd=base
+    )
+    emit(
+        f"interpreter: python {sys.version.split()[0]}, builder: "
+        f"python {builder_version.strip()}"
+    )
     emit("the checkout is the source of the build only; it is never the answer")
     emit("")
 
     try:
         dist = base / "dist"
         dist.mkdir()
-        rc, out = run([builder, "-m", "build", "--sdist", "--outdir", str(dist)],
-                      cwd=ROOT, timeout=900)
+        rc, out = run(
+            [builder, "-m", "build", "--sdist", "--outdir", str(dist)],
+            cwd=ROOT,
+            timeout=900,
+        )
         tarballs = sorted(dist.glob("*.tar.gz"))
         if rc != 0 or not tarballs:
             emit(out[-1500:])
@@ -158,94 +174,132 @@ def main(argv: list[str]) -> int:
         venv_a = make_venv(builder, base, "venv-a")
         if venv_a is None:
             return 2
-        rc, out = run([str(venv_a / "bin" / "pip"), "install", "--quiet", str(tarball)],
-                      cwd=base, timeout=1800)
+        rc, out = run(
+            [str(venv_a / "bin" / "pip"), "install", "--quiet", str(tarball)],
+            cwd=base,
+            timeout=1800,
+        )
         if rc != 0:
             emit(out[-1500:])
             return 2
         flash_a = venv_a / "bin" / "flash"
 
         resolved = answered_from(venv_a / "bin" / "python", ask)
-        check("the child that answers is the installed copy",
-              bool(resolved) and "site-packages" in resolved and not under(resolved, ROOT),
-              "`import flash` from a bare directory -> site-packages")
+        check(
+            "the child that answers is the installed copy",
+            bool(resolved)
+            and "site-packages" in resolved
+            and not under(resolved, ROOT),
+            "`import flash` from a bare directory -> site-packages",
+        )
 
         rc, out = run([str(flash_a), "--version"], cwd=ask)
         printed = out.strip()
-        check("`flash --version` on a tarball install answers with the version",
-              rc == 0 and printed.startswith("flash "), f"{printed!r} [rc {rc}]")
+        check(
+            "`flash --version` on a tarball install answers with the version",
+            rc == 0 and printed.startswith("flash "),
+            f"{printed!r} [rc {rc}]",
+        )
 
         rc, out = run([str(flash_a), "doctor"], cwd=ask)
-        check("`flash doctor` on a tarball install names the missing surface, the remedy, "
-              "and the copy it is describing",
-              rc == 1 and "(installed copy)" in out
-              and "verification surface beside the package" in out
-              and "the offline battery CANNOT run from this install" in out,
-              f"rc {rc}, two `no` answers, each with its own remedy")
-        check("and it does not call itself an editable checkout",
-              "(editable checkout)" not in out,
-              "R-7.10b's claim re-measured from the install side rather than the "
-              "package's")
+        check(
+            "`flash doctor` on a tarball install names the missing surface, the remedy, "
+            "and the copy it is describing",
+            rc == 1
+            and "(installed copy)" in out
+            and "verification surface beside the package" in out
+            and "the offline battery CANNOT run from this install" in out,
+            f"rc {rc}, two `no` answers, each with its own remedy",
+        )
+        check(
+            "and it does not call itself an editable checkout",
+            "(editable checkout)" not in out,
+            "R-7.10b's claim re-measured from the install side rather than the "
+            "package's",
+        )
 
         rc, out = run([str(flash_a), "selftest", "--all"], cwd=ask)
-        check("`flash selftest --all` refuses rather than totalling checks that never "
-              "ran",
-              rc == 2 and "battery_reread.py" in out and "site-packages" in out,
-              f"rc {rc}, refusing with the path it wanted")
+        check(
+            "`flash selftest --all` refuses rather than totalling checks that never "
+            "ran",
+            rc == 2 and "battery_reread.py" in out and "site-packages" in out,
+            f"rc {rc}, refusing with the path it wanted",
+        )
 
         # ---- the shadowing, shown rather than asserted away
         tree = base / "tree"
         tree.mkdir()
-        rc, _ = run(["tar", "xzf", str(tarball), "-C", str(tree)], cwd=base, timeout=300)
+        rc, _ = run(
+            ["tar", "xzf", str(tarball), "-C", str(tree)], cwd=base, timeout=300
+        )
         if rc != 0:
             check("the sdist unpacks", False, "tar failed")
             return 2
         unpacked = tree / tarball.name[: -len(".tar.gz")]
         shadow = answered_from(venv_a / "bin" / "python", unpacked)
-        rc, out = run([str(venv_a / "bin" / "python"), "-m", "flash.cli", "doctor"],
-                      cwd=unpacked)
-        check("a `-m` run from inside a tree answers from THAT tree, not from the "
-              "install — the shape that produced the old driver's rc 0",
-              under(shadow, unpacked) and rc == 0 and "(editable checkout)" in out,
-              f"same interpreter, same install: rc {rc}, `import flash` -> "
-              + ("the unpacked sdist" if under(shadow, unpacked) else "site-packages"))
+        rc, out = run(
+            [str(venv_a / "bin" / "python"), "-m", "flash.cli", "doctor"], cwd=unpacked
+        )
+        check(
+            "a `-m` run from inside a tree answers from THAT tree, not from the "
+            "install — the shape that produced the old driver's rc 0",
+            under(shadow, unpacked) and rc == 0 and "(editable checkout)" in out,
+            f"same interpreter, same install: rc {rc}, `import flash` -> "
+            + ("the unpacked sdist" if under(shadow, unpacked) else "site-packages"),
+        )
 
         # ---- shape 2: a real clone, installed editable, asked from inside itself
         clone = base / "clone"
-        rc, out = run(["git", "clone", "--quiet", str(ROOT), str(clone)], cwd=base,
-                      timeout=900)
+        rc, out = run(
+            ["git", "clone", "--quiet", str(ROOT), str(clone)], cwd=base, timeout=900
+        )
         if rc != 0:
             emit(out[-1500:])
             return 2
         venv_b = make_venv(builder, base, "venv-b")
         if venv_b is None:
             return 2
-        rc, out = run([str(venv_b / "bin" / "pip"), "install", "--quiet", "-e", ".[dev]"],
-                      cwd=clone, timeout=1800)
+        rc, out = run(
+            [str(venv_b / "bin" / "pip"), "install", "--quiet", "-e", ".[dev]"],
+            cwd=clone,
+            timeout=1800,
+        )
         if rc != 0:
             emit(out[-1500:])
             return 2
         flash_b = venv_b / "bin" / "flash"
 
         resolved_b = answered_from(venv_b / "bin" / "python", clone)
-        check("the editable install resolves `flash` to the clone and not to this "
-              "checkout",
-              under(resolved_b, clone) and not under(resolved_b, ROOT),
-              "`import flash` -> " + ("the clone" if under(resolved_b, clone) else "elsewhere"))
+        check(
+            "the editable install resolves `flash` to the clone and not to this "
+            "checkout",
+            under(resolved_b, clone) and not under(resolved_b, ROOT),
+            "`import flash` -> "
+            + ("the clone" if under(resolved_b, clone) else "elsewhere"),
+        )
 
         rc, out = run([str(flash_b), "doctor"], cwd=clone)
-        check("`flash doctor` on a cloned, editable install exits 0 and advertises the "
-              "battery",
-              rc == 0 and "(editable checkout)" in out
-              and "the offline battery runs here" in out, f"rc {rc}")
+        check(
+            "`flash doctor` on a cloned, editable install exits 0 and advertises the "
+            "battery",
+            rc == 0
+            and "(editable checkout)" in out
+            and "the offline battery runs here" in out,
+            f"rc {rc}",
+        )
 
-        rc, out = run([str(flash_b), "selftest", "--all", "--quick",
-                       "harness", "lsp", "power"], cwd=clone, timeout=1200)
+        rc, out = run(
+            [str(flash_b), "selftest", "--all", "--quick", "harness", "lsp", "power"],
+            cwd=clone,
+            timeout=1200,
+        )
         subset = sum(1 for line in out.splitlines() if line.startswith("OK   "))
-        check("and the battery it advertises really runs from the clone",
-              rc == 0 and f"run of 3/{WANT_LINES} lines" in out and subset == 3,
-              f"rc {rc}, {subset}/3 lines OK, and the print says its own totals are "
-              f"partial (of {WANT_LINES} vectors)")
+        check(
+            "and the battery it advertises really runs from the clone",
+            rc == 0 and f"run of 3/{WANT_LINES} lines" in out and subset == 3,
+            f"rc {rc}, {subset}/3 lines OK, and the print says its own totals are "
+            f"partial (of {WANT_LINES} vectors)",
+        )
 
         total = len(CHECKS)
         green = sum(1 for _, ok, _ in CHECKS if ok)
@@ -261,13 +315,17 @@ def main(argv: list[str]) -> int:
             subs = body.count(HOME)
             body = body.replace(HOME, "<home>")
             if str(ROOT) in body:
-                emit(f"REFUSED the witness: this checkout's path appears in it "
-                     f"({body.count(str(ROOT))} time(s)); the run is reported on "
-                     f"stdout only")
+                emit(
+                    f"REFUSED the witness: this checkout's path appears in it "
+                    f"({body.count(str(ROOT))} time(s)); the run is reported on "
+                    f"stdout only"
+                )
                 return 1
             args.witness.parent.mkdir(parents=True, exist_ok=True)
-            args.witness.write_text(body + f"provenance  host paths in this witness: 0 "
-                                           f"(substitutions: {subs} `<home>`)\n")
+            args.witness.write_text(
+                body + f"provenance  host paths in this witness: 0 "
+                f"(substitutions: {subs} `<home>`)\n"
+            )
             emit(f"witness: {args.witness}")
         return verdict
     finally:

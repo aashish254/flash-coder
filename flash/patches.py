@@ -38,6 +38,7 @@ is refused with the sentence that says how to install it, never resolved by
 feeding TypeScript to `ast`. `flash.lsp` is what makes the same ranges resolvable
 across files, and a patch set is per-file by construction.
 """
+
 from __future__ import annotations
 
 import ast
@@ -51,10 +52,16 @@ from pathlib import Path
 #: listing uses for the file it is editing, so a `tsx` block has to read here as
 #: readily as a `python` one. The tags are this tool's own languages rather than
 #: any info string, so a fenced diagram or log line stays out of the protocol.
-FENCE = re.compile(r"```[ \t]*(?:python|typescript|tsx|ts|jsx|js|py)?"
-                   r"[ \t]*\n(.*?)```", re.DOTALL)
-EDIT_MARKER = re.compile(r"^\s*\**\s*#\s*edit:\s*(?P<file>[\w./-]+)\s*::\s*"
-                        r"(?P<addr>\S+?)\s*\**\s*$", re.MULTILINE)
+FENCE = re.compile(
+    r"```[ \t]*(?:python|typescript|tsx|ts|jsx|js|py)?"
+    r"[ \t]*\n(.*?)```",
+    re.DOTALL,
+)
+EDIT_MARKER = re.compile(
+    r"^\s*\**\s*#\s*edit:\s*(?P<file>[\w./-]+)\s*::\s*"
+    r"(?P<addr>\S+?)\s*\**\s*$",
+    re.MULTILINE,
+)
 RANGE_ADDR = re.compile(r"^[Ll](?P<a>\d+)(?:\s*-\s*[Ll]?(?P<b>\d+))?$")
 
 #: The one character that turns an address into a request to ADD a definition.
@@ -73,9 +80,11 @@ CREATE_PREFIX = "+"
 #: is true about coordinates in the test file and tells the model nothing about
 #: the file it must change instead, so a retry after it is a retry chasing a
 #: line number rather than the module the test imports.
-ORACLE_MSG = ("{} is the oracle this run scores against, so it is not a patch "
-              "target — an assertion is never edited to fit the code. Change the "
-              "module the test imports.")
+ORACLE_MSG = (
+    "{} is the oracle this run scores against, so it is not a patch "
+    "target — an assertion is never edited to fit the code. Change the "
+    "module the test imports."
+)
 
 #: The suffixes whose spans the second grammar owns. Everything else — including
 #: the empty path every Python caller passes — is Python, which is what keeps the
@@ -102,6 +111,7 @@ def is_python(path: str) -> bool:
     costs a retry.
     """
     return not _is_ts(path)
+
 
 # The one sentence that says the project's real text is in this message. Both
 # the suite generator and the CLI write it, and `enrich_task` reads it as the
@@ -187,8 +197,11 @@ class Patch:
         the ambiguity sentence — wants the plain name, and only `kind` should
         have to know about the create prefix.
         """
-        return (self.address[len(CREATE_PREFIX):] if self.kind == "create"
-                else self.address)
+        return (
+            self.address[len(CREATE_PREFIX) :]
+            if self.kind == "create"
+            else self.address
+        )
 
     @property
     def name(self) -> str:
@@ -202,11 +215,12 @@ class Patch:
 @dataclass
 class Def:
     """One addressable definition, with the span a patch on it owns."""
+
     name: str
     container: str
-    start: int          # 1-based, first decorator line
-    end: int            # 1-based, inclusive
-    col: int            # 0-based indentation the replacement is restored to
+    start: int  # 1-based, first decorator line
+    end: int  # 1-based, inclusive
+    col: int  # 0-based indentation the replacement is restored to
     #: TypeScript only, and only ever True there: the span's first line is an
     #: `export` statement, so the replacement has to re-emit that keyword or the
     #: symbol stops being visible to the files that import it. Python's decorator
@@ -224,8 +238,8 @@ class Applied:
     patch: Patch
     start: int
     end: int
-    col: int            # 0-based nesting the replacement is restored to
-    lines: int          # lines of the file this patch owns
+    col: int  # 0-based nesting the replacement is restored to
+    lines: int  # lines of the file this patch owns
     #: The sub-ranges `apply_patches` actually spliced, or None when the patch
     #: was never run through it (then the whole owned span is assumed). An
     #: address names the NOUN in a request, which is often a class when the
@@ -260,8 +274,7 @@ class ApplyResult:
 
     @property
     def whole_rewrites(self) -> int:
-        return sum(1 for a in self.applied
-                   if a.patch.kind == "whole" and not a.founded)
+        return sum(1 for a in self.applied if a.patch.kind == "whole" and not a.founded)
 
     def summary(self) -> str:
         bits = []
@@ -275,6 +288,7 @@ class ApplyResult:
 
 
 # ------------------------------------------------------------------ parsing
+
 
 def parse_patches(text: str) -> list[Patch]:
     """Read the patch protocol out of a model response.
@@ -294,16 +308,21 @@ def parse_patches(text: str) -> list[Patch]:
         hm = EDIT_MARKER.match(head)
         if hm:
             addr = hm
-            block = head[hm.end():]
+            block = head[hm.end() :]
         else:
-            above = [l for l in text[pos:m.start()].splitlines() if l.strip()]
+            above = [l for l in text[pos : m.start()].splitlines() if l.strip()]
             if above:
                 addr = EDIT_MARKER.match(above[-1])
         pos = m.end()
         if addr is None:
             continue
-        out.append(Patch(file=addr.group("file"), address=addr.group("addr"),
-                         body=block.rstrip("\n")))
+        out.append(
+            Patch(
+                file=addr.group("file"),
+                address=addr.group("addr"),
+                body=block.rstrip("\n"),
+            )
+        )
     if out:
         return out
     # fenceless responses: headers followed by raw code up to the next header
@@ -312,12 +331,14 @@ def parse_patches(text: str) -> list[Patch]:
     for (fname, address), body in zip(heads, parts[1:]):
         lines = [l for l in body.splitlines() if not l.strip().startswith("```")]
         if "".join(lines).strip():
-            out.append(Patch(file=fname, address=address,
-                             body="\n".join(lines).rstrip("\n")))
+            out.append(
+                Patch(file=fname, address=address, body="\n".join(lines).rstrip("\n"))
+            )
     return out
 
 
 # -------------------------------------------------------------- resolution
+
 
 def definitions(src: str, path: str = "") -> list[Def]:
     """Every addressable definition in one file, decorators included.
@@ -344,18 +365,42 @@ def definitions(src: str, path: str = "") -> list[Def]:
         for child in ast.iter_child_nodes(node):
             if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
                 start = min([child.lineno] + [d.lineno for d in child.decorator_list])
-                out.append(Def(child.name, container, start,
-                               child.end_lineno or child.lineno, child.col_offset))
-                walk(child, child.name if isinstance(child, ast.ClassDef) else container)
-            elif isinstance(child, ast.AnnAssign) and isinstance(child.target, ast.Name):
-                out.append(Def(child.target.id, container, child.lineno,
-                               child.end_lineno or child.lineno, child.col_offset))
+                out.append(
+                    Def(
+                        child.name,
+                        container,
+                        start,
+                        child.end_lineno or child.lineno,
+                        child.col_offset,
+                    )
+                )
+                walk(
+                    child, child.name if isinstance(child, ast.ClassDef) else container
+                )
+            elif isinstance(child, ast.AnnAssign) and isinstance(
+                child.target, ast.Name
+            ):
+                out.append(
+                    Def(
+                        child.target.id,
+                        container,
+                        child.lineno,
+                        child.end_lineno or child.lineno,
+                        child.col_offset,
+                    )
+                )
             elif isinstance(child, ast.Assign):
                 for t in child.targets:
                     if isinstance(t, ast.Name):
-                        out.append(Def(t.id, container, child.lineno,
-                                       child.end_lineno or child.lineno,
-                                       child.col_offset))
+                        out.append(
+                            Def(
+                                t.id,
+                                container,
+                                child.lineno,
+                                child.end_lineno or child.lineno,
+                                child.col_offset,
+                            )
+                        )
                 walk(child, container)
             else:
                 walk(child, container)
@@ -373,9 +418,10 @@ def _ts_syntax(path: str, src: str) -> str:
     an `ast` error over code that is perfectly good TypeScript.
     """
     from flash import lang_ts
+
     try:
         return lang_ts.syntax_error(path, src)
-    except RuntimeError as exc:               # the grammar's own refusal
+    except RuntimeError as exc:  # the grammar's own refusal
         raise Refused(f"{path}: {exc}") from exc
 
 
@@ -389,6 +435,7 @@ def _ts_definitions(path: str, src: str) -> list[Def]:
     parse (so its spans are guesses).
     """
     from flash import lang_ts
+
     bad = _ts_syntax(path, src)
     if bad:
         raise Refused(f"{path} does not parse: {bad}")
@@ -401,9 +448,13 @@ def find_defs(defs: list[Def], address: str) -> list[Def]:
     container = address.rpartition(".")[0]
     hits = [d for d in defs if d.name == name]
     if container:
-        hits = [d for d in hits
-                if d.container == container or d.container.endswith("." + container)
-                or container.endswith("." + d.container)]
+        hits = [
+            d
+            for d in hits
+            if d.container == container
+            or d.container.endswith("." + container)
+            or container.endswith("." + d.container)
+        ]
     return hits
 
 
@@ -452,21 +503,27 @@ def resolve(patch: Patch, src: str) -> Applied:
             raise Refused(f"L{a}-L{b} is past the end of a {n}-line file")
         inside = [d for d in defs if d.start <= a and b <= d.end]
         if not inside:
-            raise Refused(f"L{a}-L{b} is not inside any symbol — a range patch "
-                          f"must sit within one definition's lines")
+            raise Refused(
+                f"L{a}-L{b} is not inside any symbol — a range patch "
+                f"must sit within one definition's lines"
+            )
         return Applied(patch, a, b, inside[0].col, b - a + 1)
 
     hits = find_defs(defs, patch.address)
     if not hits:
         named = ", ".join(sorted({d.name for d in defs}))[:200]
-        raise Refused(f"no symbol {patch.address!r} in {patch.file} "
-                      f"(it defines: {named or 'nothing'}) — to ADD a symbol that "
-                      f"does not exist yet, address it as "
-                      f"'{CREATE_PREFIX}{patch.address}'")
+        raise Refused(
+            f"no symbol {patch.address!r} in {patch.file} "
+            f"(it defines: {named or 'nothing'}) — to ADD a symbol that "
+            f"does not exist yet, address it as "
+            f"'{CREATE_PREFIX}{patch.address}'"
+        )
     if len(hits) > 1:
         where = ", ".join(str(d) for d in hits)
-        raise Refused(f"{patch.address!r} is ambiguous in {patch.file}: {where} — "
-                      f"address it as Container.name or by line range")
+        raise Refused(
+            f"{patch.address!r} is ambiguous in {patch.file}: {where} — "
+            f"address it as Container.name or by line range"
+        )
     d = hits[0]
     return Applied(patch, d.start, d.end, d.col, d.end - d.start + 1)
 
@@ -490,15 +547,19 @@ def _resolve_create(patch: Patch, src: str, defs: list[Def]) -> Applied:
     n, _ = _bounds(src)
     name, container = patch.name, patch.container
     if not name or name == "*":
-        raise Refused(f"'{patch.address}' names nothing to create — a create "
-                      f"address is '{CREATE_PREFIX}Symbol' or "
-                      f"'{CREATE_PREFIX}Container.symbol'")
+        raise Refused(
+            f"'{patch.address}' names nothing to create — a create "
+            f"address is '{CREATE_PREFIX}Symbol' or "
+            f"'{CREATE_PREFIX}Container.symbol'"
+        )
     if find_defs(defs, patch.target):
         d = find_defs(defs, patch.target)[0]
-        raise Refused(f"{name!r} already exists in {patch.file} at "
-                      f"L{d.start}-L{d.end} — a create refuses to duplicate a "
-                      f"definition, so address it without the "
-                      f"'{CREATE_PREFIX}' to replace it")
+        raise Refused(
+            f"{name!r} already exists in {patch.file} at "
+            f"L{d.start}-L{d.end} — a create refuses to duplicate a "
+            f"definition, so address it without the "
+            f"'{CREATE_PREFIX}' to replace it"
+        )
 
     if not container:
         tops = [d for d in defs if not d.container]
@@ -508,13 +569,17 @@ def _resolve_create(patch: Patch, src: str, defs: list[Def]) -> Applied:
     owners = [d for d in defs if d.name == container and not d.container]
     if not owners:
         named = ", ".join(sorted({d.name for d in defs if not d.container}))[:200]
-        raise Refused(f"no class or container {container!r} in {patch.file} to add "
-                      f"{name!r} to (its top-level definitions are: "
-                      f"{named or 'nothing'})")
+        raise Refused(
+            f"no class or container {container!r} in {patch.file} to add "
+            f"{name!r} to (its top-level definitions are: "
+            f"{named or 'nothing'})"
+        )
     if len(owners) > 1:
-        raise Refused(f"{container!r} is defined more than once in {patch.file}: "
-                      f"{', '.join(str(d) for d in owners)} — the create would "
-                      f"have to pick one")
+        raise Refused(
+            f"{container!r} is defined more than once in {patch.file}: "
+            f"{', '.join(str(d) for d in owners)} — the create would "
+            f"have to pick one"
+        )
     owner = owners[0]
     members = [d for d in defs if d.container == container]
     if members:
@@ -533,7 +598,7 @@ def splice(src: str, start: int, end: int, replacement: str) -> str:
     `start` — the coordinate form `narrow` uses for a pure insertion.
     """
     _, lines = _bounds(src)
-    return "\n".join(lines[:start - 1] + replacement.split("\n") + lines[end:])
+    return "\n".join(lines[: start - 1] + replacement.split("\n") + lines[end:])
 
 
 def narrow(src: str, start: int, end: int, body: str) -> list[tuple[int, int, str]]:
@@ -562,24 +627,30 @@ def narrow(src: str, start: int, end: int, body: str) -> list[tuple[int, int, st
     this line".
     """
     _, lines = _bounds(src)
-    block = lines[start - 1:end]
+    block = lines[start - 1 : end]
     repl = body.split("\n")
     ops = difflib.SequenceMatcher(None, block, repl, autojunk=False).get_opcodes()
     runs: list[tuple[int, int, str]] = []
     cur: list[tuple[str, int, int, int, int]] = []
-    for op in list(ops) + [("equal", 0, 0, 0, 0)]:    # the sentinel flushes one
+    for op in list(ops) + [("equal", 0, 0, 0, 0)]:  # the sentinel flushes one
         if op[0] != "equal":
             cur.append(op)
             continue
         if cur:
-            runs.append((start + cur[0][1],
-                         start + cur[-1][2] - 1,
-                         "\n".join(repl[cur[0][3]:cur[-1][4]])))
+            runs.append(
+                (
+                    start + cur[0][1],
+                    start + cur[-1][2] - 1,
+                    "\n".join(repl[cur[0][3] : cur[-1][4]]),
+                )
+            )
             cur = []
     return runs
 
 
-def _touched(a: Applied, runs: list[tuple[int, int, str]]) -> tuple[tuple[int, int], ...]:
+def _touched(
+    a: Applied, runs: list[tuple[int, int, str]]
+) -> tuple[tuple[int, int], ...]:
     """The line ranges a narrowed splice actually rewrote.
 
     A run of pure insertions (s > e) rewrites no existing line at all, so it is
@@ -637,8 +708,10 @@ def check_result(patch: Patch, before: str, after: str) -> None:
         # address saying `+format_dollar` would otherwise land a silently
         # different symbol than the one the oracle is about to be asked about.
         if not find_defs(definitions(after, patch.file), patch.target):
-            raise Refused(f"the result does not define {patch.name!r}, which is "
-                          f"what '{patch.address}' asked it to create")
+            raise Refused(
+                f"the result does not define {patch.name!r}, which is "
+                f"what '{patch.address}' asked it to create"
+            )
         return
     if patch.kind != "symbol":
         return
@@ -648,24 +721,31 @@ def check_result(patch: Patch, before: str, after: str) -> None:
     keeps = _names(after, patch.file)
     lost = [d for d in hits if (d.container, d.name) not in keeps]
     if lost:
-        raise Refused(f"replacement no longer defines {patch.address} "
-                      f"(as {', '.join(str(d) for d in lost)})")
+        raise Refused(
+            f"replacement no longer defines {patch.address} "
+            f"(as {', '.join(str(d) for d in lost)})"
+        )
     # ...and it must still be the interface the rest of the tree imports. The
     # span an address owns begins at the `export` keyword, so a replacement that
     # re-types the definition without it leaves the file looking fine while every
     # importer breaks — TypeScript's version of dropping a decorator.
-    unexported = [d for d in hits
-                  if d.exported and not keeps.get((d.container, d.name))]
+    unexported = [
+        d for d in hits if d.exported and not keeps.get((d.container, d.name))
+    ]
     if unexported:
-        raise Refused(f"replacement no longer exports {patch.address} "
-                      f"(as {', '.join(str(d) for d in unexported)}) — the "
-                      f"definition has to begin with `export`")
+        raise Refused(
+            f"replacement no longer exports {patch.address} "
+            f"(as {', '.join(str(d) for d in unexported)}) — the "
+            f"definition has to begin with `export`"
+        )
 
 
 # ----------------------------------------------------------------- applying
 
-def apply_patches(workspace: dict[str, str], patches: list[Patch],
-                  oracle: str = "") -> ApplyResult:
+
+def apply_patches(
+    workspace: dict[str, str], patches: list[Patch], oracle: str = ""
+) -> ApplyResult:
     """Apply a patch set to a file set. Atomic per patch set.
 
     Atomicity is the whole point of keeping the workspace as state: a
@@ -688,7 +768,7 @@ def apply_patches(workspace: dict[str, str], patches: list[Patch],
     files = dict(workspace)
     applied: list[Applied] = []
     refusals: list[tuple[Patch, str]] = []
-    
+
     # New files to create: key -> (the patch that asked for it, its whole text).
     # The patch is kept because `Applied` has to name where the file came from,
     # and a summary that said `+new` would be a lie about the address used.
@@ -716,22 +796,38 @@ def apply_patches(workspace: dict[str, str], patches: list[Patch],
             # (the body is the whole file). A bare symbol address cannot,
             # because it claims to REPLACE something the file does not have.
             if len(ps) != 1:
-                refusals.extend((p, f"{fname} is not one of the project files "
-                                  f"({', '.join(sorted(workspace))}) — a new file "
-                                  f"is written by ONE patch, not several") for p in ps)
+                refusals.extend(
+                    (
+                        p,
+                        f"{fname} is not one of the project files "
+                        f"({', '.join(sorted(workspace))}) — a new file "
+                        f"is written by ONE patch, not several",
+                    )
+                    for p in ps
+                )
                 continue
             p = ps[0]
             if p.kind not in ("create", "whole"):
-                refusals.append((p, f"{fname} is not one of the project files "
-                                  f"({', '.join(sorted(workspace))}) — to CREATE "
-                                  f"it, address the one patch as "
-                                  f"'{CREATE_PREFIX}{p.name or 'Symbol'}' (that "
-                                  f"definition alone) or '*' (the whole file)"))
+                refusals.append(
+                    (
+                        p,
+                        f"{fname} is not one of the project files "
+                        f"({', '.join(sorted(workspace))}) — to CREATE "
+                        f"it, address the one patch as "
+                        f"'{CREATE_PREFIX}{p.name or 'Symbol'}' (that "
+                        f"definition alone) or '*' (the whole file)",
+                    )
+                )
                 continue
             if not p.body.strip():
-                refusals.append((p, f"{fname}: the body is empty, so the file this "
-                                  f"patch creates would hold nothing — write at "
-                                  f"least one statement"))
+                refusals.append(
+                    (
+                        p,
+                        f"{fname}: the body is empty, so the file this "
+                        f"patch creates would hold nothing — write at "
+                        f"least one statement",
+                    )
+                )
                 continue
             try:
                 bad = _syntax_check(fname, p.body)
@@ -755,20 +851,29 @@ def apply_patches(workspace: dict[str, str], patches: list[Patch],
             except Refused as e:
                 refusals.append((p, str(e)))
                 continue
-            clash = next((b for b in resolved
-                          if b.start <= a.end and a.start <= b.end), None)
+            clash = next(
+                (b for b in resolved if b.start <= a.end and a.start <= b.end), None
+            )
             if clash:
-                refusals.append((p, f"overlaps the patch already addressed to "
-                                    f"{clash.patch.address} "
-                                    f"(L{clash.start}-L{clash.end})"))
+                refusals.append(
+                    (
+                        p,
+                        f"overlaps the patch already addressed to "
+                        f"{clash.patch.address} "
+                        f"(L{clash.start}-L{clash.end})",
+                    )
+                )
                 continue
             resolved.append(a)
         if not resolved or len(resolved) != len(ps):
             continue
         new = src0
         for a in sorted(resolved, key=lambda x: -x.start):
-            body = (normalise(a.patch.body, a.col)
-                    if a.patch.kind in ("symbol", "create") else a.patch.body)
+            body = (
+                normalise(a.patch.body, a.col)
+                if a.patch.kind in ("symbol", "create")
+                else a.patch.body
+            )
             if a.patch.kind == "whole":
                 new = splice(new, a.start, a.end, body)
                 a.spans = ((a.start, a.end),)
@@ -809,7 +914,7 @@ def apply_patches(workspace: dict[str, str], patches: list[Patch],
     for fname, (src, resolved) in staged.items():
         files[fname] = src
         applied.extend(resolved)
-    
+
     # New files land last, after every existing-file patch has been accepted:
     # a create that has to be refused must not have already written its bytes
     # into the returned workspace. The span is the whole new file, and `spans`
@@ -829,22 +934,23 @@ def apply_patches(workspace: dict[str, str], patches: list[Patch],
 
 # ------------------------------------------------------------------- audit
 
+
 def changed_lines(before: str, after: str) -> list[int]:
     """Lines of `before` that the edit did not leave alone."""
     out: list[int] = []
-    sm = difflib.SequenceMatcher(None, before.split("\n"), after.split("\n"),
-                                 autojunk=False)
+    sm = difflib.SequenceMatcher(
+        None, before.split("\n"), after.split("\n"), autojunk=False
+    )
     for tag, a1, a2, b1, b2 in sm.get_opcodes():
         if tag == "equal":
             continue
         out.extend(range(a1 + 1, a2 + 1))
         if tag == "insert" and a1 == a2 and b1 != b2:
-            out.append(a1 + 1)      # insertion point counts as a touched line
+            out.append(a1 + 1)  # insertion point counts as a touched line
     return sorted(set(out))
 
 
-def outside_lines(workspace: dict[str, str], result: ApplyResult,
-                  target: dict) -> int:
+def outside_lines(workspace: dict[str, str], result: ApplyResult, target: dict) -> int:
     """Lines this patch set changed that are NOT inside the symbol the change
     belongs in. This is R-3.2's "never rewrite a line outside the target
     symbol's range", measured on what the applier actually regenerated — the
@@ -862,26 +968,27 @@ def outside_lines(workspace: dict[str, str], result: ApplyResult,
     src = workspace.get(target.get("file", ""), "")
     if not src:
         return 0
-    hits = find_defs(definitions(src, target.get("file", "")),
-                     target.get("symbol", ""))
+    hits = find_defs(definitions(src, target.get("file", "")), target.get("symbol", ""))
     allowed = set(range(hits[0].start, hits[0].end + 1)) if hits else set()
     total = 0
     for a in result.applied:
         if a.patch.file != target["file"]:
             continue
         if a.patch.kind == "whole":
-            total += len(set(changed_lines(workspace[a.patch.file],
-                                           result.files[a.patch.file]))
-                         - allowed)
+            total += len(
+                set(changed_lines(workspace[a.patch.file], result.files[a.patch.file]))
+                - allowed
+            )
             continue
         touched: set[int] = set()
-        for s, e in (a.spans if a.spans is not None else [(a.start, a.end)]):
+        for s, e in a.spans if a.spans is not None else [(a.start, a.end)]:
             touched |= set(range(s, e + 1))
         total += len(touched - allowed)
     return total
 
 
 # ------------------------------------------------------------------ prompts
+
 
 def _fence_tag(fname: str) -> str:
     """The language a listing should claim for a file, or the model will not
@@ -928,9 +1035,11 @@ def workspace_from_dir(root: str | Path, limit: int = 20) -> dict[str, str]:
     name if it is not installed.
     """
     from flash.lsp import python_files
+
     root = Path(root)
     files = list(python_files(root))
     from flash import lang_ts  # filename walk only, lazy by R-7.7
+
     files += lang_ts.ts_files(root)
     out = {}
     for p in files[:limit]:
@@ -942,8 +1051,12 @@ def workspace_from_dir(root: str | Path, limit: int = 20) -> dict[str, str]:
     return out
 
 
-def land(root: str | Path, before: dict[str, str], after: dict[str, str],
-         protected: tuple[str, ...] = ()) -> list[tuple[str, int, int]]:
+def land(
+    root: str | Path,
+    before: dict[str, str],
+    after: dict[str, str],
+    protected: tuple[str, ...] = (),
+) -> list[tuple[str, int, int]]:
     """Write a workspace back to the tree it was read from.
 
     Only files whose bytes differ are touched, and a file that is in `before`
@@ -971,26 +1084,32 @@ def land(root: str | Path, before: dict[str, str], after: dict[str, str],
         if before.get(rel) == text:
             continue
         if rel in protected:
-            raise LandError(f"{rel}: the patch set changed a protected file, so "
-                            "nothing was written")
+            raise LandError(
+                f"{rel}: the patch set changed a protected file, so nothing was written"
+            )
         key = Path(rel)
         dest = (root / key).resolve()
         if key.is_absolute() or not dest.is_relative_to(root):
-            raise LandError(f"{rel}: addresses a path outside the project "
-                            f"root ({root}), so nothing was written")
+            raise LandError(
+                f"{rel}: addresses a path outside the project "
+                f"root ({root}), so nothing was written"
+            )
         # Allow creating new files that weren't in 'before'
         if rel not in before:
             ops = _opcodes("", text)
-            added = sum(j2 - j1 for tag, _, _, j1, j2 in ops
-                        if tag in ("insert", "replace"))
+            added = sum(
+                j2 - j1 for tag, _, _, j1, j2 in ops if tag in ("insert", "replace")
+            )
             removed = 0
             todo.append((rel, dest, added, removed))
             continue
         ops = _opcodes(before[rel], text)
-        added = sum(j2 - j1 for tag, _, _, j1, j2 in ops
-                    if tag in ("insert", "replace"))
-        removed = sum(i2 - i1 for tag, i1, i2, _, _ in ops
-                      if tag in ("delete", "replace"))
+        added = sum(
+            j2 - j1 for tag, _, _, j1, j2 in ops if tag in ("insert", "replace")
+        )
+        removed = sum(
+            i2 - i1 for tag, i1, i2, _, _ in ops if tag in ("delete", "replace")
+        )
         todo.append((rel, dest, added, removed))
     # Validated in full before the first byte: a LandError halfway through would
     # leave the tree a mixture of the patched and the scored state.
@@ -1006,8 +1125,9 @@ def _opcodes(old: str, new: str) -> list[tuple[str, int, int, int, int]]:
     # splitlines, not split("\n"): a file ending in a newline would otherwise
     # carry a trailing empty "line", and the numbers `land` returns are the ones
     # the CLI prints as lines.
-    sm = difflib.SequenceMatcher(None, old.splitlines(), new.splitlines(),
-                                 autojunk=False)
+    sm = difflib.SequenceMatcher(
+        None, old.splitlines(), new.splitlines(), autojunk=False
+    )
     return [op for op in sm.get_opcodes() if op[0] != "equal"]
 
 
@@ -1023,8 +1143,9 @@ def project_prompt(ask: str, files: dict[str, str], test: str = "") -> str:
     """
     out = f"{PROJECT_HEADER}\n\n{describe(files)}\n\nRequested change: {ask}"
     if test:
-        out += (f"\n\nThe test that must pass afterwards:\n"
-                f"```python\n{test.rstrip()}\n```")
+        out += (
+            f"\n\nThe test that must pass afterwards:\n```python\n{test.rstrip()}\n```"
+        )
     return out
 
 
@@ -1043,12 +1164,15 @@ def edit_prompt(task: dict) -> str:
 
 
 def refusal_feedback(err: str) -> str:
-    return (f"{err}\n\nYour patch set was refused, so nothing changed. "
-            f"Address each patch at a symbol that exists in the file as shown "
-            f"above, and replace its complete definition.")
+    return (
+        f"{err}\n\nYour patch set was refused, so nothing changed. "
+        f"Address each patch at a symbol that exists in the file as shown "
+        f"above, and replace its complete definition."
+    )
 
 
 # ------------------------------------------------------------- suite premise
+
 
 def load_tasks(path: str | Path) -> list[dict]:
     return [json.loads(l) for l in Path(path).read_text().splitlines() if l.strip()]
@@ -1058,9 +1182,15 @@ def reference_patches(task: dict) -> list[Patch]:
     """A task's reference solution as patches over the seeded workspace."""
     out = []
     for fname, body in task["fix"].items():
-        out.append(Patch(file=fname, address=task["target"]["symbol"]
-                         if fname == task["target"]["file"] else "*",
-                         body=body))
+        out.append(
+            Patch(
+                file=fname,
+                address=task["target"]["symbol"]
+                if fname == task["target"]["file"]
+                else "*",
+                body=body,
+            )
+        )
     return out
 
 
@@ -1073,39 +1203,60 @@ def run_premise(tasks_path: str | Path, verbose: bool = True) -> int:
     here rather than in a live run's numbers.
     """
     from flash.harness import diagnose_files
+
     tasks = load_tasks(tasks_path)
     checks: list[tuple[str, bool, str]] = []
 
     def check(label, ok, detail=""):
         checks.append((label, bool(ok), detail))
         if verbose:
-            print(f"  {'OK  ' if ok else 'FAIL'} {label}" + (f"  {detail}" if detail else ""))
+            print(
+                f"  {'OK  ' if ok else 'FAIL'} {label}"
+                + (f"  {detail}" if detail else "")
+            )
 
     for t in tasks:
         tid = t["id"]
         src = t["files"].get(t["target"]["file"], "")
-        ships = all(f"# file: {n}" in t["prompt"] and body.rstrip() in t["prompt"]
-                    for n, body in t["files"].items())
-        check(f"{tid}: the task ships its own project text in the prompt "
-              "(both arms read the same input)", ships,
-              f"{len(t['files'])} file(s), {len(t['prompt'])} chars")
-        defs = find_defs(definitions(src, t["target"]["file"]),
-                         t["target"]["symbol"])
-        check(f"{tid}: the target symbol exists to be addressed", bool(defs),
-              str(defs[0]) if defs else f"not in {t['target']['file']}")
+        ships = all(
+            f"# file: {n}" in t["prompt"] and body.rstrip() in t["prompt"]
+            for n, body in t["files"].items()
+        )
+        check(
+            f"{tid}: the task ships its own project text in the prompt "
+            "(both arms read the same input)",
+            ships,
+            f"{len(t['files'])} file(s), {len(t['prompt'])} chars",
+        )
+        defs = find_defs(definitions(src, t["target"]["file"]), t["target"]["symbol"])
+        check(
+            f"{tid}: the target symbol exists to be addressed",
+            bool(defs),
+            str(defs[0]) if defs else f"not in {t['target']['file']}",
+        )
         ok_before, err_before = diagnose_files(dict(t["files"]), t["test"])
-        check(f"{tid}: the seeded project fails the test (there is a change to make)",
-              not ok_before, err_before[:60])
+        check(
+            f"{tid}: the seeded project fails the test (there is a change to make)",
+            not ok_before,
+            err_before[:60],
+        )
         res = apply_patches(dict(t["files"]), reference_patches(t))
-        check(f"{tid}: the reference patch applies", res.ok,
-              "; ".join(f"{p.file}:{p.address} {w}" for p, w in res.refusals)[:120])
+        check(
+            f"{tid}: the reference patch applies",
+            res.ok,
+            "; ".join(f"{p.file}:{p.address} {w}" for p, w in res.refusals)[:120],
+        )
         if res.ok:
             ok_after, err_after = diagnose_files(res.files, t["test"])
-            check(f"{tid}: the reference patch passes the test", ok_after,
-                  err_after[:80])
+            check(
+                f"{tid}: the reference patch passes the test", ok_after, err_after[:80]
+            )
             n_out = outside_lines(dict(t["files"]), res, t["target"])
-            check(f"{tid}: the reference change lives inside the target symbol",
-                  n_out == 0, f"{n_out} line(s) outside")
+            check(
+                f"{tid}: the reference change lives inside the target symbol",
+                n_out == 0,
+                f"{n_out} line(s) outside",
+            )
     n_ok = sum(ok for _, ok, _ in checks)
     if verbose:
         print(f"\nedit premise: {n_ok}/{len(checks)} checks passed")
@@ -1114,8 +1265,9 @@ def run_premise(tasks_path: str | Path, verbose: bool = True) -> int:
 
 # ---------------------------------------------------------------- selftest
 
-EDIT_TASKS = (Path(__file__).resolve().parent.parent
-              / "benchmarks" / "tasks" / "edit_tasks.jsonl")
+EDIT_TASKS = (
+    Path(__file__).resolve().parent.parent / "benchmarks" / "tasks" / "edit_tasks.jsonl"
+)
 
 
 def run_wiring(verbose: bool = True, into: list | None = None) -> int:
@@ -1135,7 +1287,10 @@ def run_wiring(verbose: bool = True, into: list | None = None) -> int:
     def check(label, ok, detail=""):
         checks.append((label, bool(ok), detail))
         if verbose:
-            print(f"  {'OK  ' if ok else 'FAIL'} {label}" + (f"  {detail}" if detail else ""))
+            print(
+                f"  {'OK  ' if ok else 'FAIL'} {label}"
+                + (f"  {detail}" if detail else "")
+            )
 
     seen: list[str] = []
     original = loop._generate
@@ -1146,53 +1301,76 @@ def run_wiring(verbose: bool = True, into: list | None = None) -> int:
         def _gen(model, tokenizer, messages, max_tokens, **kw):
             seen.append(messages[-1]["content"])
             return next(stream)
+
         return _gen
 
     def code_of(files: dict[str, str]) -> str:
         return "\n\n".join(f"# file: {p}\n{c}" for p, c in files.items())
 
-    refused = ("Here it is:\n\n# edit: rules.py :: titleCasse\n"
-               "```python\ndef titleCasse(text):\n    return text\n```\n")
-    fixed = ("# edit: rules.py :: title_case\n```python\n"
-             "def title_case(text):\n"
-             '    return " ".join(w[:1].upper() + w[1:].lower() for w in text.split())\n'
-             "```\n")
+    refused = (
+        "Here it is:\n\n# edit: rules.py :: titleCasse\n"
+        "```python\ndef titleCasse(text):\n    return text\n```\n"
+    )
+    fixed = (
+        "# edit: rules.py :: title_case\n```python\n"
+        "def title_case(text):\n"
+        '    return " ".join(w[:1].upper() + w[1:].lower() for w in text.split())\n'
+        "```\n"
+    )
     loop._generate = stub([refused, fixed])
     try:
-        r = loop.solve(None, None, tasks["e01_title_case"], max_attempts=3,
-                       edit=True)
+        r = loop.solve(None, None, tasks["e01_title_case"], max_attempts=3, edit=True)
     finally:
         loop._generate = original
-    check("loop: a refused patch costs an attempt, not the project",
-          r.solved and r.n_attempts == 2, f"{r.n_attempts} attempts")
-    check("loop: the refusal reason reaches the retry",
-          "no symbol" in seen[1] and "PATCH REFUSED" in seen[1],
-          seen[1][:70] if len(seen) > 1 else "no retry sent")
-    check("loop: the answer is the patched project, file by file",
-          r.attempts[-1].code == code_of(tasks["e01_title_case"]["solution"]),
-          f"{len(r.attempts[-1].code)} chars")
-    check("loop: the attempt that failed is recorded as a refusal, not a test failure",
-          r.attempts[0].refused == 1 and r.attempts[0].patches == 1
-          and not r.attempts[0].ok)
-    check("loop: the accepted attempt touched nothing outside its symbol",
-          r.attempts[-1].outside == 0 and r.attempts[-1].whole == 0)
+    check(
+        "loop: a refused patch costs an attempt, not the project",
+        r.solved and r.n_attempts == 2,
+        f"{r.n_attempts} attempts",
+    )
+    check(
+        "loop: the refusal reason reaches the retry",
+        "no symbol" in seen[1] and "PATCH REFUSED" in seen[1],
+        seen[1][:70] if len(seen) > 1 else "no retry sent",
+    )
+    check(
+        "loop: the answer is the patched project, file by file",
+        r.attempts[-1].code == code_of(tasks["e01_title_case"]["solution"]),
+        f"{len(r.attempts[-1].code)} chars",
+    )
+    check(
+        "loop: the attempt that failed is recorded as a refusal, not a test failure",
+        r.attempts[0].refused == 1
+        and r.attempts[0].patches == 1
+        and not r.attempts[0].ok,
+    )
+    check(
+        "loop: the accepted attempt touched nothing outside its symbol",
+        r.attempts[-1].outside == 0 and r.attempts[-1].whole == 0,
+    )
 
-    loop._generate = stub([
-        "# edit: stock.py :: Stock.LOW_TAIL\n```python\nLOW_TAIL = 12\n```\n"])
+    loop._generate = stub(
+        ["# edit: stock.py :: Stock.LOW_TAIL\n```python\nLOW_TAIL = 12\n```\n"]
+    )
     try:
-        r2 = loop.solve(None, None, tasks["e07_reorder_threshold"],
-                        max_attempts=2, edit=True)
+        r2 = loop.solve(
+            None, None, tasks["e07_reorder_threshold"], max_attempts=2, edit=True
+        )
     finally:
         loop._generate = original
     task7 = tasks["e07_reorder_threshold"]
     solved7 = r2.attempts[-1].code
-    check("loop: a patch on one module leaves its sibling byte-identical",
-          r2.solved and r2.n_attempts == 1
-          and code_of({k: v for k, v in task7["files"].items()
-                       if k != "stock.py"})
-          in solved7, f"{r2.n_attempts} attempts")
-    check("loop: the one-symbol change reproduces the reference project",
-          solved7 == code_of(task7["solution"]))
+    check(
+        "loop: a patch on one module leaves its sibling byte-identical",
+        r2.solved
+        and r2.n_attempts == 1
+        and code_of({k: v for k, v in task7["files"].items() if k != "stock.py"})
+        in solved7,
+        f"{r2.n_attempts} attempts",
+    )
+    check(
+        "loop: the one-symbol change reproduces the reference project",
+        solved7 == code_of(task7["solution"]),
+    )
 
     if into is not None:
         return 0
@@ -1208,6 +1386,7 @@ _DATA_ROOT = Path(__file__).resolve().parent.parent
 def run_selftest(verbose: bool = True) -> int:
     """Deterministic checks on the protocol itself — no model, no server."""
     from flash import doctor
+
     refused = doctor.vector_refusal("patches", _DATA_ROOT)
     if refused:
         return refused
@@ -1217,615 +1396,949 @@ def run_selftest(verbose: bool = True) -> int:
     def check(label, ok, detail=""):
         checks.append((label, bool(ok), detail))
         if verbose:
-            print(f"  {'OK  ' if ok else 'FAIL'} {label}" + (f"  {detail}" if detail else ""))
+            print(
+                f"  {'OK  ' if ok else 'FAIL'} {label}"
+                + (f"  {detail}" if detail else "")
+            )
 
     cart = (
         '"""Cart maths."""\n'
-        'from utils import cents\n\n\n'
-        'class Cart:\n'
-        '    TAX = 8\n\n'
-        '    def __init__(self):\n'
-        '        self.items = []\n\n'
-        '    @property\n'
-        '    def total(self):\n'
-        '        return sum(self.items)\n\n'
-        '    def with_tax(self, rate=None):\n'
-        '        r = self.TAX if rate is None else rate\n'
-        '        return cents(self.total * r / 100)\n\n\n'
-        'def total(x):\n'
-        '    return x + 1\n'
+        "from utils import cents\n\n\n"
+        "class Cart:\n"
+        "    TAX = 8\n\n"
+        "    def __init__(self):\n"
+        "        self.items = []\n\n"
+        "    @property\n"
+        "    def total(self):\n"
+        "        return sum(self.items)\n\n"
+        "    def with_tax(self, rate=None):\n"
+        "        r = self.TAX if rate is None else rate\n"
+        "        return cents(self.total * r / 100)\n\n\n"
+        "def total(x):\n"
+        "    return x + 1\n"
     )
     ws = {"cart.py": cart, "utils.py": "def cents(n):\n    return int(round(n))\n"}
 
     # 1. the AST owns the span, decorators included
     defs = definitions(cart)
     prop = find_defs(defs, "Cart.total")
-    check("resolve: a decorated property's span starts at its decorator",
-          len(prop) == 1 and cart.split("\n")[prop[0].start - 1].strip() == "@property",
-          str(prop[0]) if prop else "not found")
-    check("resolve: a class attribute is addressable",
-          str(find_defs(defs, "Cart.TAX")[0]) == "Cart.TAX L6-L6",
-          str(find_defs(defs, "Cart.TAX")))
-    check("resolve: a bare name that lives twice is ambiguous, never guessed",
-          len(find_defs(defs, "total")) == 2,
-          ", ".join(str(d) for d in find_defs(defs, "total")))
+    check(
+        "resolve: a decorated property's span starts at its decorator",
+        len(prop) == 1 and cart.split("\n")[prop[0].start - 1].strip() == "@property",
+        str(prop[0]) if prop else "not found",
+    )
+    check(
+        "resolve: a class attribute is addressable",
+        str(find_defs(defs, "Cart.TAX")[0]) == "Cart.TAX L6-L6",
+        str(find_defs(defs, "Cart.TAX")),
+    )
+    check(
+        "resolve: a bare name that lives twice is ambiguous, never guessed",
+        len(find_defs(defs, "total")) == 2,
+        ", ".join(str(d) for d in find_defs(defs, "total")),
+    )
 
     # 2. parsing both header placements
-    resp = ("Sure:\n\n# edit: cart.py :: Cart.TAX\n```python\nTAX = 10\n```\n\n"
-            "```python\n# edit: cart.py :: with_tax\n"
-            "def with_tax(self, rate=None):\n"
-            "    return cents(self.total * (self.TAX if rate is None else rate) / 100)\n"
-            "```\n")
+    resp = (
+        "Sure:\n\n# edit: cart.py :: Cart.TAX\n```python\nTAX = 10\n```\n\n"
+        "```python\n# edit: cart.py :: with_tax\n"
+        "def with_tax(self, rate=None):\n"
+        "    return cents(self.total * (self.TAX if rate is None else rate) / 100)\n"
+        "```\n"
+    )
     ps = parse_patches(resp)
-    check("parse: a header above the fence and inside it both read",
-          len(ps) == 2 and ps[0].address == "Cart.TAX" and ps[1].file == "cart.py",
-          f"{len(ps)} patches")
-    check("parse: prose and unaddressed blocks are dropped, not guessed",
-          parse_patches("```python\nprint(1)\n```") == [])
+    check(
+        "parse: a header above the fence and inside it both read",
+        len(ps) == 2 and ps[0].address == "Cart.TAX" and ps[1].file == "cart.py",
+        f"{len(ps)} patches",
+    )
+    check(
+        "parse: prose and unaddressed blocks are dropped, not guessed",
+        parse_patches("```python\nprint(1)\n```") == [],
+    )
 
     # 3. a clean patch set: replaced exactly, everything else byte-identical
     res = apply_patches(ws, ps)
-    check("apply: two symbols in one file both land", res.ok and len(res.applied) == 2,
-          "; ".join(f"{p.file}:{w}" for p, w in res.refusals)[:160])
+    check(
+        "apply: two symbols in one file both land",
+        res.ok and len(res.applied) == 2,
+        "; ".join(f"{p.file}:{w}" for p, w in res.refusals)[:160],
+    )
     after = res.files["cart.py"]
-    outside_ok = (cart.split("\n")[0] == after.split("\n")[0] and
-                  "self.items = []" in after and "def total(x):" in after)
-    check("apply: the lines outside the addressed ranges are copied, not rewritten",
-          outside_ok, "")
+    outside_ok = (
+        cart.split("\n")[0] == after.split("\n")[0]
+        and "self.items = []" in after
+        and "def total(x):" in after
+    )
+    check(
+        "apply: the lines outside the addressed ranges are copied, not rewritten",
+        outside_ok,
+        "",
+    )
     method = find_defs(definitions(after), "Cart.with_tax")[0]
-    check("apply: a column-0 replacement is restored to the class's nesting",
-          method.col == 4 and after.split("\n")[method.start - 1].startswith("    def with_tax"),
-          f"col={method.col}")
-    check("apply: a method-body change keeps the method's own name",
-          "return cents(" in after)
+    check(
+        "apply: a column-0 replacement is restored to the class's nesting",
+        method.col == 4
+        and after.split("\n")[method.start - 1].startswith("    def with_tax"),
+        f"col={method.col}",
+    )
+    check(
+        "apply: a method-body change keeps the method's own name",
+        "return cents(" in after,
+    )
 
     # 4. the refusals R-3.2 names: out of range and overlapping
     bad = apply_patches(ws, [Patch("cart.py", "Cart.no_such", "x = 1")])
-    check("refuse: a symbol that does not exist", not bad.ok and
-          "no symbol" in bad.refusals[0][1], bad.refusals[0][1][:70])
+    check(
+        "refuse: a symbol that does not exist",
+        not bad.ok and "no symbol" in bad.refusals[0][1],
+        bad.refusals[0][1][:70],
+    )
     amb = apply_patches(ws, [Patch("cart.py", "total", "def total(x):\n    return x")])
-    check("refuse: an ambiguous address names its candidates",
-          not amb.ok and "ambiguous" in amb.refusals[0][1], amb.refusals[0][1][:70])
+    check(
+        "refuse: an ambiguous address names its candidates",
+        not amb.ok and "ambiguous" in amb.refusals[0][1],
+        amb.refusals[0][1][:70],
+    )
     far = apply_patches(ws, [Patch("cart.py", "L300-L305", "x = 1")])
-    check("refuse: a range past the end of the file", not far.ok and
-          "past the end" in far.refusals[0][1], far.refusals[0][1][:70])
+    check(
+        "refuse: a range past the end of the file",
+        not far.ok and "past the end" in far.refusals[0][1],
+        far.refusals[0][1][:70],
+    )
     straddle = apply_patches(ws, [Patch("cart.py", "L9-L20", "pass")])
-    check("refuse: a range that is not inside one symbol", not straddle.ok and
-          "not inside any symbol" in straddle.refusals[0][1],
-          straddle.refusals[0][1][:70])
+    check(
+        "refuse: a range that is not inside one symbol",
+        not straddle.ok and "not inside any symbol" in straddle.refusals[0][1],
+        straddle.refusals[0][1][:70],
+    )
     back = apply_patches(ws, [Patch("cart.py", "L8-L6", "pass")])
     check("refuse: a range that runs backwards", not back.ok)
-    over = apply_patches(ws, [Patch("cart.py", "Cart.with_tax", "def with_tax(self):\n    return 1"),
-                      Patch("cart.py", "Cart.TAX", "TAX = 5")])
-    check("accept: two non-overlapping symbols in one file are not a clash",
-          over.ok and len(over.applied) == 2)
-    clash = apply_patches(ws, [Patch("cart.py", "Cart", "class Cart:\n    pass"),
-                       Patch("cart.py", "Cart.TAX", "TAX = 5")])
-    check("refuse: a patch nested inside another patch's range is a clash",
-          not clash.ok and "overlap" in clash.refusals[0][1],
-          clash.refusals[0][1][:70])
-    check("refuse: a voided set changes nothing (a retry never repairs the tool)",
-          clash.files == ws)
+    over = apply_patches(
+        ws,
+        [
+            Patch("cart.py", "Cart.with_tax", "def with_tax(self):\n    return 1"),
+            Patch("cart.py", "Cart.TAX", "TAX = 5"),
+        ],
+    )
+    check(
+        "accept: two non-overlapping symbols in one file are not a clash",
+        over.ok and len(over.applied) == 2,
+    )
+    clash = apply_patches(
+        ws,
+        [
+            Patch("cart.py", "Cart", "class Cart:\n    pass"),
+            Patch("cart.py", "Cart.TAX", "TAX = 5"),
+        ],
+    )
+    check(
+        "refuse: a patch nested inside another patch's range is a clash",
+        not clash.ok and "overlap" in clash.refusals[0][1],
+        clash.refusals[0][1][:70],
+    )
+    check(
+        "refuse: a voided set changes nothing (a retry never repairs the tool)",
+        clash.files == ws,
+    )
     ghost = apply_patches(ws, [Patch("missing.py", "x", "x = 1")])
-    check("refuse: a file that is not in the project", not ghost.ok and
-          "not one of the project files" in ghost.refusals[0][1],
-          ghost.refusals[0][1][:70])
+    check(
+        "refuse: a file that is not in the project",
+        not ghost.ok and "not one of the project files" in ghost.refusals[0][1],
+        ghost.refusals[0][1][:70],
+    )
 
     # 5. a patch may not break the file or delete the symbol it addressed
     broken = apply_patches(ws, [Patch("cart.py", "Cart.TAX", "TAX = ")])
-    check("refuse: a replacement that does not parse", not broken.ok and
-          "does not parse" in broken.refusals[0][1], broken.refusals[0][1][:70])
-    renamed = apply_patches(ws, [Patch("cart.py", "Cart.with_tax",
-                               "def with_tax_changed(self):\n    return 1")])
-    check("refuse: a replacement that loses the symbol it addressed",
-          not renamed.ok and "no longer defines" in renamed.refusals[0][1],
-          renamed.refusals[0][1][:70])
-    dropped = apply_patches(ws, [Patch("cart.py", "total",
-                               "def other(x):\n    return x")])
+    check(
+        "refuse: a replacement that does not parse",
+        not broken.ok and "does not parse" in broken.refusals[0][1],
+        broken.refusals[0][1][:70],
+    )
+    renamed = apply_patches(
+        ws,
+        [
+            Patch(
+                "cart.py", "Cart.with_tax", "def with_tax_changed(self):\n    return 1"
+            )
+        ],
+    )
+    check(
+        "refuse: a replacement that loses the symbol it addressed",
+        not renamed.ok and "no longer defines" in renamed.refusals[0][1],
+        renamed.refusals[0][1][:70],
+    )
+    dropped = apply_patches(
+        ws, [Patch("cart.py", "total", "def other(x):\n    return x")]
+    )
     check("refuse: the same rule at module level", not dropped.ok)
 
     # 6. the audit is about the demand, not the splice
-    drifted = cart.replace("TAX = 8", "TAX = 10").replace("return x + 1",
-                                                          "return x + 2")
+    drifted = cart.replace("TAX = 8", "TAX = 10").replace(
+        "return x + 1", "return x + 2"
+    )
     whole = apply_patches(ws, [Patch("cart.py", "*", drifted)])
-    check("audit: a whole-file rewrite that also moves an unrelated line "
-          "scores it as out-of-symbol editing",
-          whole.ok and outside_lines(ws, whole, {"file": "cart.py",
-                                                 "symbol": "Cart.TAX"}) == 1,
-          f"{outside_lines(ws, whole, {'file': 'cart.py', 'symbol': 'Cart.TAX'})} lines")
-    check("audit: a whole-file rewrite is reported, not silently praised",
-          whole.whole_rewrites == 1, f"{whole.whole_rewrites}")
-    exact = apply_patches(ws, [Patch("cart.py", "*", cart.replace("TAX = 8", "TAX = 10"))])
-    check("audit: a rewrite with no collateral lines scores zero but is still "
-          "counted as imprecise",
-          exact.ok and outside_lines(ws, exact, {"file": "cart.py",
-                                                 "symbol": "Cart.TAX"}) == 0
-          and exact.whole_rewrites == 1)
+    check(
+        "audit: a whole-file rewrite that also moves an unrelated line "
+        "scores it as out-of-symbol editing",
+        whole.ok
+        and outside_lines(ws, whole, {"file": "cart.py", "symbol": "Cart.TAX"}) == 1,
+        f"{outside_lines(ws, whole, {'file': 'cart.py', 'symbol': 'Cart.TAX'})} lines",
+    )
+    check(
+        "audit: a whole-file rewrite is reported, not silently praised",
+        whole.whole_rewrites == 1,
+        f"{whole.whole_rewrites}",
+    )
+    exact = apply_patches(
+        ws, [Patch("cart.py", "*", cart.replace("TAX = 8", "TAX = 10"))]
+    )
+    check(
+        "audit: a rewrite with no collateral lines scores zero but is still "
+        "counted as imprecise",
+        exact.ok
+        and outside_lines(ws, exact, {"file": "cart.py", "symbol": "Cart.TAX"}) == 0
+        and exact.whole_rewrites == 1,
+    )
     precise = apply_patches(ws, [Patch("cart.py", "Cart.TAX", "TAX = 10")])
-    check("audit: a symbol patch scores zero outside lines",
-          precise.ok and outside_lines(ws, precise, {"file": "cart.py",
-                                                     "symbol": "Cart.TAX"}) == 0)
-    check("audit: changed_lines finds the one line that differs",
-          changed_lines(cart, cart.replace("TAX = 8", "TAX = 10")) == [6],
-          str(changed_lines(cart, cart.replace("TAX = 8", "TAX = 10"))))
+    check(
+        "audit: a symbol patch scores zero outside lines",
+        precise.ok
+        and outside_lines(ws, precise, {"file": "cart.py", "symbol": "Cart.TAX"}) == 0,
+    )
+    check(
+        "audit: changed_lines finds the one line that differs",
+        changed_lines(cart, cart.replace("TAX = 8", "TAX = 10")) == [6],
+        str(changed_lines(cart, cart.replace("TAX = 8", "TAX = 10"))),
+    )
 
     # 6b. an address WIDER than the change — e04's failure shape
     retype = (
-        'class Cart:\n'
-        '    TAX = 10\n\n'
-        '    def __init__(self):\n'
-        '        self.items = []\n\n'
-        '    @property\n'
-        '    def total(self):\n'
-        '        return sum(self.items)\n\n'
-        '    def with_tax(self, rate=None):\n'
-        '        r = self.TAX if rate is None else rate\n'
-        '        return cents(self.total * r / 100)'
+        "class Cart:\n"
+        "    TAX = 10\n\n"
+        "    def __init__(self):\n"
+        "        self.items = []\n\n"
+        "    @property\n"
+        "    def total(self):\n"
+        "        return sum(self.items)\n\n"
+        "    def with_tax(self, rate=None):\n"
+        "        r = self.TAX if rate is None else rate\n"
+        "        return cents(self.total * r / 100)"
     )
     tax = {"file": "cart.py", "symbol": "Cart.TAX"}
     wide = apply_patches(ws, [Patch("cart.py", "Cart", retype)])
-    check("audit: the request named the class and the change lives in one member "
-          "— a class-wide address now scores ZERO outside lines, because the "
-          "applier copied every sibling it did not have to write",
-          wide.ok and outside_lines(ws, wide, tax) == 0
-          and wide.applied[0].spans == ((6, 6),),
-          f"{outside_lines(ws, wide, tax)} line(s), spans {wide.applied[0].spans}")
-    check("...and the narrowed splice writes the SAME file as the wide one: "
-          "narrowing changes the tool's provenance, never the edit",
-          wide.files["cart.py"] == splice(cart, 5, 17, retype),
-          wide.summary())
-    check("audit: the summary reports what was rewritten, not what was addressed",
-          "[1 of 13 lines rewritten]" in wide.summary(), wide.summary())
-    shrunk = retype.replace("    def __init__(self):\n        self.items = []",
-                            "    def __init__(self): pass").replace(
-        "return sum(self.items)", "return sum(self.items) + 1")
+    check(
+        "audit: the request named the class and the change lives in one member "
+        "— a class-wide address now scores ZERO outside lines, because the "
+        "applier copied every sibling it did not have to write",
+        wide.ok
+        and outside_lines(ws, wide, tax) == 0
+        and wide.applied[0].spans == ((6, 6),),
+        f"{outside_lines(ws, wide, tax)} line(s), spans {wide.applied[0].spans}",
+    )
+    check(
+        "...and the narrowed splice writes the SAME file as the wide one: "
+        "narrowing changes the tool's provenance, never the edit",
+        wide.files["cart.py"] == splice(cart, 5, 17, retype),
+        wide.summary(),
+    )
+    check(
+        "audit: the summary reports what was rewritten, not what was addressed",
+        "[1 of 13 lines rewritten]" in wide.summary(),
+        wide.summary(),
+    )
+    shrunk = retype.replace(
+        "    def __init__(self):\n        self.items = []",
+        "    def __init__(self): pass",
+    ).replace("return sum(self.items)", "return sum(self.items) + 1")
     shrink = apply_patches(ws, [Patch("cart.py", "Cart", shrunk)])
-    check("audit: runs splice BOTTOM-UP, because a run that changes the line "
-          "count moves every later run's coordinates under itself — three runs "
-          "here, one of them two lines collapsed into one",
-          shrink.ok and len(shrink.applied[0].spans) == 3
-          and shrink.files["cart.py"] == splice(cart, 5, 17, shrunk),
-          f"spans {shrink.applied[0].spans}")
+    check(
+        "audit: runs splice BOTTOM-UP, because a run that changes the line "
+        "count moves every later run's coordinates under itself — three runs "
+        "here, one of them two lines collapsed into one",
+        shrink.ok
+        and len(shrink.applied[0].spans) == 3
+        and shrink.files["cart.py"] == splice(cart, 5, 17, shrunk),
+        f"spans {shrink.applied[0].spans}",
+    )
     sibling = apply_patches(
-        ws, [Patch("cart.py", "Cart",
-                   retype.replace("return sum(self.items)",
-                                  "return sum(self.items) + 1"))])
-    check("audit: a sibling the model DID change is still spliced and still "
-          "scores — an audit that can only report zero is worse than no audit",
-          sibling.ok and outside_lines(ws, sibling, tax) == 1
-          and sibling.applied[0].spans == ((6, 6), (13, 13)),
-          f"{outside_lines(ws, sibling, tax)} line(s), "
-          f"spans {sibling.applied[0].spans}")
-    noop = apply_patches(ws, [Patch("cart.py", "Cart",
-                                    "\n".join(cart.split("\n")[4:17]))])
-    check("audit: a verbatim re-type of the addressed class splices NOTHING and "
-          "scores nothing — `spans` empty is not the same fact as `spans` absent",
-          noop.ok and noop.applied[0].spans == ()
-          and noop.files["cart.py"] == cart
-          and outside_lines(ws, noop, tax) == 0,
-          f"spans {noop.applied[0].spans}")
-    added = apply_patches(ws, [Patch("cart.py", "Cart.__init__",
-                                     "def __init__(self):\n"
-                                     "    self.items = []\n"
-                                     "    self.kind = \"cart\"")])
-    check("audit: a line ADDED at the end of a precisely addressed member scores "
-          "nothing — the insertion point is inside the block the patch owns, so "
-          "narrowing does not make the audit stricter than it was",
-          added.ok and added.applied[0].spans == ((9, 9),)
-          and outside_lines(ws, added, {"file": "cart.py",
-                                        "symbol": "Cart.__init__"}) == 0,
-          f"spans {added.applied[0].spans}")
-    tail = apply_patches(ws, [Patch("cart.py", "Cart", retype.replace(
-        "TAX = 10", "TAX = 8").replace(
-        "        self.items = []",
-        "        self.items = []\n        self.kind = \"cart\""))])
-    check("audit: the same insertion under the OVER-WIDE class address is charged "
-          "the blank line it precedes — one line conservative, which is the "
-          "direction an audit has to err in",
-          tail.ok and tail.applied[0].spans == ((10, 10),)
-          and outside_lines(ws, tail, {"file": "cart.py",
-                                       "symbol": "Cart.__init__"}) == 1,
-          f"spans {tail.applied[0].spans}")
-    newone = apply_patches(ws, [Patch("cart.py", "Cart", retype.replace(
-        "TAX = 10", "TAX = 8").replace(
-        "    @property\n",
-        "    def shout(self):\n        return \"hi\"\n\n    @property\n"))])
-    check("...and a NEW sibling method under that address scores too (it is "
-          "indistinguishable from the case above at line granularity, and both "
-          "score)",
-          newone.ok and outside_lines(ws, newone,
-                                      {"file": "cart.py",
-                                       "symbol": "Cart.__init__"}) == 1,
-          f"spans {newone.applied[0].spans}")
+        ws,
+        [
+            Patch(
+                "cart.py",
+                "Cart",
+                retype.replace("return sum(self.items)", "return sum(self.items) + 1"),
+            )
+        ],
+    )
+    check(
+        "audit: a sibling the model DID change is still spliced and still "
+        "scores — an audit that can only report zero is worse than no audit",
+        sibling.ok
+        and outside_lines(ws, sibling, tax) == 1
+        and sibling.applied[0].spans == ((6, 6), (13, 13)),
+        f"{outside_lines(ws, sibling, tax)} line(s), spans {sibling.applied[0].spans}",
+    )
+    noop = apply_patches(
+        ws, [Patch("cart.py", "Cart", "\n".join(cart.split("\n")[4:17]))]
+    )
+    check(
+        "audit: a verbatim re-type of the addressed class splices NOTHING and "
+        "scores nothing — `spans` empty is not the same fact as `spans` absent",
+        noop.ok
+        and noop.applied[0].spans == ()
+        and noop.files["cart.py"] == cart
+        and outside_lines(ws, noop, tax) == 0,
+        f"spans {noop.applied[0].spans}",
+    )
+    added = apply_patches(
+        ws,
+        [
+            Patch(
+                "cart.py",
+                "Cart.__init__",
+                'def __init__(self):\n    self.items = []\n    self.kind = "cart"',
+            )
+        ],
+    )
+    check(
+        "audit: a line ADDED at the end of a precisely addressed member scores "
+        "nothing — the insertion point is inside the block the patch owns, so "
+        "narrowing does not make the audit stricter than it was",
+        added.ok
+        and added.applied[0].spans == ((9, 9),)
+        and outside_lines(ws, added, {"file": "cart.py", "symbol": "Cart.__init__"})
+        == 0,
+        f"spans {added.applied[0].spans}",
+    )
+    tail = apply_patches(
+        ws,
+        [
+            Patch(
+                "cart.py",
+                "Cart",
+                retype.replace("TAX = 10", "TAX = 8").replace(
+                    "        self.items = []",
+                    '        self.items = []\n        self.kind = "cart"',
+                ),
+            )
+        ],
+    )
+    check(
+        "audit: the same insertion under the OVER-WIDE class address is charged "
+        "the blank line it precedes — one line conservative, which is the "
+        "direction an audit has to err in",
+        tail.ok
+        and tail.applied[0].spans == ((10, 10),)
+        and outside_lines(ws, tail, {"file": "cart.py", "symbol": "Cart.__init__"})
+        == 1,
+        f"spans {tail.applied[0].spans}",
+    )
+    newone = apply_patches(
+        ws,
+        [
+            Patch(
+                "cart.py",
+                "Cart",
+                retype.replace("TAX = 10", "TAX = 8").replace(
+                    "    @property\n",
+                    '    def shout(self):\n        return "hi"\n\n    @property\n',
+                ),
+            )
+        ],
+    )
+    check(
+        "...and a NEW sibling method under that address scores too (it is "
+        "indistinguishable from the case above at line granularity, and both "
+        "score)",
+        newone.ok
+        and outside_lines(ws, newone, {"file": "cart.py", "symbol": "Cart.__init__"})
+        == 1,
+        f"spans {newone.applied[0].spans}",
+    )
 
     # 7. a range patch inside a body is the most precise edit there is
-    inner = apply_patches(ws, [Patch("cart.py", "L15-L15",
-                             "        return cents(self.total * r / 100.0)")])
-    check("range: a verbatim statement replacement keeps the file's indentation",
-          inner.ok and "r / 100.0" in inner.files["cart.py"],
-          "; ".join(f"{p.address} {w}" for p, w in inner.refusals)[:80])
+    inner = apply_patches(
+        ws,
+        [Patch("cart.py", "L15-L15", "        return cents(self.total * r / 100.0)")],
+    )
+    check(
+        "range: a verbatim statement replacement keeps the file's indentation",
+        inner.ok and "r / 100.0" in inner.files["cart.py"],
+        "; ".join(f"{p.address} {w}" for p, w in inner.refusals)[:80],
+    )
 
     # 7b. CREATE: R-7.15b's shape. The address grammar could say "replace this
     # symbol" and "insert these lines inside this symbol", and between them there
     # was no way to ask for a definition the file does not have yet — so the
     # ordinary instruction "add a function" was a refusal that cost the turn.
-    created = apply_patches(ws, [Patch("cart.py", "+shout",
-                                       'def shout():\n    return "hi"')])
+    created = apply_patches(
+        ws, [Patch("cart.py", "+shout", 'def shout():\n    return "hi"')]
+    )
     car = created.files.get("cart.py", "")
-    check("create: `# edit: f :: +Name` appends the definition after the file's "
-          "last top-level one, and the result still parses",
-          created.ok and car.rstrip().endswith('return "hi"')
-          and len(find_defs(definitions(car), "shout")) == 1,
-          "; ".join(f"{p.address} {w}" for p, w in created.refusals)[:90])
+    check(
+        "create: `# edit: f :: +Name` appends the definition after the file's "
+        "last top-level one, and the result still parses",
+        created.ok
+        and car.rstrip().endswith('return "hi"')
+        and len(find_defs(definitions(car), "shout")) == 1,
+        "; ".join(f"{p.address} {w}" for p, w in created.refusals)[:90],
+    )
     _car = len(cart.rstrip("\n").split("\n"))
-    check("create: ...as a PURE insertion — every line of the before file is "
-          "still there at the same number, so nothing had to be re-typed to add "
-          "the new one",
-          created.ok and car.split("\n")[:_car] == cart.split("\n")[:_car]
-          and created.applied[0].spans == ()
-          and created.applied[0].regenerated == 0,
-          f"{len(car.split(chr(10)))} lines after a {_car}-line file")
+    check(
+        "create: ...as a PURE insertion — every line of the before file is "
+        "still there at the same number, so nothing had to be re-typed to add "
+        "the new one",
+        created.ok
+        and car.split("\n")[:_car] == cart.split("\n")[:_car]
+        and created.applied[0].spans == ()
+        and created.applied[0].regenerated == 0,
+        f"{len(car.split(chr(10)))} lines after a {_car}-line file",
+    )
     _charged = changed_lines(cart, car)
-    check("create: ...and `changed_lines` still charges the insertion point, "
-          "because that is what its line means: exactly ONE line, at the very end "
-          "of the before file, so nothing that already existed was re-typed. The "
-          "audit that reads ZERO for a create is `outside_lines`, which works off "
-          "`spans` and not off this",
-          created.ok and len(_charged) == 1 and _charged[0] >= len(cart.split("\n")),
-          f"changed_lines={_charged} over a "
-          f"{len(cart.split(chr(10)))}-element split")
-    check("create: the audit charges a create nothing, because there is no line "
-          "of the target symbol it could have touched",
-          created.ok and outside_lines(ws, created, {"file": "cart.py",
-                                                     "symbol": "Cart.TAX"}) == 0)
-    check("create: the applier supplies the blank lines above a top-level "
-          "definition, so a landed create reads like hand-written code",
-          car.endswith('    pass\n\n\ndef shout():\n    return "hi"') or
-          "\n\n\ndef shout():" in car, repr(car[-46:]))
-    check("create: the new symbol is addressable afterwards, which is what lets a "
-          "later turn REVISE what this turn added",
-          created.ok and len(find_defs(definitions(car), "shout")) == 1)
-    mixed = apply_patches(ws, [Patch("cart.py", "Cart.TAX", "TAX = 10"),
-                               Patch("cart.py", "+shout",
-                                     'def shout():\n    return "hi"')])
-    check("create: a create and a revision in ONE set both land — the money "
-          "demo's real shape is a helper added and its caller changed",
-          mixed.ok and len(mixed.applied) == 2 and "TAX = 10" in mixed.files["cart.py"]
-          and 'return "hi"' in mixed.files["cart.py"], mixed.summary())
-    meth = apply_patches(ws, [Patch("cart.py", "+Cart.discount",
-                                    'def discount(self, pct):\n'
-                                    '    return cents(self.total * pct)')])
+    check(
+        "create: ...and `changed_lines` still charges the insertion point, "
+        "because that is what its line means: exactly ONE line, at the very end "
+        "of the before file, so nothing that already existed was re-typed. The "
+        "audit that reads ZERO for a create is `outside_lines`, which works off "
+        "`spans` and not off this",
+        created.ok and len(_charged) == 1 and _charged[0] >= len(cart.split("\n")),
+        f"changed_lines={_charged} over a {len(cart.split(chr(10)))}-element split",
+    )
+    check(
+        "create: the audit charges a create nothing, because there is no line "
+        "of the target symbol it could have touched",
+        created.ok
+        and outside_lines(ws, created, {"file": "cart.py", "symbol": "Cart.TAX"}) == 0,
+    )
+    check(
+        "create: the applier supplies the blank lines above a top-level "
+        "definition, so a landed create reads like hand-written code",
+        car.endswith('    pass\n\n\ndef shout():\n    return "hi"')
+        or "\n\n\ndef shout():" in car,
+        repr(car[-46:]),
+    )
+    check(
+        "create: the new symbol is addressable afterwards, which is what lets a "
+        "later turn REVISE what this turn added",
+        created.ok and len(find_defs(definitions(car), "shout")) == 1,
+    )
+    mixed = apply_patches(
+        ws,
+        [
+            Patch("cart.py", "Cart.TAX", "TAX = 10"),
+            Patch("cart.py", "+shout", 'def shout():\n    return "hi"'),
+        ],
+    )
+    check(
+        "create: a create and a revision in ONE set both land — the money "
+        "demo's real shape is a helper added and its caller changed",
+        mixed.ok
+        and len(mixed.applied) == 2
+        and "TAX = 10" in mixed.files["cart.py"]
+        and 'return "hi"' in mixed.files["cart.py"],
+        mixed.summary(),
+    )
+    meth = apply_patches(
+        ws,
+        [
+            Patch(
+                "cart.py",
+                "+Cart.discount",
+                "def discount(self, pct):\n    return cents(self.total * pct)",
+            )
+        ],
+    )
     md = meth.files.get("cart.py", "")
     hits = find_defs(definitions(md), "Cart.discount")
-    check("create: `Container.+name` lands INSIDE the container at its members' "
-          "nesting, and after its last member — the only place a body can go and "
-          "still be a method",
-          meth.ok and len(hits) == 1 and hits[0].col == 4
-          and md.index("def discount") > md.index("def with_tax"),
-          str(hits[0]) if hits else meth.refusals[0][1][:80])
-    empty_cls = apply_patches({"box.py": "class Box:\n    pass\n"},
-                              [Patch("box.py", "+Box.side",
-                                     'def side(self, n):\n    self.n = n')])
-    check("create: an empty class gets its method before the `pass`, so the class "
-          "body keeps owning it",
-          empty_cls.ok and "def side" in empty_cls.files["box.py"]
-          and empty_cls.files["box.py"].index("def side") <
-          empty_cls.files["box.py"].index("    pass"),
-          empty_cls.files["box.py"].replace("\n", "\\n")[:80])
-    dup = apply_patches(ws, [Patch("cart.py", "+with_tax",
-                                   "def with_tax(self):\n    return 1")])
-    check("refuse: a create on a name that EXISTS is refused, and the sentence "
-          "names the revise form — a landed create and a refused one cannot be "
-          "confused, which is the pair this clause is gated on",
-          not dup.ok and "already exists" in dup.refusals[0][1]
-          and "without the '+'" in dup.refusals[0][1],
-          dup.refusals[0][1][:80] if dup.refusals else "")
-    wrong = apply_patches(ws, [Patch("cart.py", "+shout",
-                                     'def shout_back():\n    return "hi"')])
-    check("refuse: a create whose body defines a DIFFERENT name is refused: the "
-          "address is the contract the oracle is about to test",
-          not wrong.ok and "does not define 'shout'" in wrong.refusals[0][1],
-          wrong.refusals[0][1][:80] if wrong.refusals else "")
-    nook = apply_patches(ws, [Patch("cart.py", "+Wheel.spin",
-                                    'def spin(self):\n    return 1')])
-    check("refuse: a create whose container is not in the file names the "
-          "containers that are",
-          not nook.ok and "no class or container 'Wheel'" in nook.refusals[0][1]
-          and "Cart" in nook.refusals[0][1],
-          nook.refusals[0][1][:80] if nook.refusals else "")
+    check(
+        "create: `Container.+name` lands INSIDE the container at its members' "
+        "nesting, and after its last member — the only place a body can go and "
+        "still be a method",
+        meth.ok
+        and len(hits) == 1
+        and hits[0].col == 4
+        and md.index("def discount") > md.index("def with_tax"),
+        str(hits[0]) if hits else meth.refusals[0][1][:80],
+    )
+    empty_cls = apply_patches(
+        {"box.py": "class Box:\n    pass\n"},
+        [Patch("box.py", "+Box.side", "def side(self, n):\n    self.n = n")],
+    )
+    check(
+        "create: an empty class gets its method before the `pass`, so the class "
+        "body keeps owning it",
+        empty_cls.ok
+        and "def side" in empty_cls.files["box.py"]
+        and empty_cls.files["box.py"].index("def side")
+        < empty_cls.files["box.py"].index("    pass"),
+        empty_cls.files["box.py"].replace("\n", "\\n")[:80],
+    )
+    dup = apply_patches(
+        ws, [Patch("cart.py", "+with_tax", "def with_tax(self):\n    return 1")]
+    )
+    check(
+        "refuse: a create on a name that EXISTS is refused, and the sentence "
+        "names the revise form — a landed create and a refused one cannot be "
+        "confused, which is the pair this clause is gated on",
+        not dup.ok
+        and "already exists" in dup.refusals[0][1]
+        and "without the '+'" in dup.refusals[0][1],
+        dup.refusals[0][1][:80] if dup.refusals else "",
+    )
+    wrong = apply_patches(
+        ws, [Patch("cart.py", "+shout", 'def shout_back():\n    return "hi"')]
+    )
+    check(
+        "refuse: a create whose body defines a DIFFERENT name is refused: the "
+        "address is the contract the oracle is about to test",
+        not wrong.ok and "does not define 'shout'" in wrong.refusals[0][1],
+        wrong.refusals[0][1][:80] if wrong.refusals else "",
+    )
+    nook = apply_patches(
+        ws, [Patch("cart.py", "+Wheel.spin", "def spin(self):\n    return 1")]
+    )
+    check(
+        "refuse: a create whose container is not in the file names the "
+        "containers that are",
+        not nook.ok
+        and "no class or container 'Wheel'" in nook.refusals[0][1]
+        and "Cart" in nook.refusals[0][1],
+        nook.refusals[0][1][:80] if nook.refusals else "",
+    )
     bare = apply_patches(ws, [Patch("cart.py", "+", "x = 1")])
-    check("refuse: a bare `+` names nothing to create, and the refusal spells the "
-          "form rather than leaving the model to guess it",
-          not bare.ok and "+Symbol" in bare.refusals[0][1],
-          bare.refusals[0][1][:80] if bare.refusals else "")
-    miss = apply_patches(ws, [Patch("cart.py", "shout", 'def shout():\n    return 1')])
-    check("refuse: the OTHER direction carries the remedy too — revising a symbol "
-          "that is not there is told how to ADD it, which is the sentence that "
-          "turns this clause's measured refusal into a next-attempt win",
-          not miss.ok and "no symbol" in miss.refusals[0][1]
-          and "'+shout'" in miss.refusals[0][1],
-          miss.refusals[0][1][:100] if miss.refusals else "")
-    check("create: the address parses with NO parser change — `+Name` was always "
-          "a `\\S+`, so the tolerance that let it through is pinned here rather "
-          "than discovered later",
-          parse_patches("# edit: cart.py :: +shout\n"
-                        '```python\ndef shout():\n    return "hi"\n```\n'
-                        )[0].kind == "create")
-    check("create: the PROTOCOL the model is shown actually names the form — a "
-          "capability the prompt does not mention is a capability the model "
-          "cannot ask for",
-          ":: +" in PROTOCOL and "+<Container>" in PROTOCOL)
+    check(
+        "refuse: a bare `+` names nothing to create, and the refusal spells the "
+        "form rather than leaving the model to guess it",
+        not bare.ok and "+Symbol" in bare.refusals[0][1],
+        bare.refusals[0][1][:80] if bare.refusals else "",
+    )
+    miss = apply_patches(ws, [Patch("cart.py", "shout", "def shout():\n    return 1")])
+    check(
+        "refuse: the OTHER direction carries the remedy too — revising a symbol "
+        "that is not there is told how to ADD it, which is the sentence that "
+        "turns this clause's measured refusal into a next-attempt win",
+        not miss.ok
+        and "no symbol" in miss.refusals[0][1]
+        and "'+shout'" in miss.refusals[0][1],
+        miss.refusals[0][1][:100] if miss.refusals else "",
+    )
+    check(
+        "create: the address parses with NO parser change — `+Name` was always "
+        "a `\\S+`, so the tolerance that let it through is pinned here rather "
+        "than discovered later",
+        parse_patches(
+            '# edit: cart.py :: +shout\n```python\ndef shout():\n    return "hi"\n```\n'
+        )[0].kind
+        == "create",
+    )
+    check(
+        "create: the PROTOCOL the model is shown actually names the form — a "
+        "capability the prompt does not mention is a capability the model "
+        "cannot ask for",
+        ":: +" in PROTOCOL and "+<Container>" in PROTOCOL,
+    )
 
-    voided = apply_patches(ws, [Patch("cart.py", "+net", 'def net(x):\n    return x'),
-                                Patch("cart.py", "+TAX", "TAX = 1")])
-    check("create: one bad create voids the whole set, like every other refusal",
-          not voided.ok and voided.files == ws)
+    voided = apply_patches(
+        ws,
+        [
+            Patch("cart.py", "+net", "def net(x):\n    return x"),
+            Patch("cart.py", "+TAX", "TAX = 1"),
+        ],
+    )
+    check(
+        "create: one bad create voids the whole set, like every other refusal",
+        not voided.ok and voided.files == ws,
+    )
 
     # 7c. R-7.15e: the oracle is not a patch target, and its line numbers are
     # not the reason the patch is refused.
-    oracle_src = ('import sys\nsys.path.insert(0, ".")\nfrom money import cents\n'
-                  'def check_it():\n    assert cents(5) == "$0.05"\n\n\ncheck_it()\n')
-    tree = {"money.py": 'def cents(n):\n    return f"${n // 100}"\n',
-            "t.py": oracle_src}
+    oracle_src = (
+        'import sys\nsys.path.insert(0, ".")\nfrom money import cents\n'
+        'def check_it():\n    assert cents(5) == "$0.05"\n\n\ncheck_it()\n'
+    )
+    tree = {
+        "money.py": 'def cents(n):\n    return f"${n // 100}"\n',
+        "t.py": oracle_src,
+    }
     # The demo's own address, on the demo's own shape: a range past the end of
     # the oracle. It resolves to nothing, and the model must still be told the
     # file is the reason, not the number.
-    off_end = apply_patches(tree, [Patch("t.py", "L10-L12", "pass")],
-                            oracle="t.py")
-    check("oracle: the refusal comes before the address is resolved, so R-7.15e's "
-          "measured case — `L10-L12` on a short oracle — is answered about the "
-          "file and not about a line count",
-          not off_end.ok and "is the oracle this run scores against"
-          in off_end.refusals[0][1]
-          and "past the end" not in off_end.refusals[0][1],
-          off_end.refusals[0][1][:90] if off_end.refusals else "it applied")
-    sound = apply_patches(tree, [Patch("t.py", "L5-L5",
-                                       '    assert cents(5) == "$0.0"')],
-                          oracle="t.py")
-    check("oracle: a patch that needs no rule but this one is refused too — the "
-          "range is inside a definition, the body is legal, the file is long "
-          "enough, so only the oracle's name can stop it",
-          not sound.ok and tree == sound.files
-          and "is the oracle this run scores against" in sound.refusals[0][1],
-          sound.refusals[0][1][:90] if sound.refusals else "it applied")
-    check("oracle: ...and the sentence names the oracle and the module to change, "
-          "not the coordinates — an assertion is never edited to fit the code, so "
-          "a retry after a line-number complaint chases the wrong thing",
-          "oracle" in sound.refusals[0][1]
-          and "module the test imports" in sound.refusals[0][1]
-          and "L5-L5" not in sound.refusals[0][1],
-          sound.refusals[0][1][:90] if sound.refusals else "it applied")
-    four_kinds = apply_patches(tree, [
-        Patch("t.py", "L5-L5", "    assert 1"),
-        Patch("t.py", "check_it", "def check_it():\n    pass"),
-        Patch("t.py", "*", "print(1)\n"),
-        Patch("t.py", "+extra", "def extra():\n    return 1")],
-        oracle="t.py")
-    check("oracle: all four address kinds are refused, because the file is out of "
-          "scope before anything about the address is read — a gap in one kind "
-          "would be a way to edit the assertion after all",
-          not four_kinds.ok and len(four_kinds.refusals) == 4
-          and all("is the oracle this run scores against" in w
-                  for _, w in four_kinds.refusals),
-          "; ".join(f"{p.kind}:{w[:40]}" for p, w in four_kinds.refusals))
-    elsewhere = apply_patches(tree, [Patch("money.py", "cents",
-                                          'def cents(n):\n    return f"${n // 100}.0"')],
-                              oracle="t.py")
-    check("oracle: naming the oracle takes nothing away from the real target — "
-          "the same symbol patch still applies while it is set, which is the "
-          "difference between a guard and a shutdown",
-          elsewhere.ok and elsewhere.files["money.py"] != tree["money.py"]
-          and elsewhere.files["t.py"] == oracle_src,
-          f"ok={getattr(elsewhere, 'ok', None)}")
-    mixed = apply_patches(tree, [Patch("money.py", "cents",
-                                       'def cents(n):\n    return 1'),
-                                 Patch("t.py", "*", "print(1)\n")],
-                          oracle="t.py")
-    check("oracle: one oracle patch voids the set, so a fix that arrives with an "
-          "edited assertion writes neither",
-          not mixed.ok and mixed.files == tree,
-          f"{getattr(mixed, 'ok', None)} {mixed.refusals[:1]}")
-    blind = apply_patches(tree, [Patch("t.py", "L5-L5",
-                                       '    assert cents(5) == "$0.0"')])
-    check("oracle: with no oracle named the same patch applies exactly as it "
-          "always did — the rule is the caller's knowledge of what it scores "
-          "against, not a second grammar, which is why the published suite "
-          "numbers survive this clause",
-          blind.ok and blind.files["t.py"] != oracle_src,
-          f"{getattr(blind, 'ok', None)}")
-    check("oracle: the PROTOCOL tells the model not to address the test file, so "
-          "the refusal is the second line of defence and not the first",
-          "never address a patch at the test file" in PROTOCOL
-          and "the module the test imports" in PROTOCOL, PROTOCOL[-400:])
+    off_end = apply_patches(tree, [Patch("t.py", "L10-L12", "pass")], oracle="t.py")
+    check(
+        "oracle: the refusal comes before the address is resolved, so R-7.15e's "
+        "measured case — `L10-L12` on a short oracle — is answered about the "
+        "file and not about a line count",
+        not off_end.ok
+        and "is the oracle this run scores against" in off_end.refusals[0][1]
+        and "past the end" not in off_end.refusals[0][1],
+        off_end.refusals[0][1][:90] if off_end.refusals else "it applied",
+    )
+    sound = apply_patches(
+        tree, [Patch("t.py", "L5-L5", '    assert cents(5) == "$0.0"')], oracle="t.py"
+    )
+    check(
+        "oracle: a patch that needs no rule but this one is refused too — the "
+        "range is inside a definition, the body is legal, the file is long "
+        "enough, so only the oracle's name can stop it",
+        not sound.ok
+        and tree == sound.files
+        and "is the oracle this run scores against" in sound.refusals[0][1],
+        sound.refusals[0][1][:90] if sound.refusals else "it applied",
+    )
+    check(
+        "oracle: ...and the sentence names the oracle and the module to change, "
+        "not the coordinates — an assertion is never edited to fit the code, so "
+        "a retry after a line-number complaint chases the wrong thing",
+        "oracle" in sound.refusals[0][1]
+        and "module the test imports" in sound.refusals[0][1]
+        and "L5-L5" not in sound.refusals[0][1],
+        sound.refusals[0][1][:90] if sound.refusals else "it applied",
+    )
+    four_kinds = apply_patches(
+        tree,
+        [
+            Patch("t.py", "L5-L5", "    assert 1"),
+            Patch("t.py", "check_it", "def check_it():\n    pass"),
+            Patch("t.py", "*", "print(1)\n"),
+            Patch("t.py", "+extra", "def extra():\n    return 1"),
+        ],
+        oracle="t.py",
+    )
+    check(
+        "oracle: all four address kinds are refused, because the file is out of "
+        "scope before anything about the address is read — a gap in one kind "
+        "would be a way to edit the assertion after all",
+        not four_kinds.ok
+        and len(four_kinds.refusals) == 4
+        and all(
+            "is the oracle this run scores against" in w for _, w in four_kinds.refusals
+        ),
+        "; ".join(f"{p.kind}:{w[:40]}" for p, w in four_kinds.refusals),
+    )
+    elsewhere = apply_patches(
+        tree,
+        [Patch("money.py", "cents", 'def cents(n):\n    return f"${n // 100}.0"')],
+        oracle="t.py",
+    )
+    check(
+        "oracle: naming the oracle takes nothing away from the real target — "
+        "the same symbol patch still applies while it is set, which is the "
+        "difference between a guard and a shutdown",
+        elsewhere.ok
+        and elsewhere.files["money.py"] != tree["money.py"]
+        and elsewhere.files["t.py"] == oracle_src,
+        f"ok={getattr(elsewhere, 'ok', None)}",
+    )
+    mixed = apply_patches(
+        tree,
+        [
+            Patch("money.py", "cents", "def cents(n):\n    return 1"),
+            Patch("t.py", "*", "print(1)\n"),
+        ],
+        oracle="t.py",
+    )
+    check(
+        "oracle: one oracle patch voids the set, so a fix that arrives with an "
+        "edited assertion writes neither",
+        not mixed.ok and mixed.files == tree,
+        f"{getattr(mixed, 'ok', None)} {mixed.refusals[:1]}",
+    )
+    blind = apply_patches(
+        tree, [Patch("t.py", "L5-L5", '    assert cents(5) == "$0.0"')]
+    )
+    check(
+        "oracle: with no oracle named the same patch applies exactly as it "
+        "always did — the rule is the caller's knowledge of what it scores "
+        "against, not a second grammar, which is why the published suite "
+        "numbers survive this clause",
+        blind.ok and blind.files["t.py"] != oracle_src,
+        f"{getattr(blind, 'ok', None)}",
+    )
+    check(
+        "oracle: the PROTOCOL tells the model not to address the test file, so "
+        "the refusal is the second line of defence and not the first",
+        "never address a patch at the test file" in PROTOCOL
+        and "the module the test imports" in PROTOCOL,
+        PROTOCOL[-400:],
+    )
 
     # 7e. R-7.15c: CREATE A FILE. Up to here the patch arm could only put words
     # into a file the project already had, so "make me a module that does X" —
     # the single most common thing a person asks a coding chat — was a refusal
     # about a file not being one of the project's. The key that is missing from
     # the workspace is now a legal target, and the body is the whole file.
-    created = apply_patches({"app.py": "def run():\n    return 1\n"},
-                            [Patch("helpers.py", "+slug",
-                                   'def slug(s):\n    return s.lower()')])
-    check("create-file: a key the workspace does not have becomes that file, "
-          "holding the one definition the patch wrote — nothing else is invented",
-          created.ok and created.files["helpers.py"] == 'def slug(s):\n    return s.lower()',
-          repr(created.files.get("helpers.py", ""))[:70] if created.ok
-          else created.refusals[0][1][:80])
-    check("create-file: the file that was already there is untouched, byte for "
-          "byte, which is the same promise a symbol patch makes",
-          created.ok and created.files["app.py"] == "def run():\n    return 1\n")
-    check("create-file: the new file's lines are all insertions, so the audit "
-          "charges it nothing — `spans` empty is the honest record of a file "
-          "that had no previous bytes to re-type",
-          created.ok and created.applied[0].spans == ()
-          and created.applied[0].regenerated == 0,
-          f"spans {getattr(created.applied[0], 'spans', None) if created.ok else ''}")
-    whole_new = apply_patches({}, [Patch("cfg.py", "*", 'DEBUG = True\nTIMEOUT = 30\n')])
-    check("create-file: `:: *` on a missing key writes the whole text as given, "
-          "which is the other way to found a module and the only way to write "
-          "statements that are not a definition",
-          whole_new.ok and whole_new.files["cfg.py"] == 'DEBUG = True\nTIMEOUT = 30\n',
-          whole_new.refusals[0][1][:80] if not whole_new.ok else "")
-    check("create-file: a founded file is NOT counted as a whole rewrite, because "
-          "that column means 'the patch arm re-typed a file it could have "
-          "addressed symbol by symbol' and a file with no previous bytes had no "
-          "symbol to address — meanwhile a real whole-file rewrite still scores 1",
-          whole_new.ok and whole_new.whole_rewrites == 0
-          and apply_patches(ws, [Patch("cart.py", "*", cart)])
-                        .whole_rewrites == 1,
-          f"founded={whole_new.whole_rewrites if whole_new.ok else 'n/a'}")
-    check("create-file: a create is recorded against the address the model "
-          "actually wrote, not a stand-in — a summary that said '+new' would "
-          "describe a patch that was never sent",
-          created.ok and created.summary().startswith("helpers.py:+slug"),
-          created.summary()[:60] if created.ok else "")
-    mixed_new = apply_patches({"app.py": "def run():\n    return 1\n"},
-                              [Patch("app.py", "run", "def run():\n    return 2"),
-                               Patch("log.py", "+warn", 'def warn(m):\n    print(m)')])
-    check("create-file: one set can REVISE an existing symbol and FOUND a new "
-          "file at the same time — a session that made the user split those into "
-          "two turns would not be a coding chat",
-          mixed_new.ok and "return 2" in mixed_new.files["app.py"]
-          and "def warn" in mixed_new.files["log.py"],
-          mixed_new.refusals[0][1][:80] if not mixed_new.ok else "")
-    bare_new = apply_patches({}, [Patch("brand.py", "go", 'def go():\n    pass')])
-    check("refuse: a bare symbol address on a missing file is refused, and the "
-          "sentence says how to CREATE it rather than just naming the gap — the "
-          "address claims to replace something the file never had",
-          not bare_new.ok and "+go" in bare_new.refusals[0][1]
-          and "'*'" in bare_new.refusals[0][1],
-          bare_new.refusals[0][1][:100] if bare_new.refusals else "it applied")
-    two_new = apply_patches({}, [Patch("pair.py", "+a", 'def a():\n    pass'),
-                                 Patch("pair.py", "+b", 'def b():\n    pass')])
-    check("refuse: two patches for one new file are refused, because there is no "
-          "second body to put anywhere — the file's whole content is the first "
-          "patch, so a set that also carries a second is a set that lost one",
-          not two_new.ok and "ONE patch" in two_new.refusals[0][1],
-          two_new.refusals[0][1][:90] if two_new.refusals else "it applied")
+    created = apply_patches(
+        {"app.py": "def run():\n    return 1\n"},
+        [Patch("helpers.py", "+slug", "def slug(s):\n    return s.lower()")],
+    )
+    check(
+        "create-file: a key the workspace does not have becomes that file, "
+        "holding the one definition the patch wrote — nothing else is invented",
+        created.ok
+        and created.files["helpers.py"] == "def slug(s):\n    return s.lower()",
+        repr(created.files.get("helpers.py", ""))[:70]
+        if created.ok
+        else created.refusals[0][1][:80],
+    )
+    check(
+        "create-file: the file that was already there is untouched, byte for "
+        "byte, which is the same promise a symbol patch makes",
+        created.ok and created.files["app.py"] == "def run():\n    return 1\n",
+    )
+    check(
+        "create-file: the new file's lines are all insertions, so the audit "
+        "charges it nothing — `spans` empty is the honest record of a file "
+        "that had no previous bytes to re-type",
+        created.ok
+        and created.applied[0].spans == ()
+        and created.applied[0].regenerated == 0,
+        f"spans {getattr(created.applied[0], 'spans', None) if created.ok else ''}",
+    )
+    whole_new = apply_patches(
+        {}, [Patch("cfg.py", "*", "DEBUG = True\nTIMEOUT = 30\n")]
+    )
+    check(
+        "create-file: `:: *` on a missing key writes the whole text as given, "
+        "which is the other way to found a module and the only way to write "
+        "statements that are not a definition",
+        whole_new.ok and whole_new.files["cfg.py"] == "DEBUG = True\nTIMEOUT = 30\n",
+        whole_new.refusals[0][1][:80] if not whole_new.ok else "",
+    )
+    check(
+        "create-file: a founded file is NOT counted as a whole rewrite, because "
+        "that column means 'the patch arm re-typed a file it could have "
+        "addressed symbol by symbol' and a file with no previous bytes had no "
+        "symbol to address — meanwhile a real whole-file rewrite still scores 1",
+        whole_new.ok
+        and whole_new.whole_rewrites == 0
+        and apply_patches(ws, [Patch("cart.py", "*", cart)]).whole_rewrites == 1,
+        f"founded={whole_new.whole_rewrites if whole_new.ok else 'n/a'}",
+    )
+    check(
+        "create-file: a create is recorded against the address the model "
+        "actually wrote, not a stand-in — a summary that said '+new' would "
+        "describe a patch that was never sent",
+        created.ok and created.summary().startswith("helpers.py:+slug"),
+        created.summary()[:60] if created.ok else "",
+    )
+    mixed_new = apply_patches(
+        {"app.py": "def run():\n    return 1\n"},
+        [
+            Patch("app.py", "run", "def run():\n    return 2"),
+            Patch("log.py", "+warn", "def warn(m):\n    print(m)"),
+        ],
+    )
+    check(
+        "create-file: one set can REVISE an existing symbol and FOUND a new "
+        "file at the same time — a session that made the user split those into "
+        "two turns would not be a coding chat",
+        mixed_new.ok
+        and "return 2" in mixed_new.files["app.py"]
+        and "def warn" in mixed_new.files["log.py"],
+        mixed_new.refusals[0][1][:80] if not mixed_new.ok else "",
+    )
+    bare_new = apply_patches({}, [Patch("brand.py", "go", "def go():\n    pass")])
+    check(
+        "refuse: a bare symbol address on a missing file is refused, and the "
+        "sentence says how to CREATE it rather than just naming the gap — the "
+        "address claims to replace something the file never had",
+        not bare_new.ok
+        and "+go" in bare_new.refusals[0][1]
+        and "'*'" in bare_new.refusals[0][1],
+        bare_new.refusals[0][1][:100] if bare_new.refusals else "it applied",
+    )
+    two_new = apply_patches(
+        {},
+        [
+            Patch("pair.py", "+a", "def a():\n    pass"),
+            Patch("pair.py", "+b", "def b():\n    pass"),
+        ],
+    )
+    check(
+        "refuse: two patches for one new file are refused, because there is no "
+        "second body to put anywhere — the file's whole content is the first "
+        "patch, so a set that also carries a second is a set that lost one",
+        not two_new.ok and "ONE patch" in two_new.refusals[0][1],
+        two_new.refusals[0][1][:90] if two_new.refusals else "it applied",
+    )
     empty_new = apply_patches({}, [Patch("nothing.py", "*", "")])
-    check("refuse: an empty body is refused, because landing it would leave the "
-          "project holding an empty file and report that as success",
-          not empty_new.ok and "empty" in empty_new.refusals[0][1],
-          empty_new.refusals[0][1][:90] if empty_new.refusals else "it applied")
-    bad_new = apply_patches({}, [Patch("broken.py", "+x", 'def x(')])
-    check("refuse: a new file whose text does not parse is refused with the "
-          "parser's own line and message — the same grammar check an edit gets, "
-          "so a brand-new file cannot be sloppier than a changed one",
-          not bad_new.ok and "does not parse" in bad_new.refusals[0][1]
-          and "line" in bad_new.refusals[0][1],
-          bad_new.refusals[0][1][:90] if bad_new.refusals else "it applied")
-    badset = apply_patches({"app.py": "def run():\n    return 1\n"},
-                           [Patch("good.py", "+a", 'def a():\n    pass'),
-                            Patch("bad.py", "+b", 'def b(')])
-    check("refuse: one unparseable create voids the set, so a turn that would "
-          "have written two files writes neither — atomicity is not relaxed for "
-          "the file that does not exist yet",
-          not badset.ok and badset.files == {"app.py": "def run():\n    return 1\n"}
-          and "good.py" not in badset.files,
-          f"{list(badset.files)}")
-    oracle_new = apply_patches({"money.py": "def cents(n):\n    return n\n"},
-                               [Patch("t.py", "*", 'def check_it():\n    pass\n')],
-                               oracle="t.py")
-    check("oracle: the oracle guard runs BEFORE the new-file rule, so a test file "
-          "that is absent from the listing cannot be written into existence as a "
-          "back door around the one rule that has no exceptions",
-          not oracle_new.ok and "is the oracle this run scores against"
-          in oracle_new.refusals[0][1]
-          and "t.py" not in oracle_new.files,
-          oracle_new.refusals[0][1][:80] if oracle_new.refusals else "it applied")
-    check("create-file: the PROTOCOL names both founding addresses AND says `*` "
-          "means something different for a file that exists, so a model can ask "
-          "for a new file on the first attempt instead of learning it from a "
-          "refusal — and does not learn to reach for `*` as a habit",
-          "CREATE a whole FILE" in PROTOCOL and ":: *" in PROTOCOL
-          and "the ONLY case where `*` is the right answer" in PROTOCOL)
+    check(
+        "refuse: an empty body is refused, because landing it would leave the "
+        "project holding an empty file and report that as success",
+        not empty_new.ok and "empty" in empty_new.refusals[0][1],
+        empty_new.refusals[0][1][:90] if empty_new.refusals else "it applied",
+    )
+    bad_new = apply_patches({}, [Patch("broken.py", "+x", "def x(")])
+    check(
+        "refuse: a new file whose text does not parse is refused with the "
+        "parser's own line and message — the same grammar check an edit gets, "
+        "so a brand-new file cannot be sloppier than a changed one",
+        not bad_new.ok
+        and "does not parse" in bad_new.refusals[0][1]
+        and "line" in bad_new.refusals[0][1],
+        bad_new.refusals[0][1][:90] if bad_new.refusals else "it applied",
+    )
+    badset = apply_patches(
+        {"app.py": "def run():\n    return 1\n"},
+        [Patch("good.py", "+a", "def a():\n    pass"), Patch("bad.py", "+b", "def b(")],
+    )
+    check(
+        "refuse: one unparseable create voids the set, so a turn that would "
+        "have written two files writes neither — atomicity is not relaxed for "
+        "the file that does not exist yet",
+        not badset.ok
+        and badset.files == {"app.py": "def run():\n    return 1\n"}
+        and "good.py" not in badset.files,
+        f"{list(badset.files)}",
+    )
+    oracle_new = apply_patches(
+        {"money.py": "def cents(n):\n    return n\n"},
+        [Patch("t.py", "*", "def check_it():\n    pass\n")],
+        oracle="t.py",
+    )
+    check(
+        "oracle: the oracle guard runs BEFORE the new-file rule, so a test file "
+        "that is absent from the listing cannot be written into existence as a "
+        "back door around the one rule that has no exceptions",
+        not oracle_new.ok
+        and "is the oracle this run scores against" in oracle_new.refusals[0][1]
+        and "t.py" not in oracle_new.files,
+        oracle_new.refusals[0][1][:80] if oracle_new.refusals else "it applied",
+    )
+    check(
+        "create-file: the PROTOCOL names both founding addresses AND says `*` "
+        "means something different for a file that exists, so a model can ask "
+        "for a new file on the first attempt instead of learning it from a "
+        "refusal — and does not learn to reach for `*` as a habit",
+        "CREATE a whole FILE" in PROTOCOL
+        and ":: *" in PROTOCOL
+        and "the ONLY case where `*` is the right answer" in PROTOCOL,
+    )
     import tempfile
+
     with tempfile.TemporaryDirectory() as _td:
-        _found = apply_patches({}, [Patch("brand_new.py", "+go", 'def go():\n    return 7')])
+        _found = apply_patches(
+            {}, [Patch("brand_new.py", "+go", "def go():\n    return 7")]
+        )
         _wrote = land(_td, {}, _found.files)
         # Read inside the block: the directory is deleted when it exits, and a
         # witness that was collected after its own evidence vanished is the
         # same kind of claim as not collecting one.
-        _on_disk = (Path(_td) / "brand_new.py").read_text() \
-            if (Path(_td) / "brand_new.py").exists() else None
-    check("create-file: `land` writes a key that was never in `before`, which is "
-          "the difference between a workspace that holds the new file and a "
-          "project that actually gets it — the file on disk is the witness, not "
-          "the return value",
-          _found.ok and _wrote == [("brand_new.py", 2, 0)]
-          and _on_disk == 'def go():\n    return 7',
-          f"{_wrote} on_disk={_on_disk!r}")
-    readd = apply_patches(created.files,
-                          [Patch("helpers.py", "slug",
-                                 'def slug(s):\n    return s.strip().lower()')])
-    check("create-file: what this turn founded, the next turn can address — the "
-          "new file is in the workspace, so a bare symbol patch on it resolves "
-          "and revises like any other file. This is R-7.15's session promise one "
-          "level down: turn N+1 edits what turn N wrote",
-          readd.ok and "s.strip().lower()" in readd.files["helpers.py"],
-          readd.refusals[0][1][:80] if not readd.ok else "")
+        _on_disk = (
+            (Path(_td) / "brand_new.py").read_text()
+            if (Path(_td) / "brand_new.py").exists()
+            else None
+        )
+    check(
+        "create-file: `land` writes a key that was never in `before`, which is "
+        "the difference between a workspace that holds the new file and a "
+        "project that actually gets it — the file on disk is the witness, not "
+        "the return value",
+        _found.ok
+        and _wrote == [("brand_new.py", 2, 0)]
+        and _on_disk == "def go():\n    return 7",
+        f"{_wrote} on_disk={_on_disk!r}",
+    )
+    readd = apply_patches(
+        created.files,
+        [Patch("helpers.py", "slug", "def slug(s):\n    return s.strip().lower()")],
+    )
+    check(
+        "create-file: what this turn founded, the next turn can address — the "
+        "new file is in the workspace, so a bare symbol patch on it resolves "
+        "and revises like any other file. This is R-7.15's session promise one "
+        "level down: turn N+1 edits what turn N wrote",
+        readd.ok and "s.strip().lower()" in readd.files["helpers.py"],
+        readd.refusals[0][1][:80] if not readd.ok else "",
+    )
 
     # 7f. R-7.15f: the project a model is asked to patch has to be IN the message
     # it is asked with. Every check here reads the composed text, because the
     # measured failure was a 96-character ask standing in for a two-file project.
-    demo = {"money.py": 'def cents_to_str(cents: int) -> str:\n'
-                        '    return f"${cents / 100}"\n',
-            "t.py": 'from money import cents_to_str\n'
-                    'assert cents_to_str(5) == "$0.05"\n'}
+    demo = {
+        "money.py": "def cents_to_str(cents: int) -> str:\n"
+        '    return f"${cents / 100}"\n',
+        "t.py": 'from money import cents_to_str\nassert cents_to_str(5) == "$0.05"\n',
+    }
     ask = "zero-pad the cents"
     composed = project_prompt(ask, demo, demo["t.py"])
-    check("project prompt: every key of the tree is named as an address the model "
-          "can write — a patch set can only be refused for a file it was shown",
-          all(f"# file: {k}" in composed for k in demo), composed[:120])
-    check("project prompt: the real body ships rather than an outline, because a "
-          "symbol patch has to re-type that symbol's statements and a listing of "
-          "names gives it nothing to re-type",
-          'return f"${cents / 100}"' in composed)
-    check("project prompt: the ask is quoted verbatim under a heading that says "
-          "what it is, so the project block and the request are not one blob",
-          f"Requested change: {ask}" in composed)
-    check("project prompt: the oracle arrives fenced and labelled, which is what "
-          "lets the model read the assertion it must satisfy instead of patching "
-          "it — R-7.15e's refusal is the backstop, this is the front line",
-          "The test that must pass afterwards:" in composed
-          and 'assert cents_to_str(5) == "$0.05"' in composed)
+    check(
+        "project prompt: every key of the tree is named as an address the model "
+        "can write — a patch set can only be refused for a file it was shown",
+        all(f"# file: {k}" in composed for k in demo),
+        composed[:120],
+    )
+    check(
+        "project prompt: the real body ships rather than an outline, because a "
+        "symbol patch has to re-type that symbol's statements and a listing of "
+        "names gives it nothing to re-type",
+        'return f"${cents / 100}"' in composed,
+    )
+    check(
+        "project prompt: the ask is quoted verbatim under a heading that says "
+        "what it is, so the project block and the request are not one blob",
+        f"Requested change: {ask}" in composed,
+    )
+    check(
+        "project prompt: the oracle arrives fenced and labelled, which is what "
+        "lets the model read the assertion it must satisfy instead of patching "
+        "it — R-7.15e's refusal is the backstop, this is the front line",
+        "The test that must pass afterwards:" in composed
+        and 'assert cents_to_str(5) == "$0.05"' in composed,
+    )
     no_test = project_prompt(ask, demo)
-    check("project prompt: with no test named, no test heading is invented — a "
-          "session always has an oracle but `run --edit` without `--test` must not "
-          "claim one it was never given",
-          "The test that must pass" not in no_test
-          and f"Requested change: {ask}" in no_test)
-    check("project prompt: the header is one exact sentence at the front, and it "
-          "is the same object `enrich_task` reads as the marker — a prompt that "
-          "drifted from it would be composed twice",
-          composed.count(PROJECT_HEADER) == 1 and composed.startswith(PROJECT_HEADER))
+    check(
+        "project prompt: with no test named, no test heading is invented — a "
+        "session always has an oracle but `run --edit` without `--test` must not "
+        "claim one it was never given",
+        "The test that must pass" not in no_test
+        and f"Requested change: {ask}" in no_test,
+    )
+    check(
+        "project prompt: the header is one exact sentence at the front, and it "
+        "is the same object `enrich_task` reads as the marker — a prompt that "
+        "drifted from it would be composed twice",
+        composed.count(PROJECT_HEADER) == 1 and composed.startswith(PROJECT_HEADER),
+    )
     big = {f"m{i}.py": "x = 1\n" * 400 for i in range(8)}
     capped = project_prompt(ask, big)
     raw_total = sum(len(v) for v in big.values())
-    check("project prompt: an over-cap tree costs a truncated block instead of an "
-          "unbounded prompt — every file is still named, so the addresses stay "
-          "legal while the token budget holds",
-          len(capped) < raw_total and all(f"# file: {k}" in capped for k in big),
-          f"{len(capped)} chars composed from {raw_total} of source")
+    check(
+        "project prompt: an over-cap tree costs a truncated block instead of an "
+        "unbounded prompt — every file is still named, so the addresses stay "
+        "legal while the token budget holds",
+        len(capped) < raw_total and all(f"# file: {k}" in capped for k in big),
+        f"{len(capped)} chars composed from {raw_total} of source",
+    )
 
     # 8. degradation: a response with no patches at all costs the attempt, not the workspace
     empty = apply_patches(ws, [])
-    check("apply: an empty patch set is a no-op, not an error",
-          empty.ok and empty.files == ws and empty.applied == [])
+    check(
+        "apply: an empty patch set is a no-op, not an error",
+        empty.ok and empty.files == ws and empty.applied == [],
+    )
 
     # 9. an ad-hoc project directory becomes a workspace keyed as the address says
     fixture = _DATA_ROOT / "benchmarks/fixtures/minishop"
     proj = workspace_from_dir(fixture)
-    check("workspace: a project directory loads under its relative path",
-          {"cart.py", "pricing.py"} <= set(proj) and
-          all(v.startswith(('"""', 'from')) for v in proj.values()),
-          ", ".join(sorted(proj)))
+    check(
+        "workspace: a project directory loads under its relative path",
+        {"cart.py", "pricing.py"} <= set(proj)
+        and all(v.startswith(('"""', "from")) for v in proj.values()),
+        ", ".join(sorted(proj)),
+    )
     src = proj.get("cart.py", "")
-    a = resolve(Patch("cart.py", "Cart.total_cents",
-                      "def total_cents(self):\n    return 0"), src)
-    check("workspace: a minishop method is addressable in the loaded tree",
-          src.split("\n")[a.start - 1].strip().startswith("def total_cents")
-          and a.col == 4, f"L{a.start}-L{a.end} col={a.col}")
+    a = resolve(
+        Patch("cart.py", "Cart.total_cents", "def total_cents(self):\n    return 0"),
+        src,
+    )
+    check(
+        "workspace: a minishop method is addressable in the loaded tree",
+        src.split("\n")[a.start - 1].strip().startswith("def total_cents")
+        and a.col == 4,
+        f"L{a.start}-L{a.end} col={a.col}",
+    )
 
     run_wiring(verbose=verbose, into=checks)
 
@@ -1837,12 +2350,20 @@ def run_selftest(verbose: bool = True) -> int:
 
 if __name__ == "__main__":
     import argparse
+
     ap = argparse.ArgumentParser(prog="python -m flash.patches")
     ap.add_argument("--selftest", action="store_true")
-    ap.add_argument("--suite", type=str, default=None,
-                    help="prove every edit task in this JSONL is a real one-symbol edit")
-    ap.add_argument("--wire", action="store_true",
-                    help="the loop's patch arm against a scripted generator, no model")
+    ap.add_argument(
+        "--suite",
+        type=str,
+        default=None,
+        help="prove every edit task in this JSONL is a real one-symbol edit",
+    )
+    ap.add_argument(
+        "--wire",
+        action="store_true",
+        help="the loop's patch arm against a scripted generator, no model",
+    )
     args = ap.parse_args()
     if args.suite:
         raise SystemExit(run_premise(args.suite))

@@ -27,6 +27,7 @@ sample of a bigger index and the file says so in its `sampled` field, because a
 picture of a graph that quietly dropped 4,000 nodes would be the same sin as a
 fake latency, only prettier.
 """
+
 from __future__ import annotations
 
 import json
@@ -69,7 +70,7 @@ def command_for(label: str) -> str:
     if s.startswith("flash."):
         return f"python -m {s}"
     if s.startswith("flash "):
-        return "python -m flash.cli " + s[len("flash "):]
+        return "python -m flash.cli " + s[len("flash ") :]
     if s.startswith("benchmarks/") or s.startswith("m0_"):
         return f"python {s}"
     return s
@@ -77,26 +78,41 @@ def command_for(label: str) -> str:
 
 def build_benchmarks(source: dict) -> dict:
     totals = source["totals"]
-    vectors = [{
-        "command": command_for(v["label"]),
-        "checks": v["checks"],
-        "expected": v["expected"],
-        "mutants": v["mutants"],
-    } for v in source["vectors"]]
-    timings = [{
-        "command": f"python -m flash.{t['module']} --selftest",
-        **{k: v for k, v in t.items() if k not in ("module",)},
-    } for t in source["timings"]]
+    vectors = [
+        {
+            "command": command_for(v["label"]),
+            "checks": v["checks"],
+            "expected": v["expected"],
+            "mutants": v["mutants"],
+        }
+        for v in source["vectors"]
+    ]
+    timings = [
+        {
+            "command": f"python -m flash.{t['module']} --selftest",
+            **{k: v for k, v in t.items() if k not in ("module",)},
+        }
+        for t in source["timings"]
+    ]
     buckets: Counter[str] = Counter()
     for v in vectors:
-        buckets["100+" if v["checks"] >= 100 else "30-99" if v["checks"] >= 30
-                else "under 30"] += 1
+        buckets[
+            "100+"
+            if v["checks"] >= 100
+            else "30-99"
+            if v["checks"] >= 30
+            else "under 30"
+        ] += 1
     return {
         "witness": source["witness"],
-        "totals": {**totals, "vectors": len(vectors),
-                   "mutant_vectors": sum(1 for v in vectors if v["mutants"])},
-        "distribution": [{"bucket": b, "vectors": n}
-                         for b, n in sorted(buckets.items())],
+        "totals": {
+            **totals,
+            "vectors": len(vectors),
+            "mutant_vectors": sum(1 for v in vectors if v["mutants"]),
+        },
+        "distribution": [
+            {"bucket": b, "vectors": n} for b, n in sorted(buckets.items())
+        ],
         "vectors": sorted(vectors, key=lambda v: -v["checks"]),
         "timings": sorted(timings, key=lambda t: -t["median_s"]),
         "graph": source["graph_latency"],
@@ -109,10 +125,12 @@ def _sphere(i: int, n: int, radius: float) -> tuple[float, float, float]:
     """Fibonacci sphere: even spread, no random seed to keep in sync."""
     k = i + 0.5
     phi = math.acos(1 - 2 * k / n)
-    theta = math.pi * (1 + 5 ** 0.5) * k
-    return (radius * math.sin(phi) * math.cos(theta),
-            radius * math.sin(phi) * math.sin(theta),
-            radius * math.cos(phi))
+    theta = math.pi * (1 + 5**0.5) * k
+    return (
+        radius * math.sin(phi) * math.cos(theta),
+        radius * math.sin(phi) * math.sin(theta),
+        radius * math.cos(phi),
+    )
 
 
 def build_graph(root: Path) -> dict:
@@ -126,8 +144,11 @@ def build_graph(root: Path) -> dict:
         if e.src in g.nodes and e.dst in g.nodes:
             deg[e.src] += 1
             deg[e.dst] += 1
-    pool = [n for n in g.nodes.values()
-            if n.file.startswith(PREFIX) and n.symbol and n.kind in SHOWN_KINDS]
+    pool = [
+        n
+        for n in g.nodes.values()
+        if n.file.startswith(PREFIX) and n.symbol and n.kind in SHOWN_KINDS
+    ]
     keep = {n.id for n in sorted(pool, key=lambda n: (-deg[n.id], n.id))[:GRAPH_NODES]}
     nodes = [n for n in pool if n.id in keep]
     files = sorted({n.file for n in nodes})
@@ -142,11 +163,17 @@ def build_graph(root: Path) -> dict:
         r = 2.4 + 1.05 * math.sqrt(len(group))
         for i, n in enumerate(sorted(group, key=lambda x: x.id)):
             ax, ay, az = _sphere(i, len(group), r)
-            placed.append({
-                "id": n.id, "file": n.file, "symbol": n.symbol, "kind": n.kind,
-                "degree": deg[n.id], "label": n.symbol.split(".")[-1],
-                "pos": [round(cx + ax, 2), round(cy + ay, 2), round(cz + az, 2)],
-            })
+            placed.append(
+                {
+                    "id": n.id,
+                    "file": n.file,
+                    "symbol": n.symbol,
+                    "kind": n.kind,
+                    "degree": deg[n.id],
+                    "label": n.symbol.split(".")[-1],
+                    "pos": [round(cx + ax, 2), round(cy + ay, 2), round(cz + az, 2)],
+                }
+            )
     seen: set[tuple[str, str, str]] = set()
     pairs = []
     for e in edges:
@@ -159,11 +186,13 @@ def build_graph(root: Path) -> dict:
         "edges": pairs,
         "kinds": dict(sorted(Counter(n["kind"] for n in placed).items())),
         "sampled": {
-            "shown_nodes": len(placed), "shown_edges": len(pairs),
-            "repo_nodes": len(g.nodes), "repo_edges": len(g.edges),
+            "shown_nodes": len(placed),
+            "shown_edges": len(pairs),
+            "repo_nodes": len(g.nodes),
+            "repo_edges": len(g.edges),
             "note": f"the {len(placed)} most-connected functions, classes and "
-                    f"methods under {PREFIX}, joined by their call and import "
-                    f"edges; `reads` edges and the rest of the index are not drawn",
+            f"methods under {PREFIX}, joined by their call and import "
+            f"edges; `reads` edges and the rest of the index are not drawn",
         },
         "extracted_by": "python -c 'from flash.graph import build; build(...)'",
     }
@@ -184,6 +213,7 @@ def write(path: Path, payload: dict) -> None:
 # pseudo-terminal one that proves a keyboard gets its answer before its next ask.
 # Every one carries the command that produced it.
 
+
 def redact(text: str) -> tuple[str, list[str]]:
     """Blank this machine's paths. A landing page has no business naming a
     username, and a figure that cannot be shown without one is not a figure."""
@@ -200,8 +230,9 @@ def redact(text: str) -> tuple[str, list[str]]:
 
 
 def capture(argv: list[str], keep: int, take: str = "head") -> dict:
-    proc = subprocess.run([sys.executable, *argv], cwd=ROOT,
-                          capture_output=True, text=True)
+    proc = subprocess.run(
+        [sys.executable, *argv], cwd=ROOT, capture_output=True, text=True
+    )
     body = (proc.stdout or "") + (proc.stderr or "")
     lines = [ln for ln in body.splitlines() if ln.strip()]
     sel = lines[:keep] if take == "head" else lines[-keep:]
@@ -232,14 +263,18 @@ def session_capture(witness: Path = SESSION_LIVE) -> dict:
     kept = [ln for ln in body if not ln.startswith("Fetching ")]
     text, notes = redact("\n".join(kept))
     if bars:
-        notes.append(f"{len(bars)} weight-download progress lines were dropped; "
-                     f"the witness beside this file holds them verbatim")
+        notes.append(
+            f"{len(bars)} weight-download progress lines were dropped; "
+            f"the witness beside this file holds them verbatim"
+        )
     cmd = next((ln for ln in header if ln.startswith("# command:")), "")
     rc = next((ln for ln in kept if "[session]" in ln and "last_rc=" in ln), "")
     if not cmd or not rc:
-        raise SystemExit(f"export_site_data: {witness.name} lost either its "
-                         f"# command header or the command's own [session] line — "
-                         f"refusing to print an exit code nobody reported")
+        raise SystemExit(
+            f"export_site_data: {witness.name} lost either its "
+            f"# command header or the command's own [session] line — "
+            f"refusing to print an exit code nobody reported"
+        )
     return {
         "command": cmd.split(": ", 1)[1],
         # The exit code comes from the command's own EOF report, not the
@@ -258,34 +293,41 @@ def build_transcripts(witness_lines: list[str]) -> list[dict]:
     bat = {
         "command": "python benchmarks/battery_reread.py",
         "exit": 0,
-        "lines": lines[:6] + [f"  … {len(lines)} lines, one per §6 vector"]
-                 + witness_lines[-3:],
+        "lines": lines[:6]
+        + [f"  … {len(lines)} lines, one per §6 vector"]
+        + witness_lines[-3:],
         "redacted": [],
         "source": dashboard_data.WITNESS.name,
     }
-    return [doctor, graph, bat, session_capture(),
-            session_capture(SESSION_PTY)]
+    return [doctor, graph, bat, session_capture(), session_capture(SESSION_PTY)]
 
 
 def main(argv: list[str]) -> int:
     if not SOURCE.is_file():
-        print(f"export_site_data: {SOURCE.relative_to(ROOT)} is missing — run\n"
-              f"  python benchmarks/dashboard_data.py\nfirst.", file=sys.stderr)
+        print(
+            f"export_site_data: {SOURCE.relative_to(ROOT)} is missing — run\n"
+            f"  python benchmarks/dashboard_data.py\nfirst.",
+            file=sys.stderr,
+        )
         return 1
     if not SESSION_PTY.is_file():
-        print(f"export_site_data: {SESSION_PTY.relative_to(ROOT)} is missing — run\n"
-              f"  python benchmarks/session_pty_demo.py\nfirst. The keyboard tab is "
-              f"that witness and nothing else; a tab of remembered output is the one "
-              f"thing this page exists to not do.", file=sys.stderr)
+        print(
+            f"export_site_data: {SESSION_PTY.relative_to(ROOT)} is missing — run\n"
+            f"  python benchmarks/session_pty_demo.py\nfirst. The keyboard tab is "
+            f"that witness and nothing else; a tab of remembered output is the one "
+            f"thing this page exists to not do.",
+            file=sys.stderr,
+        )
         return 1
     source = json.loads(SOURCE.read_text())
     write(OUT_DIR / "benchmarks.json", build_benchmarks(source))
     write(OUT_DIR / "graph.json", build_graph(ROOT))
     witness = dashboard_data.WITNESS.read_text(errors="ignore").splitlines()
     wtext, wnotes = redact("\n".join(ln for ln in witness if ln.strip()))
-    write(OUT_DIR / "transcripts.json",
-          {"captures": build_transcripts(wtext.split("\n")),
-           "witness_redacted": wnotes})
+    write(
+        OUT_DIR / "transcripts.json",
+        {"captures": build_transcripts(wtext.split("\n")), "witness_redacted": wnotes},
+    )
     return 0
 
 

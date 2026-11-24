@@ -34,6 +34,7 @@ validation checkpoint is the unit the shipped adapter is chosen on.
     python -m flash.train --dataset --held-out benchmarks/tasks/p6_tasks.jsonl
     flash learn --lora --steps 256                     # the gated training entry
 """
+
 from __future__ import annotations
 
 import argparse
@@ -53,8 +54,7 @@ TASK_DIR = ROOT / "benchmarks" / "tasks"
 OPEN = "<" + "|im_start|" + ">"
 CLOSE = "<" + "|im_end|" + ">"
 GEN = OPEN + "assistant\n"
-_TURN = re.compile(re.escape(OPEN) + r"(\w+)\n(.*?)" + re.escape(CLOSE) + "\n",
-                   re.S)
+_TURN = re.compile(re.escape(OPEN) + r"(\w+)\n(.*?)" + re.escape(CLOSE) + "\n", re.S)
 
 
 def parse_messages(prompt: str) -> list[dict]:
@@ -70,7 +70,7 @@ def body_of(prompt: str) -> str:
     whole, every real row would read as a template failure.
     """
     p = prompt or ""
-    return p[:-len(GEN)] if p.endswith(GEN) else p
+    return p[: -len(GEN)] if p.endswith(GEN) else p
 
 
 def strip_stop(text: str) -> tuple[str, bool]:
@@ -85,7 +85,7 @@ def strip_stop(text: str) -> tuple[str, bool]:
     t = text or ""
     tail = t.rstrip(" \n")
     if tail.endswith(CLOSE):
-        return tail[:-len(CLOSE)], True
+        return tail[: -len(CLOSE)], True
     return t, False
 
 
@@ -103,10 +103,10 @@ class Row:
     task_id: str = ""
     session: str = ""
     attempt: int = 0
-    closed: bool = False          # this attempt is the one task_end credits
-    repair: bool = False          # attempt > 0: it fixed a failure it was shown
-    terminated: bool = False      # the answer wrote its own end-of-turn
-    source: str = "chain"         # chain|tournament|big
+    closed: bool = False  # this attempt is the one task_end credits
+    repair: bool = False  # attempt > 0: it fixed a failure it was shown
+    terminated: bool = False  # the answer wrote its own end-of-turn
+    source: str = "chain"  # chain|tournament|big
 
 
 def task_ids_in_suite(path) -> set:
@@ -128,8 +128,12 @@ def _sessions(traces_dir) -> list[Path]:
     return sorted(Path(traces_dir).glob("*.jsonl"))
 
 
-def mine(traces_dir=TRACE_DIR, exclude=(), require_verified: bool = True,
-         stats: dict | None = None) -> list[Row]:
+def mine(
+    traces_dir=TRACE_DIR,
+    exclude=(),
+    require_verified: bool = True,
+    stats: dict | None = None,
+) -> list[Row]:
     """Every verified answer the trace store holds, minus the excluded suite."""
     exclude = set(exclude or ())
     rows: list[Row] = []
@@ -147,18 +151,24 @@ def mine(traces_dir=TRACE_DIR, exclude=(), require_verified: bool = True,
             try:
                 events.append(json.loads(line))
             except json.JSONDecodeError:
-                bump("torn_lines")     # a truncated write is data, not an error
-        ends = {e["task_id"]: e for e in events
-                if e.get("type") == "task_end" and "task_id" in e}
-        tour = {e["task_id"]: e for e in events
-                if e.get("type") == "tournament" and "task_id" in e}
+                bump("torn_lines")  # a truncated write is data, not an error
+        ends = {
+            e["task_id"]: e
+            for e in events
+            if e.get("type") == "task_end" and "task_id" in e
+        }
+        tour = {
+            e["task_id"]: e
+            for e in events
+            if e.get("type") == "tournament" and "task_id" in e
+        }
         for e in events:
             if e.get("type") != "generate" or "task_id" not in e:
                 continue
             tid = e["task_id"]
             out, prompt = e.get("output"), e.get("prompt")
             if not out or not prompt:
-                bump("no_stored_text")     # a session run without --trace-full
+                bump("no_stored_text")  # a session run without --trace-full
                 continue
             comp, cap = e.get("completion_tokens"), e.get("max_tokens")
             if comp is not None and cap and int(comp) >= int(cap):
@@ -213,9 +223,18 @@ def mine(traces_dir=TRACE_DIR, exclude=(), require_verified: bool = True,
             src = "chain"
             if str(tid) in tour and attempt == 0:
                 src = "tournament"
-            rows.append(Row(messages=msgs, task_id=tid, session=path.stem,
-                            attempt=attempt, closed=closed,
-                            repair=attempt > 0, terminated=stop, source=src))
+            rows.append(
+                Row(
+                    messages=msgs,
+                    task_id=tid,
+                    session=path.stem,
+                    attempt=attempt,
+                    closed=closed,
+                    repair=attempt > 0,
+                    terminated=stop,
+                    source=src,
+                )
+            )
             bump("kept")
     if stats is not None:
         s["sessions_read"] = s.get("sessions_read", 0) + len(_sessions(traces_dir))
@@ -237,8 +256,13 @@ def split(rows: list[Row], valid_frac: float = 0.15, seed: int = 0):
     return train, valid
 
 
-def write_dataset(rows: list[Row], out_dir, valid_frac: float = 0.15,
-                  seed: int = 0, meta: dict | None = None) -> Path:
+def write_dataset(
+    rows: list[Row],
+    out_dir,
+    valid_frac: float = 0.15,
+    seed: int = 0,
+    meta: dict | None = None,
+) -> Path:
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
     train, valid = split(rows, valid_frac=valid_frac, seed=seed)
@@ -249,26 +273,33 @@ def write_dataset(rows: list[Row], out_dir, valid_frac: float = 0.15,
                 # `messages` and ignores the rest, so the written set stays
                 # checkable — a reader can prove the frozen suite's ids are not
                 # in here instead of trusting the manifest's count.
-                fid.write(json.dumps({"messages": r.messages,
-                                      "task_id": r.task_id}) + "\n")
+                fid.write(
+                    json.dumps({"messages": r.messages, "task_id": r.task_id}) + "\n"
+                )
     info = dict(meta or {})
-    info.update(train_rows=len(train), valid_rows=len(valid),
-                train_tasks=len({r.task_id for r in train}),
-                valid_tasks=len({r.task_id for r in valid}),
-                train_task_ids=sorted({r.task_id for r in train}),
-                valid_task_ids=sorted({r.task_id for r in valid}),
-                repairs=sum(1 for r in rows if r.repair))
+    info.update(
+        train_rows=len(train),
+        valid_rows=len(valid),
+        train_tasks=len({r.task_id for r in train}),
+        valid_tasks=len({r.task_id for r in valid}),
+        train_task_ids=sorted({r.task_id for r in train}),
+        valid_task_ids=sorted({r.task_id for r in valid}),
+        repairs=sum(1 for r in rows if r.repair),
+    )
     (out / "manifest.json").write_text(json.dumps(info, indent=2, sort_keys=True))
     return out
 
 
 def dataset_stats(rows: list[Row]) -> dict:
     seq = [len(render(r.messages)) for r in rows]
-    return {"rows": len(rows), "tasks": len({r.task_id for r in rows}),
-            "repairs": sum(1 for r in rows if r.repair),
-            "chars_min": min(seq) if seq else 0,
-            "chars_median": sorted(seq)[len(seq) // 2] if seq else 0,
-            "chars_max": max(seq) if seq else 0}
+    return {
+        "rows": len(rows),
+        "tasks": len({r.task_id for r in rows}),
+        "repairs": sum(1 for r in rows if r.repair),
+        "chars_min": min(seq) if seq else 0,
+        "chars_median": sorted(seq)[len(seq) // 2] if seq else 0,
+        "chars_max": max(seq) if seq else 0,
+    }
 
 
 # --------------------------------------------------------------- training
@@ -282,18 +313,41 @@ def dataset_stats(rows: list[Row]) -> dict:
 # this copy — and the seam check prints which mapping answered, because a green that
 # did not say so would be a claim about a copy rather than about the library.
 MLX_LORA_ARG_DEFAULTS = {
-    "adapter_path": "adapters", "batch_size": 4, "clear_cache_threshold": 0,
-    "config": None, "data": "mlx-community/WikiSQL", "fine_tune_type": "lora",
-    "grad_accumulation_steps": 1, "grad_checkpoint": False, "iters": 1000,
-    "learning_rate": 1e-05, "lora_parameters": {"dropout": 0.0, "rank": 8,
-                                                "scale": 20.0},
-    "lr_schedule": None, "mask_prompt": False, "max_seq_length": 2048,
-    "model": "Qwen/Qwen3-0.6b", "num_layers": 16, "optimizer": "adam",
-    "optimizer_config": {"adafactor": {}, "adam": {}, "adamw": {}, "muon": {},
-                         "sgd": {}},
-    "project_name": None, "report_to": None, "resume_adapter_file": None,
-    "save_every": 100, "seed": 0, "steps_per_eval": 200, "steps_per_report": 10,
-    "test": False, "test_batches": 500, "train": False, "val_batches": 25,
+    "adapter_path": "adapters",
+    "batch_size": 4,
+    "clear_cache_threshold": 0,
+    "config": None,
+    "data": "mlx-community/WikiSQL",
+    "fine_tune_type": "lora",
+    "grad_accumulation_steps": 1,
+    "grad_checkpoint": False,
+    "iters": 1000,
+    "learning_rate": 1e-05,
+    "lora_parameters": {"dropout": 0.0, "rank": 8, "scale": 20.0},
+    "lr_schedule": None,
+    "mask_prompt": False,
+    "max_seq_length": 2048,
+    "model": "Qwen/Qwen3-0.6b",
+    "num_layers": 16,
+    "optimizer": "adam",
+    "optimizer_config": {
+        "adafactor": {},
+        "adam": {},
+        "adamw": {},
+        "muon": {},
+        "sgd": {},
+    },
+    "project_name": None,
+    "report_to": None,
+    "resume_adapter_file": None,
+    "save_every": 100,
+    "seed": 0,
+    "steps_per_eval": 200,
+    "steps_per_report": 10,
+    "test": False,
+    "test_batches": 500,
+    "train": False,
+    "val_batches": 25,
 }
 
 
@@ -308,14 +362,25 @@ def mlx_lora_defaults() -> tuple[dict, str]:
         from mlx_lm.lora import CONFIG_DEFAULTS
     except ImportError:
         return dict(MLX_LORA_ARG_DEFAULTS), "recorded mlx-lm 0.31.3 defaults"
-    return (dict(CONFIG_DEFAULTS),
-            f"installed mlx-lm {getattr(mlx_lm, '__version__', '?')}")
+    return (
+        dict(CONFIG_DEFAULTS),
+        f"installed mlx-lm {getattr(mlx_lm, '__version__', '?')}",
+    )
 
 
-def build_slice_args(defaults: dict, repo: str, adapter_dir, iters: int,
-                     resume_from=None, num_layers: int = 16, rank: int = 8,
-                     learning_rate: float = 1e-4, batch_size: int = 1,
-                     max_seq_length: int = 2048, seed: int = 0):
+def build_slice_args(
+    defaults: dict,
+    repo: str,
+    adapter_dir,
+    iters: int,
+    resume_from=None,
+    num_layers: int = 16,
+    rank: int = 8,
+    learning_rate: float = 1e-4,
+    batch_size: int = 1,
+    max_seq_length: int = 2048,
+    seed: int = 0,
+):
     """One slice's training arguments, composed from a caller's defaults mapping.
 
     The composer takes `defaults` instead of fetching mlx-lm's own, because the one
@@ -329,18 +394,33 @@ def build_slice_args(defaults: dict, repo: str, adapter_dir, iters: int,
     from types import SimpleNamespace
 
     args = dict(defaults)
-    args.update(model=repo, train=True, fine_tune_type="lora", seed=seed,
-                num_layers=num_layers, batch_size=batch_size, iters=iters,
-                learning_rate=learning_rate, max_seq_length=max_seq_length,
-                adapter_path=str(adapter_dir),
-                resume_adapter_file=(str(resume_from) if resume_from else None),
-                lora_parameters={"rank": rank, "dropout": 0.0, "scale": 20.0},
-                mask_prompt=True, save_every=iters,
-                steps_per_report=max(iters // 5, 1), steps_per_eval=10 ** 9,
-                val_batches=4, test=False, report_to=None, project_name=None,
-                grad_checkpoint=True, optimizer="adamw",
-                optimizer_config=defaults["optimizer_config"],
-                lr_schedule=None, clear_cache_threshold=0)
+    args.update(
+        model=repo,
+        train=True,
+        fine_tune_type="lora",
+        seed=seed,
+        num_layers=num_layers,
+        batch_size=batch_size,
+        iters=iters,
+        learning_rate=learning_rate,
+        max_seq_length=max_seq_length,
+        adapter_path=str(adapter_dir),
+        resume_adapter_file=(str(resume_from) if resume_from else None),
+        lora_parameters={"rank": rank, "dropout": 0.0, "scale": 20.0},
+        mask_prompt=True,
+        save_every=iters,
+        steps_per_report=max(iters // 5, 1),
+        steps_per_eval=10**9,
+        val_batches=4,
+        test=False,
+        report_to=None,
+        project_name=None,
+        grad_checkpoint=True,
+        optimizer="adamw",
+        optimizer_config=defaults["optimizer_config"],
+        lr_schedule=None,
+        clear_cache_threshold=0,
+    )
     return SimpleNamespace(**args)
 
 
@@ -372,9 +452,18 @@ def read_jsonl(path) -> list:
     return [json.loads(l) for l in p.read_text().splitlines() if l.strip()]
 
 
-def default_slice(*, repo: str, train_file: Path, valid_file: Path,
-                  adapter_dir: Path, iters: int, resume_from: Path | None,
-                  seed: int = 0, verbose: bool = True, **kw) -> float:
+def default_slice(
+    *,
+    repo: str,
+    train_file: Path,
+    valid_file: Path,
+    adapter_dir: Path,
+    iters: int,
+    resume_from: Path | None,
+    seed: int = 0,
+    verbose: bool = True,
+    **kw,
+) -> float:
     """One mlx-lm LoRA slice of `iters` steps. Returns the wall seconds it took.
 
     Imports live inside so that mining a dataset — which is what the offline
@@ -398,7 +487,8 @@ def default_slice(*, repo: str, train_file: Path, valid_file: Path,
         raise RuntimeError(
             "flash.train requires mlx-lm which is only available on Apple Silicon; "
             "this command cannot run on Linux/Windows. Install on darwin/arm64 or "
-            "run flash doctor first to confirm your platform.")
+            "run flash doctor first to confirm your platform."
+        )
 
     model, tok = load(repo)
     train_set = ChatDataset(data, tok, mask_prompt=True)
@@ -413,8 +503,9 @@ def default_slice(*, repo: str, train_file: Path, valid_file: Path,
 # ------------------------------------------------------------- artifact reads
 
 
-def valid_loss(repo: str, adapter_dir, valid_file, batch_size: int = 1,
-               max_seq_length: int = 2048) -> float:
+def valid_loss(
+    repo: str, adapter_dir, valid_file, batch_size: int = 1, max_seq_length: int = 2048
+) -> float:
     """Mean next-token loss on the valid split, with this adapter loaded.
 
     Measured outside mlx's own validation pass because the number has to be
@@ -430,9 +521,13 @@ def valid_loss(repo: str, adapter_dir, valid_file, batch_size: int = 1,
     if not data:
         raise ValueError(f"no validation rows in {valid_file}")
     ds = CacheDataset(ChatDataset(data, tok, mask_prompt=True))
-    loss = evaluate(model=model, dataset=ds, batch_size=batch_size,
-                    num_batches=max(len(data) // batch_size, 1),
-                    max_seq_length=max_seq_length)
+    loss = evaluate(
+        model=model,
+        dataset=ds,
+        batch_size=batch_size,
+        num_batches=max(len(data) // batch_size, 1),
+        max_seq_length=max_seq_length,
+    )
     del model, tok
     return float(loss)
 
@@ -453,11 +548,23 @@ def _checkpoint(adapter_dir, step) -> Path:
     return ck
 
 
-def train_lora(*, repo: str, dataset_dir, adapter_dir, steps_total: int = 256,
-               start_step: int = 0, slice_iters: int = 32, eval_every: int = 32,
-               patience: int = 3, budget_s: float | None = None, seed: int = 0,
-               verbose: bool = True, run=None, loss_fn=None,
-               on_progress=None) -> dict:
+def train_lora(
+    *,
+    repo: str,
+    dataset_dir,
+    adapter_dir,
+    steps_total: int = 256,
+    start_step: int = 0,
+    slice_iters: int = 32,
+    eval_every: int = 32,
+    patience: int = 3,
+    budget_s: float | None = None,
+    seed: int = 0,
+    verbose: bool = True,
+    run=None,
+    loss_fn=None,
+    on_progress=None,
+) -> dict:
     """Train, measure, and keep the least-overfit checkpoint. Returns the record.
 
     Three rules the numbers depend on:
@@ -485,8 +592,10 @@ def train_lora(*, repo: str, dataset_dir, adapter_dir, steps_total: int = 256,
     ds = Path(dataset_dir)
     tr, va = ds / "train.jsonl", ds / "valid.jsonl"
     if not read_jsonl(tr):
-        raise ValueError(f"no training rows in {tr} — run "
-                         f"`python -m flash.train --dataset --held-out ...`")
+        raise ValueError(
+            f"no training rows in {tr} — run "
+            f"`python -m flash.train --dataset --held-out ...`"
+        )
     root = Path(adapter_dir)
     root.mkdir(parents=True, exist_ok=True)
     weights = root / "adapters.safetensors"
@@ -504,8 +613,15 @@ def train_lora(*, repo: str, dataset_dir, adapter_dir, steps_total: int = 256,
             stopped = "budget"
             break
         n = min(slice_iters, steps_total - done)
-        sec = run(repo=repo, train_file=tr, valid_file=va, adapter_dir=root,
-                  iters=n, resume_from=(weights if done else None), seed=seed)
+        sec = run(
+            repo=repo,
+            train_file=tr,
+            valid_file=va,
+            adapter_dir=root,
+            iters=n,
+            resume_from=(weights if done else None),
+            seed=seed,
+        )
         done += n
         if not weights.exists():
             raise RuntimeError(f"slice of {n} step(s) saved no weights to {weights}")
@@ -522,8 +638,10 @@ def train_lora(*, repo: str, dataset_dir, adapter_dir, steps_total: int = 256,
             else:
                 stalls += 1
                 if stalls >= patience:
-                    stopped = (f"overfit — {stalls} checkpoint(s) worse than "
-                               f"step {best_step} (its loss {best_loss})")
+                    stopped = (
+                        f"overfit — {stalls} checkpoint(s) worse than "
+                        f"step {best_step} (its loss {best_loss})"
+                    )
                     break
     # The root file is what a loader reads, so the record names the step it
     # actually holds. A resume loads THIS, not `iters_done`: the promoted
@@ -535,18 +653,26 @@ def train_lora(*, repo: str, dataset_dir, adapter_dir, steps_total: int = 256,
         for name in ("adapters.safetensors", "adapter_config.json"):
             if (src / name).exists():
                 shutil.copy2(src / name, root / name)
-    return {"iters_done": done, "steps_total": steps_total,
-            "start_step": start_step, "promoted_step": promoted,
-            "best_step": best_step, "best_loss": (None if best_loss == float("inf")
-                                                  else best_loss),
-            "evals": evals, "stopped": stopped,
-            "wall_s": round(time.monotonic() - t0, 2)}
+    return {
+        "iters_done": done,
+        "steps_total": steps_total,
+        "start_step": start_step,
+        "promoted_step": promoted,
+        "best_step": best_step,
+        "best_loss": (None if best_loss == float("inf") else best_loss),
+        "evals": evals,
+        "stopped": stopped,
+        "wall_s": round(time.monotonic() - t0, 2),
+    }
 
 
 def adapter_files(adapter_dir) -> dict:
     p = Path(adapter_dir)
-    return {"dir": str(p), "exists": (p / "adapters.safetensors").exists(),
-            "config": (p / "adapter_config.json").exists()}
+    return {
+        "dir": str(p),
+        "exists": (p / "adapters.safetensors").exists(),
+        "config": (p / "adapter_config.json").exists(),
+    }
 
 
 def read_config(adapter_dir) -> dict:
@@ -565,13 +691,19 @@ def label_for(repo: str, adapter_dir=None) -> str:
 # ------------------------------------------------------------- entry point
 
 
-def build_dataset(held_out=None, out_name: str = "ledger-verified",
-                  dry_run: bool = False, traces_dir=TRACE_DIR,
-                  valid_frac: float = 0.15, seed: int = 0, verbose: bool = True):
+def build_dataset(
+    held_out=None,
+    out_name: str = "ledger-verified",
+    dry_run: bool = False,
+    traces_dir=TRACE_DIR,
+    valid_frac: float = 0.15,
+    seed: int = 0,
+    verbose: bool = True,
+):
     """Mine, split and (unless asked not to) write the SFT pair files."""
     exclude: set[str] = set()
     suites: list[str] = []
-    for spec in (held_out or []):
+    for spec in held_out or []:
         ids = task_ids_in_suite(spec)
         exclude |= ids
         suites.append(f"{Path(str(spec)).name}:{len(ids)}")
@@ -579,30 +711,47 @@ def build_dataset(held_out=None, out_name: str = "ledger-verified",
     rows = mine(traces_dir=traces_dir, exclude=exclude, stats=stats)
     ds = dataset_stats(rows)
     if verbose:
-        print(f"[train] read {stats.get('sessions_read', 0)} trace session(s) "
-              f"from {Path(traces_dir).parent}")
+        print(
+            f"[train] read {stats.get('sessions_read', 0)} trace session(s) "
+            f"from {Path(traces_dir).parent}"
+        )
         for k in sorted(stats):
             if k != "kept":
                 print(f"[train]   dropped {k}: {stats[k]}")
         held = ("excluded " + ", ".join(suites)) if suites else "NOTHING excluded"
-        print(f"[train] leakage rule: {held} -> {ds['rows']} rows over "
-              f"{ds['tasks']} task(s); repairs {ds['repairs']}; "
-              f"chars median {ds['chars_median']} max {ds['chars_max']}")
+        print(
+            f"[train] leakage rule: {held} -> {ds['rows']} rows over "
+            f"{ds['tasks']} task(s); repairs {ds['repairs']}; "
+            f"chars median {ds['chars_median']} max {ds['chars_max']}"
+        )
     if dry_run:
         return rows, stats, None
-    out = write_dataset(rows, DATASET_DIR / out_name, valid_frac=valid_frac,
-                        seed=seed, meta={"held_out_suites": suites,
-                                         "excluded_count": len(exclude),
-                                         "excluded_task_ids": sorted(str(i)
-                                                                      for i in exclude),
-                                         "drops": stats, "stats": ds})
+    out = write_dataset(
+        rows,
+        DATASET_DIR / out_name,
+        valid_frac=valid_frac,
+        seed=seed,
+        meta={
+            "held_out_suites": suites,
+            "excluded_count": len(exclude),
+            "excluded_task_ids": sorted(str(i) for i in exclude),
+            "drops": stats,
+            "stats": ds,
+        },
+    )
     if verbose:
         print(f"[train] wrote {out} ({ds['rows']} rows)")
     return rows, stats, out
 
 
-def suite_from_dataset(split: str = "train", dataset=None, tasks_dir=None,
-                       out=None, verbose: bool = True, dry: bool = False):
+def suite_from_dataset(
+    split: str = "train",
+    dataset=None,
+    tasks_dir=None,
+    out=None,
+    verbose: bool = True,
+    dry: bool = False,
+):
     """A tasks file holding exactly the ids one side of the dataset was built from.
 
     R-6.4's held-out arm answers "did it transfer?". This answers the question
@@ -647,31 +796,53 @@ def suite_from_dataset(split: str = "train", dataset=None, tasks_dir=None,
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text("\n".join(json.dumps(t) for t in rows) + "\n")
     if verbose:
-        print(f"[train] {split} side: {len(rows)} task(s)"
-              + (f", {dupes} duplicate row(s) dropped" if dupes else "")
-              + (" -> would write " if dry else " -> ") + str(out)
-              + (f"; {len(seen)} id(s) appear in no suite file: {sorted(seen)}"
-                 if seen else ""))
+        print(
+            f"[train] {split} side: {len(rows)} task(s)"
+            + (f", {dupes} duplicate row(s) dropped" if dupes else "")
+            + (" -> would write " if dry else " -> ")
+            + str(out)
+            + (
+                f"; {len(seen)} id(s) appear in no suite file: {sorted(seen)}"
+                if seen
+                else ""
+            )
+        )
     return out, len(rows), sorted(seen)
 
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--dataset", action="store_true",
-                    help="mine the trace store and write train/valid jsonl")
-    ap.add_argument("--dry-run", action="store_true",
-                    help="print the counts, write nothing — for --dataset and for "
-                         "--suite-from-dataset alike")
-    ap.add_argument("--held-out", action="append", default=[],
-                    help="a tasks file whose ids MUST NOT be trained on "
-                         "(repeatable). The frozen suite R-6.4 scores on.")
-    ap.add_argument("--out", default="ledger-verified",
-                    help="the dataset directory name under benchmarks/results/"
-                         "datasets: written by --dataset, read by "
-                         "--suite-from-dataset")
-    ap.add_argument("--suite-from-dataset", action="store_true",
-                    help="write the tasks file for one side of the built dataset "
-                         "(the in-distribution arm: memory, not transfer)")
+    ap.add_argument(
+        "--dataset",
+        action="store_true",
+        help="mine the trace store and write train/valid jsonl",
+    )
+    ap.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="print the counts, write nothing — for --dataset and for "
+        "--suite-from-dataset alike",
+    )
+    ap.add_argument(
+        "--held-out",
+        action="append",
+        default=[],
+        help="a tasks file whose ids MUST NOT be trained on "
+        "(repeatable). The frozen suite R-6.4 scores on.",
+    )
+    ap.add_argument(
+        "--out",
+        default="ledger-verified",
+        help="the dataset directory name under benchmarks/results/"
+        "datasets: written by --dataset, read by "
+        "--suite-from-dataset",
+    )
+    ap.add_argument(
+        "--suite-from-dataset",
+        action="store_true",
+        help="write the tasks file for one side of the built dataset "
+        "(the in-distribution arm: memory, not transfer)",
+    )
     ap.add_argument("--split", default="train", choices=("train", "valid"))
     ap.add_argument("--suite-out", default=None)
     ap.add_argument("--selftest", action="store_true")
@@ -679,19 +850,21 @@ def main() -> int:
     if a.selftest:
         return run_selftest()
     if a.suite_from_dataset:
-        _, n, missing = suite_from_dataset(split=a.split,
-                                           dataset=DATASET_DIR / a.out,
-                                           out=a.suite_out, dry=a.dry_run)
+        _, n, missing = suite_from_dataset(
+            split=a.split, dataset=DATASET_DIR / a.out, out=a.suite_out, dry=a.dry_run
+        )
         return 0 if n and not missing else 1
     if a.dataset or a.dry_run:
-        _, _, out = build_dataset(held_out=a.held_out, out_name=a.out,
-                                  dry_run=a.dry_run)
+        _, _, out = build_dataset(
+            held_out=a.held_out, out_name=a.out, dry_run=a.dry_run
+        )
         return 0 if (a.dry_run or out) else 1
     ap.print_help()
     return 1
 
 
 # -------------------------------------------------------------- offline test
+
 
 def run_selftest(verbose: bool = True) -> int:
     """Offline: no model, no Metal, no training — the data law and the slices."""
@@ -702,120 +875,217 @@ def run_selftest(verbose: bool = True) -> int:
     def check(label, ok, detail=""):
         checks.append((label, bool(ok), detail))
         if verbose:
-            print(f"  {'OK  ' if ok else 'FAIL'} {label}"
-                  + (f"  {detail}" if detail else ""))
+            print(
+                f"  {'OK  ' if ok else 'FAIL'} {label}"
+                + (f"  {detail}" if detail else "")
+            )
 
     def sess(tmp, name, events):
         p = Path(tmp) / f"{name}.jsonl"
         p.write_text("\n".join(json.dumps(e) for e in events) + "\n")
         return p
 
-    PROMPT = (OPEN + "user\nWrite f().\n" + CLOSE + "\n" + GEN)
+    PROMPT = OPEN + "user\nWrite f().\n" + CLOSE + "\n" + GEN
     # what a retry actually looks like on disk: the failed answer and the
     # oracle's complaint are in the conversation the model was conditioned on
-    REPAIR = (PROMPT[:-len(GEN)] + OPEN + "assistant\nwrong\n" + CLOSE + "\n"
-              + OPEN + "user\nIt failed:\nAssertionError: 3 != 4\n"
-              + CLOSE + "\n" + GEN)
+    REPAIR = (
+        PROMPT[: -len(GEN)]
+        + OPEN
+        + "assistant\nwrong\n"
+        + CLOSE
+        + "\n"
+        + OPEN
+        + "user\nIt failed:\nAssertionError: 3 != 4\n"
+        + CLOSE
+        + "\n"
+        + GEN
+    )
 
     def ev(task, attempt, out, prompt=PROMPT, **kw):
-        return dict(ts=0.0, seq=0, type="generate", task_id=task,
-                    attempt=attempt, prompt=prompt, output=out, **kw)
+        return dict(
+            ts=0.0,
+            seq=0,
+            type="generate",
+            task_id=task,
+            attempt=attempt,
+            prompt=prompt,
+            output=out,
+            **kw,
+        )
 
     def end(task, solved=True, attempts=1):
-        return dict(ts=0.0, seq=1, type="task_end", task_id=task,
-                    solved=solved, attempts=attempts, tier="small",
-                    seconds=1.0, routed="small")
+        return dict(
+            ts=0.0,
+            seq=1,
+            type="task_end",
+            task_id=task,
+            solved=solved,
+            attempts=attempts,
+            tier="small",
+            seconds=1.0,
+            routed="small",
+        )
 
     with tempfile.TemporaryDirectory() as d:
         tr = Path(d) / "traces"
         tr.mkdir()
         # a one-attempt success and a repaired success, both verified
-        sess(tr, "s1", [
-            ev("a1", 0, "42"), end("a1"),
-            ev("a2", 0, "wrong"),
-            dict(ts=0.0, seq=2, type="verify", task_id="a2", attempt=0, ok=False,
-                 err="AssertionError"),
-            ev("a2", 1, "right", prompt=REPAIR), end("a2", attempts=2),
-        ])
+        sess(
+            tr,
+            "s1",
+            [
+                ev("a1", 0, "42"),
+                end("a1"),
+                ev("a2", 0, "wrong"),
+                dict(
+                    ts=0.0,
+                    seq=2,
+                    type="verify",
+                    task_id="a2",
+                    attempt=0,
+                    ok=False,
+                    err="AssertionError",
+                ),
+                ev("a2", 1, "right", prompt=REPAIR),
+                end("a2", attempts=2),
+            ],
+        )
         # a task the oracle never accepted, and one whose closing attempt differs
-        sess(tr, "s2", [
-            ev("b1", 0, "nope"), end("b1", solved=False),
-            ev("b2", 0, "kept"), end("b2", attempts=3),
-            dict(ts=0.0, seq=9, type="generate", task_id="b3", attempt=0),
-        ])
+        sess(
+            tr,
+            "s2",
+            [
+                ev("b1", 0, "nope"),
+                end("b1", solved=False),
+                ev("b2", 0, "kept"),
+                end("b2", attempts=3),
+                dict(ts=0.0, seq=9, type="generate", task_id="b3", attempt=0),
+            ],
+        )
         # a torn line, and a span that came back from a kill
         p = tr / "s3.jsonl"
-        p.write_text(json.dumps(ev("c1", 0, "ok")) + "\n"
-                     + '{"task_id": "c1", "type": "task_end"' + "\n"
-                     + json.dumps(ev("c2", 0, "ok2", resumed_tokens=7)) + "\n"
-                     + json.dumps(end("c1")) + "\n"
-                     + json.dumps(end("c2")) + "\n")
+        p.write_text(
+            json.dumps(ev("c1", 0, "ok"))
+            + "\n"
+            + '{"task_id": "c1", "type": "task_end"'
+            + "\n"
+            + json.dumps(ev("c2", 0, "ok2", resumed_tokens=7))
+            + "\n"
+            + json.dumps(end("c1"))
+            + "\n"
+            + json.dumps(end("c2"))
+            + "\n"
+        )
 
         st: dict = {}
         rows = mine(traces_dir=tr, stats=st)
         ids = sorted(r.task_id for r in rows)
-        check("verified-only: the solved tasks are kept, the unsolved one dropped",
-              ids == ["a1", "a2", "c1"], f"{ids} {st}")
-        check("verified-only: only the attempt the session credits becomes a row"
-              " — neither a rejected draft nor an answer whose task closed later",
-              st.get("not_the_closing_attempt") == 2
-              and st.get("unverified_task") == 1, str(st))
-        check("round-trip: a prompt that is not the template it claims is dropped",
-              st.get("no_roundtrip", 0) == 0, str(st))
-        check("a torn trace line is counted as data, not a crash",
-              st.get("torn_lines") == 1, str(st))
-        check("R-5.3: a span resumed across a kill is not training text",
-              "c2" not in ids and st.get("resumed_span") == 1, str(st))
+        check(
+            "verified-only: the solved tasks are kept, the unsolved one dropped",
+            ids == ["a1", "a2", "c1"],
+            f"{ids} {st}",
+        )
+        check(
+            "verified-only: only the attempt the session credits becomes a row"
+            " — neither a rejected draft nor an answer whose task closed later",
+            st.get("not_the_closing_attempt") == 2 and st.get("unverified_task") == 1,
+            str(st),
+        )
+        check(
+            "round-trip: a prompt that is not the template it claims is dropped",
+            st.get("no_roundtrip", 0) == 0,
+            str(st),
+        )
+        check(
+            "a torn trace line is counted as data, not a crash",
+            st.get("torn_lines") == 1,
+            str(st),
+        )
+        check(
+            "R-5.3: a span resumed across a kill is not training text",
+            "c2" not in ids and st.get("resumed_span") == 1,
+            str(st),
+        )
         rep = [r for r in rows if r.repair]
-        check("a repair row keeps the failure conversation it was fixed from",
-              len(rep) == 1 and rep[0].task_id == "a2"
-              and len(rep[0].messages) == 4
-              and "AssertionError" in rep[0].messages[2]["content"],
-              json.dumps(rep[0].messages[2])[:60] if rep else "none")
+        check(
+            "a repair row keeps the failure conversation it was fixed from",
+            len(rep) == 1
+            and rep[0].task_id == "a2"
+            and len(rep[0].messages) == 4
+            and "AssertionError" in rep[0].messages[2]["content"],
+            json.dumps(rep[0].messages[2])[:60] if rep else "none",
+        )
         accepted = {"a1": "42", "a2": "right", "c1": "ok"}
-        check("the assistant turn the model is trained on is the accepted answer",
-              len(rows) == len(accepted)
-              and all(r.messages[-1]["content"] == accepted.get(r.task_id)
-                      for r in rows), str([r.messages[-1]["content"] for r in rows]))
+        check(
+            "the assistant turn the model is trained on is the accepted answer",
+            len(rows) == len(accepted)
+            and all(r.messages[-1]["content"] == accepted.get(r.task_id) for r in rows),
+            str([r.messages[-1]["content"] for r in rows]),
+        )
 
         suite = Path(d) / "eval_tasks.jsonl"
-        suite.write_text(json.dumps({"id": "a1", "prompt": "x"}) + "\n"
-                         + json.dumps({"id": "b2", "prompt": "y"}) + "\n")
+        suite.write_text(
+            json.dumps({"id": "a1", "prompt": "x"})
+            + "\n"
+            + json.dumps({"id": "b2", "prompt": "y"})
+            + "\n"
+        )
         st2 = {}
-        kept = [r.task_id for r in mine(traces_dir=tr,
-                                        exclude=task_ids_in_suite(suite),
-                                        stats=st2)]
-        check("leakage: the frozen suite's ids leave the training pool entirely",
-              kept == ["a2", "c1"] and st2.get("excluded_leakage") == 2,
-              f"{kept} {st2}")
+        kept = [
+            r.task_id
+            for r in mine(traces_dir=tr, exclude=task_ids_in_suite(suite), stats=st2)
+        ]
+        check(
+            "leakage: the frozen suite's ids leave the training pool entirely",
+            kept == ["a2", "c1"] and st2.get("excluded_leakage") == 2,
+            f"{kept} {st2}",
+        )
 
         # the same task solved in two different sessions is two rows; a split
         # that sends them to opposite sides hands valid the answer
-        twice = rows + [Row(messages=list(rows[0].messages),
-                            task_id=rows[0].task_id, session="s9",
-                            attempt=0, closed=True)]
+        twice = rows + [
+            Row(
+                messages=list(rows[0].messages),
+                task_id=rows[0].task_id,
+                session="s9",
+                attempt=0,
+                closed=True,
+            )
+        ]
         tr_rows, va_rows = split(twice, valid_frac=0.5, seed=1)
         both = {r.task_id for r in tr_rows} & {r.task_id for r in va_rows}
-        check("split: a task's rows never straddle train and valid",
-              not both, f"{len(tr_rows)}/{len(va_rows)} shared={sorted(both)}")
-        check("split: the duplicate really did land on one side",
-              sum(1 for r in tr_rows + va_rows if r.task_id == rows[0].task_id)
-              == 2, rows[0].task_id)
+        check(
+            "split: a task's rows never straddle train and valid",
+            not both,
+            f"{len(tr_rows)}/{len(va_rows)} shared={sorted(both)}",
+        )
+        check(
+            "split: the duplicate really did land on one side",
+            sum(1 for r in tr_rows + va_rows if r.task_id == rows[0].task_id) == 2,
+            rows[0].task_id,
+        )
 
         out = write_dataset(mine(traces_dir=tr), Path(d) / "ds")
         man = json.loads((out / "manifest.json").read_text())
         lines = (out / "train.jsonl").read_text().splitlines()
-        check("the written file is mlx-lm's chat jsonl, plus the task id that "
-              "makes the exclusion checkable from the artifact",
-              len(lines) > 0 and set(json.loads(lines[0])) == {"messages", "task_id"}
-              and json.loads(lines[0])["messages"][-1]["role"] == "assistant",
-              f"{len(lines)} train row(s)")
-        check("the manifest carries the counts the gates are read from",
-              man["train_rows"] + man["valid_rows"] == 3
-              and man["repairs"] == 1, str(man))
-        check("the manifest names the tasks on each side of the split",
-              sorted(man["train_task_ids"] + man["valid_task_ids"])
-              == ["a1", "a2", "c1"], str(man["train_task_ids"]))
+        check(
+            "the written file is mlx-lm's chat jsonl, plus the task id that "
+            "makes the exclusion checkable from the artifact",
+            len(lines) > 0
+            and set(json.loads(lines[0])) == {"messages", "task_id"}
+            and json.loads(lines[0])["messages"][-1]["role"] == "assistant",
+            f"{len(lines)} train row(s)",
+        )
+        check(
+            "the manifest carries the counts the gates are read from",
+            man["train_rows"] + man["valid_rows"] == 3 and man["repairs"] == 1,
+            str(man),
+        )
+        check(
+            "the manifest names the tasks on each side of the split",
+            sorted(man["train_task_ids"] + man["valid_task_ids"]) == ["a1", "a2", "c1"],
+            str(man["train_task_ids"]),
+        )
 
     # the in-distribution suite generator: it reads the artifact's manifest, so
     # a wrong rule hands an arm a file that silently over- or under-weights
@@ -824,149 +1094,222 @@ def run_selftest(verbose: bool = True) -> int:
         ds = Path(d) / "ds"
         ds.mkdir()
         ids = ["a1", "a2", "c1"]
-        (ds / "manifest.json").write_text(json.dumps(
-            {"train_task_ids": ids, "valid_task_ids": ["v1", "v2"]}))
+        (ds / "manifest.json").write_text(
+            json.dumps({"train_task_ids": ids, "valid_task_ids": ["v1", "v2"]})
+        )
         td = Path(d) / "tasks"
         td.mkdir()
         # a1 lives in two suite files; c1 in none; v1 is the other side's id
-        (td / "1_suite.jsonl").write_text("\n".join(
-            json.dumps({"id": i, "prompt": "p"}) for i in ["a1", "a2", "v1"]) + "\n")
+        (td / "1_suite.jsonl").write_text(
+            "\n".join(json.dumps({"id": i, "prompt": "p"}) for i in ["a1", "a2", "v1"])
+            + "\n"
+        )
         (td / "2_suite.jsonl").write_text(
-            json.dumps({"id": "a1", "prompt": "p"}) + "\n")
-        p, n, missing = suite_from_dataset("train", dataset=ds, tasks_dir=td,
-                                           verbose=False)
+            json.dumps({"id": "a1", "prompt": "p"}) + "\n"
+        )
+        p, n, missing = suite_from_dataset(
+            "train", dataset=ds, tasks_dir=td, verbose=False
+        )
         got = [json.loads(l)["id"] for l in p.read_text().splitlines()]
-        check("the in-distribution file holds one row per trained id, so a task "
-              "that lives in two suite files cannot count twice",
-              sorted(got) == ["a1", "a2"] and len(got) == len(set(got)) == n,
-              f"{got} n={n}")
-        check("the other side of the split stays out of the in-distribution file",
-              "v1" not in got, str(got))
-        check("an id the suites cannot supply is reported, not skipped",
-              missing == ["c1"], str(missing))
-        _, n2, _ = suite_from_dataset("train", dataset=ds, tasks_dir=td,
-                                      verbose=False)
-        check("writing into the directory it scans is not a feedback loop: a "
-              "second run reads its own output and produces the same file",
-              n2 == n and p.read_text().splitlines() == ["{\"id\": \"a1\", \"prompt\": \"p\"}",
-                                                          "{\"id\": \"a2\", \"prompt\": \"p\"}"],
-              f"{n2} row(s) on the second pass")
-        pv, nv, missing_v = suite_from_dataset("valid", dataset=ds,
-                                               tasks_dir=td, verbose=False)
+        check(
+            "the in-distribution file holds one row per trained id, so a task "
+            "that lives in two suite files cannot count twice",
+            sorted(got) == ["a1", "a2"] and len(got) == len(set(got)) == n,
+            f"{got} n={n}",
+        )
+        check(
+            "the other side of the split stays out of the in-distribution file",
+            "v1" not in got,
+            str(got),
+        )
+        check(
+            "an id the suites cannot supply is reported, not skipped",
+            missing == ["c1"],
+            str(missing),
+        )
+        _, n2, _ = suite_from_dataset("train", dataset=ds, tasks_dir=td, verbose=False)
+        check(
+            "writing into the directory it scans is not a feedback loop: a "
+            "second run reads its own output and produces the same file",
+            n2 == n
+            and p.read_text().splitlines()
+            == ['{"id": "a1", "prompt": "p"}', '{"id": "a2", "prompt": "p"}'],
+            f"{n2} row(s) on the second pass",
+        )
+        pv, nv, missing_v = suite_from_dataset(
+            "valid", dataset=ds, tasks_dir=td, verbose=False
+        )
         got_v = [json.loads(l)["id"] for l in pv.read_text().splitlines()]
-        check("the valid side names its own tasks and nothing the train side had",
-              got_v == ["v1"] and nv == 1 and not set(got_v) & set(got),
-              f"{got_v} {missing_v}")
-        check("a valid side with an id no suite file supplies is reported too — "
-              "--suite-from-dataset exits nonzero on either gap",
-              nv == 1 and missing_v == ["v2"], str(missing_v))
-        (ds / "manifest.json").write_text(json.dumps(
-            {"train_task_ids": [], "valid_task_ids": ["v1"]}))
+        check(
+            "the valid side names its own tasks and nothing the train side had",
+            got_v == ["v1"] and nv == 1 and not set(got_v) & set(got),
+            f"{got_v} {missing_v}",
+        )
+        check(
+            "a valid side with an id no suite file supplies is reported too — "
+            "--suite-from-dataset exits nonzero on either gap",
+            nv == 1 and missing_v == ["v2"],
+            str(missing_v),
+        )
+        (ds / "manifest.json").write_text(
+            json.dumps({"train_task_ids": [], "valid_task_ids": ["v1"]})
+        )
         try:
             suite_from_dataset("train", dataset=ds, tasks_dir=td, verbose=False)
             raised = ""
         except ValueError as exc:
             raised = str(exc)
-        check("an empty side of the split raises rather than writing a suite "
-              "whose every row would be a task nobody trained on",
-              "names no 'train' tasks" in raised, raised)
+        check(
+            "an empty side of the split raises rather than writing a suite "
+            "whose every row would be a task nobody trained on",
+            "names no 'train' tasks" in raised,
+            raised,
+        )
     # three shapes that must never become training rows, each isolated so its
     # own counter is the evidence
     with tempfile.TemporaryDirectory() as d:
         tr = Path(d) / "t"
         tr.mkdir()
-        already = (PROMPT + "42" + CLOSE + "\n")     # no dangling header
+        already = PROMPT + "42" + CLOSE + "\n"  # no dangling header
         sess(tr, "s_noheader", [ev("z", 0, "42", prompt=already), end("z")])
         st3 = {}
-        check("a prompt with no generation header is refused — there is no "
-              "completion boundary to mask at",
-              mine(traces_dir=tr, stats=st3) == []
-              and st3.get("no_generation_header") == 1, str(st3))
+        check(
+            "a prompt with no generation header is refused — there is no "
+            "completion boundary to mask at",
+            mine(traces_dir=tr, stats=st3) == []
+            and st3.get("no_generation_header") == 1,
+            str(st3),
+        )
         (tr / "s_noheader.jsonl").unlink()
-        sess(tr, "s_stoptok", [ev("z", 0, "42" + CLOSE + "\n", prompt=PROMPT),
-                               end("z")])
+        sess(
+            tr, "s_stoptok", [ev("z", 0, "42" + CLOSE + "\n", prompt=PROMPT), end("z")]
+        )
         st4 = {}
         kept_stop = mine(traces_dir=tr, stats=st4)
-        check("a stored answer that wrote its own end-of-turn is kept, with that "
-              "turn stripped: the renderer closes the turn anyway, so keeping "
-              "the text would double-close it and dropping the row would throw "
-              "away most of the store over a formatting difference",
-              len(kept_stop) == 1 and st4.get("closed_by_stop_token") == 1
-              and kept_stop[0].terminated
-              and kept_stop[0].messages[-1]["content"] == "42",
-              json.dumps(kept_stop[0].messages[-1]) if kept_stop else str(st4))
+        check(
+            "a stored answer that wrote its own end-of-turn is kept, with that "
+            "turn stripped: the renderer closes the turn anyway, so keeping "
+            "the text would double-close it and dropping the row would throw "
+            "away most of the store over a formatting difference",
+            len(kept_stop) == 1
+            and st4.get("closed_by_stop_token") == 1
+            and kept_stop[0].terminated
+            and kept_stop[0].messages[-1]["content"] == "42",
+            json.dumps(kept_stop[0].messages[-1]) if kept_stop else str(st4),
+        )
         (tr / "s_stoptok.jsonl").unlink()
-        sess(tr, "s_inside", [ev("z", 0, "a" + CLOSE + "b", prompt=PROMPT),
-                              end("z")])
+        sess(tr, "s_inside", [ev("z", 0, "a" + CLOSE + "b", prompt=PROMPT), end("z")])
         st_ins = {}
-        check("a stop token in the MIDDLE of an answer is refused — that turn "
-              "really does contain template text",
-              mine(traces_dir=tr, stats=st_ins) == []
-              and st_ins.get("stop_token_inside") == 1, str(st_ins))
+        check(
+            "a stop token in the MIDDLE of an answer is refused — that turn "
+            "really does contain template text",
+            mine(traces_dir=tr, stats=st_ins) == []
+            and st_ins.get("stop_token_inside") == 1,
+            str(st_ins),
+        )
         (tr / "s_inside.jsonl").unlink()
-        sess(tr, "s_cap", [dict(ev("z", 0, "42"), completion_tokens=64,
-                                max_tokens=64), end("z")])
+        sess(
+            tr,
+            "s_cap",
+            [dict(ev("z", 0, "42"), completion_tokens=64, max_tokens=64), end("z")],
+        )
         st_cap = {}
-        check("an answer that ran out its token budget is not a demonstration",
-              mine(traces_dir=tr, stats=st_cap) == []
-              and st_cap.get("answer_hit_token_cap") == 1, str(st_cap))
+        check(
+            "an answer that ran out its token budget is not a demonstration",
+            mine(traces_dir=tr, stats=st_cap) == []
+            and st_cap.get("answer_hit_token_cap") == 1,
+            str(st_cap),
+        )
         (tr / "s_cap.jsonl").unlink()
-        sess(tr, "s_plain", [ev("z", 0, "42", prompt="plain text, no template"),
-                             end("z")])
+        sess(
+            tr,
+            "s_plain",
+            [ev("z", 0, "42", prompt="plain text, no template"), end("z")],
+        )
         st5 = {}
-        check("an untemplated prompt yields no row and says why",
-              mine(traces_dir=tr, stats=st5) == []
-              and st5.get("no_roundtrip") == 1, str(st5))
-    check("label: the brain's name carries the adapter on top",
-          label_for("mlx-community/Qwen2.5-Coder-7B-Instruct-4bit", "ad/x")
-          == "Qwen2.5-Coder-7B-Instruct-4bit+lora:x"
-          and label_for("a/b") == "b", label_for("a/b", "ad/x"))
+        check(
+            "an untemplated prompt yields no row and says why",
+            mine(traces_dir=tr, stats=st5) == [] and st5.get("no_roundtrip") == 1,
+            str(st5),
+        )
+    check(
+        "label: the brain's name carries the adapter on top",
+        label_for("mlx-community/Qwen2.5-Coder-7B-Instruct-4bit", "ad/x")
+        == "Qwen2.5-Coder-7B-Instruct-4bit+lora:x"
+        and label_for("a/b") == "b",
+        label_for("a/b", "ad/x"),
+    )
     # ---- the training seam: the arg object mlx reads, no model load, no mlx needed
     defaults, src = mlx_lora_defaults()
     a = slice_args("repo/x", Path("ad/r"), 12, None)
-    check("slice args are the object mlx reads them as: attributes and vars() "
-          "both resolve, the key set is exactly the library's own defaults (so a "
-          "setting mlx would silently ignore is a failure here), and a dict reaches "
-          "train_model and dies on args.seed",
-          a.iters == 12 and vars(a)["iters"] == 12
-          and a.fine_tune_type == "lora" and a.mask_prompt is True
-          and set(vars(a)) == set(defaults),
-          f"{type(a).__name__} from {src}, "
-          f"keys={sorted(set(vars(a)) ^ set(defaults))}")
-    check("a slice checkpoints exactly once, at its own end, so a kill cannot "
-          "leave weights ahead of the recorded step count",
-          a.save_every == a.iters, f"save_every={a.save_every}, iters={a.iters}")
-    check("only a resumed slice names weights to load — a cold one starts from "
-          "the base model, or the first step of a job would inherit a past run",
-          a.resume_adapter_file is None
-          and slice_args("repo/x", "ad/r", 12,
-                         Path("ad/r/adapters.safetensors")
-                         ).resume_adapter_file.endswith("adapters.safetensors"),
-          str(a.resume_adapter_file))
+    check(
+        "slice args are the object mlx reads them as: attributes and vars() "
+        "both resolve, the key set is exactly the library's own defaults (so a "
+        "setting mlx would silently ignore is a failure here), and a dict reaches "
+        "train_model and dies on args.seed",
+        a.iters == 12
+        and vars(a)["iters"] == 12
+        and a.fine_tune_type == "lora"
+        and a.mask_prompt is True
+        and set(vars(a)) == set(defaults),
+        f"{type(a).__name__} from {src}, keys={sorted(set(vars(a)) ^ set(defaults))}",
+    )
+    check(
+        "a slice checkpoints exactly once, at its own end, so a kill cannot "
+        "leave weights ahead of the recorded step count",
+        a.save_every == a.iters,
+        f"save_every={a.save_every}, iters={a.iters}",
+    )
+    check(
+        "only a resumed slice names weights to load — a cold one starts from "
+        "the base model, or the first step of a job would inherit a past run",
+        a.resume_adapter_file is None
+        and slice_args(
+            "repo/x", "ad/r", 12, Path("ad/r/adapters.safetensors")
+        ).resume_adapter_file.endswith("adapters.safetensors"),
+        str(a.resume_adapter_file),
+    )
     raised = ""
     try:
-        default_slice(repo="", train_file=Path("no-such.jsonl"),
-                      valid_file=Path("no-such-valid.jsonl"),
-                      adapter_dir=Path("ad"), iters=1, resume_from=None)
+        default_slice(
+            repo="",
+            train_file=Path("no-such.jsonl"),
+            valid_file=Path("no-such-valid.jsonl"),
+            adapter_dir=Path("ad"),
+            iters=1,
+            resume_from=None,
+        )
     except ValueError as e:
         raised = str(e)
-    check("an empty training file is an error, not a zero-step slice that reads "
-          "as progress", "no training rows" in raised, raised or "no error raised")
+    check(
+        "an empty training file is an error, not a zero-step slice that reads "
+        "as progress",
+        "no training rows" in raised,
+        raised or "no error raised",
+    )
 
     # ---- the slice loop, the early stop and the promote, against fake weights
     with tempfile.TemporaryDirectory() as d:
         ds = Path(d) / "ds"
         ds.mkdir()
-        (ds / "train.jsonl").write_text(json.dumps(
-            {"messages": [{"role": "user", "content": "q"},
-                          {"role": "assistant", "content": "a"}]}) + "\n")
+        (ds / "train.jsonl").write_text(
+            json.dumps(
+                {
+                    "messages": [
+                        {"role": "user", "content": "q"},
+                        {"role": "assistant", "content": "a"},
+                    ]
+                }
+            )
+            + "\n"
+        )
         (ds / "valid.jsonl").write_text((ds / "train.jsonl").read_text())
         ad = Path(d) / "ad"
         LOSSES = {8: 3.0, 16: 2.0, 24: 1.5, 32: 1.8, 40: 2.2, 48: 2.9}
         seen: list = []
 
         def fake_run(*, adapter_dir, iters, resume_from, **kw):
-            n = (len(seen) + 1) * iters      # the step this slice ENDS at
+            n = (len(seen) + 1) * iters  # the step this slice ENDS at
             seen.append(resume_from)
             p = Path(adapter_dir)
             (p / "adapters.safetensors").write_bytes(f"w{n}".encode())
@@ -977,57 +1320,105 @@ def run_selftest(verbose: bool = True) -> int:
             step = int(Path(adapter_dir).name.split("-")[1])
             return LOSSES[step]
 
-        rec = train_lora(repo="x", dataset_dir=ds, adapter_dir=ad, steps_total=96,
-                         slice_iters=8, eval_every=8, patience=2,
-                         run=fake_run, loss_fn=fake_loss)
-        check("the early stop fires after `patience` non-improving checkpoints, "
-              "and names the step it is stopping for",
-              "overfit" in rec["stopped"] and rec["iters_done"] == 40
-              and rec["best_step"] == 24, f"{rec['iters_done']} {rec['stopped']}")
-        check("the adapter left at the root is the best-measured checkpoint, not "
-              "the last one trained — a longer run is not a better model",
-              (ad / "adapters.safetensors").read_bytes() == b"w24"
-              and (ad / "step-24" / "adapters.safetensors").read_bytes() == b"w24"
-              and (ad / "step-40" / "adapters.safetensors").read_bytes() == b"w40",
-              (ad / "adapters.safetensors").read_text(errors="ignore"))
-        check("every slice after the first resumes from the weights on disk — a "
-              "silently cold restart would retrain the same steps and report "
-              "progress",
-              seen[0] is None and all(s is not None and str(s).endswith(
-                  "adapters.safetensors") for s in seen[1:]),
-              f"{len(seen)} slice(s), first={seen[0]} second={seen[1]}")
+        rec = train_lora(
+            repo="x",
+            dataset_dir=ds,
+            adapter_dir=ad,
+            steps_total=96,
+            slice_iters=8,
+            eval_every=8,
+            patience=2,
+            run=fake_run,
+            loss_fn=fake_loss,
+        )
+        check(
+            "the early stop fires after `patience` non-improving checkpoints, "
+            "and names the step it is stopping for",
+            "overfit" in rec["stopped"]
+            and rec["iters_done"] == 40
+            and rec["best_step"] == 24,
+            f"{rec['iters_done']} {rec['stopped']}",
+        )
+        check(
+            "the adapter left at the root is the best-measured checkpoint, not "
+            "the last one trained — a longer run is not a better model",
+            (ad / "adapters.safetensors").read_bytes() == b"w24"
+            and (ad / "step-24" / "adapters.safetensors").read_bytes() == b"w24"
+            and (ad / "step-40" / "adapters.safetensors").read_bytes() == b"w40",
+            (ad / "adapters.safetensors").read_text(errors="ignore"),
+        )
+        check(
+            "every slice after the first resumes from the weights on disk — a "
+            "silently cold restart would retrain the same steps and report "
+            "progress",
+            seen[0] is None
+            and all(
+                s is not None and str(s).endswith("adapters.safetensors")
+                for s in seen[1:]
+            ),
+            f"{len(seen)} slice(s), first={seen[0]} second={seen[1]}",
+        )
         lost: list = []
-        rec_b = train_lora(repo="x", dataset_dir=ds, adapter_dir=Path(d) / "ad2",
-                           steps_total=96, slice_iters=8, budget_s=0.0,
-                           run=lambda **kw: lost.append(kw) or 0.0,
-                           loss_fn=fake_loss)
-        check("a spent budget pauses at a slice boundary with zero slices run",
-              rec_b["stopped"] == "budget" and rec_b["iters_done"] == 0
-              and not lost, f"{rec_b['stopped']} {len(lost)} call(s)")
+        rec_b = train_lora(
+            repo="x",
+            dataset_dir=ds,
+            adapter_dir=Path(d) / "ad2",
+            steps_total=96,
+            slice_iters=8,
+            budget_s=0.0,
+            run=lambda **kw: lost.append(kw) or 0.0,
+            loss_fn=fake_loss,
+        )
+        check(
+            "a spent budget pauses at a slice boundary with zero slices run",
+            rec_b["stopped"] == "budget" and rec_b["iters_done"] == 0 and not lost,
+            f"{rec_b['stopped']} {len(lost)} call(s)",
+        )
         bad = ""
         try:
-            train_lora(repo="x", dataset_dir=ds, adapter_dir=Path(d) / "empty-ad",
-                       steps_total=32, start_step=24, run=fake_run,
-                       loss_fn=fake_loss)
+            train_lora(
+                repo="x",
+                dataset_dir=ds,
+                adapter_dir=Path(d) / "empty-ad",
+                steps_total=32,
+                start_step=24,
+                run=fake_run,
+                loss_fn=fake_loss,
+            )
         except ValueError as e:
             bad = str(e)
-        check("resuming into a directory with no weights is refused, not trained "
-              "from the base model under a claimed step count",
-              "resume at step 24" in bad, bad or "no error raised")
+        check(
+            "resuming into a directory with no weights is refused, not trained "
+            "from the base model under a claimed step count",
+            "resume at step 24" in bad,
+            bad or "no error raised",
+        )
         banked: list = []
 
         def warm_run(**kw):
             banked.append(kw["resume_from"])
             return fake_run(adapter_dir=ad, iters=8, resume_from=kw["resume_from"])
 
-        rec_r = train_lora(repo="x", dataset_dir=ds, adapter_dir=ad,
-                           steps_total=48, start_step=40, slice_iters=8,
-                           eval_every=8, patience=2, run=warm_run,
-                           loss_fn=fake_loss)
-        check("a resumed job starts warm, at the step the checkpoint banked",
-              banked and str(banked[0]).endswith("adapters.safetensors")
-              and rec_r["iters_done"] == 48 and rec_r["start_step"] == 40,
-              f"{rec_r['iters_done']} from {banked[:1]}")
+        rec_r = train_lora(
+            repo="x",
+            dataset_dir=ds,
+            adapter_dir=ad,
+            steps_total=48,
+            start_step=40,
+            slice_iters=8,
+            eval_every=8,
+            patience=2,
+            run=warm_run,
+            loss_fn=fake_loss,
+        )
+        check(
+            "a resumed job starts warm, at the step the checkpoint banked",
+            banked
+            and str(banked[0]).endswith("adapters.safetensors")
+            and rec_r["iters_done"] == 48
+            and rec_r["start_step"] == 40,
+            f"{rec_r['iters_done']} from {banked[:1]}",
+        )
 
     n_ok = sum(ok for _, ok, _ in checks)
     if verbose:

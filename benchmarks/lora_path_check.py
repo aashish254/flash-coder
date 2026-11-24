@@ -48,6 +48,7 @@ because R-6.4 cannot be scored without it.
 
     python benchmarks/lora_path_check.py
 """
+
 from __future__ import annotations
 
 import importlib.util
@@ -65,20 +66,36 @@ for _p in (str(ROOT), str(ROOT / "benchmarks")):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
-from flash import cli, jobs, loop, power, train as tr                 # noqa: E402
+from flash import cli, jobs, loop, power, train as tr  # noqa: E402
 
 DATASET = ROOT / "benchmarks" / "results" / "datasets" / "ledger-verified"
 TASKS = ROOT / "benchmarks" / "tasks"
 # The suites R-6.4 may score on: SPEC §6.2's frozen list. None of their ids may
 # appear in a training row.
-EVAL_SUITES = ("m0_tasks.jsonl", "m2_tasks.jsonl", "mw_tasks.jsonl",
-               "m3_hard_tasks.jsonl", "m3b_hard_tasks.jsonl",
-               "m4_heldout_tasks.jsonl", "m5_heldout_tasks.jsonl",
-               "m6_heldout_tasks.jsonl", "m7_heldout_tasks.jsonl",
-               "vis_tasks.jsonl", "visp_tasks.jsonl", "visr_tasks.jsonl")
+EVAL_SUITES = (
+    "m0_tasks.jsonl",
+    "m2_tasks.jsonl",
+    "mw_tasks.jsonl",
+    "m3_hard_tasks.jsonl",
+    "m3b_hard_tasks.jsonl",
+    "m4_heldout_tasks.jsonl",
+    "m5_heldout_tasks.jsonl",
+    "m6_heldout_tasks.jsonl",
+    "m7_heldout_tasks.jsonl",
+    "vis_tasks.jsonl",
+    "visp_tasks.jsonl",
+    "visr_tasks.jsonl",
+)
 
-IDLE = dict(on_ac=True, battery_pct=100.0, mem_free_pct=80.0, mem_total_gb=32.0,
-            load_per_core=0.3, idle_seconds=900.0, cores=10)
+IDLE = dict(
+    on_ac=True,
+    battery_pct=100.0,
+    mem_free_pct=80.0,
+    mem_total_gb=32.0,
+    load_per_core=0.3,
+    idle_seconds=900.0,
+    cores=10,
+)
 
 
 def sysstate(**kw):
@@ -109,14 +126,21 @@ def ck(res, name, cond, detail=""):
 
 # ------------------------------------------------- the gate, in one process
 
+
 def group_gate(J, tmp: Path) -> list:
     """Every scenario gets its own adapter and jobs directory: a mutation that
     opens the gate must not hide behind state a neighbour left in the tree."""
     res: list = []
     ds = tmp / "ds"
     ds.mkdir(parents=True, exist_ok=True)
-    row = json.dumps({"messages": [{"role": "user", "content": "q"},
-                                   {"role": "assistant", "content": "a"}]})
+    row = json.dumps(
+        {
+            "messages": [
+                {"role": "user", "content": "q"},
+                {"role": "assistant", "content": "a"},
+            ]
+        }
+    )
     (ds / "train.jsonl").write_text(row + "\n")
     (ds / "valid.jsonl").write_text(row + "\n")
     calls: list = []
@@ -131,72 +155,163 @@ def group_gate(J, tmp: Path) -> list:
         # one slice of work, and the best checkpoint is an EARLIER step than the
         # last one trained — which is the distinction the state must record
         last = kw["start_step"] + kw["slice_iters"]
-        return {"iters_done": last, "steps_total": kw["steps_total"],
-                "start_step": kw["start_step"], "promoted_step": last - 8,
-                "best_step": last - 8, "best_loss": 1.25, "evals": [],
-                "stopped": "steps", "wall_s": 1.0}
+        return {
+            "iters_done": last,
+            "steps_total": kw["steps_total"],
+            "start_step": kw["start_step"],
+            "promoted_step": last - 8,
+            "best_step": last - 8,
+            "best_loss": 1.25,
+            "evals": [],
+            "stopped": "steps",
+            "wall_s": 1.0,
+        }
 
     def fresh(name):
         return tmp / f"ad-{name}", tmp / f"jobs-{name}"
 
     ad, jp = fresh("battery")
-    msg = J.run_lora("", dataset_dir=ds, jobs_dir=jp, adapter_dir=ad,
-                     steps_total=64, slice_iters=16, verbose=False,
-                     train_fn=fake_train, rows=[{}] * 30,
-                     state=sysstate(on_ac=False, battery_pct=40.0))
-    ck(res, "gate: on battery the job refuses and makes zero training calls",
-       "refused" in msg and not calls and not ad.exists(), f"{msg} {len(calls)}")
+    msg = J.run_lora(
+        "",
+        dataset_dir=ds,
+        jobs_dir=jp,
+        adapter_dir=ad,
+        steps_total=64,
+        slice_iters=16,
+        verbose=False,
+        train_fn=fake_train,
+        rows=[{}] * 30,
+        state=sysstate(on_ac=False, battery_pct=40.0),
+    )
+    ck(
+        res,
+        "gate: on battery the job refuses and makes zero training calls",
+        "refused" in msg and not calls and not ad.exists(),
+        f"{msg} {len(calls)}",
+    )
 
     ad, jp = fresh("typing")
-    msg = J.run_lora("", dataset_dir=ds, jobs_dir=jp, adapter_dir=ad,
-                     steps_total=64, slice_iters=16, verbose=False,
-                     train_fn=fake_train, rows=[{}] * 30,
-                     state=sysstate(idle_seconds=5.0))
-    ck(res, "gate: five seconds after a keystroke it still refuses",
-       "refused" in msg and not calls, msg)
+    msg = J.run_lora(
+        "",
+        dataset_dir=ds,
+        jobs_dir=jp,
+        adapter_dir=ad,
+        steps_total=64,
+        slice_iters=16,
+        verbose=False,
+        train_fn=fake_train,
+        rows=[{}] * 30,
+        state=sysstate(idle_seconds=5.0),
+    )
+    ck(
+        res,
+        "gate: five seconds after a keystroke it still refuses",
+        "refused" in msg and not calls,
+        msg,
+    )
 
     ad, jp = fresh("idle")
     calls.clear()
-    msg = J.run_lora("", dataset_dir=ds, jobs_dir=jp, adapter_dir=ad,
-                     steps_total=64, slice_iters=16, verbose=False,
-                     train_fn=fake_train, rows=[{}] * 30, state=sysstate())
-    ck(res, "gate: idle + AC opens it and the step budget reaches the trainer",
-       "LoRA on 1" in msg and calls and calls[0]["steps_total"] == 64, msg)
+    msg = J.run_lora(
+        "",
+        dataset_dir=ds,
+        jobs_dir=jp,
+        adapter_dir=ad,
+        steps_total=64,
+        slice_iters=16,
+        verbose=False,
+        train_fn=fake_train,
+        rows=[{}] * 30,
+        state=sysstate(),
+    )
+    ck(
+        res,
+        "gate: idle + AC opens it and the step budget reaches the trainer",
+        "LoRA on 1" in msg and calls and calls[0]["steps_total"] == 64,
+        msg,
+    )
     rec = json.loads((ad / "train_record.json").read_text())
-    ck(res, "the record beside the weights names the promoted step, and the "
-            "resume position follows it",
-       rec["promoted_step"] == 8 and rec["iters_done"] == 16
-       and J.load_state("lora-fit", jp).iters_done == 8,
-       f"promoted={rec['promoted_step']} trained={rec['iters_done']} "
-       f"state={J.load_state('lora-fit', jp).iters_done}")
+    ck(
+        res,
+        "the record beside the weights names the promoted step, and the "
+        "resume position follows it",
+        rec["promoted_step"] == 8
+        and rec["iters_done"] == 16
+        and J.load_state("lora-fit", jp).iters_done == 8,
+        f"promoted={rec['promoted_step']} trained={rec['iters_done']} "
+        f"state={J.load_state('lora-fit', jp).iters_done}",
+    )
 
     ad, jp = fresh("paused")
-    J.save_state(J.JobState(kind="lora-fit", stage="paused", iters_done=48,
-                            iters_total=64, adapter=str(ad), trained_n=0), jp)
+    J.save_state(
+        J.JobState(
+            kind="lora-fit",
+            stage="paused",
+            iters_done=48,
+            iters_total=64,
+            adapter=str(ad),
+            trained_n=0,
+        ),
+        jp,
+    )
     calls.clear()
-    msg = J.run_lora("", dataset_dir=ds, jobs_dir=jp, adapter_dir=ad,
-                     steps_total=64, slice_iters=16, verbose=False,
-                     train_fn=fake_train, rows=[{}] * 30,
-                     state=sysstate(idle_seconds=2.0))
+    msg = J.run_lora(
+        "",
+        dataset_dir=ds,
+        jobs_dir=jp,
+        adapter_dir=ad,
+        steps_total=64,
+        slice_iters=16,
+        verbose=False,
+        train_fn=fake_train,
+        rows=[{}] * 30,
+        state=sysstate(idle_seconds=2.0),
+    )
     after = J.load_state("lora-fit", jp)
-    ck(res, "a REFUSAL records itself without overwriting the paused step",
-       "refused" in msg and after.stage == "paused" and after.iters_done == 48,
-       f"{after.stage}@{after.iters_done}: {msg[:60]}")
+    ck(
+        res,
+        "a REFUSAL records itself without overwriting the paused step",
+        "refused" in msg and after.stage == "paused" and after.iters_done == 48,
+        f"{after.stage}@{after.iters_done}: {msg[:60]}",
+    )
     calls.clear()
-    J.run_lora("", dataset_dir=ds, jobs_dir=jp, adapter_dir=ad, steps_total=64,
-               slice_iters=16, verbose=False, train_fn=fake_train,
-               rows=[{}] * 30, state=sysstate())
-    ck(res, "and the next idle window continues from that step, not from 0",
-       calls and calls[0]["start_step"] == 48,
-       calls[0]["start_step"] if calls else "no call")
+    J.run_lora(
+        "",
+        dataset_dir=ds,
+        jobs_dir=jp,
+        adapter_dir=ad,
+        steps_total=64,
+        slice_iters=16,
+        verbose=False,
+        train_fn=fake_train,
+        rows=[{}] * 30,
+        state=sysstate(),
+    )
+    ck(
+        res,
+        "and the next idle window continues from that step, not from 0",
+        calls and calls[0]["start_step"] == 48,
+        calls[0]["start_step"] if calls else "no call",
+    )
 
     ad, jp = fresh("nodata")
     calls.clear()
-    msg = J.run_lora("", dataset_dir=tmp / "nowhere", jobs_dir=jp,
-                     adapter_dir=ad, verbose=False, train_fn=fake_train,
-                     rows=[{}] * 30, state=sysstate())
-    ck(res, "no dataset: it says what to run instead of loading a model",
-       "no dataset" in msg and "--held-out" in msg and not calls, msg)
+    msg = J.run_lora(
+        "",
+        dataset_dir=tmp / "nowhere",
+        jobs_dir=jp,
+        adapter_dir=ad,
+        verbose=False,
+        train_fn=fake_train,
+        rows=[{}] * 30,
+        state=sysstate(),
+    )
+    ck(
+        res,
+        "no dataset: it says what to run instead of loading a model",
+        "no dataset" in msg and "--held-out" in msg and not calls,
+        msg,
+    )
     return res
 
 
@@ -281,15 +396,25 @@ print(J.run_lora("mlx-community/fake-7B-Instruct", dataset_dir=TMP / "ds",
 
 
 def spawn(tmp: Path, log: Path, jobs_mut=None, train_mut=None):
-    env = dict(os.environ, LORA_ROOT=str(ROOT), LORA_TMP=str(tmp),
-               LORA_LOG=str(log), LORA_STATE=json.dumps(IDLE))
+    env = dict(
+        os.environ,
+        LORA_ROOT=str(ROOT),
+        LORA_TMP=str(tmp),
+        LORA_LOG=str(log),
+        LORA_STATE=json.dumps(IDLE),
+    )
     if jobs_mut:
         env["LORA_JOBS"] = str(jobs_mut)
     if train_mut:
         env["LORA_TRAIN"] = str(train_mut)
-    return subprocess.Popen([sys.executable, str(tmp / "child.py")],
-                            cwd=str(ROOT), env=env, stdout=subprocess.PIPE,
-                            stderr=subprocess.STDOUT, text=True)
+    return subprocess.Popen(
+        [sys.executable, str(tmp / "child.py")],
+        cwd=str(ROOT),
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
 
 
 def group_kill(J, tmp: Path, jobs_mut=None, train_mut=None) -> list:
@@ -298,8 +423,14 @@ def group_kill(J, tmp: Path, jobs_mut=None, train_mut=None) -> list:
     res: list = []
     work = tmp / "kill"
     (work / "ds").mkdir(parents=True, exist_ok=True)
-    row = json.dumps({"messages": [{"role": "user", "content": "q"},
-                                   {"role": "assistant", "content": "a"}]})
+    row = json.dumps(
+        {
+            "messages": [
+                {"role": "user", "content": "q"},
+                {"role": "assistant", "content": "a"},
+            ]
+        }
+    )
     (work / "ds" / "train.jsonl").write_text(row + "\n")
     (work / "ds" / "valid.jsonl").write_text(row + "\n")
     (work / "child.py").write_text(CHILD)
@@ -319,51 +450,85 @@ def group_kill(J, tmp: Path, jobs_mut=None, train_mut=None) -> list:
         time.sleep(0.02)
     p.kill()
     if not reached:
-        raise AssertionError("the run never reached its second slice: "
-                             f"{p.communicate(timeout=30)[0][:300]}")
+        raise AssertionError(
+            "the run never reached its second slice: "
+            f"{p.communicate(timeout=30)[0][:300]}"
+        )
     out1 = p.communicate(timeout=30)[0]
     lines1 = log.read_text().splitlines()
     begins1 = [l for l in lines1 if l.startswith("begin")]
     state1 = J.load_state("lora-fit", work / "jobs")
     w1 = (work / "ad" / "adapters.safetensors").read_text()
-    ck(res, "the SIGKILL landed inside a slice: begun, never ended",
-       len(begins1) == 2 and sum(l.startswith("end") for l in lines1) == 1,
-       str(lines1))
-    ck(res, "what the dead run banked is the last slice it finished",
-       state1 is not None and state1.stage == "training"
-       and state1.iters_done == 16 and w1 == "w16",
-       f"{state1 and (state1.stage + '@' + str(state1.iters_done))} "
-       f"weights={w1} out={out1[:50]}")
+    ck(
+        res,
+        "the SIGKILL landed inside a slice: begun, never ended",
+        len(begins1) == 2 and sum(l.startswith("end") for l in lines1) == 1,
+        str(lines1),
+    )
+    ck(
+        res,
+        "what the dead run banked is the last slice it finished",
+        state1 is not None
+        and state1.stage == "training"
+        and state1.iters_done == 16
+        and w1 == "w16",
+        f"{state1 and (state1.stage + '@' + str(state1.iters_done))} "
+        f"weights={w1} out={out1[:50]}",
+    )
 
     p = spawn(work, log, jobs_mut, train_mut)
     out2, _ = p.communicate(timeout=180)
-    spans = [l.split()[1] for l in log.read_text().splitlines()
-             if l.startswith("begin")]
-    resumed = spans[len(begins1):]
-    ck(res, "the resume re-ran no slice the dead process had completed",
-       bool(resumed) and resumed[0] == "17..32" and spans.count("1..16") == 1
-       and len(resumed) == 3, f"all={spans} resumed={resumed}")
+    spans = [
+        l.split()[1] for l in log.read_text().splitlines() if l.startswith("begin")
+    ]
+    resumed = spans[len(begins1) :]
+    ck(
+        res,
+        "the resume re-ran no slice the dead process had completed",
+        bool(resumed)
+        and resumed[0] == "17..32"
+        and spans.count("1..16") == 1
+        and len(resumed) == 3,
+        f"all={spans} resumed={resumed}",
+    )
     begins = log.read_text().splitlines()
-    ck(res, "every resumed slice loaded the weights its predecessor saved",
-       all("warm" in l for l in begins if l.startswith("begin")
-           and not l.split()[1].startswith("1..")), str(spans))
+    ck(
+        res,
+        "every resumed slice loaded the weights its predecessor saved",
+        all(
+            "warm" in l
+            for l in begins
+            if l.startswith("begin") and not l.split()[1].startswith("1..")
+        ),
+        str(spans),
+    )
     root = (work / "ad" / "adapters.safetensors").read_text()
     rec = json.loads((work / "ad" / "train_record.json").read_text())
-    ck(res, "the adapter root holds the best-measured checkpoint, not the last",
-       root == "w32" and rec["promoted_step"] == 32 and rec["iters_done"] == 64
-       and (work / "ad" / "step-64" / "adapters.safetensors").read_text() == "w64",
-       f"root={root} promoted/done={rec.get('promoted_step')}/"
-       f"{rec.get('iters_done')} out={out2[:50]}")
-    ck(res, "and the record says it stopped early on loss, not on steps",
-       rec["best_step"] == 32 and "overfit" in rec["stopped"],
-       rec["stopped"][:60])
+    ck(
+        res,
+        "the adapter root holds the best-measured checkpoint, not the last",
+        root == "w32"
+        and rec["promoted_step"] == 32
+        and rec["iters_done"] == 64
+        and (work / "ad" / "step-64" / "adapters.safetensors").read_text() == "w64",
+        f"root={root} promoted/done={rec.get('promoted_step')}/"
+        f"{rec.get('iters_done')} out={out2[:50]}",
+    )
+    ck(
+        res,
+        "and the record says it stopped early on loss, not on steps",
+        rec["best_step"] == 32 and "overfit" in rec["stopped"],
+        rec["stopped"][:60],
+    )
     return res
 
 
 # ------------------------------------------------- the leakage rule, on disk
 
-TRACE_PROMPT = ("<" + "|im_start|" + ">user\nWrite f().\n"
-                "<" + "|im_end|" + ">\n<" + "|im_start|" + ">assistant\n")
+TRACE_PROMPT = (
+    "<" + "|im_start|" + ">user\nWrite f().\n"
+    "<" + "|im_end|" + ">\n<" + "|im_start|" + ">assistant\n"
+)
 
 
 def group_leak(TR, tmp: Path) -> list:
@@ -374,74 +539,120 @@ def group_leak(TR, tmp: Path) -> list:
     traces.mkdir(parents=True, exist_ok=True)
     events: list = []
     for tid in ("train_me_1", "train_me_2", "held_out_1", "held_out_2"):
-        events += [dict(ts=0.0, seq=0, type="generate", task_id=tid, attempt=0,
-                        prompt=TRACE_PROMPT, output="42"),
-                   dict(ts=0.0, seq=1, type="task_end", task_id=tid,
-                        solved=True, attempts=1, tier="small", seconds=1.0,
-                        routed="small")]
-    (traces / "s1.jsonl").write_text(
-        "\n".join(json.dumps(e) for e in events) + "\n")
+        events += [
+            dict(
+                ts=0.0,
+                seq=0,
+                type="generate",
+                task_id=tid,
+                attempt=0,
+                prompt=TRACE_PROMPT,
+                output="42",
+            ),
+            dict(
+                ts=0.0,
+                seq=1,
+                type="task_end",
+                task_id=tid,
+                solved=True,
+                attempts=1,
+                tier="small",
+                seconds=1.0,
+                routed="small",
+            ),
+        ]
+    (traces / "s1.jsonl").write_text("\n".join(json.dumps(e) for e in events) + "\n")
     suite = work / "eval_tasks.jsonl"
-    suite.write_text("\n".join(json.dumps({"id": t, "prompt": "x"})
-                               for t in ("held_out_1", "held_out_2")) + "\n")
+    suite.write_text(
+        "\n".join(
+            json.dumps({"id": t, "prompt": "x"}) for t in ("held_out_1", "held_out_2")
+        )
+        + "\n"
+    )
 
     real_ds = TR.DATASET_DIR
     try:
         TR.DATASET_DIR = work / "datasets"
-        out_dir = TR.build_dataset(held_out=[suite], out_name="v",
-                                   traces_dir=traces, valid_frac=0.5,
-                                   verbose=False)[2]
+        out_dir = TR.build_dataset(
+            held_out=[suite],
+            out_name="v",
+            traces_dir=traces,
+            valid_frac=0.5,
+            verbose=False,
+        )[2]
     finally:
         TR.DATASET_DIR = real_ds
-    rows = [json.loads(l) for l in
-            (out_dir / "train.jsonl").read_text().splitlines()]
-    rows += [json.loads(l) for l in
-             (out_dir / "valid.jsonl").read_text().splitlines()]
+    rows = [json.loads(l) for l in (out_dir / "train.jsonl").read_text().splitlines()]
+    rows += [json.loads(l) for l in (out_dir / "valid.jsonl").read_text().splitlines()]
     written = {r["task_id"] for r in rows}
     man = json.loads((out_dir / "manifest.json").read_text())
-    ck(res, "leakage: a held-out suite's ids are absent from every written row",
-       written == {"train_me_1", "train_me_2"}, str(sorted(written)))
-    ck(res, "leakage: what the manifest claims to exclude really is not in the "
-            "rows",
-       man["excluded_count"] == 2
-       and set(man["excluded_task_ids"]) == {"held_out_1", "held_out_2"}
-       and not (set(man["excluded_task_ids"]) & written)
-       and set(man["train_task_ids"]) | set(man["valid_task_ids"]) == written,
-       json.dumps({k: man.get(k) for k in
-                   ("excluded_count", "excluded_task_ids")}))
-    ck(res, "leakage: the drop is counted, so the exclusion has a denominator",
-       man["drops"].get("excluded_leakage") == 2, str(man["drops"]))
+    ck(
+        res,
+        "leakage: a held-out suite's ids are absent from every written row",
+        written == {"train_me_1", "train_me_2"},
+        str(sorted(written)),
+    )
+    ck(
+        res,
+        "leakage: what the manifest claims to exclude really is not in the rows",
+        man["excluded_count"] == 2
+        and set(man["excluded_task_ids"]) == {"held_out_1", "held_out_2"}
+        and not (set(man["excluded_task_ids"]) & written)
+        and set(man["train_task_ids"]) | set(man["valid_task_ids"]) == written,
+        json.dumps({k: man.get(k) for k in ("excluded_count", "excluded_task_ids")}),
+    )
+    ck(
+        res,
+        "leakage: the drop is counted, so the exclusion has a denominator",
+        man["drops"].get("excluded_leakage") == 2,
+        str(man["drops"]),
+    )
 
     if not (DATASET / "manifest.json").exists():
-        ck(res, "the shipped dataset is absent, so R-6.4 cannot be scored", False,
-           f"build it: python -m flash.train --dataset --held-out <frozen suite> "
-           f"(expected {DATASET})")
+        ck(
+            res,
+            "the shipped dataset is absent, so R-6.4 cannot be scored",
+            False,
+            f"build it: python -m flash.train --dataset --held-out <frozen suite> "
+            f"(expected {DATASET})",
+        )
         return res
     sm = json.loads((DATASET / "manifest.json").read_text())
     ids = set(sm["train_task_ids"]) | set(sm["valid_task_ids"])
     ev: set = set()
     for name in EVAL_SUITES:
         ev |= suite_ids(name)
-    ck(res, "the shipped adapter was trained on zero ids in any frozen suite",
-       bool(ids) and not (ids & ev),
-       f"{len(ids)} trained ids, overlap={sorted(ids & ev)}")
-    srows = [json.loads(l) for l in
-             (DATASET / "train.jsonl").read_text().splitlines()]
-    srows += [json.loads(l) for l in
-              (DATASET / "valid.jsonl").read_text().splitlines()]
-    ck(res, "every shipped row carries the task id it was mined from",
-       all(r.get("task_id") for r in srows)
-       and {r["task_id"] for r in srows} == ids,
-       f"{len(srows)} rows, {len({r.get('task_id') for r in srows})} ids")
-    hosts = sorted(n.name for n in (ROOT / "benchmarks" / "tasks").glob("*.jsonl")
-                   if ids & suite_ids(n.name))
-    ck(res, "the suites that DO hold trained ids are named, and no scoring suite "
-            "is among them", bool(hosts) and not (set(hosts) & set(EVAL_SUITES)),
-       str(hosts))
+    ck(
+        res,
+        "the shipped adapter was trained on zero ids in any frozen suite",
+        bool(ids) and not (ids & ev),
+        f"{len(ids)} trained ids, overlap={sorted(ids & ev)}",
+    )
+    srows = [json.loads(l) for l in (DATASET / "train.jsonl").read_text().splitlines()]
+    srows += [json.loads(l) for l in (DATASET / "valid.jsonl").read_text().splitlines()]
+    ck(
+        res,
+        "every shipped row carries the task id it was mined from",
+        all(r.get("task_id") for r in srows) and {r["task_id"] for r in srows} == ids,
+        f"{len(srows)} rows, {len({r.get('task_id') for r in srows})} ids",
+    )
+    hosts = sorted(
+        n.name
+        for n in (ROOT / "benchmarks" / "tasks").glob("*.jsonl")
+        if ids & suite_ids(n.name)
+    )
+    ck(
+        res,
+        "the suites that DO hold trained ids are named, and no scoring suite "
+        "is among them",
+        bool(hosts) and not (set(hosts) & set(EVAL_SUITES)),
+        str(hosts),
+    )
     return res
 
 
 # ------------------------------------------- the in-distribution arm's suite
+
 
 def group_suite(TR, tmp: Path) -> list:
     """The file the "did it learn at all?" arm runs on, built from the artifact.
@@ -467,10 +678,13 @@ def group_suite(TR, tmp: Path) -> list:
 
 def _suite_checks(TR, tmp: Path, res: list) -> list:
     if not (DATASET / "manifest.json").exists():
-        ck(res, "suite: no shipped dataset, so the in-distribution arm has no "
-                "denominator", False,
-           f"build it first: python -m flash.train --dataset --held-out "
-           f"<frozen suite> (expected {DATASET})")
+        ck(
+            res,
+            "suite: no shipped dataset, so the in-distribution arm has no denominator",
+            False,
+            f"build it first: python -m flash.train --dataset --held-out "
+            f"<frozen suite> (expected {DATASET})",
+        )
         return res
     man = json.loads((DATASET / "manifest.json").read_text())
     tr_ids, va_ids = set(man["train_task_ids"]), set(man["valid_task_ids"])
@@ -485,39 +699,60 @@ def _suite_checks(TR, tmp: Path, res: list) -> list:
         return out, n, missing, {r["id"] for r in rows}, rows
 
     _, n, missing, got, rows = build("train")
-    ck(res, "suite: the train side is one row per trained id — a task that lives "
-            "in two suite files cannot count twice in the pass rate",
-       not missing and n == len(rows) == len(got) == len(tr_ids) and got == tr_ids,
-       f"n={n} rows={len(rows)} ids={len(got)} trained={len(tr_ids)} "
-       f"missing={missing}")
-    ck(res, "suite: the in-distribution file holds zero ids from any frozen "
-            "scoring suite, so a high number there can only mean memory",
-       len(got) == len(tr_ids) and not (got & ev),
-       f"{len(got)} of {len(tr_ids)} id(s), overlap={sorted(got & ev)}")
+    ck(
+        res,
+        "suite: the train side is one row per trained id — a task that lives "
+        "in two suite files cannot count twice in the pass rate",
+        not missing and n == len(rows) == len(got) == len(tr_ids) and got == tr_ids,
+        f"n={n} rows={len(rows)} ids={len(got)} trained={len(tr_ids)} "
+        f"missing={missing}",
+    )
+    ck(
+        res,
+        "suite: the in-distribution file holds zero ids from any frozen "
+        "scoring suite, so a high number there can only mean memory",
+        len(got) == len(tr_ids) and not (got & ev),
+        f"{len(got)} of {len(tr_ids)} id(s), overlap={sorted(got & ev)}",
+    )
     _, nv, _, vgot, vrows = build("valid")
-    ck(res, "suite: the two sides of the split name different tasks, so "
-            "'it memorised the train rows' is not readable as 'it memorised "
-            "validation'",
-       nv == len(vrows) == len(vgot) == len(va_ids) and vgot == va_ids
-       and not (vgot & got), f"valid n={nv} ids={len(vgot)} shared={sorted(vgot & got)}")
+    ck(
+        res,
+        "suite: the two sides of the split name different tasks, so "
+        "'it memorised the train rows' is not readable as 'it memorised "
+        "validation'",
+        nv == len(vrows) == len(vgot) == len(va_ids)
+        and vgot == va_ids
+        and not (vgot & got),
+        f"valid n={nv} ids={len(vgot)} shared={sorted(vgot & got)}",
+    )
 
     import contextlib
     import io
+
     out = tmp / "cli_side.jsonl"
     argv = sys.argv
     buf = io.StringIO()
-    sys.argv = ["flash.train", "--suite-from-dataset", "--split", "train",
-                "--suite-out", str(out)]
+    sys.argv = [
+        "flash.train",
+        "--suite-from-dataset",
+        "--split",
+        "train",
+        "--suite-out",
+        str(out),
+    ]
     try:
         with contextlib.redirect_stdout(buf):
             rc = TR.main()
     finally:
         sys.argv = argv
     printed = buf.getvalue()
-    ck(res, "suite: `flash train --suite-from-dataset` is a real command — it "
-            "runs, reports its own count and exits 0",
-       rc == 0 and out.exists() and f"{len(tr_ids)} task(s)" in printed,
-       f"rc={rc} out={out.exists()} {printed.strip()[:90]}")
+    ck(
+        res,
+        "suite: `flash train --suite-from-dataset` is a real command — it "
+        "runs, reports its own count and exits 0",
+        rc == 0 and out.exists() and f"{len(tr_ids)} task(s)" in printed,
+        f"rc={rc} out={out.exists()} {printed.strip()[:90]}",
+    )
 
     # R-7.9: the same command with `--dry-run`, whose help has always said
     # "write nothing". It used to write the suite file anyway, and with the
@@ -529,7 +764,7 @@ def _suite_checks(TR, tmp: Path, res: list) -> list:
     dry_dir = tmp / "dry_tasks"
     dry_dir.mkdir(parents=True, exist_ok=True)
     for src in sorted(TASKS.glob("*.jsonl")):
-        if src.name.startswith("r64_"):        # generated files, not source suites
+        if src.name.startswith("r64_"):  # generated files, not source suites
             continue
         (dry_dir / src.name).write_text(src.read_text())
     seed = set(dry_dir.iterdir())
@@ -538,31 +773,40 @@ def _suite_checks(TR, tmp: Path, res: list) -> list:
         real_tasks, argv_c = TR.TASK_DIR, sys.argv
         TR.TASK_DIR = dry_dir
         cap = io.StringIO()
-        sys.argv = ["flash.train", "--suite-from-dataset", "--split", "train",
-                    *extra]
+        sys.argv = ["flash.train", "--suite-from-dataset", "--split", "train", *extra]
         try:
             with contextlib.redirect_stdout(cap):
                 code = TR.main()
         finally:
             sys.argv, TR.TASK_DIR = argv_c, real_tasks
-        return code, cap.getvalue(), sorted(p.name
-                                            for p in set(dry_dir.iterdir()) - seed)
+        return (
+            code,
+            cap.getvalue(),
+            sorted(p.name for p in set(dry_dir.iterdir()) - seed),
+        )
 
     rc_dry, dry_out, dry_files = run_cli("--dry-run")
-    ck(res, "suite: `--dry-run` on --suite-from-dataset writes nothing, not even "
-            "under the default name — the flag's own help promises it",
-       dry_files == [] and "would write" in dry_out,
-       f"rc={rc_dry} files={dry_files} {dry_out.strip()[:80]}")
+    ck(
+        res,
+        "suite: `--dry-run` on --suite-from-dataset writes nothing, not even "
+        "under the default name — the flag's own help promises it",
+        dry_files == [] and "would write" in dry_out,
+        f"rc={rc_dry} files={dry_files} {dry_out.strip()[:80]}",
+    )
     rc_run, _, wrote = run_cli()
-    ck(res, "suite: ...and the identical call WITHOUT the flag does write that "
-            "file, so the empty directory above cannot be the command doing "
-            "nothing for an unrelated reason",
-       wrote == ["r64_train_from_dataset.jsonl"],
-       f"rc={rc_run} files={wrote}")
+    ck(
+        res,
+        "suite: ...and the identical call WITHOUT the flag does write that "
+        "file, so the empty directory above cannot be the command doing "
+        "nothing for an unrelated reason",
+        wrote == ["r64_train_from_dataset.jsonl"],
+        f"rc={rc_run} files={wrote}",
+    )
     return res
 
 
 # ------------------------------------------------------ the adapter's identity
+
 
 class FakeMlx:
     """A stand-in for `mlx_lm.load` that reports the adapter it was handed."""
@@ -601,19 +845,30 @@ def group_identity(L, tmp: Path) -> list:
         L.ADAPTER = ""
         bare = L.small_label("mlx/Qwen2.5-Coder-7B")
         L.load_model("repo-7B")
-        ck(res, "no adapter named: the base model loads with no adapter argument",
-           spy.calls[-1] == ("repo-7B", None) and bare == "Qwen2.5-Coder-7B",
-           f"{spy.calls[-1]} label={bare}")
+        ck(
+            res,
+            "no adapter named: the base model loads with no adapter argument",
+            spy.calls[-1] == ("repo-7B", None) and bare == "Qwen2.5-Coder-7B",
+            f"{spy.calls[-1]} label={bare}",
+        )
         L.ADAPTER = str(ad)
         L.load_model("repo-7B")
-        ck(res, "a named adapter reaches mlx_lm.load as adapter_path",
-           spy.calls[-1] == ("repo-7B", str(ad)), str(spy.calls[-1]))
-        small, big = (L.small_label("mlx/Qwen2.5-Coder-7B"),
-                      L.big_label("mlx/Qwen3-30B"))
-        ck(res, "the small tier is labelled with the adapter it ran, the brain "
-                "with none",
-           small == "Qwen2.5-Coder-7B+lora:self-improve" and big == "Qwen3-30B",
-           f"{small} | {big}")
+        ck(
+            res,
+            "a named adapter reaches mlx_lm.load as adapter_path",
+            spy.calls[-1] == ("repo-7B", str(ad)),
+            str(spy.calls[-1]),
+        )
+        small, big = (
+            L.small_label("mlx/Qwen2.5-Coder-7B"),
+            L.big_label("mlx/Qwen3-30B"),
+        )
+        ck(
+            res,
+            "the small tier is labelled with the adapter it ran, the brain with none",
+            small == "Qwen2.5-Coder-7B+lora:self-improve" and big == "Qwen3-30B",
+            f"{small} | {big}",
+        )
         L.ADAPTER = str(empty)
         raised = None
         n_calls = len(spy.calls)
@@ -621,10 +876,14 @@ def group_identity(L, tmp: Path) -> list:
             L.load_model("repo-7B")
         except FileNotFoundError as exc:
             raised = str(exc)
-        ck(res, "an adapter with no weights raises instead of loading the base "
-                "model",
-           raised is not None and "adapters.safetensors" in raised
-           and len(spy.calls) == n_calls, raised)
+        ck(
+            res,
+            "an adapter with no weights raises instead of loading the base model",
+            raised is not None
+            and "adapters.safetensors" in raised
+            and len(spy.calls) == n_calls,
+            raised,
+        )
     finally:
         L.ADAPTER = prev_adapter
         if real is not None:
@@ -641,12 +900,14 @@ def group_identity(L, tmp: Path) -> list:
 
 # ------------------------------------------------------------------ the CLI
 
+
 def group_cli(CLI, tmp: Path) -> list:
     """`learn --lora` and the router refit share one checkpoint directory, so the
     job's NAME is the only thing that keeps the two apart — and a shared name
     means a LoRA run reads the router's step count as its resume position."""
     res: list = []
     from flash import jobs as J
+
     ap = CLI.build_parser()
     calls: list = []
     real = (J.run_lora, J.run_fit)
@@ -661,24 +922,38 @@ def group_cli(CLI, tmp: Path) -> list:
 
     J.run_lora, J.run_fit = spy_lora, spy_fit
     try:
-        rc = CLI.cmd_learn(ap.parse_args(
-            ["learn", "--lora", "--adapter", "probe", "--steps", "8"]))
+        rc = CLI.cmd_learn(
+            ap.parse_args(["learn", "--lora", "--adapter", "probe", "--steps", "8"])
+        )
         kinds = [kw.get("kind") for _, kw in calls]
-        ck(res, "`flash learn --lora` writes its checkpoint under its own job name",
-           rc == 0 and [t for t, _ in calls] == ["lora"] and kinds == ["lora-fit"],
-           f"{[t for t, _ in calls]} kinds={kinds}")
-        ck(res, "and the experiment flags reach the trainer, not just the name",
-           calls[0][1]["adapter_name"] == "probe" and calls[0][1]["steps_total"] == 8,
-           str({k: calls[0][1][k] for k in ("adapter_name", "steps_total")}))
+        ck(
+            res,
+            "`flash learn --lora` writes its checkpoint under its own job name",
+            rc == 0 and [t for t, _ in calls] == ["lora"] and kinds == ["lora-fit"],
+            f"{[t for t, _ in calls]} kinds={kinds}",
+        )
+        ck(
+            res,
+            "and the experiment flags reach the trainer, not just the name",
+            calls[0][1]["adapter_name"] == "probe" and calls[0][1]["steps_total"] == 8,
+            str({k: calls[0][1][k] for k in ("adapter_name", "steps_total")}),
+        )
         calls.clear()
         CLI.cmd_learn(ap.parse_args(["learn"]))
-        ck(res, "`flash learn` alone still refits the router under ITS name",
-           [t for t, _ in calls] == ["fit"]
-           and calls[0][1]["kind"] == "router-fit", str(calls))
+        ck(
+            res,
+            "`flash learn` alone still refits the router under ITS name",
+            [t for t, _ in calls] == ["fit"] and calls[0][1]["kind"] == "router-fit",
+            str(calls),
+        )
         calls.clear()
         CLI.cmd_learn(ap.parse_args(["learn", "--lora", "--kind", "custom"]))
-        ck(res, "--kind still overrides the derived name",
-           calls and calls[0][1]["kind"] == "custom", str(calls))
+        ck(
+            res,
+            "--kind still overrides the derived name",
+            calls and calls[0][1]["kind"] == "custom",
+            str(calls),
+        )
     finally:
         J.run_lora, J.run_fit = real
     return res
@@ -687,106 +962,186 @@ def group_cli(CLI, tmp: Path) -> list:
 # ---------------------------------------------------------------- mutations
 
 MUTATIONS = (
-    ("the busy/unplugged denial stops firing", "gate", "flash/jobs.py",
-     '    if not caps.allow_background_work:\n', '    if False:\n',
-     ("gate: on battery the job refuses and makes zero training calls",
-      "gate: five seconds after a keystroke it still refuses",
-      "a REFUSAL records itself without overwriting the paused step",
-      # opening the gate also removes the refusal the resume-position check is
-      # about: with no refusal there is no paused job left behind
-      "and the next idle window continues from that step, not from 0")),
-    ("the banked step is thrown away", "gate", "flash/jobs.py",
-     '    start = prev.iters_done if prev and prev.stage in ("training", "paused") else 0\n',
-     '    start = 0\n',
-     ("and the next idle window continues from that step, not from 0",)),
-    ("a refusal overwrites the paused position", "gate", "flash/jobs.py",
-     '        if prev and prev.kind == st.kind and prev.stage in ("paused", "training"):\n',
-     '        if False:\n',
-     ("a REFUSAL records itself without overwriting the paused step",
-      # a refused rerun that rewrites the stage also erases the resume position
-      "and the next idle window continues from that step, not from 0")),
-    ("a finished slice banks nothing", "kill", "flash/train.py",
-     '        if on_progress:\n', '        if False:\n',
-     ("what the dead run banked is the last slice it finished",
-      "the resume re-ran no slice the dead process had completed",
-      "every resumed slice loaded the weights its predecessor saved",
-      "the adapter root holds the best-measured checkpoint, not the last")),
-    ("the root adapter is the last step, not the best", "kill", "flash/train.py",
-     '    promoted = best_step if best_step is not None else done\n',
-     '    promoted = done\n',
-     ("the adapter root holds the best-measured checkpoint, not the last",)),
-    ("the held-out exclusion stops firing", "leak", "flash/train.py",
-     '            if tid in exclude:\n', '            if False:\n',
-     ("leakage: a held-out suite's ids are absent from every written row",
-      "leakage: what the manifest claims to exclude really is not in the rows",
-      "leakage: the drop is counted, so the exclusion has a denominator")),
-    ("a missing weights file falls back to the base model", "identity",
-     "flash/loop.py",
-     '    if not (Path(p) / "adapters.safetensors").exists():\n', '    if False:\n',
-     ("an adapter with no weights raises instead of loading the base model",)),
-    ("the adapter never reaches the loader", "identity", "flash/loop.py",
-     '    return backend.selected().load_model(repo, ad)\n',
-     '    return backend.selected().load_model(repo)\n',
-     ("a named adapter reaches mlx_lm.load as adapter_path",)),
-    ("the brain is labelled as if it carried the adapter", "identity",
-     "flash/loop.py", '    return model_label(repo, "")\n',
-     '    return model_label(repo)\n',
-     ("the small tier is labelled with the adapter it ran, the brain with none",)),
-    ("learn --lora writes under the router's job name", "cli", "flash/cli.py",
-     '    kind = args.kind or ("lora-fit" if args.lora else "router-fit")\n',
-     '    kind = args.kind or "router-fit"\n',
-     ("`flash learn --lora` writes its checkpoint under its own job name",)),
-    ("the in-distribution file counts a task once per suite file it appears in",
-     "suite", "flash/train.py",
-     '                if t["id"] not in seen:\n                    dupes += 1\n'
-     '                    continue\n',
-     '                if False:\n                    dupes += 1\n'
-     '                    continue\n',
-     ("suite: the train side is one row per trained id — a task that lives "
-      "in two suite files cannot count twice in the pass rate",
-      # the valid side is built by the same loop, so its count inflates too
-      "suite: the two sides of the split name different tasks, so "
-      "'it memorised the train rows' is not readable as 'it memorised "
-      "validation'",
-      # and the command's own printed count is the row count, which is what
-      # the CLI check reads
-      "suite: `flash train --suite-from-dataset` is a real command — it "
-      "runs, reports its own count and exits 0")),
-    ("the valid side is handed the train ids", "suite", "flash/train.py",
-     '    ids = set(man[f"{split}_task_ids"])\n',
-     '    ids = set(man["train_task_ids"])\n',
-     ("suite: the two sides of the split name different tasks, so "
-      "'it memorised the train rows' is not readable as 'it memorised "
-      "validation'",)),
-    ("the file holds every task EXCEPT the trained ones", "suite",
-     "flash/train.py", '            if t.get("id") in ids:\n',
-     '            if t.get("id") not in ids:\n',
-     ("suite: the train side is one row per trained id — a task that lives "
-      "in two suite files cannot count twice in the pass rate",
-      "suite: the in-distribution file holds zero ids from any frozen "
-      "scoring suite, so a high number there can only mean memory",
-      "suite: the two sides of the split name different tasks, so "
-      "'it memorised the train rows' is not readable as 'it memorised "
-      "validation'",
-      "suite: `flash train --suite-from-dataset` is a real command — it "
-      "runs, reports its own count and exits 0")),
-    ("--suite-from-dataset is parsed but never dispatched", "suite",
-     "flash/train.py", '    if a.suite_from_dataset:\n', '    if False:\n',
-     ("suite: `flash train --suite-from-dataset` is a real command — it "
-      "runs, reports its own count and exits 0",
-      # a command that never runs writes nothing, so both dry-run halves fail
-      # with it — the cascade is the dispatch, not a second defect
-      "suite: `--dry-run` on --suite-from-dataset writes nothing, not even "
-      "under the default name — the flag's own help promises it",
-      "suite: ...and the identical call WITHOUT the flag does write that "
-      "file, so the empty directory above cannot be the command doing "
-      "nothing for an unrelated reason")),
-    ("--dry-run is honoured for the dataset and ignored for the suite",
-     "suite", "flash/train.py",
-     '    if not dry:\n        out.parent.mkdir',
-     '    if True:\n        out.parent.mkdir',
-     ("suite: `--dry-run` on --suite-from-dataset writes nothing, not even "
-      "under the default name — the flag's own help promises it",)),
+    (
+        "the busy/unplugged denial stops firing",
+        "gate",
+        "flash/jobs.py",
+        "    if not caps.allow_background_work:\n",
+        "    if False:\n",
+        (
+            "gate: on battery the job refuses and makes zero training calls",
+            "gate: five seconds after a keystroke it still refuses",
+            "a REFUSAL records itself without overwriting the paused step",
+            # opening the gate also removes the refusal the resume-position check is
+            # about: with no refusal there is no paused job left behind
+            "and the next idle window continues from that step, not from 0",
+        ),
+    ),
+    (
+        "the banked step is thrown away",
+        "gate",
+        "flash/jobs.py",
+        '    start = prev.iters_done if prev and prev.stage in ("training", "paused") else 0\n',
+        "    start = 0\n",
+        ("and the next idle window continues from that step, not from 0",),
+    ),
+    (
+        "a refusal overwrites the paused position",
+        "gate",
+        "flash/jobs.py",
+        '        if prev and prev.kind == st.kind and prev.stage in ("paused", "training"):\n',
+        "        if False:\n",
+        (
+            "a REFUSAL records itself without overwriting the paused step",
+            # a refused rerun that rewrites the stage also erases the resume position
+            "and the next idle window continues from that step, not from 0",
+        ),
+    ),
+    (
+        "a finished slice banks nothing",
+        "kill",
+        "flash/train.py",
+        "        if on_progress:\n",
+        "        if False:\n",
+        (
+            "what the dead run banked is the last slice it finished",
+            "the resume re-ran no slice the dead process had completed",
+            "every resumed slice loaded the weights its predecessor saved",
+            "the adapter root holds the best-measured checkpoint, not the last",
+        ),
+    ),
+    (
+        "the root adapter is the last step, not the best",
+        "kill",
+        "flash/train.py",
+        "    promoted = best_step if best_step is not None else done\n",
+        "    promoted = done\n",
+        ("the adapter root holds the best-measured checkpoint, not the last",),
+    ),
+    (
+        "the held-out exclusion stops firing",
+        "leak",
+        "flash/train.py",
+        "            if tid in exclude:\n",
+        "            if False:\n",
+        (
+            "leakage: a held-out suite's ids are absent from every written row",
+            "leakage: what the manifest claims to exclude really is not in the rows",
+            "leakage: the drop is counted, so the exclusion has a denominator",
+        ),
+    ),
+    (
+        "a missing weights file falls back to the base model",
+        "identity",
+        "flash/loop.py",
+        '    if not (Path(p) / "adapters.safetensors").exists():\n',
+        "    if False:\n",
+        ("an adapter with no weights raises instead of loading the base model",),
+    ),
+    (
+        "the adapter never reaches the loader",
+        "identity",
+        "flash/loop.py",
+        "    return backend.selected().load_model(repo, ad)\n",
+        "    return backend.selected().load_model(repo)\n",
+        ("a named adapter reaches mlx_lm.load as adapter_path",),
+    ),
+    (
+        "the brain is labelled as if it carried the adapter",
+        "identity",
+        "flash/loop.py",
+        '    return model_label(repo, "")\n',
+        "    return model_label(repo)\n",
+        ("the small tier is labelled with the adapter it ran, the brain with none",),
+    ),
+    (
+        "learn --lora writes under the router's job name",
+        "cli",
+        "flash/cli.py",
+        '    kind = args.kind or ("lora-fit" if args.lora else "router-fit")\n',
+        '    kind = args.kind or "router-fit"\n',
+        ("`flash learn --lora` writes its checkpoint under its own job name",),
+    ),
+    (
+        "the in-distribution file counts a task once per suite file it appears in",
+        "suite",
+        "flash/train.py",
+        '                if t["id"] not in seen:\n                    dupes += 1\n'
+        "                    continue\n",
+        "                if False:\n                    dupes += 1\n"
+        "                    continue\n",
+        (
+            "suite: the train side is one row per trained id — a task that lives "
+            "in two suite files cannot count twice in the pass rate",
+            # the valid side is built by the same loop, so its count inflates too
+            "suite: the two sides of the split name different tasks, so "
+            "'it memorised the train rows' is not readable as 'it memorised "
+            "validation'",
+            # and the command's own printed count is the row count, which is what
+            # the CLI check reads
+            "suite: `flash train --suite-from-dataset` is a real command — it "
+            "runs, reports its own count and exits 0",
+        ),
+    ),
+    (
+        "the valid side is handed the train ids",
+        "suite",
+        "flash/train.py",
+        '    ids = set(man[f"{split}_task_ids"])\n',
+        '    ids = set(man["train_task_ids"])\n',
+        (
+            "suite: the two sides of the split name different tasks, so "
+            "'it memorised the train rows' is not readable as 'it memorised "
+            "validation'",
+        ),
+    ),
+    (
+        "the file holds every task EXCEPT the trained ones",
+        "suite",
+        "flash/train.py",
+        '            if t.get("id") in ids:\n',
+        '            if t.get("id") not in ids:\n',
+        (
+            "suite: the train side is one row per trained id — a task that lives "
+            "in two suite files cannot count twice in the pass rate",
+            "suite: the in-distribution file holds zero ids from any frozen "
+            "scoring suite, so a high number there can only mean memory",
+            "suite: the two sides of the split name different tasks, so "
+            "'it memorised the train rows' is not readable as 'it memorised "
+            "validation'",
+            "suite: `flash train --suite-from-dataset` is a real command — it "
+            "runs, reports its own count and exits 0",
+        ),
+    ),
+    (
+        "--suite-from-dataset is parsed but never dispatched",
+        "suite",
+        "flash/train.py",
+        "    if a.suite_from_dataset:\n",
+        "    if False:\n",
+        (
+            "suite: `flash train --suite-from-dataset` is a real command — it "
+            "runs, reports its own count and exits 0",
+            # a command that never runs writes nothing, so both dry-run halves fail
+            # with it — the cascade is the dispatch, not a second defect
+            "suite: `--dry-run` on --suite-from-dataset writes nothing, not even "
+            "under the default name — the flag's own help promises it",
+            "suite: ...and the identical call WITHOUT the flag does write that "
+            "file, so the empty directory above cannot be the command doing "
+            "nothing for an unrelated reason",
+        ),
+    ),
+    (
+        "--dry-run is honoured for the dataset and ignored for the suite",
+        "suite",
+        "flash/train.py",
+        "    if not dry:\n        out.parent.mkdir",
+        "    if True:\n        out.parent.mkdir",
+        (
+            "suite: `--dry-run` on --suite-from-dataset writes nothing, not even "
+            "under the default name — the flag's own help promises it",
+        ),
+    ),
 )
 
 
@@ -807,8 +1162,9 @@ def run_group(name: str, mods: dict, tmp: Path, jobs_mut=None, train_mut=None):
 def mutant(tmp: Path, tag: str, rel: str, anchor: str, repl: str) -> Path:
     src = (ROOT / rel).read_text()
     if src.count(anchor) != 1:
-        raise AssertionError(f"{tag}: anchor appears {src.count(anchor)} times "
-                             f"in {rel}: {anchor[:50]!r}")
+        raise AssertionError(
+            f"{tag}: anchor appears {src.count(anchor)} times in {rel}: {anchor[:50]!r}"
+        )
     out = tmp / f"_mut_{tag}.py"
     out.write_text(src.replace(anchor, repl))
     return out
@@ -820,9 +1176,11 @@ def main() -> int:
     # Early-exit when ledger-verified dataset doesn't exist - this check requires
     # trained artifacts that are not shipped with fresh clones on CI runners
     if not DATASET.exists():
-        print("lora_path_check: ledger-verified dataset missing — "
-              "blocked by --backend-free: the trainer artifacts this "
-              "check needs are not shipped with fresh clones")
+        print(
+            "lora_path_check: ledger-verified dataset missing — "
+            "blocked by --backend-free: the trainer artifacts this "
+            "check needs are not shipped with fresh clones"
+        )
         return 0
     with tempfile.TemporaryDirectory() as d:
         for g in ("gate", "kill", "leak", "identity", "cli", "suite"):
@@ -842,20 +1200,28 @@ def main() -> int:
             m = dict(mods)
             m[Path(rel).stem] = load_mod(f"mut_{tag}", path)
             try:
-                res = run_group(group, m, tmp / f"run-{i}",
-                                path if rel == "flash/jobs.py" else None,
-                                path if rel == "flash/train.py" else None)
+                res = run_group(
+                    group,
+                    m,
+                    tmp / f"run-{i}",
+                    path if rel == "flash/jobs.py" else None,
+                    path if rel == "flash/train.py" else None,
+                )
                 got = sorted({n for n, ok, _ in res if not ok})
-            except Exception as exc:                        # noqa: BLE001
+            except Exception as exc:  # noqa: BLE001
                 got = [f"<raised {type(exc).__name__}: {exc}>"]
             want = sorted(set(expect))
             ok = got == want
             bad += not ok
-            print(f"  {'OK  ' if ok else 'FAIL'} break {label}"
-                  f"  ->  {got if got else 'NOTHING failed'}"
-                  + ("" if ok else f"   EXPECTED {want}"))
-    print(f"\nmutations: {len(MUTATIONS) - bad}/{len(MUTATIONS)} gates defeated "
-          f"by exactly their checks")
+            print(
+                f"  {'OK  ' if ok else 'FAIL'} break {label}"
+                f"  ->  {got if got else 'NOTHING failed'}"
+                + ("" if ok else f"   EXPECTED {want}")
+            )
+    print(
+        f"\nmutations: {len(MUTATIONS) - bad}/{len(MUTATIONS)} gates defeated "
+        f"by exactly their checks"
+    )
     return 0 if n_ok == len(results) and not bad else 1
 
 

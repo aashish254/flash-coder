@@ -78,9 +78,16 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from flash.vision import (FIX_TEMPLATE, VISUAL_FIX_TEMPLATE, check_task,
-                          extract_html, generate_with_image, load_vlm,
-                          pixel_diff, render_html_png)
+from flash.vision import (
+    FIX_TEMPLATE,
+    VISUAL_FIX_TEMPLATE,
+    check_task,
+    extract_html,
+    generate_with_image,
+    load_vlm,
+    pixel_diff,
+    render_html_png,
+)
 
 VLM = "mlx-community/Qwen3-VL-4B-Instruct-4bit"
 
@@ -105,22 +112,27 @@ CROP_READ_TEMPLATE = (
     "marking which words/phrases are hyperlinks (blue, underlined) by "
     "wrapping them like [a]link text[/a]. Note the structure too (heading "
     "vs plain line, indented definition-list entries). Reply with the "
-    "transcription only, no commentary.")
+    "transcription only, no commentary."
+)
 
 QUADRANTS = {"tl": (0, 0), "tr": (1, 0), "bl": (0, 1), "br": (1, 1)}
-QUAD_NAMES = {"tl": "top-left", "tr": "top-right",
-              "bl": "bottom-left", "br": "bottom-right"}
+QUAD_NAMES = {
+    "tl": "top-left",
+    "tr": "top-right",
+    "bl": "bottom-left",
+    "br": "bottom-right",
+}
 
 
 def crop_quadrant(png: str, quad: str, out: str) -> bool:
     """2x upscaled crop of one quadrant of the target — the perception tool."""
     from PIL import Image
+
     try:
         im = Image.open(png).convert("RGB")
         w, h = im.size
         qx, qy = QUADRANTS[quad]
-        c = im.crop((qx * w // 2, qy * h // 2, (qx + 1) * w // 2,
-                     (qy + 1) * h // 2))
+        c = im.crop((qx * w // 2, qy * h // 2, (qx + 1) * w // 2, (qy + 1) * h // 2))
         c.resize((w, h), Image.LANCZOS).save(out)
         return True
     except Exception:
@@ -146,20 +158,26 @@ def make_default(html: str) -> str:
 
 # Line-anchored (prose mentions of "TOOL: crop tl" mid-sentence don't fire),
 # but tolerant of trailing junk after the args — 4B outputs are rarely clean.
-TOOL_RE = re.compile(r"^\s*TOOL:\s*(crop|make_default)\b[ \t]*([a-z]{2})?",
-                     re.M)
+TOOL_RE = re.compile(r"^\s*TOOL:\s*(crop|make_default)\b[ \t]*([a-z]{2})?", re.M)
 
 
-
-def solve_arm(model, processor, task: dict, tools: bool,
-              max_attempts: int = 4, max_tokens: int = 1024,
-              dump: Path | None = None, arm: str = "") -> dict:
+def solve_arm(
+    model,
+    processor,
+    task: dict,
+    tools: bool,
+    max_attempts: int = 4,
+    max_tokens: int = 1024,
+    dump: Path | None = None,
+    arm: str = "",
+) -> dict:
     """solve_vision mirrored with the model hoisted out (model loaded once for
     the whole suite) plus the tool protocol. Same prompt/feedback flow."""
     import tempfile
+
     t0 = time.time()
     attempts, tool_calls, crops_done = [], [], set()
-    free = 6                      # tool re-prompts per run, then we submit as-is
+    free = 6  # tool re-prompts per run, then we submit as-is
     images, msgs_extra = [task["image"]], ""
     for i in range(max_attempts):
         prompt = task["prompt"] + msgs_extra
@@ -167,73 +185,114 @@ def solve_arm(model, processor, task: dict, tools: bool,
             prompt = VISUAL_FIX_TEMPLATE.format(err=attempts[-1][1])
         if tools:
             prompt += "\n\n" + TOOL_MENU
-        out = generate_with_image(model, processor, images, prompt,
-                                  max_tokens=max_tokens,
-                                  temp=0.0 if i == 0 else 0.7, seed=i)
+        out = generate_with_image(
+            model,
+            processor,
+            images,
+            prompt,
+            max_tokens=max_tokens,
+            temp=0.0 if i == 0 else 0.7,
+            seed=i,
+        )
         m = TOOL_RE.search(out) if tools else None
         tool = ""
         if m and m.group(1) == "crop" and free > 0:
             free -= 1
             quad = m.group(2) or ""
-            if quad in QUADRANTS and quad not in crops_done and crop_quadrant(
-                    task["image"], quad,
-                    (zq := tempfile.mktemp(suffix=".png"))):
+            if (
+                quad in QUADRANTS
+                and quad not in crops_done
+                and crop_quadrant(
+                    task["image"], quad, (zq := tempfile.mktemp(suffix=".png"))
+                )
+            ):
                 crops_done.add(quad)
                 # stateless API: the zoom read must be captured as TEXT and
                 # carried in msgs_extra, or the next generate can't see it.
                 reading = generate_with_image(
-                    model, processor, [task["image"], zq],
+                    model,
+                    processor,
+                    [task["image"], zq],
                     CROP_READ_TEMPLATE.format(name=QUAD_NAMES[quad]),
-                    max_tokens=512, temp=0.0)
-                tool_calls.append(f"attempt{i+1}: crop {quad} "
-                                  f"({len(reading.strip())} chars read)")
-                msgs_extra += (f"\n\nExact transcription of the target's "
-                               f"{QUAD_NAMES[quad]} quadrant (via 2x zoom):\n"
-                               f"{reading.strip()}\n")
+                    max_tokens=512,
+                    temp=0.0,
+                )
+                tool_calls.append(
+                    f"attempt{i + 1}: crop {quad} ({len(reading.strip())} chars read)"
+                )
+                msgs_extra += (
+                    f"\n\nExact transcription of the target's "
+                    f"{QUAD_NAMES[quad]} quadrant (via 2x zoom):\n"
+                    f"{reading.strip()}\n"
+                )
                 if dump is not None:
-                    (dump / f"{task['id']}_{arm}_crop_{quad}.txt"
-                     ).write_text(reading)
+                    (dump / f"{task['id']}_{arm}_crop_{quad}.txt").write_text(reading)
             else:
                 # invalid or duplicate crop: correct it — never submit the
                 # tool line itself as HTML (v2 live find: 4B echoed the menu
                 # pattern and the loop submitted it, blank render, 15.1%/3%)
-                tool_calls.append(f"attempt{i+1}: INVALID crop {quad or '?'}"
-                                  f" (done: {''.join(sorted(crops_done))})")
-                msgs_extra += ("\n\nThat crop was invalid or already used. "
-                               "Reply with ONE unused quadrant code (tl, tr, "
-                               "bl, br) as TOOL: crop XX, or TOOL: "
-                               "make_default, or the complete HTML in one "
-                               "fenced block.\n")
-            continue                    # perception: free, same attempt
+                tool_calls.append(
+                    f"attempt{i + 1}: INVALID crop {quad or '?'}"
+                    f" (done: {''.join(sorted(crops_done))})"
+                )
+                msgs_extra += (
+                    "\n\nThat crop was invalid or already used. "
+                    "Reply with ONE unused quadrant code (tl, tr, "
+                    "bl, br) as TOOL: crop XX, or TOOL: "
+                    "make_default, or the complete HTML in one "
+                    "fenced block.\n"
+                )
+            continue  # perception: free, same attempt
         if m and m.group(1) == "make_default" and attempts:
             cand = make_default(attempts[-1][0])
-            tool_calls.append(f"attempt{i+1}: make_default "
-                              f"({len(attempts[-1][0])} -> {len(cand)} chars)")
+            tool_calls.append(
+                f"attempt{i + 1}: make_default "
+                f"({len(attempts[-1][0])} -> {len(cand)} chars)"
+            )
             html, tool = cand, "make_default"
         else:
             html = extract_html(out)
         ok, err = check_task(html, task)
         attempts.append((html, "" if ok else err))
         if dump is not None:
-            (dump / f"{task['id']}_{arm}_att{i+1}.html").write_text(html)
-            png = dump / f"{task['id']}_{arm}_att{i+1}.png"
+            (dump / f"{task['id']}_{arm}_att{i + 1}.html").write_text(html)
+            png = dump / f"{task['id']}_{arm}_att{i + 1}.png"
             if render_html_png(html, png):
                 d = pixel_diff(task["image"], str(png))
                 tag = f"[{tool}]" if tool else ""
-                print(f"{'':24s}   att{i+1}{tag} diff={d:.1%} "
-                      f"{'PASS' if ok else err.splitlines()[0]}", flush=True)
+                print(
+                    f"{'':24s}   att{i + 1}{tag} diff={d:.1%} "
+                    f"{'PASS' if ok else err.splitlines()[0]}",
+                    flush=True,
+                )
         if ok:
-            return {"solved": True, "attempts": len(attempts),
-                    "tool_calls": tool_calls, "s": round(time.time() - t0, 1)}
+            return {
+                "solved": True,
+                "attempts": len(attempts),
+                "tool_calls": tool_calls,
+                "s": round(time.time() - t0, 1),
+            }
         if render_html_png(html, (r := tempfile.mktemp(suffix=".png"))):
             images = [task["image"], r]
         msgs_extra = "\n\n" + FIX_TEMPLATE.format(err=err)
-    return {"solved": False, "attempts": len(attempts),
-            "tool_calls": tool_calls, "s": round(time.time() - t0, 1),
-            "last_html": attempts[-1][0], "last_err": attempts[-1][1]}
+    return {
+        "solved": False,
+        "attempts": len(attempts),
+        "tool_calls": tool_calls,
+        "s": round(time.time() - t0, 1),
+        "last_html": attempts[-1][0],
+        "last_err": attempts[-1][1],
+    }
 
-def solve_pipeline(model, processor, task: dict, max_tokens: int = 1024,
-                   dump: Path | None = None, arm: str = "pipe") -> dict:
+
+def solve_pipeline(
+    model,
+    processor,
+    task: dict,
+    max_tokens: int = 1024,
+    dump: Path | None = None,
+    arm: str = "pipe",
+) -> dict:
     """Harness-owned agency: no menu, no choices. Draft -> the HARNESS crops
     and reads all four quadrants -> rewrite with the transcriptions + the
     draft's oracle error. Submissions: the rewrite, then make_default(rewrite).
@@ -245,6 +304,7 @@ def solve_pipeline(model, processor, task: dict, max_tokens: int = 1024,
     harness owns the control flow? (M5 for models that can't drive.)
     """
     import tempfile
+
     t0 = time.time()
 
     def score(html, tag, n):
@@ -254,53 +314,88 @@ def solve_pipeline(model, processor, task: dict, max_tokens: int = 1024,
             png = dump / f"{task['id']}_{arm}_att{n}.png"
             if render_html_png(html, png):
                 d = pixel_diff(task["image"], str(png))
-                print(f"{'':24s}   att{n}{tag} diff={d:.1%} "
-                      f"{'PASS' if ok else err.splitlines()[0]}", flush=True)
+                print(
+                    f"{'':24s}   att{n}{tag} diff={d:.1%} "
+                    f"{'PASS' if ok else err.splitlines()[0]}",
+                    flush=True,
+                )
         return ok, err
 
-    draft = extract_html(generate_with_image(
-        model, processor, [task["image"]], task["prompt"],
-        max_tokens=max_tokens, temp=0.0))
+    draft = extract_html(
+        generate_with_image(
+            model,
+            processor,
+            [task["image"]],
+            task["prompt"],
+            max_tokens=max_tokens,
+            temp=0.0,
+        )
+    )
     ok, err = score(draft, "[draft]", 1)
     if ok:
-        return {"solved": True, "attempts": 1, "tool_calls": ["draft passed"],
-                "s": round(time.time() - t0, 1)}
+        return {
+            "solved": True,
+            "attempts": 1,
+            "tool_calls": ["draft passed"],
+            "s": round(time.time() - t0, 1),
+        }
 
     readings = []
     for quad in ("tl", "tr", "bl", "br"):
         zq = tempfile.mktemp(suffix=".png")
         if not crop_quadrant(task["image"], quad, zq):
             continue
-        r = generate_with_image(model, processor, [task["image"], zq],
-                                CROP_READ_TEMPLATE.format(
-                                    name=QUAD_NAMES[quad]),
-                                max_tokens=512, temp=0.0).strip()
+        r = generate_with_image(
+            model,
+            processor,
+            [task["image"], zq],
+            CROP_READ_TEMPLATE.format(name=QUAD_NAMES[quad]),
+            max_tokens=512,
+            temp=0.0,
+        ).strip()
         readings.append(f"{QUAD_NAMES[quad]} quadrant:\n{r}")
         if dump is not None:
             (dump / f"{task['id']}_{arm}_crop_{quad}.txt").write_text(r)
 
     rewrite_prompt = (
-        task["prompt"] + "\n\nYour first draft failed this check:\n" + err +
-        "\n\nHere are exact transcriptions of the target's four quadrants, "
-        "read at 2x zoom:\n\n" + "\n\n".join(readings) +
-        "\n\nRewrite the complete HTML to match these transcriptions EXACTLY: "
+        task["prompt"]
+        + "\n\nYour first draft failed this check:\n"
+        + err
+        + "\n\nHere are exact transcriptions of the target's four quadrants, "
+        "read at 2x zoom:\n\n"
+        + "\n\n".join(readings)
+        + "\n\nRewrite the complete HTML to match these transcriptions EXACTLY: "
         "every word, every link, the same structure. Return ONLY the HTML in "
-        "one fenced block.")
-    rewrite = extract_html(generate_with_image(
-        model, processor, [task["image"]], rewrite_prompt,
-        max_tokens=max_tokens, temp=0.0))
+        "one fenced block."
+    )
+    rewrite = extract_html(
+        generate_with_image(
+            model,
+            processor,
+            [task["image"]],
+            rewrite_prompt,
+            max_tokens=max_tokens,
+            temp=0.0,
+        )
+    )
     ok2, err2 = score(rewrite, "[rewrite]", 2)
     if ok2:
-        return {"solved": True, "attempts": 2,
-                "tool_calls": ["4x crop + rewrite"], "s": round(time.time()-t0, 1)}
+        return {
+            "solved": True,
+            "attempts": 2,
+            "tool_calls": ["4x crop + rewrite"],
+            "s": round(time.time() - t0, 1),
+        }
     defaulted = make_default(rewrite)
     ok3, err3 = score(defaulted, "[make_default]", 3)
-    return {"solved": ok3, "attempts": 3,
-            "tool_calls": ["4x crop + rewrite + make_default"],
-            "s": round(time.time() - t0, 1),
-            "last_html": defaulted, "last_err": err3}
-
-
+    return {
+        "solved": ok3,
+        "attempts": 3,
+        "tool_calls": ["4x crop + rewrite + make_default"],
+        "s": round(time.time() - t0, 1),
+        "last_html": defaulted,
+        "last_err": err3,
+    }
 
 
 # ---- v4 arm: model-as-reader, CODE-as-writer assembly -----------------------
@@ -313,8 +408,11 @@ def solve_pipeline(model, processor, task: dict, max_tokens: int = 1024,
 # "[a]executive summary[/a]" — unmergeable). Full-width bands put every
 # text line whole in exactly one read; the 10% seam overlap is deduped.
 
-BANDS = {"top": (0.0, 0.40), "mid": (0.30, 0.70),
-        "bottom": (0.60, 1.0)}   # ~10% seam overlap, deduped
+BANDS = {
+    "top": (0.0, 0.40),
+    "mid": (0.30, 0.70),
+    "bottom": (0.60, 1.0),
+}  # ~10% seam overlap, deduped
 
 BAND_READ_TEMPLATE = (
     "Image 1 is the target screenshot. Image 2 is a 2x zoom of its "
@@ -324,7 +422,8 @@ BAND_READ_TEMPLATE = (
     "line (set in from the left margin) with '> '; wrap hyperlinks "
     "(blue, underlined) like [a]link text[/a]. Transcribe EVERY line "
     "in the band from top to bottom — do not stop early, do not "
-    "summarize. Transcription only, no commentary.")
+    "summarize. Transcription only, no commentary."
+)
 
 _A_MARKED = re.compile(r"\[a\](.*?)\[/a\]")
 _A_UNTERMINATED = re.compile(r"\[a\](.*)$")
@@ -343,6 +442,7 @@ def _linkify(ln: str) -> str:
 def crop_band(png: str, band: str, out: str) -> bool:
     """2x upscaled full-width band (top/bottom half with seam overlap)."""
     from PIL import Image
+
     try:
         im = Image.open(png).convert("RGB")
         w, h = im.size
@@ -409,7 +509,7 @@ def assemble_html(readings: list[str]) -> str:
             buf.append(ln.lstrip("> \t").rstrip() if i else ln.strip())
         if buf:
             runs.append((ind, buf))
-        if any(i for i, _ in runs):          # mixed/indented block -> <dl>
+        if any(i for i, _ in runs):  # mixed/indented block -> <dl>
             out.append("<dl>")
             for i, buf in runs:
                 tag = "dd" if i else "dt"
@@ -435,12 +535,15 @@ def perfect_reading(raw_html: str) -> str:
     -> indented lines; runs are reflowed and re-wrapped at 72 cols so
     [a] markers never span lines (whitespace-token wrap)."""
     import html as _html
+
     s = re.sub(r"<(head|header)\b.*?</\1>", "", raw_html, flags=re.S | re.I)
-    s = re.sub(r"<a\s[^>]*>(.*?)</a>",
-               lambda m: "[a]" + " ".join(m.group(1).split()) + "[/a]",
-               s, flags=re.S | re.I)
-    s = re.sub(r"</?(?:p|h1|dl|ul|li|body|html)\b[^>]*>", "\x00", s,
-               flags=re.S | re.I)
+    s = re.sub(
+        r"<a\s[^>]*>(.*?)</a>",
+        lambda m: "[a]" + " ".join(m.group(1).split()) + "[/a]",
+        s,
+        flags=re.S | re.I,
+    )
+    s = re.sub(r"</?(?:p|h1|dl|ul|li|body|html)\b[^>]*>", "\x00", s, flags=re.S | re.I)
     s = re.sub(r"</?dt[^>]*>", "\x03", s, flags=re.S | re.I)
     s = re.sub(r"<dd[^>]*>", "\x01", s, flags=re.S | re.I)
     s = re.sub(r"</dd\s*>", "\x02", s, flags=re.S | re.I)
@@ -449,14 +552,13 @@ def perfect_reading(raw_html: str) -> str:
 
     def flush():
         if parts:
-            out.extend(("> " if ind else "") + ln
-                       for ln in _wrap(" ".join(parts)))
+            out.extend(("> " if ind else "") + ln for ln in _wrap(" ".join(parts)))
             parts.clear()
 
     for seg in re.split(r"([\x00\x01\x02\x03])", s):
         if seg == "\x00":
             flush()
-            ind = False            # block tags implicitly close an open <dd>
+            ind = False  # block tags implicitly close an open <dd>
             if out and out[-1] != "":
                 out.append("")
         elif seg == "\x01":
@@ -467,8 +569,8 @@ def perfect_reading(raw_html: str) -> str:
             ind = False
         elif seg == "\x03":
             flush()
-            ind = False            # 1993 HTML: <dt> implies </dd> — the CERN
-        else:                      # page never closes its <dd>s explicitly
+            ind = False  # 1993 HTML: <dt> implies </dd> — the CERN
+        else:  # page never closes its <dd>s explicitly
             parts.extend(seg.split())
     flush()
     while out and out[-1] == "":
@@ -489,9 +591,10 @@ BLOCK_READ_TEMPLATE = (
     "exactly {n} line{s} of text. Transcribe ALL {n} lines EXACTLY, one "
     "output line per text line, in top-to-bottom order. Wrap hyperlinks "
     "(blue, underlined) like [a]link text[/a]. No commentary, no blank "
-    "lines.")
+    "lines."
+)
 
-MAX_LINES_PER_READ = 8        # v4: the 4B stops early past ~6 lines
+MAX_LINES_PER_READ = 8  # v4: the 4B stops early past ~6 lines
 
 
 def line_geometry(png: str) -> list[dict]:
@@ -500,6 +603,7 @@ def line_geometry(png: str) -> list[dict]:
     glyphs); x0 = leftmost dark pixel. The harness owns STRUCTURE
     because the 4B won't emit it (v4: zero markers, three runs)."""
     from PIL import Image
+
     im = Image.open(png).convert("RGB")
     w, h = im.size
     px = im.load()
@@ -511,8 +615,7 @@ def line_geometry(png: str) -> list[dict]:
     while y < h:
         if dark[y][1] > 2:
             y0, x0 = y, dark[y][0]
-            while y < h and (dark[y][1] > 2
-                             or (y + 1 < h and dark[y + 1][1] > 2)):
+            while y < h and (dark[y][1] > 2 or (y + 1 < h and dark[y + 1][1] > 2)):
                 if dark[y][1] > 2 and dark[y][0] is not None:
                     x0 = dark[y][0] if x0 is None else min(x0, dark[y][0])
                 y += 1
@@ -546,24 +649,30 @@ def block_role(blk: list[dict], median_h: float) -> str:
     return "p"
 
 
-def crop_block(png: str, y0: int, y1: int, out: str,
-               zoom: float = 2.5) -> bool:
+def crop_block(png: str, y0: int, y1: int, out: str, zoom: float = 2.5) -> bool:
     from PIL import Image
+
     try:
         im = Image.open(png).convert("RGB")
         w, _ = im.size
         c = im.crop((0, max(0, y0), w, y1))
-        c.resize((int(w * zoom), int(c.height * zoom)),
-                 Image.LANCZOS).save(out)
+        c.resize((int(w * zoom), int(c.height * zoom)), Image.LANCZOS).save(out)
         return True
     except Exception:
         return False
 
 
-def solve_assembly(model, processor, task: dict, max_tokens: int = 1024,
-                   dump: Path | None = None, arm: str = "asm") -> dict:
+def solve_assembly(
+    model,
+    processor,
+    task: dict,
+    max_tokens: int = 1024,
+    dump: Path | None = None,
+    arm: str = "asm",
+) -> dict:
     """v5 arm: geometry -> count-anchored block reads -> v4 assembler."""
     import tempfile
+
     t0 = time.time()
 
     # Phase 0: the assembly ceiling — a PERFECT reading, built from the
@@ -578,13 +687,18 @@ def solve_assembly(model, processor, task: dict, max_tokens: int = 1024,
             png = dump / f"{task['id']}_{arm}_phase0.png"
             if render_html_png(ceiling, png):
                 d = pixel_diff(task["image"], str(png))
-                print(f"{'':24s}   assembly phase0 ceiling diff={d:.1%} "
-                      f"{'PASS' if ok0 else err0.splitlines()[0]}",
-                      flush=True)
+                print(
+                    f"{'':24s}   assembly phase0 ceiling diff={d:.1%} "
+                    f"{'PASS' if ok0 else err0.splitlines()[0]}",
+                    flush=True,
+                )
         if not ok0:
-            return {"solved": False, "attempts": 0,
-                    "tool_calls": ["phase0 ceiling FAILED — dead pre-flight"],
-                    "s": round(time.time() - t0, 1)}
+            return {
+                "solved": False,
+                "attempts": 0,
+                "tool_calls": ["phase0 ceiling FAILED — dead pre-flight"],
+                "s": round(time.time() - t0, 1),
+            }
     else:
         print(f"{'':24s}   assembly phase0 SKIPPED — no {ref}", flush=True)
 
@@ -593,36 +707,45 @@ def solve_assembly(model, processor, task: dict, max_tokens: int = 1024,
     hs = sorted(ln["h"] for ln in lines)
     med = hs[len(hs) // 2]
     roles = [block_role(b, med) for b in blocks]
-    print(f"{'':24s}   geometry: {len(lines)} lines, {len(blocks)} blocks "
-          f"{[(r, len(b)) for r, b in zip(roles, blocks)]}", flush=True)
+    print(
+        f"{'':24s}   geometry: {len(lines)} lines, {len(blocks)} blocks "
+        f"{[(r, len(b)) for r, b in zip(roles, blocks)]}",
+        flush=True,
+    )
 
-    what = {"h1": "a heading", "p": "a paragraph",
-            "dl": "a definition list"}
+    what = {"h1": "a heading", "p": "a paragraph", "dl": "a definition list"}
     proto_blocks, nreads = [], 0
     for bi, (blk, role) in enumerate(zip(blocks, roles)):
         tlines = []
         for c0 in range(0, len(blk), MAX_LINES_PER_READ):
-            chunk = blk[c0:c0 + MAX_LINES_PER_READ]
+            chunk = blk[c0 : c0 + MAX_LINES_PER_READ]
             zb = tempfile.mktemp(suffix=".png")
-            if not crop_block(task["image"], chunk[0]["y0"] - 2,
-                              chunk[-1]["y1"] + 2, zb):
+            if not crop_block(
+                task["image"], chunk[0]["y0"] - 2, chunk[-1]["y1"] + 2, zb
+            ):
                 continue
             n = len(chunk)
             r = generate_with_image(
-                model, processor, [zb],   # CROP ONLY: with the full page
+                model,
+                processor,
+                [zb],  # CROP ONLY: with the full page
                 # in context the 4B transcribes image 1 and ignores the
                 # crop (v5 run 1: h1 text zipped into <dt> roles)
-                BLOCK_READ_TEMPLATE.format(what=what[role], n=n,
-                                           s="s" if n > 1 else ""),
-                max_tokens=min(max_tokens, 70 * n + 40), temp=0.0).strip()
+                BLOCK_READ_TEMPLATE.format(
+                    what=what[role], n=n, s="s" if n > 1 else ""
+                ),
+                max_tokens=min(max_tokens, 70 * n + 40),
+                temp=0.0,
+            ).strip()
             nreads += 1
             tlines.extend(ln for ln in r.splitlines() if ln.strip())
             if dump is not None:
                 (dump / f"{task['id']}_{arm}_blk{bi}_{c0}.txt").write_text(r)
         if role == "dl":
             x0min = min(l["x0"] for l in blk)
-            proto = [("> " if l["x0"] - x0min > 20 else "") + t
-                     for l, t in zip(blk, tlines)]
+            proto = [
+                ("> " if l["x0"] - x0min > 20 else "") + t for l, t in zip(blk, tlines)
+            ]
         else:
             proto = tlines
         proto_blocks.append("\n".join(proto))
@@ -634,35 +757,51 @@ def solve_assembly(model, processor, task: dict, max_tokens: int = 1024,
         png = dump / f"{task['id']}_{arm}_final.png"
         if render_html_png(html, png):
             d = pixel_diff(task["image"], str(png))
-            print(f"{'':24s}   assembly final diff={d:.1%} "
-                  f"{'PASS' if ok else err.splitlines()[0]}", flush=True)
-    return {"solved": ok, "attempts": 1,
-            "tool_calls": [f"geometry + {nreads} block reads + assembly"],
-            "s": round(time.time() - t0, 1),
-            "last_html": html, "last_err": err}
-
+            print(
+                f"{'':24s}   assembly final diff={d:.1%} "
+                f"{'PASS' if ok else err.splitlines()[0]}",
+                flush=True,
+            )
+    return {
+        "solved": ok,
+        "attempts": 1,
+        "tool_calls": [f"geometry + {nreads} block reads + assembly"],
+        "s": round(time.time() - t0, 1),
+        "last_html": html,
+        "last_err": err,
+    }
 
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--tasks", default=None, help="comma-separated ids (all 5 "
-                    "real tasks by default)")
+    ap.add_argument(
+        "--tasks",
+        default=None,
+        help="comma-separated ids (all 5 real tasks by default)",
+    )
     ap.add_argument("--skip-baseline", action="store_true")
-    ap.add_argument("--arms", default="baseline,tools,pipeline,assembly",
-                    help="comma list: baseline,tools,pipeline,assembly")
+    ap.add_argument(
+        "--arms",
+        default="baseline,tools,pipeline,assembly",
+        help="comma list: baseline,tools,pipeline,assembly",
+    )
     args = ap.parse_args()
 
-    tasks = [json.loads(x) for x in
-             Path("benchmarks/tasks/visr_tasks.jsonl").read_text().splitlines()
-             if x.strip()]
+    tasks = [
+        json.loads(x)
+        for x in Path("benchmarks/tasks/visr_tasks.jsonl").read_text().splitlines()
+        if x.strip()
+    ]
     if args.tasks:
         want = set(args.tasks.split(","))
         tasks = [t for t in tasks if t["id"] in want]
-    if subprocess.run(["pgrep", "-f", "run-vis-suite"],
-                      capture_output=True).returncode == 0:
+    if (
+        subprocess.run(["pgrep", "-f", "run-vis-suite"], capture_output=True).returncode
+        == 0
+    ):
         raise SystemExit("run-vis-suite active — wait for the GPU to free up")
 
-    model, processor = load_vlm(VLM)   # ONE load for the whole spike
+    model, processor = load_vlm(VLM)  # ONE load for the whole spike
     arms = {a.strip() for a in args.arms.split(",") if a.strip()}
     if args.skip_baseline:
         arms.discard("baseline")
@@ -672,12 +811,16 @@ def main() -> None:
     for t in tasks:
         row = {"id": t["id"]}
         if "baseline" in arms:
-            row["baseline"] = solve_arm(model, processor, t, tools=False,
-                                        dump=dump, arm="base")
+            row["baseline"] = solve_arm(
+                model, processor, t, tools=False, dump=dump, arm="base"
+            )
             b = row["baseline"]
-            print(f"{t['id']:24s} baseline -> "
-                  f"{'PASS' if b['solved'] else 'FAIL'} "
-                  f"({b['attempts']} attempts, {b['s']}s)", flush=True)
+            print(
+                f"{t['id']:24s} baseline -> "
+                f"{'PASS' if b['solved'] else 'FAIL'} "
+                f"({b['attempts']} attempts, {b['s']}s)",
+                flush=True,
+            )
             # Phase 0: would the edit tool have fixed the baseline's last HTML?
             if not b["solved"] and "last_html" in b:
                 stripped = make_default(b["last_html"])
@@ -685,32 +828,44 @@ def main() -> None:
                 ok, err = check_task(stripped, t)
                 row["phase0_strip_fixes"] = ok
                 first = err.splitlines()[0] if err else "within budget"
-                print(f"{'':24s} phase0: make_default on failed baseline HTML "
-                      f"-> oracle {'PASS' if ok else 'FAIL'} ({first})",
-                      flush=True)
+                print(
+                    f"{'':24s} phase0: make_default on failed baseline HTML "
+                    f"-> oracle {'PASS' if ok else 'FAIL'} ({first})",
+                    flush=True,
+                )
                 if err:
                     (dump / f"{t['id']}_phase0_err.txt").write_text(err)
         if "tools" in arms:
-            row["tools"] = solve_arm(model, processor, t, tools=True,
-                                     dump=dump, arm="tool")
+            row["tools"] = solve_arm(
+                model, processor, t, tools=True, dump=dump, arm="tool"
+            )
             tr = row["tools"]
-            print(f"{t['id']:24s} tools    -> "
-                  f"{'PASS' if tr['solved'] else 'FAIL'} "
-                  f"({tr['attempts']} attempts, {tr['s']}s)  calls: "
-                  f"{tr['tool_calls'] or 'none'}", flush=True)
+            print(
+                f"{t['id']:24s} tools    -> "
+                f"{'PASS' if tr['solved'] else 'FAIL'} "
+                f"({tr['attempts']} attempts, {tr['s']}s)  calls: "
+                f"{tr['tool_calls'] or 'none'}",
+                flush=True,
+            )
         if "pipeline" in arms:
             row["pipeline"] = solve_pipeline(model, processor, t, dump=dump)
             p = row["pipeline"]
-            print(f"{t['id']:24s} pipeline -> "
-                  f"{'PASS' if p['solved'] else 'FAIL'} "
-                  f"({p['attempts']} attempts, {p['s']}s)", flush=True)
+            print(
+                f"{t['id']:24s} pipeline -> "
+                f"{'PASS' if p['solved'] else 'FAIL'} "
+                f"({p['attempts']} attempts, {p['s']}s)",
+                flush=True,
+            )
         if "assembly" in arms:
             row["assembly"] = solve_assembly(model, processor, t, dump=dump)
             a = row["assembly"]
-            print(f"{t['id']:24s} assembly -> "
-                  f"{'PASS' if a['solved'] else 'FAIL'} "
-                  f"({a['attempts']} attempts, {a['s']}s)  "
-                  f"{a['tool_calls'][0]}", flush=True)
+            print(
+                f"{t['id']:24s} assembly -> "
+                f"{'PASS' if a['solved'] else 'FAIL'} "
+                f"({a['attempts']} attempts, {a['s']}s)  "
+                f"{a['tool_calls'][0]}",
+                flush=True,
+            )
         rows.append(row)
 
     print("\n== VERDICT ==")
@@ -726,23 +881,34 @@ def main() -> None:
                 swung.append(name.upper())
         p0 = ""
         if "phase0_strip_fixes" in row:
-            p0 = ("  phase0-edit=fixes" if row["phase0_strip_fixes"]
-                  else "  phase0-edit=no-fix")
+            p0 = (
+                "  phase0-edit=fixes"
+                if row["phase0_strip_fixes"]
+                else "  phase0-edit=no-fix"
+            )
         swing = ""
         if swung and row.get("baseline") and not row["baseline"]["solved"]:
             swing = f"  <-- {'/'.join(swung)} SWUNG IT"
         print(f"  {row['id']}: " + "  ".join(parts) + p0 + swing)
 
     def swung_any(arm: str) -> bool:
-        return any(r.get("baseline") and not r["baseline"]["solved"]
-                   and r.get(arm, {}).get("solved") for r in rows)
+        return any(
+            r.get("baseline")
+            and not r["baseline"]["solved"]
+            and r.get(arm, {}).get("solved")
+            for r in rows
+        )
 
     if swung_any("assembly"):
-        lev = ("LIVE via CODE-AS-WRITER assembly — the model READS, the "
-               "harness WRITES; the generation gap is bypassed entirely")
+        lev = (
+            "LIVE via CODE-AS-WRITER assembly — the model READS, the "
+            "harness WRITES; the generation gap is bypassed entirely"
+        )
     elif swung_any("pipeline"):
-        lev = ("LIVE via HARNESS-OWNED agency — crop-read+rewrite pipeline "
-               "passed where feedback and free tool choice failed")
+        lev = (
+            "LIVE via HARNESS-OWNED agency — crop-read+rewrite pipeline "
+            "passed where feedback and free tool choice failed"
+        )
     elif swung_any("tools"):
         lev = "LIVE via free tool choice"
     else:
