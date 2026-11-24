@@ -39,6 +39,7 @@ decides what a missing fraction means, so an over-wide name cannot switch a chec
 this machine made off. The whole tree's §6 total still needs a quiet machine that has
 the backend.
 """
+
 import re
 import subprocess
 import sys
@@ -60,46 +61,147 @@ BATTERY = [
     ("flash.patches --selftest", "-m flash.patches --selftest", 94, None, "checks"),
     ("flash.debug --selftest", "-m flash.debug --selftest", 55, None, "checks"),
     ("flash.tourney --selftest", "-m flash.tourney --selftest", 16, None, "checks"),
-    ("flash.confidence --selftest", "-m flash.confidence --selftest", 29, None, "checks"),
+    (
+        "flash.confidence --selftest",
+        "-m flash.confidence --selftest",
+        29,
+        None,
+        "checks",
+    ),
     ("flash.sandbox --selftest", "-m flash.sandbox --selftest", 34, None, "checks"),
-    ("flash.checkpoint --selftest", "-m flash.checkpoint --selftest", 31, None, "checks"),
+    (
+        "flash.checkpoint --selftest",
+        "-m flash.checkpoint --selftest",
+        31,
+        None,
+        "checks",
+    ),
     ("flash.train --selftest", "-m flash.train --selftest", 36, None, "checks"),
     ("flash.graph --selftest", "-m flash.graph --selftest --mutants", 44, 12, "checks"),
     ("flash.ambient --selftest", "-m flash.ambient --selftest", 61, 6, "checks"),
-    ("benchmarks/trace_resume_check.py", "benchmarks/trace_resume_check.py", 11, None, "checks"),
-    ("benchmarks/confidence_wiring_check.py", "benchmarks/confidence_wiring_check.py", 35, None, "checks"),
-    ("benchmarks/subtle_premise_check.py", "benchmarks/subtle_premise_check.py", 52, None, "checks"),
+    (
+        "benchmarks/trace_resume_check.py",
+        "benchmarks/trace_resume_check.py",
+        11,
+        None,
+        "checks",
+    ),
+    (
+        "benchmarks/confidence_wiring_check.py",
+        "benchmarks/confidence_wiring_check.py",
+        35,
+        None,
+        "checks",
+    ),
+    (
+        "benchmarks/subtle_premise_check.py",
+        "benchmarks/subtle_premise_check.py",
+        52,
+        None,
+        "checks",
+    ),
     ("benchmarks/p6_key_check.py", "benchmarks/p6_key_check.py", 28, None, "checks"),
-    ("benchmarks/confidence_tau_check.py", "benchmarks/confidence_tau_check.py",
-     7, None, "checks"),
-    ("benchmarks/checkpoint_resume_check.py", "benchmarks/checkpoint_resume_check.py", 35, None, "checks"),
-    ("benchmarks/lora_path_check.py", "benchmarks/lora_path_check.py", 33, 15, "checks"),
+    (
+        "benchmarks/confidence_tau_check.py",
+        "benchmarks/confidence_tau_check.py",
+        7,
+        None,
+        "checks",
+    ),
+    (
+        "benchmarks/checkpoint_resume_check.py",
+        "benchmarks/checkpoint_resume_check.py",
+        35,
+        None,
+        "checks",
+    ),
+    (
+        "benchmarks/lora_path_check.py",
+        "benchmarks/lora_path_check.py",
+        33,
+        15,
+        "checks",
+    ),
     ("benchmarks/dbg_band_check.py", "benchmarks/dbg_band_check.py", 172, 5, "checks"),
-    ("benchmarks/router_portable_check.py", "benchmarks/router_portable_check.py",
-     20, 5, "checks"),
-    ("benchmarks/graph_perceive_check.py",
-     "benchmarks/graph_perceive_check.py --sweep", 33, 12, "checks"),
-    ("benchmarks/ts_perception_check.py",
-     "benchmarks/ts_perception_check.py --sweep", 47, 13, "checks"),
-    ("benchmarks/ts_patch_check.py",
-     "benchmarks/ts_patch_check.py --sweep", 52, 15, "checks"),
-    ("benchmarks/patch_landing_check.py",
-     "benchmarks/patch_landing_check.py --sweep", 65, 28, "checks"),
-    ("benchmarks/session_check.py",
-     "benchmarks/session_check.py --sweep", 81, 26, "checks"),
-    ("benchmarks/hint_ab_check.py", "benchmarks/hint_ab_check.py",
-     14, 8, "checks"),
-    ("benchmarks/portable_paths_check.py", "benchmarks/portable_paths_check.py",
-     15, 7, "checks"),
-    ("benchmarks/backend_free_check.py", "benchmarks/backend_free_check.py",
-     49, 15, "checks"),
-    ("benchmarks/documented_commands_check.py",
-     "benchmarks/documented_commands_check.py", 8, 5, "checks"),
+    (
+        "benchmarks/router_portable_check.py",
+        "benchmarks/router_portable_check.py",
+        20,
+        5,
+        "checks",
+    ),
+    (
+        "benchmarks/graph_perceive_check.py",
+        "benchmarks/graph_perceive_check.py --sweep",
+        33,
+        12,
+        "checks",
+    ),
+    (
+        "benchmarks/ts_perception_check.py",
+        "benchmarks/ts_perception_check.py --sweep",
+        47,
+        13,
+        "checks",
+    ),
+    (
+        "benchmarks/ts_patch_check.py",
+        "benchmarks/ts_patch_check.py --sweep",
+        52,
+        15,
+        "checks",
+    ),
+    (
+        "benchmarks/patch_landing_check.py",
+        "benchmarks/patch_landing_check.py --sweep",
+        65,
+        28,
+        "checks",
+    ),
+    (
+        "benchmarks/session_check.py",
+        "benchmarks/session_check.py --sweep",
+        81,
+        26,
+        "checks",
+    ),
+    ("benchmarks/hint_ab_check.py", "benchmarks/hint_ab_check.py", 14, 8, "checks"),
+    (
+        "benchmarks/portable_paths_check.py",
+        "benchmarks/portable_paths_check.py",
+        15,
+        7,
+        "checks",
+    ),
+    (
+        "benchmarks/backend_free_check.py",
+        "benchmarks/backend_free_check.py",
+        49,
+        15,
+        "checks",
+    ),
+    (
+        "benchmarks/documented_commands_check.py",
+        "benchmarks/documented_commands_check.py",
+        8,
+        5,
+        "checks",
+    ),
     ("flash.debug --suite", "-m flash.debug --suite", 32, None, "checks"),
-    ("flash.patches --suite",
-     "-m flash.patches --suite benchmarks/tasks/edit_tasks.jsonl", 60, None, "checks"),
-    ("benchmarks/m0_bakeoff.py --dry-run", "benchmarks/m0_bakeoff.py --dry-run",
-     20, None, "oracle"),
+    (
+        "flash.patches --suite",
+        "-m flash.patches --suite benchmarks/tasks/edit_tasks.jsonl",
+        60,
+        None,
+        "checks",
+    ),
+    (
+        "benchmarks/m0_bakeoff.py --dry-run",
+        "benchmarks/m0_bakeoff.py --dry-run",
+        20,
+        None,
+        "oracle",
+    ),
 ]
 
 # Predicted BEFORE the run, by hand — that is the field's whole use, and the addition
@@ -157,17 +259,14 @@ CLAIM = {"checks": 1429, "oracle": 20, "mutants": 172}
 # cool, and a busy laptop is not allowed to be quiet.
 REFUSAL = {
     "backend": {
-        "flash.grammar --selftest":
-            "the mask section loads the fast tier's tokenizer through "
-            "`mlx_lm.tokenizer_utils` and the overhead section builds `mx` arrays",
-        "benchmarks/session_check.py":
-            "`flash.loop.solve_routed` imports `mlx.core` and `mlx_lm.load` in its "
-            "preamble, which the chat arm's stubbed model still walks past",
+        "flash.grammar --selftest": "the mask section loads the fast tier's tokenizer through "
+        "`mlx_lm.tokenizer_utils` and the overhead section builds `mx` arrays",
+        "benchmarks/session_check.py": "`flash.loop.solve_routed` imports `mlx.core` and `mlx_lm.load` in its "
+        "preamble, which the chat arm's stubbed model still walks past",
     },
     "machine": {
-        "benchmarks/checkpoint_resume_check.py":
-            "the §34.1 governor will not offer tournament width >= 2 on this "
-            "machine",
+        "benchmarks/checkpoint_resume_check.py": "the §34.1 governor will not offer tournament width >= 2 on this "
+        "machine",
     },
 }
 
@@ -186,8 +285,11 @@ def refuses(kind: str, out: str) -> str:
     """
     for line in out.splitlines():
         low = line.lower()
-        hit = (any(p in low for p in BACKEND_PROBES) if kind == "backend"
-               else GOVERNOR_PROBE in low)
+        hit = (
+            any(p in low for p in BACKEND_PROBES)
+            if kind == "backend"
+            else GOVERNOR_PROBE in low
+        )
         if hit:
             return line.strip()
     return ""
@@ -214,8 +316,7 @@ def lane_claim(refused: list) -> dict:
 
 
 def run(argv: str) -> str:
-    proc = subprocess.run([PY, *argv.split()], cwd=ROOT, capture_output=True,
-                          text=True)
+    proc = subprocess.run([PY, *argv.split()], cwd=ROOT, capture_output=True, text=True)
     return proc.stdout + proc.stderr
 
 
@@ -258,8 +359,9 @@ def mutant_count(text: str) -> int:
 
 def printed(text: str) -> list:
     """Every n/n the run prints, in order — the evidence line for a mismatch."""
-    return [f"{n}/{d}" for n, d in
-            re.findall(r"\b(\d+)/(\d+)\b", text.replace("\r", "\n"))]
+    return [
+        f"{n}/{d}" for n, d in re.findall(r"\b(\d+)/(\d+)\b", text.replace("\r", "\n"))
+    ]
 
 
 # What `--backend-free` installs into a child interpreter. A meta_path finder
@@ -296,31 +398,48 @@ def install_backend_block() -> str:
     """
     import os
     import tempfile
+
     d = Path(tempfile.mkdtemp(prefix="flash-backend-free-"))
     shim = d / "sitecustomize.py"
     shim.write_text(_SHIM)
     prior = os.environ.get("PYTHONPATH")
     os.environ["PYTHONPATH"] = str(d) + (os.pathsep + prior if prior else "")
     os.environ["FLASH_BACKEND_SHIM"] = str(shim)
-    with_shim = subprocess.run([PY, "-c", "import mlx.core"], cwd=ROOT,
-                               capture_output=True, text=True, timeout=120)
+    with_shim = subprocess.run(
+        [PY, "-c", "import mlx.core"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
     plain_env = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
-    without = subprocess.run([PY, "-c", "import mlx.core"], cwd=ROOT,
-                             capture_output=True, text=True, timeout=120,
-                             env=plain_env)
+    without = subprocess.run(
+        [PY, "-c", "import mlx.core"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        timeout=120,
+        env=plain_env,
+    )
     if with_shim.returncode == 0:
-        print("BAD  --backend-free is decorative: a child imported `mlx.core` "
-              "with the shim on PYTHONPATH. No total below is a claim about a "
-              "backend-free run.")
+        print(
+            "BAD  --backend-free is decorative: a child imported `mlx.core` "
+            "with the shim on PYTHONPATH. No total below is a claim about a "
+            "backend-free run."
+        )
         raise SystemExit(1)
     if without.returncode != 0:
-        print("note --backend-free: `import mlx.core` also fails WITHOUT the shim "
-              "on this box, so this run proves the flag installs a blocker, not "
-              "that the vectors survive one (this machine has no backend to lose).")
+        print(
+            "note --backend-free: `import mlx.core` also fails WITHOUT the shim "
+            "on this box, so this run proves the flag installs a blocker, not "
+            "that the vectors survive one (this machine has no backend to lose)."
+        )
     else:
-        print("proof --backend-free: `import mlx.core` succeeds with a plain env "
-              "and raises under the shim, so every line below ran with the "
-              "backend genuinely gone.")
+        print(
+            "proof --backend-free: `import mlx.core` succeeds with a plain env "
+            "and raises under the shim, so every line below ran with the "
+            "backend genuinely gone."
+        )
     return str(shim)
 
 
@@ -343,8 +462,7 @@ def main(argv: list) -> int:
         install_backend_block()
     can_refuse = refusal_map(backend_free)
     kinds = {l: k for k, rows in REFUSAL.items() for l in rows}
-    items = [b for b in BATTERY if not quick
-             or any(q in b[0] for q in quick)]
+    items = [b for b in BATTERY if not quick or any(q in b[0] for q in quick)]
     totals = {"checks": 0, "oracle": 0}
     mutants = 0
     bad = []
@@ -356,8 +474,10 @@ def main(argv: list) -> int:
             # or a traceback, and "printed []" tells nobody which. Show its last
             # line — this battery has to be runnable by someone who is not
             # watching the terminal while it goes.
-            cause = next((l for l in reversed(out.strip().splitlines())
-                          if l.strip()), "no output whatsoever")
+            cause = next(
+                (l for l in reversed(out.strip().splitlines()) if l.strip()),
+                "no output whatsoever",
+            )
             named = kinds.get(label)
             allowed = bool(named) and label in can_refuse
             said = refuses(named, out) if allowed else ""
@@ -366,13 +486,23 @@ def main(argv: list) -> int:
                 print(f"REFUSED {label:40s} {named} — {can_refuse[label]}")
                 print(f"     └─ {said[:150]}")
                 continue
-            note = "" if not named else (
-                f" — this run calls it {named}-bound"
-                + (", and its death did not say so" if allowed
-                   else ", which this lane will not refuse"))
-            bad.append(f"{label}: expected {want}/{want}, printed "
-                       f"{printed(out)[:4]} — last line: {cause.strip()[:150]}"
-                       f"{note}")
+            note = (
+                ""
+                if not named
+                else (
+                    f" — this run calls it {named}-bound"
+                    + (
+                        ", and its death did not say so"
+                        if allowed
+                        else ", which this lane will not refuse"
+                    )
+                )
+            )
+            bad.append(
+                f"{label}: expected {want}/{want}, printed "
+                f"{printed(out)[:4]} — last line: {cause.strip()[:150]}"
+                f"{note}"
+            )
             print(f"BAD  {label:44s} want {want}/{want} got {printed(out)[:4]}")
             print(f"     └─ {cause.strip()[:150]}{note}")
             continue
@@ -380,55 +510,78 @@ def main(argv: list) -> int:
         if mut is not None:
             got_mut = mutant_count(out)
             if got_mut != mut:
-                bad.append(f"{label}: {want}/{want} came but it defeated "
-                           f"{got_mut} mutants, not {mut}")
-                print(f"BAD  {label:44s} want {want}/{want} + {mut} mutants, "
-                      f"got {got_mut}")
+                bad.append(
+                    f"{label}: {want}/{want} came but it defeated "
+                    f"{got_mut} mutants, not {mut}"
+                )
+                print(
+                    f"BAD  {label:44s} want {want}/{want} + {mut} mutants, "
+                    f"got {got_mut}"
+                )
                 continue
             mutants += mut
             extra = f" (+ {mut} mutants)"
         totals[kind] += want
         print(f"OK   {label:44s} {want}/{want}{extra}")
     if len(items) != len(BATTERY):
-        print(f"\n--quick run of {len(items)}/{len(BATTERY)} lines: totals are "
-              f"partial, not a §6 re-read")
+        print(
+            f"\n--quick run of {len(items)}/{len(BATTERY)} lines: totals are "
+            f"partial, not a §6 re-read"
+        )
         return 1 if bad else 0
     want_totals = lane_claim(refused)
-    print(f"\nchecks {totals['checks']}  oracle {totals['oracle']}  "
-          f"§6 total {totals['checks'] + totals['oracle']}  mutants {mutants}")
-    for kind, val in (("checks", totals["checks"]), ("oracle", totals["oracle"]),
-                      ("mutants", mutants)):
+    print(
+        f"\nchecks {totals['checks']}  oracle {totals['oracle']}  "
+        f"§6 total {totals['checks'] + totals['oracle']}  mutants {mutants}"
+    )
+    for kind, val in (
+        ("checks", totals["checks"]),
+        ("oracle", totals["oracle"]),
+        ("mutants", mutants),
+    ):
         if val != want_totals[kind]:
-            bad.append(f"this run's {kind} claim is {want_totals[kind]}, the tree "
-                       f"prints {val}"
-                       + (f" (SPEC §6 says {CLAIM[kind]}, less "
-                          f"{len(refused)} refused row(s))" if refused else ""))
+            bad.append(
+                f"this run's {kind} claim is {want_totals[kind]}, the tree "
+                f"prints {val}"
+                + (
+                    f" (SPEC §6 says {CLAIM[kind]}, less {len(refused)} refused row(s))"
+                    if refused
+                    else ""
+                )
+            )
     if bad:
         print("\n".join("  " + b for b in bad))
         return 1
     if backend_free:
-        print(f"backend-free: {len(items) - len(refused)}/{len(BATTERY)} lines "
-              "green with `mlx`, `mlx_lm` and `mlx_vlm` unimportable in every "
-              + (f"child process, {len(refused)} refused by name "
-                 f"({', '.join(l for l, *_ in refused)}). The totals above are "
-                 "therefore a claim about the rows a machine with no generative "
-                 "backend can answer, measured rather than asserted."
-                 if refused else
-                 "child process. SPEC §6's totals above are therefore a claim "
-                 "about a run with no generative backend, measured rather than "
-                 "asserted."))
+        print(
+            f"backend-free: {len(items) - len(refused)}/{len(BATTERY)} lines "
+            "green with `mlx`, `mlx_lm` and `mlx_vlm` unimportable in every "
+            + (
+                f"child process, {len(refused)} refused by name "
+                f"({', '.join(l for l, *_ in refused)}). The totals above are "
+                "therefore a claim about the rows a machine with no generative "
+                "backend can answer, measured rather than asserted."
+                if refused
+                else "child process. SPEC §6's totals above are therefore a claim "
+                "about a run with no generative backend, measured rather than "
+                "asserted."
+            )
+        )
     if refused:
-        print(f"NOT a §6 re-read: {len(refused)} of {len(BATTERY)} rows refused by "
-              f"name ({', '.join(l for l, *_ in refused)}), so the totals above are "
-              f"this lane's own subtotal — SPEC §6's {CLAIM['checks']} checks and "
-              f"{CLAIM['mutants']} mutants, less the refused rows' "
-              f"{sum(w for _, w, _, _ in refused)} checks and "
-              f"{sum(m or 0 for _, _, m, _ in refused)} mutants. Read §6 whole on a "
-              f"machine that has the backend and a governor offering width.")
+        print(
+            f"NOT a §6 re-read: {len(refused)} of {len(BATTERY)} rows refused by "
+            f"name ({', '.join(l for l, *_ in refused)}), so the totals above are "
+            f"this lane's own subtotal — SPEC §6's {CLAIM['checks']} checks and "
+            f"{CLAIM['mutants']} mutants, less the refused rows' "
+            f"{sum(w for _, w, _, _ in refused)} checks and "
+            f"{sum(m or 0 for _, _, m, _ in refused)} mutants. Read §6 whole on a "
+            f"machine that has the backend and a governor offering width."
+        )
         return 0
-    print("matches SPEC §6 as written: " +
-          f"{CLAIM['checks']} + {CLAIM['oracle']} = "
-          f"{CLAIM['checks'] + CLAIM['oracle']} green, offline (+ {CLAIM['mutants']} mutants)")
+    print(
+        "matches SPEC §6 as written: " + f"{CLAIM['checks']} + {CLAIM['oracle']} = "
+        f"{CLAIM['checks'] + CLAIM['oracle']} green, offline (+ {CLAIM['mutants']} mutants)"
+    )
     return 0
 
 

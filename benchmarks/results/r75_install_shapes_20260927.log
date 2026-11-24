@@ -14,7 +14,7 @@ benchmarks/fixtures/     7
 --- flash on PATH: /tmp/r75c/venv/bin/flash
 --- import flash -> /private/tmp/r75c/venv/lib/python3.11/site-packages/flash/__init__.py
 --- flash --version: flash 0.0.1  [rc=0]
-flash power [rc=0]:   fast tier  LOAD OK  (~4.4GB)   brain      LOAD OK  (~17.3GB) 
+flash power [rc=0]:   fast tier  LOAD OK  (~4.4GB)   brain      LOAD OK  (~17.3GB)
 --- flash doctor on a wheel install (no benchmarks/ beside the package):
 flash doctor — what this install can and cannot do
 

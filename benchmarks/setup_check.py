@@ -42,6 +42,7 @@ its number is the number the user gets.
     python benchmarks/setup_check.py --mutant   # mutants only
     python benchmarks/setup_check.py --mutant skip_pull_still_pulls
 """
+
 from __future__ import annotations
 
 import io
@@ -58,9 +59,14 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "benchmarks"))
 
-from flash import backend, cli, doctor, models, setup          # noqa: E402
-from models_pull_check import (SIZE, PAYLOAD, fake_tier,       # noqa: E402
-                               pinned, serve)
+from flash import backend, cli, doctor, models, setup  # noqa: E402
+from models_pull_check import (
+    SIZE,
+    PAYLOAD,
+    fake_tier,  # noqa: E402
+    pinned,
+    serve,
+)
 
 PY = sys.executable
 CHECKS: list[tuple[str, bool, str]] = []
@@ -93,7 +99,7 @@ def go(*argv: str) -> tuple[int, str]:
     try:
         with redirect_stdout(buf), redirect_stderr(err):
             rc = setup.dispatch(ns(*argv))
-    except Exception as e:                                    # noqa: BLE001
+    except Exception as e:  # noqa: BLE001
         # Nothing is allowed to escape a first-run command, and a mutant that
         # breaks that must FAIL A CHECK rather than crash this file: an exception
         # here is the very traceback the product definition forbids.
@@ -111,25 +117,35 @@ def arms_shape(tmp: Path) -> None:
     with pinned(cache, "range", "http://127.0.0.1:1"):
         rc, out = go("--skip-pull", "--backend", "llama.cpp")
         nums = [out.index(f"[{i}/5]") for i in range(1, 6) if f"[{i}/5]" in out]
-        ck("`flash setup` prints FIVE numbered steps, in order, and a stranger can "
-           "tell which errand failed — `[3/5]` is not the same errand as `[4/5]`, "
-           "and a wall of unlabelled prose is what a traceback looks like to "
-           "somebody who has never seen one",
-           rc == 0 and nums == sorted(nums) and len(nums) == 5, f"rc={rc} {nums}")
-        ck("step 1 is `flash doctor`'s own report VERBATIM, not a summary setup "
-           "wrote for itself — this repo has twice shipped the same fact in two "
-           "places with two answers",
-           doctor.report(doctor.answers()) in out, out[:160])
-        ck("step 5 names the four verbs the product is, and nothing that is "
-           "machinery — the screen a user finishes on is the screen they act on",
-           all(p in out for p in PROMISES) and "flash session" not in out,
-           out[-320:])
-        ck("and the rate it quotes is the one step 4 measured: seconds for the "
-           "turn, not a tokens/s figure the run has no tokenizer count behind "
-           "(a borrowed unit is the number this project keeps having to take back)",
-           "measured: that turn took" in out and "tokens/s" not in out, out[-200:])
-        ck("no Traceback on the whole happy path", "Traceback" not in out,
-           out[-200:])
+        ck(
+            "`flash setup` prints FIVE numbered steps, in order, and a stranger can "
+            "tell which errand failed — `[3/5]` is not the same errand as `[4/5]`, "
+            "and a wall of unlabelled prose is what a traceback looks like to "
+            "somebody who has never seen one",
+            rc == 0 and nums == sorted(nums) and len(nums) == 5,
+            f"rc={rc} {nums}",
+        )
+        ck(
+            "step 1 is `flash doctor`'s own report VERBATIM, not a summary setup "
+            "wrote for itself — this repo has twice shipped the same fact in two "
+            "places with two answers",
+            doctor.report(doctor.answers()) in out,
+            out[:160],
+        )
+        ck(
+            "step 5 names the four verbs the product is, and nothing that is "
+            "machinery — the screen a user finishes on is the screen they act on",
+            all(p in out for p in PROMISES) and "flash session" not in out,
+            out[-320:],
+        )
+        ck(
+            "and the rate it quotes is the one step 4 measured: seconds for the "
+            "turn, not a tokens/s figure the run has no tokenizer count behind "
+            "(a borrowed unit is the number this project keeps having to take back)",
+            "measured: that turn took" in out and "tokens/s" not in out,
+            out[-200:],
+        )
+        ck("no Traceback on the whole happy path", "Traceback" not in out, out[-200:])
 
 
 def arms_clean(tmp: Path) -> None:
@@ -137,18 +153,25 @@ def arms_clean(tmp: Path) -> None:
     cache = tmp / "clean"
     with pinned(cache, "range", "http://127.0.0.1:1"):
         rc, out = go("--skip-pull", "--backend", "llama.cpp")
-        ck("with `--skip-pull` NOTHING is fetched: the step-2 line says so, and the "
-           "cache directory is still not even created — a flag that only hides a "
-           "prompt is a flag that still spends the bytes",
-           rc == 0 and "--skip-pull" in out and not cache.exists(),
-           f"rc={rc} {out[:200]} exists={cache.exists()}")
-        ck("step 3 does not claim a check it could not run: on a cache with no "
-           "weight it says there is no hash to check, instead of printing a green "
-           "line about a file that is not there",
-           "no hash to check" in out and "verified" not in out.split("[4/5]")[0],
-           out[:400])
-        ck("and step 5 does not promise weights this machine does not have",
-           "weights: tier" not in out, out[-260:])
+        ck(
+            "with `--skip-pull` NOTHING is fetched: the step-2 line says so, and the "
+            "cache directory is still not even created — a flag that only hides a "
+            "prompt is a flag that still spends the bytes",
+            rc == 0 and "--skip-pull" in out and not cache.exists(),
+            f"rc={rc} {out[:200]} exists={cache.exists()}",
+        )
+        ck(
+            "step 3 does not claim a check it could not run: on a cache with no "
+            "weight it says there is no hash to check, instead of printing a green "
+            "line about a file that is not there",
+            "no hash to check" in out and "verified" not in out.split("[4/5]")[0],
+            out[:400],
+        )
+        ck(
+            "and step 5 does not promise weights this machine does not have",
+            "weights: tier" not in out,
+            out[-260:],
+        )
 
 
 def arms_no_network(tmp: Path) -> None:
@@ -157,15 +180,23 @@ def arms_no_network(tmp: Path) -> None:
     cache = tmp / "offline"
     with pinned(cache, "range", "http://127.0.0.1:1"):
         rc, out = go("--yes", "--backend", "llama.cpp")
-        ck("no network is ONE sentence naming the host it could not reach, it exits "
-           "non-zero, and it says the bytes it already has are kept so the retry is "
-           "the same command rather than a repair",
-           rc == 1 and "cannot reach" in out and "127.0.0.1:1" in out
-           and "resume" in out and "Traceback" not in out, f"rc={rc} {out[-220:]}")
-        ck("and the failure leaves nothing behind — no weight, no manifest, no "
-           "half-file the next run would have to be told about",
-           not list(cache.glob("*")) if cache.exists() else True,
-           str(sorted(p.name for p in cache.glob("*")))[:160])
+        ck(
+            "no network is ONE sentence naming the host it could not reach, it exits "
+            "non-zero, and it says the bytes it already has are kept so the retry is "
+            "the same command rather than a repair",
+            rc == 1
+            and "cannot reach" in out
+            and "127.0.0.1:1" in out
+            and "resume" in out
+            and "Traceback" not in out,
+            f"rc={rc} {out[-220:]}",
+        )
+        ck(
+            "and the failure leaves nothing behind — no weight, no manifest, no "
+            "half-file the next run would have to be told about",
+            not list(cache.glob("*")) if cache.exists() else True,
+            str(sorted(p.name for p in cache.glob("*")))[:160],
+        )
 
 
 def arms_full(tmp: Path) -> None:
@@ -174,19 +205,28 @@ def arms_full(tmp: Path) -> None:
     real_plan = models.plan
     with pinned(cache, "range", "http://127.0.0.1:1"):
         try:
-            models.plan = lambda t: dict(real_plan(t), free_bytes=1024 ** 2,
-                                         remaining=SIZE)
+            models.plan = lambda t: dict(
+                real_plan(t), free_bytes=1024**2, remaining=SIZE
+            )
             rc, out = go("--yes", "--backend", "llama.cpp")
         finally:
             models.plan = real_plan
-        ck("a disk with no room is refused BEFORE the request is made, with the free "
-           "space named as a number and `FLASH_GGUF_DIR` named as the way out — a "
-           "download that dies at 90% of 4.68 GB on a metered line costs the whole "
-           "day",
-           rc == 2 and "FLASH_GGUF_DIR" in out and "free" in out
-           and "Traceback" not in out, f"rc={rc} {out[-240:]}")
-        ck("and it asked the host for nothing at all: the cache holds no `.part`",
-           not list(cache.glob("*.part*")), str(sorted(cache.glob("*")))[:160])
+        ck(
+            "a disk with no room is refused BEFORE the request is made, with the free "
+            "space named as a number and `FLASH_GGUF_DIR` named as the way out — a "
+            "download that dies at 90% of 4.68 GB on a metered line costs the whole "
+            "day",
+            rc == 2
+            and "FLASH_GGUF_DIR" in out
+            and "free" in out
+            and "Traceback" not in out,
+            f"rc={rc} {out[-240:]}",
+        )
+        ck(
+            "and it asked the host for nothing at all: the cache holds no `.part`",
+            not list(cache.glob("*.part*")),
+            str(sorted(cache.glob("*")))[:160],
+        )
 
 
 def arms_unwritable(tmp: Path) -> None:
@@ -203,11 +243,16 @@ def arms_unwritable(tmp: Path) -> None:
     cache = tmp / "blocker" / "cache"
     with pinned(cache, "range", "http://127.0.0.1:1"):
         rc, out = go("--yes", "--backend", "llama.cpp")
-    ck("an unwritable cache directory is setup's own sentence, and it names the "
-       "directory, the error and the flag — not the permission problem the user has "
-       "to guess at",
-       rc == 1 and str(cache) in out and "FLASH_GGUF_DIR" in out
-       and "Traceback" not in out, f"rc={rc} {out[-260:]}")
+    ck(
+        "an unwritable cache directory is setup's own sentence, and it names the "
+        "directory, the error and the flag — not the permission problem the user has "
+        "to guess at",
+        rc == 1
+        and str(cache) in out
+        and "FLASH_GGUF_DIR" in out
+        and "Traceback" not in out,
+        f"rc={rc} {out[-260:]}",
+    )
 
 
 def arms_bad_bytes(tmp: Path, base: str) -> None:
@@ -215,13 +260,18 @@ def arms_bad_bytes(tmp: Path, base: str) -> None:
     cache = tmp / "bad"
     with pinned(cache, "bad", base):
         rc, out = go("--yes", "--backend", "llama.cpp")
-        ck("bytes that arrive whole but wrong stop the run where they arrived, "
-           "print BOTH hashes so a reader can see which half moved, and never reach "
-           "step 4 — a weight that is not the pinned one is not a weight to prove a "
-           "first answer on",
-           rc == 1 and "SHA256 MISMATCH" in out and "expected" in out
-           and "one real turn answers" not in out and "Traceback" not in out,
-           f"rc={rc} {out[-240:]}")
+        ck(
+            "bytes that arrive whole but wrong stop the run where they arrived, "
+            "print BOTH hashes so a reader can see which half moved, and never reach "
+            "step 4 — a weight that is not the pinned one is not a weight to prove a "
+            "first answer on",
+            rc == 1
+            and "SHA256 MISMATCH" in out
+            and "expected" in out
+            and "one real turn answers" not in out
+            and "Traceback" not in out,
+            f"rc={rc} {out[-240:]}",
+        )
 
 
 def arms_corrupt(tmp: Path) -> None:
@@ -233,14 +283,19 @@ def arms_corrupt(tmp: Path) -> None:
         (cache / t.filename).write_bytes(PAYLOAD[:-1] + bytes([PAYLOAD[-1] ^ 0xFF]))
         models.write_manifest("fast", t.filename)
         rc, out = go("--skip-pull", "--backend", "llama.cpp")
-        ck("a weight that no longer matches its pin stops at step 3 with the tier "
-           "named and `flash models pull fast --force` as the next command, and "
-           "refuses to run a turn on it — the manifest is a claim, the bytes are the "
-           "fact, and a first answer generated off bytes that are not the pinned "
-           "ones is an answer nobody can reproduce",
-           rc == 1 and "--force" in out and "not verified" in out
-           and "one real turn answers" not in out and "Traceback" not in out,
-           f"rc={rc} {out[-260:]}")
+        ck(
+            "a weight that no longer matches its pin stops at step 3 with the tier "
+            "named and `flash models pull fast --force` as the next command, and "
+            "refuses to run a turn on it — the manifest is a claim, the bytes are the "
+            "fact, and a first answer generated off bytes that are not the pinned "
+            "ones is an answer nobody can reproduce",
+            rc == 1
+            and "--force" in out
+            and "not verified" in out
+            and "one real turn answers" not in out
+            and "Traceback" not in out,
+            f"rc={rc} {out[-260:]}",
+        )
 
 
 def arms_reaches(tmp: Path) -> None:
@@ -249,19 +304,26 @@ def arms_reaches(tmp: Path) -> None:
     cache = tmp / "kwargs"
     real = models.fetch
     with pinned(cache, "range", "http://127.0.0.1:1"):
+
         def spy(t, **kw):
             seen.update(kw, tier=t.tier)
             return 0
+
         models.fetch = spy
         try:
             rc, out = go("--yes", "--backend", "llama.cpp", "--tier", "fast")
         finally:
             models.fetch = real
-        ck("`--yes` and the progress bar both reach `models.fetch` as the arguments "
-           "their names mean — an inert `--yes` is a prompt CI cannot answer, and an "
-           "inert bar is a multi-gigabyte download that looks like a hang",
-           seen.get("yes") is True and seen.get("progress") is True
-           and seen.get("tier") == "fast" and rc == 0, f"{seen} rc={rc}")
+        ck(
+            "`--yes` and the progress bar both reach `models.fetch` as the arguments "
+            "their names mean — an inert `--yes` is a prompt CI cannot answer, and an "
+            "inert bar is a multi-gigabyte download that looks like a hang",
+            seen.get("yes") is True
+            and seen.get("progress") is True
+            and seen.get("tier") == "fast"
+            and rc == 0,
+            f"{seen} rc={rc}",
+        )
 
 
 def arms_pull_then_hash(tmp: Path, base: str) -> None:
@@ -274,20 +336,30 @@ def arms_pull_then_hash(tmp: Path, base: str) -> None:
     with pinned(cache, "range", base):
         rc, out = go("--yes", "--backend", "llama.cpp")
         step3 = out.split("[3/5]")[1].split("[4/5]")[0]
-        ck("step 3 RE-READS the disk after a pull that succeeded, so the fresh bytes "
-           "are hashed like any other weight this command vouches for — the state "
-           "remembered from before the download would print `no hash to check` about "
-           "a file the run just wrote, and a first answer would rest on an "
-           "unverified weight",
-           rc == 0 and "no hash to check" not in out
-           and "SHA256" in step3.upper() and str(SIZE) in step3.replace(",", ""),
-           step3[:260])
-        ck("and step 5 can now say the honest thing it could not say on the clean "
-           "cache: which tier is where",
-           "weights: tier" in out and str(cache) in out, out[-200:])
-        ck("the file the run registered is the fixture, byte for byte — the gate "
-           "is reading the same disk the user's weight lives on",
-           (cache / models.TIERS["fast"].filename).read_bytes() == PAYLOAD, "")
+        ck(
+            "step 3 RE-READS the disk after a pull that succeeded, so the fresh bytes "
+            "are hashed like any other weight this command vouches for — the state "
+            "remembered from before the download would print `no hash to check` about "
+            "a file the run just wrote, and a first answer would rest on an "
+            "unverified weight",
+            rc == 0
+            and "no hash to check" not in out
+            and "SHA256" in step3.upper()
+            and str(SIZE) in step3.replace(",", ""),
+            step3[:260],
+        )
+        ck(
+            "and step 5 can now say the honest thing it could not say on the clean "
+            "cache: which tier is where",
+            "weights: tier" in out and str(cache) in out,
+            out[-200:],
+        )
+        ck(
+            "the file the run registered is the fixture, byte for byte — the gate "
+            "is reading the same disk the user's weight lives on",
+            (cache / models.TIERS["fast"].filename).read_bytes() == PAYLOAD,
+            "",
+        )
 
 
 def arms_ctrlc(tmp: Path) -> None:
@@ -300,11 +372,16 @@ def arms_ctrlc(tmp: Path) -> None:
             rc, out = go("--yes", "--backend", "llama.cpp")
         finally:
             models.fetch = real
-        ck("the user's own Ctrl-C is rc 130 and ONE line that says the download "
-           "resumes where it stopped — a first run interrupted by impatience must not "
-           "look like a crash",
-           rc == 130 and "Ctrl-C" in out and "resumes" in out
-           and "Traceback" not in out, f"rc={rc} {out[-200:]}")
+        ck(
+            "the user's own Ctrl-C is rc 130 and ONE line that says the download "
+            "resumes where it stopped — a first run interrupted by impatience must not "
+            "look like a crash",
+            rc == 130
+            and "Ctrl-C" in out
+            and "resumes" in out
+            and "Traceback" not in out,
+            f"rc={rc} {out[-200:]}",
+        )
 
 
 def arms_unexpected(tmp: Path) -> None:
@@ -313,24 +390,33 @@ def arms_unexpected(tmp: Path) -> None:
     real = setup.check_machine
     with pinned(cache, "range", "http://127.0.0.1:1"):
         try:
+
             def boom(_out):
                 raise RuntimeError("a library said something nobody predicted")
+
             setup.check_machine = boom
             rc, out = go("--skip-pull", "--backend", "llama.cpp")
-            ck("an error no step predicted is one sentence with the type, the "
-               "message and the flag that would show where it came from — and no "
-               "frame names, because a stack trace on a first run reads as \"the "
-               "install is broken\" rather than \"run this\"",
-               rc == 1 and "RuntimeError" in out and "--verbose" in out
-               and "Traceback" not in out, f"rc={rc} {out[-200:]}")
+            ck(
+                "an error no step predicted is one sentence with the type, the "
+                "message and the flag that would show where it came from — and no "
+                'frame names, because a stack trace on a first run reads as "the '
+                'install is broken" rather than "run this"',
+                rc == 1
+                and "RuntimeError" in out
+                and "--verbose" in out
+                and "Traceback" not in out,
+                f"rc={rc} {out[-200:]}",
+            )
             # `go` catches what escapes dispatch, because a mutant that lets an
             # exception out must fail a check rather than crash this file.
             rc2, out2 = go("--skip-pull", "--backend", "llama.cpp", "--verbose")
-            ck("`--verbose` is the ONLY way to get the traceback, and it is an "
-               "opt-in rather than a default — the person who needs the frame is the "
-               "one who asked for it",
-               rc2 == 99 and "RAISED OUT OF dispatch: RuntimeError" in out2,
-               f"rc={rc2} {out2[-200:]}")
+            ck(
+                "`--verbose` is the ONLY way to get the traceback, and it is an "
+                "opt-in rather than a default — the person who needs the frame is the "
+                "one who asked for it",
+                rc2 == 99 and "RAISED OUT OF dispatch: RuntimeError" in out2,
+                f"rc={rc2} {out2[-200:]}",
+            )
         finally:
             setup.check_machine = real
 
@@ -338,23 +424,34 @@ def arms_unexpected(tmp: Path) -> None:
 def arms_parser(tmp: Path) -> None:
     """The parser half: a stranger's typo must not become a silent no-op."""
     rc, out = child(["setup", "--tier", "fastt"], {})
-    ck("`flash setup --tier fastt` is refused before anything happens, with the "
-       "tier words that DO pinned — a typo must not quietly set up the other model",
-       rc == 2 and "invalid choice" in out and "fast" in out, f"rc={rc} {out[-160:]}")
+    ck(
+        "`flash setup --tier fastt` is refused before anything happens, with the "
+        "tier words that DO pinned — a typo must not quietly set up the other model",
+        rc == 2 and "invalid choice" in out and "fast" in out,
+        f"rc={rc} {out[-160:]}",
+    )
     rc, out = child(["setup", "--help"], {})
-    ck("and `flash setup --help` says what the command does in the user's terms and "
-       "shows one example, because the first command is the one read from help "
-       "rather than from a spec",
-       rc == 0 and "Five steps" in out and "example:" in out
-       and "--skip-pull" in out, f"rc={rc} {out[:220]}")
+    ck(
+        "and `flash setup --help` says what the command does in the user's terms and "
+        "shows one example, because the first command is the one read from help "
+        "rather than from a spec",
+        rc == 0 and "Five steps" in out and "example:" in out and "--skip-pull" in out,
+        f"rc={rc} {out[:220]}",
+    )
 
 
 def child(argv: list, env: dict | None = None) -> tuple[int, str]:
     e = dict(os.environ, PYTHONPATH=str(ROOT))
     e.update(env or {})
-    p = subprocess.run([PY, "-m", "flash.cli", *argv], cwd=ROOT, env=e,
-                       capture_output=True, text=True, timeout=1800,
-                       stdin=subprocess.DEVNULL)
+    p = subprocess.run(
+        [PY, "-m", "flash.cli", *argv],
+        cwd=ROOT,
+        env=e,
+        capture_output=True,
+        text=True,
+        timeout=1800,
+        stdin=subprocess.DEVNULL,
+    )
     return p.returncode, p.stdout + p.stderr
 
 
@@ -366,20 +463,33 @@ def arms_no_backend(tmp: Path) -> None:
     that genuinely cannot import `mlx`, `mlx_lm` or `llama_cpp`.
     """
     from backend_free_check import shim_env
+
     env = shim_env()
-    env["PYTHONPATH"] = (env["PYTHONPATH"] + os.pathsep + str(ROOT)
-                         if env.get("PYTHONPATH") else str(ROOT))
+    env["PYTHONPATH"] = (
+        env["PYTHONPATH"] + os.pathsep + str(ROOT)
+        if env.get("PYTHONPATH")
+        else str(ROOT)
+    )
     env["FLASH_GGUF_DIR"] = str(tmp / "nobackend")
     rc, out = child(["setup", "--skip-pull", "--tier", "fast"], env)
-    ck("a machine with no model library at all gets steps 1, 2 and 3 and then the "
-       "step-4 refusal as sentences, with a `pip install` in them and exit non-zero "
-       "— this is the exact box the README promises not to leave guessing",
-       rc == 2 and "[1/5]" in out and "[3/5]" in out and "pip install" in out
-       and "Traceback" not in out, f"rc={rc} {out[-320:]}")
-    ck("and the refusal says what this machine CAN still do instead of the answer, "
-       "so the command is not a dead end — `flash doctor` and the offline numbers "
-       "survive the missing library",
-       "flash doctor" in out or "offline" in out, out[-200:])
+    ck(
+        "a machine with no model library at all gets steps 1, 2 and 3 and then the "
+        "step-4 refusal as sentences, with a `pip install` in them and exit non-zero "
+        "— this is the exact box the README promises not to leave guessing",
+        rc == 2
+        and "[1/5]" in out
+        and "[3/5]" in out
+        and "pip install" in out
+        and "Traceback" not in out,
+        f"rc={rc} {out[-320:]}",
+    )
+    ck(
+        "and the refusal says what this machine CAN still do instead of the answer, "
+        "so the command is not a dead end — `flash doctor` and the offline numbers "
+        "survive the missing library",
+        "flash doctor" in out or "offline" in out,
+        out[-200:],
+    )
 
 
 def _tier_on_disk(cache: Path, tier: str) -> bool:
@@ -390,7 +500,7 @@ def _tier_on_disk(cache: Path, tier: str) -> bool:
     """
     try:
         name = str(json.loads((cache / backend.MANIFEST).read_text())[tier])
-    except Exception:                                     # noqa: BLE001
+    except Exception:  # noqa: BLE001
         return False
     return (cache / name).is_file()
 
@@ -404,32 +514,42 @@ def arms_live(tmp: Path) -> None:
     """
     can = any(p["available"] for p in backend.report())
     live = tmp / "live"
-    rc, out = child(["setup", "--skip-pull", "--tier", "fast"],
-                    {"FLASH_GGUF_DIR": str(live)})
+    rc, out = child(
+        ["setup", "--skip-pull", "--tier", "fast"], {"FLASH_GGUF_DIR": str(live)}
+    )
     if can:
-        ck("the live happy path: `flash setup --skip-pull` on a machine that CAN "
-           "answer runs one real turn and prints the words it got and the seconds "
-           "they took — this is the same command and the same weights the user "
-           "types, so the number on this line is the number they get",
-           rc == 0 and "one real turn answers" in out and "answered in" in out
-           and "Traceback" not in out, f"rc={rc} {out[-300:]}")
+        ck(
+            "the live happy path: `flash setup --skip-pull` on a machine that CAN "
+            "answer runs one real turn and prints the words it got and the seconds "
+            "they took — this is the same command and the same weights the user "
+            "types, so the number on this line is the number they get",
+            rc == 0
+            and "one real turn answers" in out
+            and "answered in" in out
+            and "Traceback" not in out,
+            f"rc={rc} {out[-300:]}",
+        )
         # Read the manifest from the cache the CHILD was given, not from this
         # process's `backend.GGUF_DIR`. The gate runs on the machine's real cache,
         # which on a box that has pulled `fast` says the tier is there while the
         # run under test was pointed at an empty directory — and a check that
         # compares a child's output to the parent's disk is a check about the gate,
         # not about the command.
-        ck("and step 5 lists the verbs WITHOUT inventing weights: the `weights:` "
-           "line appears exactly when the pinned tier is on disk, which is what "
-           "`--skip-pull` on a cache of its own cannot be",
-           ("weights: tier" in out) == (_tier_on_disk(live, "fast")),
-           out[-200:])
+        ck(
+            "and step 5 lists the verbs WITHOUT inventing weights: the `weights:` "
+            "line appears exactly when the pinned tier is on disk, which is what "
+            "`--skip-pull` on a cache of its own cannot be",
+            ("weights: tier" in out) == (_tier_on_disk(live, "fast")),
+            out[-200:],
+        )
     else:
-        ck("this box answers nothing, so the live arm is the no-backend arm: setup "
-           "must still exit non-zero with the remedy named, and not claim a turn it "
-           "did not run",
-           rc != 0 and "Traceback" not in out and "answered in" not in out,
-           f"rc={rc} {out[-300:]}")
+        ck(
+            "this box answers nothing, so the live arm is the no-backend arm: setup "
+            "must still exit non-zero with the remedy named, and not claim a turn it "
+            "did not run",
+            rc != 0 and "Traceback" not in out and "answered in" not in out,
+            f"rc={rc} {out[-300:]}",
+        )
 
 
 # ------------------------------------------------------------------ the gates
@@ -464,57 +584,103 @@ def run_gates(live: bool = True) -> None:
 # ------------------------------------------------------------------ mutants
 #: (label, [(path, old, new)]) — each restores a first run that LOOKS finished.
 MUTANTS = {
-    "skip_pull_still_pulls": ("`--skip-pull` hides the prompt but still spends the "
-                              "bytes, so a flag that promises no download is a flag "
-                              "that lies about it",
-                              [("flash/setup.py",
-                                "    fetching = gguf and not present and a.pull\n",
-                                "    fetching = gguf and not present\n")]),
-    "fresh_download_never_hashed": ("step 3 keeps the state it read BEFORE the pull, "
-                                    "so a weight that just arrived is reported as "
-                                    "`no hash to check` and never verified",
-                                    [("flash/setup.py",
-                                      "        present = not need_pull(a.tier)\n",
-                                      "        pass\n")]),
-    "bar_is_a_decoration": ("the download runs with `progress=False`, so a "
-                            "multi-gigabyte pull prints nothing for minutes and "
-                            "looks like a hung install",
-                            [("flash/setup.py",
-                              "        return models.fetch(t, yes=yes, "
-                              "progress=True, out=out)\n",
-                              "        return models.fetch(t, yes=yes, "
-                              "progress=False, out=out)\n")]),
-    "unverified_weight_still_runs": ("a weight whose hash does not match is still "
-                                     "loaded for step 4, so the first answer comes "
-                                     "from bytes that are not the pinned model",
-                                     [("flash/setup.py",
-                                       "    elif not verify(a.tier, out):\n",
-                                       "    elif False:\n")]),
-    "traceback_always": ("an error no step named re-raises whatever `--verbose` "
-                         "says, which puts a stack frame on the screen of the one "
-                         "reader who cannot use it",
-                         [("flash/setup.py",
-                           '        if getattr(a, "verbose", False):\n',
-                           '        if True:\n')]),
-    "weights_line_is_a_wish": ("step 5 promises weights whenever the user meant to "
-                               "fetch them, whether or not anything is on disk",
-                               [("flash/setup.py",
-                                 "    capabilities(ans, a.tier, present, secs, out)\n",
-                                 "    capabilities(ans, a.tier, True, secs, out)\n")]),
-    "doctor_paraphrased": ("step 1 writes its own tidy summary of the machine "
-                          "instead of printing doctor's report, so one fact has two "
-                          "wordings and only one of them is gated",
-                          [("flash/setup.py",
-                            "    say(doctor.report(ans), out=out)\n",
-                            "    say(\"this machine looks fine for flash\", out=out)\n")]),
-    "invented_token_rate": ("the closing line quotes tokens/s from a word count the "
-                            "run never tokenised, which is the borrowed unit this "
-                            "project keeps having to take back",
-                            [("flash/setup.py",
-                              '        say(f"    measured: that turn took '
-                              '{secs:.1f}s on this machine", out=out)\n',
-                              '        say(f"    measured: {1000.0 / max(secs, '
-                              '0.001):.1f} tokens/s on this machine", out=out)\n')]),
+    "skip_pull_still_pulls": (
+        "`--skip-pull` hides the prompt but still spends the "
+        "bytes, so a flag that promises no download is a flag "
+        "that lies about it",
+        [
+            (
+                "flash/setup.py",
+                "    fetching = gguf and not present and a.pull\n",
+                "    fetching = gguf and not present\n",
+            )
+        ],
+    ),
+    "fresh_download_never_hashed": (
+        "step 3 keeps the state it read BEFORE the pull, "
+        "so a weight that just arrived is reported as "
+        "`no hash to check` and never verified",
+        [
+            (
+                "flash/setup.py",
+                "        present = not need_pull(a.tier)\n",
+                "        pass\n",
+            )
+        ],
+    ),
+    "bar_is_a_decoration": (
+        "the download runs with `progress=False`, so a "
+        "multi-gigabyte pull prints nothing for minutes and "
+        "looks like a hung install",
+        [
+            (
+                "flash/setup.py",
+                "        return models.fetch(t, yes=yes, progress=True, out=out)\n",
+                "        return models.fetch(t, yes=yes, progress=False, out=out)\n",
+            )
+        ],
+    ),
+    "unverified_weight_still_runs": (
+        "a weight whose hash does not match is still "
+        "loaded for step 4, so the first answer comes "
+        "from bytes that are not the pinned model",
+        [
+            (
+                "flash/setup.py",
+                "    elif not verify(a.tier, out):\n",
+                "    elif False:\n",
+            )
+        ],
+    ),
+    "traceback_always": (
+        "an error no step named re-raises whatever `--verbose` "
+        "says, which puts a stack frame on the screen of the one "
+        "reader who cannot use it",
+        [
+            (
+                "flash/setup.py",
+                '        if getattr(a, "verbose", False):\n',
+                "        if True:\n",
+            )
+        ],
+    ),
+    "weights_line_is_a_wish": (
+        "step 5 promises weights whenever the user meant to "
+        "fetch them, whether or not anything is on disk",
+        [
+            (
+                "flash/setup.py",
+                "    capabilities(ans, a.tier, present, secs, out)\n",
+                "    capabilities(ans, a.tier, True, secs, out)\n",
+            )
+        ],
+    ),
+    "doctor_paraphrased": (
+        "step 1 writes its own tidy summary of the machine "
+        "instead of printing doctor's report, so one fact has two "
+        "wordings and only one of them is gated",
+        [
+            (
+                "flash/setup.py",
+                "    say(doctor.report(ans), out=out)\n",
+                '    say("this machine looks fine for flash", out=out)\n',
+            )
+        ],
+    ),
+    "invented_token_rate": (
+        "the closing line quotes tokens/s from a word count the "
+        "run never tokenised, which is the borrowed unit this "
+        "project keeps having to take back",
+        [
+            (
+                "flash/setup.py",
+                '        say(f"    measured: that turn took '
+                '{secs:.1f}s on this machine", out=out)\n',
+                '        say(f"    measured: {1000.0 / max(secs, '
+                '0.001):.1f} tokens/s on this machine", out=out)\n',
+            )
+        ],
+    ),
 }
 
 
@@ -542,16 +708,20 @@ def _repatched() -> None:
     fix the same way.
     """
     import importlib
+
     importlib.reload(setup)
 
 
 def mutate(one: str | None = None) -> int:
     #: Every file any mutant touches, captured before the first patch: a run that
     #: left half a mutant in the tree would certify code nobody tested.
-    pristine = {(ROOT / rel): (ROOT / rel).read_bytes()
-                for _, patches in MUTANTS.values() for rel, _, _ in patches}
+    pristine = {
+        (ROOT / rel): (ROOT / rel).read_bytes()
+        for _, patches in MUTANTS.values()
+        for rel, _, _ in patches
+    }
     ran = failed = 0
-    for name in ([one] if one else sorted(MUTANTS)):
+    for name in [one] if one else sorted(MUTANTS):
         label, patches = MUTANTS[name]
         CHECKS.clear()
         saved = _apply(patches)
@@ -562,16 +732,21 @@ def mutate(one: str | None = None) -> int:
             for p, text in saved:
                 p.write_text(text)
             _repatched()
-        left = [str(p.relative_to(ROOT)) for p, b in pristine.items()
-                if p.read_bytes() != b]
+        left = [
+            str(p.relative_to(ROOT)) for p, b in pristine.items() if p.read_bytes() != b
+        ]
         bad = [l for l, ok, _ in CHECKS if not ok]
         ran += 1
-        print(f"  {'ok  ' if bad and not left else 'FAIL'} MUTATION: {label} -> "
-              f"{len(bad)} check(s) fail" + (f"  {bad[0]}" if bad else "")
-              + (f"  MUTANT LEFT IN TREE: {left}" if left else ""))
+        print(
+            f"  {'ok  ' if bad and not left else 'FAIL'} MUTATION: {label} -> "
+            f"{len(bad)} check(s) fail"
+            + (f"  {bad[0]}" if bad else "")
+            + (f"  MUTANT LEFT IN TREE: {left}" if left else "")
+        )
         failed += not bad or bool(left)
-    print(f"\nsetup mutants: {ran - failed}/{ran} gates defeated by "
-          "exactly their checks")
+    print(
+        f"\nsetup mutants: {ran - failed}/{ran} gates defeated by exactly their checks"
+    )
     return failed
 
 
@@ -582,8 +757,10 @@ def main(argv: list) -> int:
     n = len(CHECKS)
     bad = [c for c in CHECKS if not c[1]]
     for label, ok, detail in CHECKS:
-        print(f"  {'OK  ' if ok else 'FAIL'} {label}"
-              + (f"\n       [{detail}]" if detail and not ok else ""))
+        print(
+            f"  {'OK  ' if ok else 'FAIL'} {label}"
+            + (f"\n       [{detail}]" if detail and not ok else "")
+        )
     print(f"\nsetup checks: {n - len(bad)}/{n} passed")
     if bad:
         return 1

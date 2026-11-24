@@ -8,6 +8,7 @@ This is the cheap layer that sits in front of every generative call:
 routing, tool selection, escalation, cache-worthiness, safety gates.
 ~10 decisions cost less than one generated sentence.
 """
+
 from __future__ import annotations
 
 import math
@@ -17,11 +18,11 @@ from dataclasses import dataclass
 
 @dataclass
 class Decision:
-    choice: str                    # winning option text
-    index: int                     # winning option index
-    confidence: float              # softmax probability of the winner
-    probs: dict[str, float]        # option -> probability (restricted softmax)
-    ms: float                      # wall time of the single forward pass
+    choice: str  # winning option text
+    index: int  # winning option index
+    confidence: float  # softmax probability of the winner
+    probs: dict[str, float]  # option -> probability (restricted softmax)
+    ms: float  # wall time of the single forward pass
 
 
 def _label_token_ids(tokenizer, n: int) -> list[int]:
@@ -36,8 +37,13 @@ def _label_token_ids(tokenizer, n: int) -> list[int]:
     return ids
 
 
-def decide(model, tokenizer, context: str, options: list[str],
-           question: str = "Which option best fits the context?") -> Decision:
+def decide(
+    model,
+    tokenizer,
+    context: str,
+    options: list[str],
+    question: str = "Which option best fits the context?",
+) -> Decision:
     """One prefill, restricted softmax over option labels. Never generates."""
     if not 2 <= len(options) <= 26:
         raise ValueError("need 2..26 options")
@@ -50,6 +56,7 @@ def decide(model, tokenizer, context: str, options: list[str],
     # or a GGUF's top-logprob table answers.
     import time
     from flash import backend
+
     be = backend.owner(model)
 
     labels = string.ascii_uppercase[: len(options)]
@@ -59,7 +66,7 @@ def decide(model, tokenizer, context: str, options: list[str],
     label_ids = _label_token_ids(tokenizer, len(options))
 
     t0 = time.perf_counter()
-    raw = be.probe(model, tokenizer, prompt, label_ids)     # one pass, no generation
+    raw = be.probe(model, tokenizer, prompt, label_ids)  # one pass, no generation
     ms = (time.perf_counter() - t0) * 1000
 
     # restricted softmax over just the options (renormalize):
@@ -69,5 +76,10 @@ def decide(model, tokenizer, context: str, options: list[str],
     probs = {opt: e / z for opt, e in zip(options, exps)}
 
     best_i = max(range(len(options)), key=lambda i: exps[i])
-    return Decision(choice=options[best_i], index=best_i,
-                    confidence=probs[options[best_i]], probs=probs, ms=round(ms, 1))
+    return Decision(
+        choice=options[best_i],
+        index=best_i,
+        confidence=probs[options[best_i]],
+        probs=probs,
+        ms=round(ms, 1),
+    )

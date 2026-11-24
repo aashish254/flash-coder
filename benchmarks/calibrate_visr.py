@@ -7,6 +7,7 @@ ABOVE the blank diff is exploitable.
 
 Run: .venv/bin/python benchmarks/calibrate_visr.py
 """
+
 from __future__ import annotations
 
 import sys
@@ -57,7 +58,6 @@ APPROX = {
 <span style="font-size:8pt">(example.com)</span><br>
 <span style="font-size:7pt">42 points by someone 1 hour ago | hide | 3 comments</span></li>
 </ol></body></html>""",
-
     # real4: unstyled HTML with the same text content and blue links
     "real4_cern_px": """<html><body>
 <h1>World Wide Web</h1>
@@ -80,7 +80,6 @@ this document, including an <a href="#">executive summary</a> of the project,
 <a href="#">NeXTStep</a> , <a href="#">Servers</a> , <a href="#">Tools</a> ,
 <a href="#">Mail robot</a> , <a href="#">Library</a> )</dd>
 </dl></body></html>""",
-
     # real5: white page, red wordmark, bordered input + button
     "real5_ddg_px": """<html><body style="margin:0;background:#fff;font-family:sans-serif">
 <h1 style="text-align:center;color:#d43d1f;font-size:24px;margin-top:28px">DuckDuckGo</h1>
@@ -101,15 +100,23 @@ def main() -> None:
     tasks = {t["id"]: t for t in load_tasks(ROOT / "tasks" / "visr_tasks.jsonl")}
     for tid, html in APPROX.items():
         t = tasks[tid]
-        target = str(ROOT.parent / t["image"]) if not Path(t["image"]).is_absolute() else t["image"]
+        target = (
+            str(ROOT.parent / t["image"])
+            if not Path(t["image"]).is_absolute()
+            else t["image"]
+        )
         bd, bi = probe(BLANK, target)
         ad, ai = probe(html, target)
         ti = ink_fraction(target)
         print(f"[{tid}] budget={t['pixel']:.0%}  target ink={ti:.1%}")
-        print(f"  blank:    diff={bd:.1%} ink={bi:.1%}"
-              f"{'  <-- EXPLOITABLE (blank under budget)' if bd <= t['pixel'] else ''}")
-        print(f"  mediocre: diff={ad:.1%} ink={ai:.1%} coverage={ai / max(ti, 1e-9):.0%}"
-              f"{'  <-- UNPASSABLE (mediocre over budget)' if ad > t['pixel'] else ''}")
+        print(
+            f"  blank:    diff={bd:.1%} ink={bi:.1%}"
+            f"{'  <-- EXPLOITABLE (blank under budget)' if bd <= t['pixel'] else ''}"
+        )
+        print(
+            f"  mediocre: diff={ad:.1%} ink={ai:.1%} coverage={ai / max(ti, 1e-9):.0%}"
+            f"{'  <-- UNPASSABLE (mediocre over budget)' if ad > t['pixel'] else ''}"
+        )
 
 
 if __name__ == "__main__":

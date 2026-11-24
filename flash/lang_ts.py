@@ -56,6 +56,7 @@ gets no ranked hint; R-1.2's live-upgrade equivalent asks jedi and there is no
 it, so a `.tsx` patch that parses is accepted on the strength of a parse. All three
 stay open in SPEC R-1.4 rather than being described as shipped.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -72,31 +73,124 @@ JS_SUFFIXES = (".js", ".jsx", ".mjs")
 
 # What the platform supplies. The mirror of `graph._BUILTINS`: an unresolved edge
 # for every `Math.round` buries the ones that would matter.
-_GLOBALS = frozenset({
-    "Math", "JSON", "Object", "Array", "Promise", "Date", "Number", "String",
-    "Boolean", "RegExp", "Map", "Set", "WeakMap", "WeakSet", "Symbol", "Error",
-    "TypeError", "RangeError", "SyntaxError", "globalThis", "window", "document",
-    "navigator", "location", "history", "localStorage", "sessionStorage",
-    "console", "process", "require", "module", "exports", "__dirname",
-    "__filename", "fetch", "setTimeout", "clearTimeout", "setInterval",
-    "clearInterval", "requestAnimationFrame", "cancelAnimationFrame", "Intl",
-    "BigInt", "URL", "URLSearchParams", "TextEncoder", "TextDecoder",
-    "structuredClone", "performance", "encodeURIComponent", "decodeURIComponent",
-    "React", "JSX", "Infinity", "NaN", "undefined", "arguments", "this",
-})
+_GLOBALS = frozenset(
+    {
+        "Math",
+        "JSON",
+        "Object",
+        "Array",
+        "Promise",
+        "Date",
+        "Number",
+        "String",
+        "Boolean",
+        "RegExp",
+        "Map",
+        "Set",
+        "WeakMap",
+        "WeakSet",
+        "Symbol",
+        "Error",
+        "TypeError",
+        "RangeError",
+        "SyntaxError",
+        "globalThis",
+        "window",
+        "document",
+        "navigator",
+        "location",
+        "history",
+        "localStorage",
+        "sessionStorage",
+        "console",
+        "process",
+        "require",
+        "module",
+        "exports",
+        "__dirname",
+        "__filename",
+        "fetch",
+        "setTimeout",
+        "clearTimeout",
+        "setInterval",
+        "clearInterval",
+        "requestAnimationFrame",
+        "cancelAnimationFrame",
+        "Intl",
+        "BigInt",
+        "URL",
+        "URLSearchParams",
+        "TextEncoder",
+        "TextDecoder",
+        "structuredClone",
+        "performance",
+        "encodeURIComponent",
+        "decodeURIComponent",
+        "React",
+        "JSX",
+        "Infinity",
+        "NaN",
+        "undefined",
+        "arguments",
+        "this",
+    }
+)
 
 # Type-level names from lib.d.ts. These arrive as `type_identifier` references, so
 # they would otherwise be counted as blind spots on every typed signature.
-_TS_LIB = frozenset({
-    "any", "unknown", "never", "void", "string", "number", "boolean", "object",
-    "symbol", "bigint", "Record", "Partial", "Required", "Readonly", "Omit",
-    "Pick", "Exclude", "Extract", "NonNullable", "Parameters", "ConstructorParameters",
-    "ReturnType", "InstanceType", "Awaited", "Uppercase", "Lowercase", "ThisType",
-    "ThisParameterType", "Iterable", "AsyncIterable", "IterableIterator",
-    "Iterator", "Function", "Console", "Window", "Document", "Element",
-    "HTMLElement", "NodeList", "Event", "KeyboardEvent", "MouseEvent", "Response",
-    "Request", "Headers", "AbortController", "Timeout", "NodeJS", "Schedule",
-})
+_TS_LIB = frozenset(
+    {
+        "any",
+        "unknown",
+        "never",
+        "void",
+        "string",
+        "number",
+        "boolean",
+        "object",
+        "symbol",
+        "bigint",
+        "Record",
+        "Partial",
+        "Required",
+        "Readonly",
+        "Omit",
+        "Pick",
+        "Exclude",
+        "Extract",
+        "NonNullable",
+        "Parameters",
+        "ConstructorParameters",
+        "ReturnType",
+        "InstanceType",
+        "Awaited",
+        "Uppercase",
+        "Lowercase",
+        "ThisType",
+        "ThisParameterType",
+        "Iterable",
+        "AsyncIterable",
+        "IterableIterator",
+        "Iterator",
+        "Function",
+        "Console",
+        "Window",
+        "Document",
+        "Element",
+        "HTMLElement",
+        "NodeList",
+        "Event",
+        "KeyboardEvent",
+        "MouseEvent",
+        "Response",
+        "Request",
+        "Headers",
+        "AbortController",
+        "Timeout",
+        "NodeJS",
+        "Schedule",
+    }
+)
 
 # tree-sitter declaration node type -> this graph's kind vocabulary.
 _KIND = {
@@ -115,28 +209,45 @@ _KIND = {
 }
 
 # A declaration's own `name` field is not a use of that name.
-_NAME_FIELDS = frozenset({
-    ("function_declaration", "name"), ("generator_function_declaration", "name"),
-    ("class_declaration", "name"), ("abstract_class_declaration", "name"),
-    ("interface_declaration", "name"), ("type_alias_declaration", "name"),
-    ("enum_declaration", "name"), ("method_definition", "name"),
-    ("variable_declarator", "name"), ("public_field_definition", "name"),
-    ("property_signature", "name"), ("field_definition", "name"),
-    ("shorthand_property_identifier_pattern", None),
-    ("required_parameter", "pattern"), ("optional_parameter", "pattern"),
-    ("labeled_statement", "label"), ("label", None), ("statement_identifier", None),
-    ("accessibility_modifier", None), ("property_identifier", None),
-    ("optional_call_expression", None), ("function_type", None),
-    ("call_signature", None), ("construct_signature", None),
-    ("method_signature", None), ("method_definition", "name"),
-    ("pair", "key"), ("shorthand_property_identifier", None),
-    ("required_parameter", None), ("spread_element", None),
-})
+_NAME_FIELDS = frozenset(
+    {
+        ("function_declaration", "name"),
+        ("generator_function_declaration", "name"),
+        ("class_declaration", "name"),
+        ("abstract_class_declaration", "name"),
+        ("interface_declaration", "name"),
+        ("type_alias_declaration", "name"),
+        ("enum_declaration", "name"),
+        ("method_definition", "name"),
+        ("variable_declarator", "name"),
+        ("public_field_definition", "name"),
+        ("property_signature", "name"),
+        ("field_definition", "name"),
+        ("shorthand_property_identifier_pattern", None),
+        ("required_parameter", "pattern"),
+        ("optional_parameter", "pattern"),
+        ("labeled_statement", "label"),
+        ("label", None),
+        ("statement_identifier", None),
+        ("accessibility_modifier", None),
+        ("property_identifier", None),
+        ("optional_call_expression", None),
+        ("function_type", None),
+        ("call_signature", None),
+        ("construct_signature", None),
+        ("method_signature", None),
+        ("method_definition", "name"),
+        ("pair", "key"),
+        ("shorthand_property_identifier", None),
+        ("required_parameter", None),
+        ("spread_element", None),
+    }
+)
 
 
 def _clip(line: str) -> str:
     t = line.strip()
-    return t if len(t) <= MAX_TEXT else t[:MAX_TEXT - 1] + "…"
+    return t if len(t) <= MAX_TEXT else t[: MAX_TEXT - 1] + "…"
 
 
 def _join(container: str, name: str) -> str:
@@ -181,15 +292,18 @@ def available() -> tuple[bool, str]:
     try:
         import tree_sitter
         import tree_sitter_typescript
-    except Exception as exc:                       # noqa: BLE001 - report, do not crash
-        _REFUSAL = (f"{type(exc).__name__}: {exc}. The TypeScript grammar is an "
-                    f"optional extra: pip install 'flash-coder[ts]'")
+    except Exception as exc:  # noqa: BLE001 - report, do not crash
+        _REFUSAL = (
+            f"{type(exc).__name__}: {exc}. The TypeScript grammar is an "
+            f"optional extra: pip install 'flash-coder[ts]'"
+        )
         return False, _REFUSAL
     try:
-        _LANGS["ts"] = tree_sitter.Language(tree_sitter_typescript
-                                            .language_typescript())
+        _LANGS["ts"] = tree_sitter.Language(
+            tree_sitter_typescript.language_typescript()
+        )
         _LANGS["tsx"] = tree_sitter.Language(tree_sitter_typescript.language_tsx())
-    except Exception as exc:                       # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001
         _REFUSAL = f"{type(exc).__name__}: {exc}"
         return False, _REFUSAL
     return True, "loaded"
@@ -206,6 +320,7 @@ def parse(rel: str, src: str):
     if not ok:
         raise RuntimeError(why)
     import tree_sitter
+
     lang = _LANGS["tsx" if rel.endswith(".tsx") else "ts"]
     return tree_sitter.Parser(lang).parse(bytes(src, "utf-8"))
 
@@ -231,6 +346,7 @@ class FileIndex:
     `follows_star` says an `export * from` is in play, which is why
     `ts-unique-export` refuses to guess past it.
     """
+
     path: str
     module_id: str
     exports: dict[str, str] = field(default_factory=dict)
@@ -242,6 +358,7 @@ class FileIndex:
 @dataclass
 class RepoIndex:
     """TypeScript module resolution for one tree, built before any edge exists."""
+
     files: dict[str, FileIndex] = field(default_factory=dict)
     failed: dict[str, str] = field(default_factory=dict)
 
@@ -267,8 +384,11 @@ class RepoIndex:
         holds no node for `x`, so guessing it would point the edge at a symbol
         that does not exist in the file the graph claims to name.
         """
-        hits = [f for f, ix in self.files.items()
-                if name in ix.exports and name not in ix.reexports]
+        hits = [
+            f
+            for f, ix in self.files.items()
+            if name in ix.exports and name not in ix.reexports
+        ]
         return hits[0] if len(hits) == 1 else ""
 
 
@@ -304,10 +424,12 @@ def _decl_and_default(stmt):
     if stmt.type == "export_statement":
         is_default = any(c.type == "default" for c in stmt.children)
         for c in _named(stmt):
-            if c.type in _KIND or c.type in ("lexical_declaration",
-                                             "variable_declaration",
-                                             "internal_module",
-                                             "expression_statement"):
+            if c.type in _KIND or c.type in (
+                "lexical_declaration",
+                "variable_declaration",
+                "internal_module",
+                "expression_statement",
+            ):
                 return c, is_default
         return None, is_default
     return stmt, False
@@ -315,8 +437,12 @@ def _decl_and_default(stmt):
 
 def _declarator_kind(vd) -> str:
     value = vd.child_by_field_name("value")
-    if value is not None and value.type in ("arrow_function", "function_expression",
-                                            "function", "generator_function"):
+    if value is not None and value.type in (
+        "arrow_function",
+        "function_expression",
+        "function",
+        "generator_function",
+    ):
         return "function"
     return "constant"
 
@@ -369,8 +495,12 @@ def _declarations(rel: str, root_node) -> tuple[list[Node], FileIndex]:
                 name = _text(vd.child_by_field_name("name"))
                 if not name:
                     continue
-                add(name, _declarator_kind(vd), stmt.start_point[0] + 1,
-                    stmt.end_point[0] + 1)
+                add(
+                    name,
+                    _declarator_kind(vd),
+                    stmt.start_point[0] + 1,
+                    stmt.end_point[0] + 1,
+                )
                 if stmt.type == "export_statement":
                     ix.exports[name] = name
                 if is_default:
@@ -387,15 +517,26 @@ def _declarations(rel: str, root_node) -> tuple[list[Node], FileIndex]:
             ix.exports["default"] = name
         if decl.type in ("class_declaration", "abstract_class_declaration"):
             body = decl.child_by_field_name("body")
-            for m in (_named(body) if body is not None else []):
+            for m in _named(body) if body is not None else []:
                 mname = _text(m.child_by_field_name("name"))
                 if m.type == "method_definition" and mname:
-                    add(_join(name, mname), "method", m.start_point[0] + 1,
-                        m.end_point[0] + 1)
-                elif m.type == "public_field_definition" and mname and (
-                        m.child_by_field_name("value") is not None):
-                    add(_join(name, mname), "constant", m.start_point[0] + 1,
-                        m.end_point[0] + 1)
+                    add(
+                        _join(name, mname),
+                        "method",
+                        m.start_point[0] + 1,
+                        m.end_point[0] + 1,
+                    )
+                elif (
+                    m.type == "public_field_definition"
+                    and mname
+                    and (m.child_by_field_name("value") is not None)
+                ):
+                    add(
+                        _join(name, mname),
+                        "constant",
+                        m.start_point[0] + 1,
+                        m.end_point[0] + 1,
+                    )
     ix.ids = ids
     return nodes, ix
 
@@ -444,8 +585,10 @@ def syntax_error(rel: str, src: str) -> str:
     if err is None:
         # An error the grammar swallowed at the end of the file: `has_error` is
         # set and no node is marked, so the far edge of the tree is the truth.
-        return (f"line {root.end_point[0] + 1}: the grammar resynchronised past "
-                f"a statement that never closes")
+        return (
+            f"line {root.end_point[0] + 1}: the grammar resynchronised past "
+            f"a statement that never closes"
+        )
     shown = _text(err).splitlines()[0].strip()[:48]
     return f"line {err.start_point[0] + 1}: {err.type.lower()} {shown!r}"
 
@@ -475,15 +618,24 @@ def definitions(rel: str, src: str) -> list:
     relies on for Python. `col` is the indentation of the span's first line, so
     `normalise` restores a column-0 replacement to the member's real nesting.
     """
-    from flash.patches import Def          # lazy: flash.graph imports both
+    from flash.patches import Def  # lazy: flash.graph imports both
+
     nodes, _ix = _declarations(rel, parse(rel, src).root_node)
     lines = src.split("\n")
     out = []
-    for n in nodes[1:]:                    # nodes[0] is the module itself
+    for n in nodes[1:]:  # nodes[0] is the module itself
         head = lines[n.start - 1] if 0 < n.start <= len(lines) else ""
         container, _, name = n.symbol.rpartition(".")
-        out.append(Def(name, container, n.start, n.end,
-                       len(head) - len(head.lstrip()), _begins_export(head)))
+        out.append(
+            Def(
+                name,
+                container,
+                n.start,
+                n.end,
+                len(head) - len(head.lstrip()),
+                _begins_export(head),
+            )
+        )
     return out
 
 
@@ -510,8 +662,14 @@ def _pattern_names(n, out: set[str]) -> None:
         out.add(_text(n))
     elif n.type == "shorthand_property_identifier_pattern":
         out.add(_text(n))
-    elif n.type in ("object_pattern", "array_pattern", "rest_pattern",
-                    "object_assignment_pattern", "pair", "pair_pattern"):
+    elif n.type in (
+        "object_pattern",
+        "array_pattern",
+        "rest_pattern",
+        "object_assignment_pattern",
+        "pair",
+        "pair_pattern",
+    ):
         for c in _named(n):
             _pattern_names(c, out)
     elif n.type == "property_identifier":
@@ -521,11 +679,13 @@ def _pattern_names(n, out: set[str]) -> None:
 def _binds(node, out: set[str]) -> None:
     t = node.type
     if t in ("variable_declarator", "assignment_pattern", "assignment_expression"):
-        _pattern_names(node.child_by_field_name("name")
-                       or node.child_by_field_name("left"), out)
+        _pattern_names(
+            node.child_by_field_name("name") or node.child_by_field_name("left"), out
+        )
     elif t in ("required_parameter", "optional_parameter"):
-        _pattern_names(node.child_by_field_name("pattern")
-                       or node.child_by_field_name("name"), out)
+        _pattern_names(
+            node.child_by_field_name("pattern") or node.child_by_field_name("name"), out
+        )
     elif t == "formal_parameters":
         for c in _named(node):
             _binds(c, out)
@@ -534,8 +694,12 @@ def _binds(node, out: set[str]) -> None:
             out.add(_text(c))
     elif t == "import_statement":
         out.update(_import_locals(node))
-    elif t in ("method_definition", "public_field_definition", "field_definition",
-               "property_signature"):
+    elif t in (
+        "method_definition",
+        "public_field_definition",
+        "field_definition",
+        "property_signature",
+    ):
         _pattern_names(node.child_by_field_name("name"), out)
 
 
@@ -548,8 +712,7 @@ def _scope_locals(decl) -> set[str]:
             _binds(c, out)
     if decl.type == "formal_parameters":
         _binds(decl, out)
-    body = (decl.child_by_field_name("body")
-            or decl.child_by_field_name("value"))
+    body = decl.child_by_field_name("body") or decl.child_by_field_name("value")
     if body is not None:
         for c in _walk(body, "variable_declarator"):
             _binds(c, out)
@@ -558,9 +721,14 @@ def _scope_locals(decl) -> set[str]:
         for c in _named(body):
             if c.type in ("catch_clause", "class_heritage"):
                 _binds(c, out)
-        for kind in ("function_declaration", "generator_function_declaration",
-                     "class_declaration", "interface_declaration",
-                     "type_alias_declaration", "enum_declaration"):
+        for kind in (
+            "function_declaration",
+            "generator_function_declaration",
+            "class_declaration",
+            "interface_declaration",
+            "type_alias_declaration",
+            "enum_declaration",
+        ):
             for c in _walk(body, kind):
                 _pattern_names(c.child_by_field_name("name"), out)
     return out
@@ -587,7 +755,8 @@ def _import_rows(node) -> list[tuple[str, str, str]]:
                 # `name` field, so reading the field bound nothing and every name
                 # reached through the namespace became a blind spot.
                 nm = c.child_by_field_name("name") or next(
-                    (x for x in _named(c) if x.type == "identifier"), None)
+                    (x for x in _named(c) if x.type == "identifier"), None
+                )
                 if nm is not None:
                     out.append((_text(nm), spec, "*"))
             elif c.type == "named_imports":
@@ -607,13 +776,14 @@ def _import_rows(node) -> list[tuple[str, str, str]]:
 
 @dataclass
 class _Scope:
-    caller: str = ""      # the symbol an edge from here is attributed to
-    cls: str = ""         # its class, for `this.member`
+    caller: str = ""  # the symbol an edge from here is attributed to
+    cls: str = ""  # its class, for `this.member`
     locals: set[str] = field(default_factory=set)
 
 
-def extract_ts(rel: str, tree, idx: RepoIndex) -> tuple[list[Node], list[Edge],
-                                                        list[Unresolved]]:
+def extract_ts(
+    rel: str, tree, idx: RepoIndex
+) -> tuple[list[Node], list[Edge], list[Unresolved]]:
     """One file's nodes, its edges, and the uses this pass could not place.
 
     The three buckets and their meanings are `flash.graph.extract`'s. Called with
@@ -638,7 +808,7 @@ def extract_ts(rel: str, tree, idx: RepoIndex) -> tuple[list[Node], list[Edge],
         return _clip(lines[i].decode("utf-8", "replace")) if 0 <= i < len(lines) else ""
 
     # --- imports: the file→file edges, and the table the names resolve through
-    imports: dict[str, tuple[str, str]] = {}     # local -> (specifier, imported)
+    imports: dict[str, tuple[str, str]] = {}  # local -> (specifier, imported)
     imports_line: dict[str, int] = {}
     seen: dict[str, tuple[int, str]] = {}
     for stmt in _named(tree.root_node):
@@ -652,8 +822,9 @@ def extract_ts(rel: str, tree, idx: RepoIndex) -> tuple[list[Node], list[Edge],
     for spec, (line, text) in seen.items():
         dst = idx.place(spec, rel)
         if dst:
-            edges.append(Edge(module_id, f"{dst}::", "imports", rel, line, text,
-                              "ts-import"))
+            edges.append(
+                Edge(module_id, f"{dst}::", "imports", rel, line, text, "ts-import")
+            )
         else:
             unres.append(Unresolved(rel, line, spec, _missing_reason(spec)))
     for local, (spec, sym) in imports.items():
@@ -665,12 +836,22 @@ def extract_ts(rel: str, tree, idx: RepoIndex) -> tuple[list[Node], list[Edge],
             _EXTERNAL_LOCALS.setdefault(rel, set()).add(local)
             continue
         tix = idx.files[dst]
-        if sym not in ("*", "default") and sym not in tix.exports \
-                and not tix.follows_star and tix.ids:
+        if (
+            sym not in ("*", "default")
+            and sym not in tix.exports
+            and not tix.follows_star
+            and tix.ids
+        ):
             # A broken import is a fact about the statement, not about the use, so
             # it is reported once here rather than once per call site.
-            unres.append(Unresolved(rel, imports_line.get(local, 1), local,
-                                    f"{spec} does not export {sym!r}"))
+            unres.append(
+                Unresolved(
+                    rel,
+                    imports_line.get(local, 1),
+                    local,
+                    f"{spec} does not export {sym!r}",
+                )
+            )
 
     ext_locals = _EXTERNAL_LOCALS.get(rel, set())
 
@@ -703,8 +884,11 @@ def extract_ts(rel: str, tree, idx: RepoIndex) -> tuple[list[Node], list[Edge],
                 return "", "", "outside"
             if sym == "default":
                 s = tix.exports.get("default")
-                return ((f"{dst}::{s}", "ts-default-export", "") if s
-                        else (f"{dst}::", "ts-import-file", ""))
+                return (
+                    (f"{dst}::{s}", "ts-default-export", "")
+                    if s
+                    else (f"{dst}::", "ts-import-file", "")
+                )
             s = tix.exports.get(sym)
             if s and f"{dst}::{s}" in tix.ids:
                 return f"{dst}::{s}", "ts-import", ""
@@ -720,8 +904,14 @@ def extract_ts(rel: str, tree, idx: RepoIndex) -> tuple[list[Node], list[Edge],
                 return target, "ts-unique-export", ""
         return "", "", "unknown"
 
-    def add(caller: str, site, kind_edge: str, name: str, stack: list[_Scope],
-            via_hint: str = "") -> None:
+    def add(
+        caller: str,
+        site,
+        kind_edge: str,
+        name: str,
+        stack: list[_Scope],
+        via_hint: str = "",
+    ) -> None:
         src = f"{rel}::{caller}" if caller else module_id
         line, text = line_of(site), text_of(site)
         if "." in name or name.startswith("this."):
@@ -730,11 +920,13 @@ def extract_ts(rel: str, tree, idx: RepoIndex) -> tuple[list[Node], list[Edge],
                 owner = stack[-1].cls if stack else ""
                 cand = f"{rel}::{_join(owner, tail or name.split('.')[-1])}"
                 if owner and cand in ids:
-                    edges.append(Edge(src, cand, kind_edge, rel, line, text,
-                                      "ts-own-scope"))
+                    edges.append(
+                        Edge(src, cand, kind_edge, rel, line, text, "ts-own-scope")
+                    )
                 else:
-                    unres.append(Unresolved(rel, line, name,
-                                            "member this class does not define"))
+                    unres.append(
+                        Unresolved(rel, line, name, "member this class does not define")
+                    )
                 return
             hit = imports.get(head)
             target = ""
@@ -748,38 +940,58 @@ def extract_ts(rel: str, tree, idx: RepoIndex) -> tuple[list[Node], list[Edge],
             elif f"{rel}::{name}" in ids:
                 target = f"{rel}::{name}"
             if target:
-                edges.append(Edge(src, target, kind_edge, rel, line, text,
-                                  "ts-qualified-name"))
+                edges.append(
+                    Edge(src, target, kind_edge, rel, line, text, "ts-qualified-name")
+                )
             elif hit and idx.place(hit[0], rel):
-                unres.append(Unresolved(rel, line, name,
-                                        f"{hit[0]} does not export {tail!r}"))
+                unres.append(
+                    Unresolved(rel, line, name, f"{hit[0]} does not export {tail!r}")
+                )
             elif head in _GLOBALS or head in ext_locals:
                 return
             else:
-                unres.append(Unresolved(rel, line, name,
-                                        f"{head!r} does not resolve to a file here"))
+                unres.append(
+                    Unresolved(
+                        rel, line, name, f"{head!r} does not resolve to a file here"
+                    )
+                )
             return
         dst, via, why = resolve(name, stack)
         if dst:
-            edges.append(Edge(src, dst, kind_edge, rel, line, text,
-                              via_hint or via))
+            edges.append(Edge(src, dst, kind_edge, rel, line, text, via_hint or via))
         elif why == "not-exported":
-            return          # the import statement itself already reported this
+            return  # the import statement itself already reported this
         elif why == "star":
-            unres.append(Unresolved(rel, line, name,
-                                    "reaches through `export *`, which this pass "
-                                    "does not follow"))
+            unres.append(
+                Unresolved(
+                    rel,
+                    line,
+                    name,
+                    "reaches through `export *`, which this pass does not follow",
+                )
+            )
         elif why == "reexport":
-            unres.append(Unresolved(rel, line, name,
-                                    "imported from a file that only re-exports it, "
-                                    "one hop this pass does not follow"))
+            unres.append(
+                Unresolved(
+                    rel,
+                    line,
+                    name,
+                    "imported from a file that only re-exports it, "
+                    "one hop this pass does not follow",
+                )
+            )
         elif why == "unknown":
             # The count `Radius.summary()` calls its floor is made of exactly
             # these: a use this pass saw and could not place. Dropping them would
             # turn an incomplete answer into a tidy one.
-            unres.append(Unresolved(rel, line, name,
-                                    "no definition, import or platform name here "
-                                    "matches it"))
+            unres.append(
+                Unresolved(
+                    rel,
+                    line,
+                    name,
+                    "no definition, import or platform name here matches it",
+                )
+            )
 
     def ref_name(n) -> str:
         if n is None:
@@ -832,10 +1044,16 @@ def extract_ts(rel: str, tree, idx: RepoIndex) -> tuple[list[Node], list[Edge],
                 if prop is not None and prop.type == "computed_property_name":
                     walk(prop, stack)
                 continue
-            if t in ("function_declaration", "generator_function_declaration",
-                     "class_declaration", "abstract_class_declaration",
-                     "interface_declaration", "type_alias_declaration",
-                     "enum_declaration", "internal_module"):
+            if t in (
+                "function_declaration",
+                "generator_function_declaration",
+                "class_declaration",
+                "abstract_class_declaration",
+                "interface_declaration",
+                "type_alias_declaration",
+                "enum_declaration",
+                "internal_module",
+            ):
                 name = _text(c.child_by_field_name("name"))
                 outer = stack[-1]
                 sym = _join(outer.cls, name) if outer.cls else name
@@ -847,17 +1065,23 @@ def extract_ts(rel: str, tree, idx: RepoIndex) -> tuple[list[Node], list[Edge],
                 walk(c, stack + [_Scope(sym, outer.cls, _scope_locals(c))])
                 continue
             if t in ("arrow_function", "function_expression", "function"):
-                walk(c, stack + [_Scope(outer_caller(stack),
-                                        stack[-1].cls, _scope_locals(c))])
+                walk(
+                    c,
+                    stack
+                    + [_Scope(outer_caller(stack), stack[-1].cls, _scope_locals(c))],
+                )
                 continue
             if t in ("lexical_declaration", "variable_declaration"):
                 # `export const scale = (n) => twice(n)` — the uses inside belong
                 # to `scale`, not to the file, or the graph could not answer who
                 # reaches `twice` without naming the whole module.
-                names = [_text(vd.child_by_field_name("name"))
-                         for vd in _walk(c, "variable_declarator")]
-                caller = next((n for n in names if f"{rel}::{n}" in ids),
-                              stack[-1].caller)
+                names = [
+                    _text(vd.child_by_field_name("name"))
+                    for vd in _walk(c, "variable_declarator")
+                ]
+                caller = next(
+                    (n for n in names if f"{rel}::{n}" in ids), stack[-1].caller
+                )
                 for nm in names:
                     stack[-1].locals.add(nm)
                 walk(c, stack + [_Scope(caller, stack[-1].cls, set(names))])
@@ -883,14 +1107,18 @@ def extract_ts(rel: str, tree, idx: RepoIndex) -> tuple[list[Node], list[Edge],
                 nm = ref_name(tag)
                 # A lowercase tag with no definition or import behind it is an HTML
                 # element, not a component this tree exports.
-                if nm and not ("." not in nm and nm[:1].islower()
-                               and nm not in imports and f"{rel}::{nm}" not in ids
-                               and nm not in ext_locals):
+                if nm and not (
+                    "." not in nm
+                    and nm[:1].islower()
+                    and nm not in imports
+                    and f"{rel}::{nm}" not in ids
+                    and nm not in ext_locals
+                ):
                     add(stack[-1].caller, tag, "calls", nm, stack, "ts-jsx")
                 walk(c, stack, skip=tag)
                 continue
             if t == "jsx_closing_element":
-                continue          # the tag was already charged at the opening one
+                continue  # the tag was already charged at the opening one
             if t in ("extends_clause", "implements_clause"):
                 for tc in _named(c):
                     nm = ref_name(tc)
@@ -913,9 +1141,12 @@ def extract_ts(rel: str, tree, idx: RepoIndex) -> tuple[list[Node], list[Edge],
                 walk(c, stack)
                 continue
             if t == "identifier":
-                if (_is_own_name(node, c) or _is_binding(node, c)
-                        or _field_of(node, c) in _NOT_USES
-                        or _text(c) == "this"):
+                if (
+                    _is_own_name(node, c)
+                    or _is_binding(node, c)
+                    or _field_of(node, c) in _NOT_USES
+                    or _text(c) == "this"
+                ):
                     walk(c, stack)
                     continue
                 add(stack[-1].caller, c, "reads", _text(c), stack)
@@ -928,9 +1159,15 @@ def extract_ts(rel: str, tree, idx: RepoIndex) -> tuple[list[Node], list[Edge],
     walk(tree.root_node, [_Scope("", "", set())])
     err = _first_error(tree.root_node)
     if err is not None:
-        unres.append(Unresolved(rel, line_of(err), "<file>",
-                                "the grammar reported a syntax error here, so this "
-                                "file's edges are a floor"))
+        unres.append(
+            Unresolved(
+                rel,
+                line_of(err),
+                "<file>",
+                "the grammar reported a syntax error here, so this "
+                "file's edges are a floor",
+            )
+        )
     return nodes, edges, unres
 
 
@@ -962,25 +1199,47 @@ def _field_of(parent, child) -> str:
     """Which field of its parent a node is, so keys and names stop being uses."""
     if parent is None or child is None:
         return ""
-    for k in ("function", "name", "alias", "property", "key", "object", "type",
-              "value", "arguments", "left", "right", "source", "operator"):
+    for k in (
+        "function",
+        "name",
+        "alias",
+        "property",
+        "key",
+        "object",
+        "type",
+        "value",
+        "arguments",
+        "left",
+        "right",
+        "source",
+        "operator",
+    ):
         if _same(parent.child_by_field_name(k), child):
             return k
     return ""
 
 
 # Roles an identifier can hold that are NOT a use of a repo symbol.
-_NOT_USES = frozenset({"property", "key", "alias", "name", "type", "operator",
-                       "source"})
+_NOT_USES = frozenset(
+    {"property", "key", "alias", "name", "type", "operator", "source"}
+)
 
 
 def _is_own_name(parent, child) -> bool:
-    if parent.type in ("method_definition", "function_declaration",
-                       "generator_function_declaration", "class_declaration",
-                       "abstract_class_declaration", "interface_declaration",
-                       "type_alias_declaration", "enum_declaration",
-                       "variable_declarator", "public_field_definition",
-                       "field_definition", "property_signature"):
+    if parent.type in (
+        "method_definition",
+        "function_declaration",
+        "generator_function_declaration",
+        "class_declaration",
+        "abstract_class_declaration",
+        "interface_declaration",
+        "type_alias_declaration",
+        "enum_declaration",
+        "variable_declarator",
+        "public_field_definition",
+        "field_definition",
+        "property_signature",
+    ):
         return _same(parent.child_by_field_name("name"), child)
     return False
 
@@ -1013,8 +1272,10 @@ def _types(ta, add, stack) -> None:
 
 def _missing_reason(spec: str) -> str:
     if spec.startswith("."):
-        return ("relative import no indexed TypeScript file answers "
-                "(wrong path, or the target is data rather than a module)")
+        return (
+            "relative import no indexed TypeScript file answers "
+            "(wrong path, or the target is data rather than a module)"
+        )
     return "npm package, outside this tree"
 
 
@@ -1037,7 +1298,7 @@ def scan(root: str | Path) -> tuple[RepoIndex, dict[str, object]]:
         rel = str(p.relative_to(root)).replace("\\", "/")
         try:
             tree = parse(rel, p.read_text(encoding="utf-8", errors="replace"))
-        except Exception as exc:                   # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001
             # An unreadable or unparseable file must not vanish: its absence would
             # read as "nothing reaches this symbol" to whoever asks next.
             idx.files[rel] = FileIndex(rel, f"{rel}::")
@@ -1049,9 +1310,11 @@ def scan(root: str | Path) -> tuple[RepoIndex, dict[str, object]]:
     return idx, trees
 
 
-def collect(root: str | Path) -> tuple[dict[str, Node], list[Edge],
-                                       list[Unresolved], dict[str, str],
-                                       dict[str, float]]:
+def collect(
+    root: str | Path,
+) -> tuple[
+    dict[str, Node], list[Edge], list[Unresolved], dict[str, str], dict[str, float]
+]:
     """The second language's records, in the shapes `graph.build` folds together."""
     root = Path(root)
     t0 = time.perf_counter() * 1000.0
@@ -1070,10 +1333,17 @@ def collect(root: str | Path) -> tuple[dict[str, Node], list[Edge],
         hashes[rel] = hashlib.sha1(p.read_bytes()).hexdigest() if p.is_file() else ""
     for rel, why in idx.failed.items():
         unres.append(Unresolved(rel, 1, "<file>", f"not indexed: {why}"))
-    return nodes, edges, unres, hashes, {
-        "ts_files": float(len(trees)),
-        "ts_unreadable": float(len(idx.failed)),
-        "ts_cold_ms": round(time.perf_counter() * 1000.0 - t0, 1)}
+    return (
+        nodes,
+        edges,
+        unres,
+        hashes,
+        {
+            "ts_files": float(len(trees)),
+            "ts_unreadable": float(len(idx.failed)),
+            "ts_cold_ms": round(time.perf_counter() * 1000.0 - t0, 1),
+        },
+    )
 
 
 def build_ts(root: str | Path) -> Graph:

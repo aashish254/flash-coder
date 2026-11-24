@@ -20,6 +20,7 @@ also does is a LoRA-shaped artifact, not learning.
 
     python benchmarks/lora_shuffle_control.py [adapter-dir] [out-dir]
 """
+
 from __future__ import annotations
 
 import json
@@ -55,8 +56,10 @@ def main(src: str, dst: str) -> int:
     (d / "adapter_config.json").write_text((s / "adapter_config.json").read_text())
 
     same_shape = all(out[k].shape == arrays[k].shape for k in keys)
-    same_hist = all(mx.array_equal(mx.sort(out[k].reshape(-1)),
-                                   mx.sort(arrays[k].reshape(-1))) for k in keys)
+    same_hist = all(
+        mx.array_equal(mx.sort(out[k].reshape(-1)), mx.sort(arrays[k].reshape(-1)))
+        for k in keys
+    )
     moved = any(not mx.array_equal(out[k], arrays[k]) for k in keys)
     n = sum(int(arrays[k].size) for k in keys)
     # the loader must accept it under the same seam as the real one
@@ -66,10 +69,12 @@ def main(src: str, dst: str) -> int:
     print(f"  shapes identical     {same_shape}")
     print(f"  value multisets kept {same_hist}")
     print(f"  arrangement changed  {moved}")
-    print(f"  loads as an adapter  {resolved is not None} "
-          f"(rank {info['lora_parameters']['rank']}, "
-          f"scale {info['lora_parameters']['scale']}, "
-          f"{info['num_layers']} layers trained)")
+    print(
+        f"  loads as an adapter  {resolved is not None} "
+        f"(rank {info['lora_parameters']['rank']}, "
+        f"scale {info['lora_parameters']['scale']}, "
+        f"{info['num_layers']} layers trained)"
+    )
     ok = same_shape and same_hist and moved and resolved is not None
     print(f"-> control written to {d}" if ok else "-> CONTROL INCOMPLETE")
     return 0 if ok else 1
@@ -77,6 +82,11 @@ def main(src: str, dst: str) -> int:
 
 if __name__ == "__main__":
     a = sys.argv[1:]
-    raise SystemExit(main(a[0] if a else str(ROOT / "benchmarks/results/adapters/v1"),
-                          a[1] if len(a) > 1 else
-                          str(ROOT / "benchmarks/results/adapters/v1-shuffled")))
+    raise SystemExit(
+        main(
+            a[0] if a else str(ROOT / "benchmarks/results/adapters/v1"),
+            a[1]
+            if len(a) > 1
+            else str(ROOT / "benchmarks/results/adapters/v1-shuffled"),
+        )
+    )

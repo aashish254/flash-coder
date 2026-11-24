@@ -32,6 +32,7 @@ was untested rather than passed. Routine rows keep the `gate: "routine"` tag and
 hard-suite rows are tagged `hard`, so widening the recall population cannot move
 the per-20-routine-tasks false-offer clause the shipped gate is written against.
 """
+
 from __future__ import annotations
 
 import json
@@ -44,7 +45,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from flash import confidence                    # noqa: E402
+from flash import confidence  # noqa: E402
 
 KEY_SEED = confidence.HASH_SEEDS[0]
 
@@ -63,8 +64,14 @@ MAX_PROBES = 8
 # from HARD suites are tagged `hard`, so widening the recall denominator cannot
 # silently move the routine population the other clause is measured over.
 ROUTINE_SUITES = ["m0_tasks", "m2_tasks"]
-HARD_SUITES = ["m3_hard_tasks", "m3b_hard_tasks", "m4_heldout_tasks",
-               "m5_heldout_tasks", "m6_heldout_tasks", "m7_heldout_tasks"]
+HARD_SUITES = [
+    "m3_hard_tasks",
+    "m3b_hard_tasks",
+    "m4_heldout_tasks",
+    "m5_heldout_tasks",
+    "m6_heldout_tasks",
+    "m7_heldout_tasks",
+]
 WIDE_SUITES = ROUTINE_SUITES + HARD_SUITES
 WIDE_OUT = ROOT / "benchmarks" / "tasks" / "p6b_tasks.jsonl"
 MIN_WIDE_TOTAL = 40
@@ -118,9 +125,14 @@ def _arg_repr(v) -> str:
             return "set()"
         return "{" + ", ".join(map(_arg_repr, sorted(v, key=repr))) + "}"
     if isinstance(v, dict):
-        return ("{" + ", ".join(f"{_arg_repr(k)}: {_arg_repr(x)}"
-                                for k, x in sorted(v.items(), key=lambda kv: repr(kv[0])))
-                + "}")
+        return (
+            "{"
+            + ", ".join(
+                f"{_arg_repr(k)}: {_arg_repr(x)}"
+                for k, x in sorted(v.items(), key=lambda kv: repr(kv[0]))
+            )
+            + "}"
+        )
     if isinstance(v, list):
         return "[" + ", ".join(map(_arg_repr, v)) + "]"
     if isinstance(v, tuple):
@@ -143,22 +155,29 @@ def observe(code: str, fn: str, args: list):
     with tempfile.TemporaryDirectory() as d:
         p = Path(d) / "ref.py"
         p.write_text(code)
-        prog = (f"import sys, json\nsys.path.insert(0, {str(d)!r})\nimport ref\n"
-                f"args = [{', '.join(map(_arg_repr, args))}]\n"
-                f"try:\n"
-                f"    r = repr(getattr(ref, {fn!r})(*args))\n"
-                f"    print(json.dumps(['value', r[:{MAX_EXPECTATION_CHARS + 1}], "
-                f"len(r)]))\n"
-                f"except BaseException as e:\n"
-                f"    print(json.dumps(['raises', type(e).__name__, 0]))\n")
+        prog = (
+            f"import sys, json\nsys.path.insert(0, {str(d)!r})\nimport ref\n"
+            f"args = [{', '.join(map(_arg_repr, args))}]\n"
+            f"try:\n"
+            f"    r = repr(getattr(ref, {fn!r})(*args))\n"
+            f"    print(json.dumps(['value', r[:{MAX_EXPECTATION_CHARS + 1}], "
+            f"len(r)]))\n"
+            f"except BaseException as e:\n"
+            f"    print(json.dumps(['raises', type(e).__name__, 0]))\n"
+        )
         env = dict(os.environ, PYTHONHASHSEED=str(KEY_SEED))
         env.pop("PYTHONPATH", None)
         try:
             # The program goes in on stdin: as one argv entry it can trip E2BIG,
             # and a key generator that dies on one task loses the whole suite.
-            r = subprocess.run([sys.executable, "-s", "-"],
-                               input=prog, capture_output=True, text=True,
-                               timeout=20, env=env)
+            r = subprocess.run(
+                [sys.executable, "-s", "-"],
+                input=prog,
+                capture_output=True,
+                text=True,
+                timeout=20,
+                env=env,
+            )
         except OSError:
             return None
     try:
@@ -187,9 +206,11 @@ def key_for(task: dict) -> str:
         kind, val = obs
         lit = ", ".join(map(_arg_repr, args))
         if kind == "raises":
-            line = (f"try:\n    {fn}({lit})\n"
-                    f"    assert False, 'expected {val}'\n"
-                    f"except {val}:\n    pass")
+            line = (
+                f"try:\n    {fn}({lit})\n"
+                f"    assert False, 'expected {val}'\n"
+                f"except {val}:\n    pass"
+            )
         elif kind == "oversized":
             OVERSIZED.append(f"{task['id']}:{fn}({lit[:24]}…) value {val} chars")
             continue
@@ -237,8 +258,12 @@ def verify(task: dict) -> str | None:
     before the file is written.
     """
     from flash.confidence import HASH_SEEDS, _visible_verdict
-    bad = [s for s in HASH_SEEDS
-           if not _visible_verdict(task["solution"], task["hidden"], s, 20)]
+
+    bad = [
+        s
+        for s in HASH_SEEDS
+        if not _visible_verdict(task["solution"], task["hidden"], s, 20)
+    ]
     if bad:
         return f"reference fails its own key at seed(s) {bad}"
     return None
@@ -252,7 +277,7 @@ def main(argv: list = ()) -> int:
     wide = "--wide" in argv
     out = WIDE_OUT if wide else OUT
     if "--out" in argv:
-        nxt = argv[argv.index("--out") + 1:]
+        nxt = argv[argv.index("--out") + 1 :]
         if not nxt:
             print("--out needs a path", file=sys.stderr)
             return 2
@@ -260,9 +285,11 @@ def main(argv: list = ()) -> int:
         if not out.is_absolute():
             out = ROOT / out
     subtle = _load(SUBTLE)
-    sources = ([(n, "routine") for n in ROUTINE_SUITES]
-               + [(n, "hard") for n in HARD_SUITES]) if wide else \
-        [("m0_tasks", "routine")]
+    sources = (
+        ([(n, "routine") for n in ROUTINE_SUITES] + [(n, "hard") for n in HARD_SUITES])
+        if wide
+        else [("m0_tasks", "routine")]
+    )
     rows = [dict(t, gate="subtle") for t in subtle]
     dropped, broken, unusable = [], [], []
     keyed, seen_ids = {"routine": 0, "hard": 0}, {r["id"] for r in subtle}
@@ -282,14 +309,22 @@ def main(argv: list = ()) -> int:
                 dropped.append(t["id"])
                 continue
             if t["id"] in seen_ids:
-                print(f"  REFUSED {t['id']}: its id is already in the population "
-                      f"— a duplicated id would silently double its weight",
-                      file=sys.stderr)
+                print(
+                    f"  REFUSED {t['id']}: its id is already in the population "
+                    f"— a duplicated id would silently double its weight",
+                    file=sys.stderr,
+                )
                 broken.append((t["id"], "duplicate id"))
                 continue
             seen_ids.add(t["id"])
-            row = {"id": t["id"], "prompt": t["prompt"], "test": t["test"],
-                   "hidden": hidden, "solution": t["solution"], "gate": tag}
+            row = {
+                "id": t["id"],
+                "prompt": t["prompt"],
+                "test": t["test"],
+                "hidden": hidden,
+                "solution": t["solution"],
+                "gate": tag,
+            }
             why = verify(row)
             if why:
                 broken.append((t["id"], why))
@@ -307,15 +342,21 @@ def main(argv: list = ()) -> int:
     # loses its false-offer denominator.
     for tag, want in by_tag.items():
         if keyed[tag] * 2 < want:
-            print(f"wrote nothing: {keyed[tag]}/{want} {tag} tasks yielded a key "
-                  f"— that is a generator bug, not attrition "
-                  f"(dropped: {dropped})", file=sys.stderr)
+            print(
+                f"wrote nothing: {keyed[tag]}/{want} {tag} tasks yielded a key "
+                f"— that is a generator bug, not attrition "
+                f"(dropped: {dropped})",
+                file=sys.stderr,
+            )
             return 1
     if wide and (len(rows) < MIN_WIDE_TOTAL or keyed["hard"] < MIN_WIDE_HARD):
-        print(f"wrote nothing: the wide instrument is {len(rows)} row(s) with "
-              f"{keyed['hard']} keyed hard task(s), and R-2.3's denominators are "
-              f"only measurable over >= {MIN_WIDE_TOTAL} / >= {MIN_WIDE_HARD} — a "
-              f"suite this thin cannot carry a >=90% recall clause", file=sys.stderr)
+        print(
+            f"wrote nothing: the wide instrument is {len(rows)} row(s) with "
+            f"{keyed['hard']} keyed hard task(s), and R-2.3's denominators are "
+            f"only measurable over >= {MIN_WIDE_TOTAL} / >= {MIN_WIDE_HARD} — a "
+            f"suite this thin cannot carry a >=90% recall clause",
+            file=sys.stderr,
+        )
         return 1
     out.write_text("".join(json.dumps(r) + "\n" for r in rows))
     shown = out.relative_to(ROOT) if out.is_absolute() and ROOT in out.parents else out
@@ -323,30 +364,39 @@ def main(argv: list = ()) -> int:
     print(f"  subtle (seeded-bug) tasks: {len(subtle)}")
     for tag in ("routine", "hard"):
         if by_tag.get(tag):
-            print(f"  {tag} tasks with a differential key: "
-                  f"{keyed[tag]}/{by_tag[tag]}")
+            print(f"  {tag} tasks with a differential key: {keyed[tag]}/{by_tag[tag]}")
     if dropped or unusable:
         if dropped:
-            print(f"  dropped (no differential key available — the reference yields "
-                  f"no assertable value on the probed inputs): {dropped}")
+            print(
+                f"  dropped (no differential key available — the reference yields "
+                f"no assertable value on the probed inputs): {dropped}"
+            )
         if unusable:
-            print(f"  dropped (the task's own reference does not pass its own "
-                  f"visible test, so no key built on it could be ground truth): "
-                  f"{unusable}")
+            print(
+                f"  dropped (the task's own reference does not pass its own "
+                f"visible test, so no key built on it could be ground truth): "
+                f"{unusable}"
+            )
     per = [len(r["hidden"].strip().splitlines()) for r in rows]
     print(f"  hidden key size: min {min(per)}, max {max(per)} lines")
     if OVERSIZED:
-        print(f"  probes dropped for exceeding {MAX_EXPECTATION_CHARS} chars "
-              f"(an expectation nobody can read is not held-out ground truth): "
-              f"{len(OVERSIZED)} — {OVERSIZED[:3]}")
+        print(
+            f"  probes dropped for exceeding {MAX_EXPECTATION_CHARS} chars "
+            f"(an expectation nobody can read is not held-out ground truth): "
+            f"{len(OVERSIZED)} — {OVERSIZED[:3]}"
+        )
     if NOVELTY:
-        print(f"  probes skipped for repeating the task's own visible test "
-              f"(held-out means NEW evidence): {len(NOVELTY)} — {NOVELTY[:3]}")
+        print(
+            f"  probes skipped for repeating the task's own visible test "
+            f"(held-out means NEW evidence): {len(NOVELTY)} — {NOVELTY[:3]}"
+        )
     stats = [_composition(r["hidden"])[0] for r in rows if r["gate"] != "subtle"]
     raises = sum(_composition(r["hidden"])[1] for r in rows if r["gate"] != "subtle")
-    print(f"  keys verified against their own reference: "
-          f"{len(stats)}/{len(stats)}   value assertions per key: "
-          f"min {min(stats)}, max {max(stats)}   raise expectations total: {raises}")
+    print(
+        f"  keys verified against their own reference: "
+        f"{len(stats)}/{len(stats)}   value assertions per key: "
+        f"min {min(stats)}, max {max(stats)}   raise expectations total: {raises}"
+    )
     return 0
 
 
