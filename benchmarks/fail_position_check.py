@@ -14,6 +14,7 @@ ranking the ones that don't.
 
 `python benchmarks/fail_position_check.py`
 """
+
 import json
 import sys
 import collections
@@ -32,8 +33,7 @@ def main() -> int:
         for t in load_tasks(ROOT / "tasks" / f):
             tasks[t["id"]] = t
 
-    rows = [json.loads(l) for l in open(ROOT / "results" / "ledger.jsonl")
-            if l.strip()]
+    rows = [json.loads(l) for l in open(ROOT / "results" / "ledger.jsonl") if l.strip()]
     pos = collections.Counter()
     seen = set()
     unmatched = 0
@@ -43,12 +43,13 @@ def main() -> int:
         if tid not in tasks or "FAILING_ASSERT:" not in fo:
             continue
         key = (tid, fo)
-        if key in seen:                      # the same failure recorded twice
+        if key in seen:  # the same failure recorded twice
             continue
         seen.add(key)
         stmt = fo.split("FAILING_ASSERT: ", 1)[1].split(" |")[0].strip()
-        asserts = [l.strip() for l in tasks[tid]["test"].splitlines()
-                   if l.startswith("assert")]
+        asserts = [
+            l.strip() for l in tasks[tid]["test"].splitlines() if l.startswith("assert")
+        ]
         at = next((i for i, a in enumerate(asserts) if a == stmt), None)
         if at is None:
             unmatched += 1
@@ -59,13 +60,17 @@ def main() -> int:
     if not n:
         print("no locatable hard-task failures in the ledger")
         return 1
-    print(f"distinct locatable real hard-task failures: {n}"
-          + (f"  ({unmatched} unmatched assert text(s))" if unmatched else ""))
+    print(
+        f"distinct locatable real hard-task failures: {n}"
+        + (f"  ({unmatched} unmatched assert text(s))" if unmatched else "")
+    )
     for (at, total), c in sorted(pos.items(), key=lambda x: (-x[1], x[0])):
         print(f"  died at assert {at + 1}/{total}: {c} failure(s)")
     first = sum(c for (at, _), c in pos.items() if at == 0)
-    print(f"\nfirst-assert deaths: {first}/{n} "
-          f"({first / n:.0%}) — a candidate that dies there scores passed=0")
+    print(
+        f"\nfirst-assert deaths: {first}/{n} "
+        f"({first / n:.0%}) — a candidate that dies there scores passed=0"
+    )
     print(f"later-assert deaths: {n - first}/{n} — the only ones `passed` can rank")
     return 0
 

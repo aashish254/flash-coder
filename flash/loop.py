@@ -5,6 +5,7 @@ loop should show the core plan thesis: **verification closes the gap** —
 pass@3 with error feedback should beat pass@1. That delta is the value of
 the loop itself, before any fancy planning exists.
 """
+
 from __future__ import annotations
 
 import time
@@ -45,7 +46,7 @@ RETRY_EDITS = (
 # so the only difference between them is the answer format.
 WHOLE_FILE_PROTOCOL = (
     "Reply with the ENTIRE project: every file again, complete, each as a "
-    "fenced block whose first line is exactly \"# file: <name>\". Do not "
+    'fenced block whose first line is exactly "# file: <name>". Do not '
     "describe the change — return the files."
 )
 
@@ -109,12 +110,20 @@ class SolveResult:
         return len(self.attempts)
 
 
-def _generate(model, tokenizer, messages: list[dict], max_tokens: int,
-              temp: float = 0.0, seed: int | None = None,
-              task_id: str = "", attempt: int = 0,
-              contract=None) -> str:
+def _generate(
+    model,
+    tokenizer,
+    messages: list[dict],
+    max_tokens: int,
+    temp: float = 0.0,
+    seed: int | None = None,
+    task_id: str = "",
+    attempt: int = 0,
+    contract=None,
+) -> str:
     from flash import backend
     from flash import checkpoint
+
     # R-7.17d: every library call below belongs to the backend that loaded this
     # pair. `backend.require` moved with them — it is now the first line inside the
     # MLX methods rather than the first line here, so an MLX run refuses exactly as
@@ -139,10 +148,16 @@ def _generate(model, tokenizer, messages: list[dict], max_tokens: int,
     # whatever the killed process had already decoded into the prompt, so the
     # continuation is conditioned on that text and never re-decodes it; the ids
     # are replayed into the mask so the DFA stands where the kill left it.
-    cont = checkpoint.resume(task_id, attempt, prompt, temp=temp, seed=seed,
-                             contract=None if contract is None else
-                             {"mode": contract.mode,
-                              "names": list(contract.names)})
+    cont = checkpoint.resume(
+        task_id,
+        attempt,
+        prompt,
+        temp=temp,
+        seed=seed,
+        contract=None
+        if contract is None
+        else {"mode": contract.mode, "names": list(contract.names)},
+    )
     # (prefix to prefill, the whole answer text already decoded, its token cost)
     carried, resumed = ("", 0) if cont is None else (cont[1], cont[2])
     if cont is not None:
@@ -171,26 +186,33 @@ def _generate(model, tokenizer, messages: list[dict], max_tokens: int,
         gen = be.generate(model, tokenizer, prompt, max_tokens, sampler, guard)
     else:
         text = ""
-        for tok_id, piece in be.stream(model, tokenizer, prompt, max_tokens,
-                                       sampler, guard):
+        for tok_id, piece in be.stream(
+            model, tokenizer, prompt, max_tokens, sampler, guard
+        ):
             text += piece
             checkpoint.note(tok_id, piece, t0)
         gen = be.result(text, guard)
     if span:
         checkpoint.fold(task_id, attempt)
     out = carried + gen.text
-    trace.event("generate", task_id=task_id or None, attempt=attempt, temp=temp,
-                max_tokens=max_tokens, ms=round((time.perf_counter() - t0) * 1000),
-                backend=be.name,
-                prompt_tokens=trace.n_tokens(tokenizer, prompt),
-                completion_tokens=trace.n_tokens(tokenizer, out),
-                constrained=gen.constrained,
-                mask_steps=gen.mask_steps,
-                mask_breaches=gen.mask_breaches,
-                resumed_tokens=resumed or None,
-                checkpointed=span or None,
-                prompt=prompt if trace.CAPTURE else None,
-                output=out if trace.CAPTURE else None)
+    trace.event(
+        "generate",
+        task_id=task_id or None,
+        attempt=attempt,
+        temp=temp,
+        max_tokens=max_tokens,
+        ms=round((time.perf_counter() - t0) * 1000),
+        backend=be.name,
+        prompt_tokens=trace.n_tokens(tokenizer, prompt),
+        completion_tokens=trace.n_tokens(tokenizer, out),
+        constrained=gen.constrained,
+        mask_steps=gen.mask_steps,
+        mask_breaches=gen.mask_breaches,
+        resumed_tokens=resumed or None,
+        checkpointed=span or None,
+        prompt=prompt if trace.CAPTURE else None,
+        output=out if trace.CAPTURE else None,
+    )
     return out
 
 
@@ -199,6 +221,7 @@ def enrich_task(task: dict, root, max_chars: int = 4000) -> dict:
     and ranked doc excerpts for tasks that declare `doc_urls` (Phase-4 web
     tool: knowledge as a tool, PLAN §25a3). Both idempotent via markers."""
     from pathlib import Path
+
     prompt = task["prompt"]
     if task.get("edit"):
         # R-7.15f: an edit task must ship its own real source. The suite's
@@ -209,27 +232,30 @@ def enrich_task(task: dict, root, max_chars: int = 4000) -> dict:
         # six refusals that came out of that. A skeleton on top of real source
         # would be pure token cost, so this is the only injection here.
         from flash.patches import PROJECT_HEADER, project_prompt
+
         files = task.get("files") or {}
         if files and PROJECT_HEADER not in prompt:
             prompt = project_prompt(prompt, files, task.get("test") or "")
         return dict(task, prompt=prompt)
-    query = prompt                                  # rank vs the RAW prompt
+    query = prompt  # rank vs the RAW prompt
     if task.get("context"):
         task = dict(task, _ctx_dir=str(Path(root) / task["context"]))
     if task.get("context") and "Project context (real API" not in prompt:
         from flash.context import digest
+
         skel = digest(str(Path(root) / task["context"]), max_chars)
         prompt = (
             "Project context (real API signatures — use exactly these; prefer "
             "calling existing high-level methods over re-implementing logic):\n"
-            f"{skel}\n\nTask: {prompt}")
+            f"{skel}\n\nTask: {prompt}"
+        )
     if task.get("doc_urls") and "Library documentation (fetched" not in prompt:
         from flash import web
+
         block = web.format_for_prompt(web.lookup(query, task["doc_urls"]))
         if block:
             prompt = f"{block}\n\nTask: {prompt}"
     return dict(task, prompt=prompt)
-
 
 
 def _repo_index(task: dict):
@@ -248,6 +274,7 @@ def _repo_index(task: dict):
         return None
     try:
         from flash.lsp import SymbolIndex
+
         return SymbolIndex.build(ctx)
     except Exception:
         return None
@@ -266,6 +293,7 @@ def _symbol_hint(task: dict, err: str, code: str = "", index=None) -> str:
         return ""
     try:
         from flash.lsp import symbol_hint
+
         return symbol_hint(ctx, err, code, index=index) or ""
     except Exception:
         return ""
@@ -285,13 +313,15 @@ def _graph_hint(task: dict, err: str, code: str = "", index=None) -> str:
         return ""
     try:
         from flash.graph import scope_hint
+
         return scope_hint(ctx, err, code, index=index) or ""
     except Exception:
         return ""
 
 
-def _perceive(task: dict, err: str, code: str = "",
-              hints: "tuple[str, ...] | None" = None) -> str:
+def _perceive(
+    task: dict, err: str, code: str = "", hints: "tuple[str, ...] | None" = None
+) -> str:
     """The failed verdict, with both repo-perception blocks appended.
 
     Both blocks rank over the BARE error, and that is a fix rather than a style
@@ -312,8 +342,11 @@ def _perceive(task: dict, err: str, code: str = "",
     `err` BEFORE the index is built: an OFF arm that still pays the AST parse would
     make §10.5's latency comparison measure the switch rather than the hint.
     """
-    chosen = [b for name, b in (("source", _symbol_hint), ("graph", _graph_hint))
-              if name in (HINTS if hints is None else hints)]
+    chosen = [
+        b
+        for name, b in (("source", _symbol_hint), ("graph", _graph_hint))
+        if name in (HINTS if hints is None else hints)
+    ]
     ctx = task.get("_ctx_dir")
     if not (ctx and err) or not chosen:
         return err
@@ -322,8 +355,12 @@ def _perceive(task: dict, err: str, code: str = "",
     return "\n\n".join([err] + blocks)
 
 
-def _contract_for(task: dict, expected: list[str] | None,
-                  repair: list[str] | None, constrain: bool | None = None):
+def _contract_for(
+    task: dict,
+    expected: list[str] | None,
+    repair: list[str] | None,
+    constrain: bool | None = None,
+):
     """The R-4.2 output contract for this attempt, or None to generate freely.
 
     A retry that was asked to fix specific files gets a contract over exactly
@@ -335,30 +372,40 @@ def _contract_for(task: dict, expected: list[str] | None,
     if not (CONSTRAIN if constrain is None else constrain):
         return None
     from flash.grammar import Contract
+
     if not task.get("multi"):
         return Contract(mode="fence")
     names = tuple(repair or expected or Contract.names_from_prompt(task["prompt"]))
     return Contract(mode="multi", names=names) if names else None
 
 
-def _debug_feedback(task: dict, code: str, merged: dict[str, str],
-                    err: str) -> str:
+def _debug_feedback(task: dict, code: str, merged: dict[str, str], err: str) -> str:
     """Append what execution actually did to a failing verdict (R-4.3).
 
     Losing the debugger (a tracer error, a hostile candidate, no trail) costs
     the extra signal and nothing else: the traceback feedback stays (I-7).
     """
     from flash.debug import watch, watch_files
+
     try:
-        d = (watch_files(merged, task["test"]) if task.get("multi") and merged
-             else watch(code, task["test"]))
+        d = (
+            watch_files(merged, task["test"])
+            if task.get("multi") and merged
+            else watch(code, task["test"])
+        )
     except Exception:
         return err
     return f"{err}\n\n{d.as_feedback()}" if (d.trail and not d.ok) else err
 
 
-def _solve_edits(model, tokenizer, task: dict, max_attempts: int,
-                 max_tokens: int, stage: str = "small") -> SolveResult:
+def _solve_edits(
+    model,
+    tokenizer,
+    task: dict,
+    max_attempts: int,
+    max_tokens: int,
+    stage: str = "small",
+) -> SolveResult:
     """R-3.2's ACT leg: answer a change request with patches, not files.
 
     The workspace is state, exactly like the multi-file loop's `merged` dict:
@@ -370,8 +417,14 @@ def _solve_edits(model, tokenizer, task: dict, max_attempts: int,
     protocol, and no grammar exists for this one (SPEC §10.4).
     """
     from flash.harness import diagnose_files
-    from flash.patches import (apply_patches, edit_prompt, is_python,
-                               outside_lines, parse_patches)
+    from flash.patches import (
+        apply_patches,
+        edit_prompt,
+        is_python,
+        outside_lines,
+        parse_patches,
+    )
+
     t0 = time.perf_counter()
     res = SolveResult(task_id=task["id"], solved=False)
     workspace = dict(task["files"])
@@ -389,26 +442,46 @@ def _solve_edits(model, tokenizer, task: dict, max_attempts: int,
         workspace = dict((f.state or {}).get("workspace") or workspace)
         code = f.state.get("code") or ""
     for attempt_i in range(start, max_attempts):
-        checkpoint.begin(task["id"], "edits", stage, attempt_i,
-                         messages=messages, max_tokens=max_tokens,
-                         state={"workspace": workspace, "code": code},
-                         done=[asdict(a) for a in res.attempts])
-        out = _generate(model, tokenizer, messages, max_tokens,
-                        temp=0.0 if attempt_i == 0 else 0.7, seed=attempt_i,
-                        task_id=task["id"], attempt=attempt_i)
+        checkpoint.begin(
+            task["id"],
+            "edits",
+            stage,
+            attempt_i,
+            messages=messages,
+            max_tokens=max_tokens,
+            state={"workspace": workspace, "code": code},
+            done=[asdict(a) for a in res.attempts],
+        )
+        out = _generate(
+            model,
+            tokenizer,
+            messages,
+            max_tokens,
+            temp=0.0 if attempt_i == 0 else 0.7,
+            seed=attempt_i,
+            task_id=task["id"],
+            attempt=attempt_i,
+        )
 
         vt0 = time.perf_counter()
         before = dict(workspace)
         patches = parse_patches(out)
-        result = apply_patches(before, patches,
-                               oracle=task.get("test_path") or "")
+        result = apply_patches(before, patches, oracle=task.get("test_path") or "")
         kind = "patch"
         if not patches:
-            ok, err = False, ("PATCH MISSING: no "
-                              "'# edit: <file> :: <symbol>' patch in the response")
+            ok, err = (
+                False,
+                (
+                    "PATCH MISSING: no "
+                    "'# edit: <file> :: <symbol>' patch in the response"
+                ),
+            )
         elif not result.ok:
-            ok, err = False, "PATCH REFUSED: " + "; ".join(
-                f"{p.file}:{p.address} — {w}" for p, w in result.refusals)
+            ok, err = (
+                False,
+                "PATCH REFUSED: "
+                + "; ".join(f"{p.file}:{p.address} — {w}" for p, w in result.refusals),
+            )
         elif not result.applied:
             ok, err = False, "PATCH EMPTY: the response addressed nothing"
         else:
@@ -434,30 +507,51 @@ def _solve_edits(model, tokenizer, task: dict, max_attempts: int,
                 ok, err = diagnose_files(workspace, task["test"])
                 kind = "test"
         outside = outside_lines(before, result, task.get("target") or {})
-        trace.event("patch", task_id=task["id"], attempt=attempt_i, ok=ok,
-                    kind=kind,
-                    applied=len(result.applied), refused=len(result.refusals),
-                    whole=result.whole_rewrites, outside=outside,
-                    addresses=[f"{a.patch.file}:{a.patch.address}"
-                               for a in result.applied],
-                    why=None if ok else err[:trace.MAX_ERR],
-                    ms=round((time.perf_counter() - vt0) * 1000))
-        res.attempts.append(Attempt(code=code or out, ok=ok, err=err,
-                                    patches=len(patches),
-                                    refused=len(result.refusals),
-                                    whole=result.whole_rewrites, outside=outside))
+        trace.event(
+            "patch",
+            task_id=task["id"],
+            attempt=attempt_i,
+            ok=ok,
+            kind=kind,
+            applied=len(result.applied),
+            refused=len(result.refusals),
+            whole=result.whole_rewrites,
+            outside=outside,
+            addresses=[f"{a.patch.file}:{a.patch.address}" for a in result.applied],
+            why=None if ok else err[: trace.MAX_ERR],
+            ms=round((time.perf_counter() - vt0) * 1000),
+        )
+        res.attempts.append(
+            Attempt(
+                code=code or out,
+                ok=ok,
+                err=err,
+                patches=len(patches),
+                refused=len(result.refusals),
+                whole=result.whole_rewrites,
+                outside=outside,
+            )
+        )
         if ok:
             res.solved = True
             res.workspace = dict(workspace)
             break
-        messages += [{"role": "assistant", "content": out},
-                     {"role": "user", "content": err + "\n\n" + RETRY_EDITS}]
+        messages += [
+            {"role": "assistant", "content": out},
+            {"role": "user", "content": err + "\n\n" + RETRY_EDITS},
+        ]
     res.seconds = round(time.perf_counter() - t0, 1)
     return res
 
 
-def solve_chat(model, tokenizer, task: dict, max_attempts: int = 2,
-               max_tokens: int = 1024, stage: str = "small") -> SolveResult:
+def solve_chat(
+    model,
+    tokenizer,
+    task: dict,
+    max_attempts: int = 2,
+    max_tokens: int = 1024,
+    stage: str = "small",
+) -> SolveResult:
     """Answer one turn in prose, with the project in front of it (R-7.15h).
 
     The patch arm cannot carry this: `_solve_edits` fails an attempt whose
@@ -480,8 +574,13 @@ def solve_chat(model, tokenizer, task: dict, max_attempts: int = 2,
     `land`. Verification is deliberately absent — that is the whole trade of
     chat mode, and the CLI says so on the line that opens the session.
     """
-    from flash.patches import (PROJECT_HEADER, apply_patches, parse_patches,
-                               project_prompt)
+    from flash.patches import (
+        PROJECT_HEADER,
+        apply_patches,
+        parse_patches,
+        project_prompt,
+    )
+
     t0 = time.perf_counter()
     res = SolveResult(task_id=task["id"], solved=False)
     workspace = dict(task.get("files") or {})
@@ -489,58 +588,80 @@ def solve_chat(model, tokenizer, task: dict, max_attempts: int = 2,
     prompt = ask if PROJECT_HEADER in ask else project_prompt(ask, workspace)
     messages = [{"role": "user", "content": prompt}]
     for attempt_i in range(max_attempts):
-        out = _generate(model, tokenizer, messages, max_tokens,
-                        temp=0.0 if attempt_i == 0 else 0.7, seed=attempt_i,
-                        task_id=task["id"], attempt=attempt_i)
+        out = _generate(
+            model,
+            tokenizer,
+            messages,
+            max_tokens,
+            temp=0.0 if attempt_i == 0 else 0.7,
+            seed=attempt_i,
+            task_id=task["id"],
+            attempt=attempt_i,
+        )
         patches = parse_patches(out)
         err = ""
         ok = True
         if patches:
-            result = apply_patches(workspace, patches,
-                                   oracle=task.get("test_path") or "")
+            result = apply_patches(
+                workspace, patches, oracle=task.get("test_path") or ""
+            )
             if result.ok and result.applied:
                 workspace = result.files
             else:
                 ok = False
                 err = "PATCH REFUSED: " + "; ".join(
-                    f"{p.file}:{p.address} — {w}" for p, w in result.refusals)
-        trace.event("chat", task_id=task["id"], attempt=attempt_i, ok=ok,
-                    kind="patch" if patches else "prose",
-                    chars=len(out), applied=len(workspace) - len(task.get("files") or {}),
-                    why=err[:trace.MAX_ERR] if err else None,
-                    ms=round((time.perf_counter() - t0) * 1000))
-        res.attempts.append(Attempt(code=out, ok=ok, err=err,
-                                    patches=len(patches)))
+                    f"{p.file}:{p.address} — {w}" for p, w in result.refusals
+                )
+        trace.event(
+            "chat",
+            task_id=task["id"],
+            attempt=attempt_i,
+            ok=ok,
+            kind="patch" if patches else "prose",
+            chars=len(out),
+            applied=len(workspace) - len(task.get("files") or {}),
+            why=err[: trace.MAX_ERR] if err else None,
+            ms=round((time.perf_counter() - t0) * 1000),
+        )
+        res.attempts.append(Attempt(code=out, ok=ok, err=err, patches=len(patches)))
         if ok:
             res.solved = True
             res.workspace = dict(workspace)
             break
-        messages += [{"role": "assistant", "content": out},
-                     {"role": "user", "content": err}]
+        messages += [
+            {"role": "assistant", "content": out},
+            {"role": "user", "content": err},
+        ]
     res.seconds = round(time.perf_counter() - t0, 1)
     return res
 
 
-def solve(model, tokenizer, task: dict, max_attempts: int = 3,
-          max_tokens: int = 1024,
-          constrain: bool | None = None,
-          debug: bool | None = None,
-          edit: bool | None = None,
-          stage: str = "small") -> SolveResult:
+def solve(
+    model,
+    tokenizer,
+    task: dict,
+    max_attempts: int = 3,
+    max_tokens: int = 1024,
+    constrain: bool | None = None,
+    debug: bool | None = None,
+    edit: bool | None = None,
+    stage: str = "small",
+) -> SolveResult:
     if (EDIT if edit is None else edit) and task.get("edit"):
-        return _solve_edits(model, tokenizer, task, max_attempts, max_tokens,
-                            stage=stage)
+        return _solve_edits(
+            model, tokenizer, task, max_attempts, max_tokens, stage=stage
+        )
     if task.get("edit"):
         task = dict(task, prompt=task["prompt"] + "\n\n" + WHOLE_FILE_PROTOCOL)
-    if task.get("multi"):               # multi-file answers are 2x+ longer;
-        max_tokens = max(max_tokens, 2048)   # 1024 truncates mid-file (live: mw4)
+    if task.get("multi"):  # multi-file answers are 2x+ longer;
+        max_tokens = max(max_tokens, 2048)  # 1024 truncates mid-file (live: mw4)
     t0 = time.perf_counter()
     res = SolveResult(task_id=task["id"], solved=False)
     messages = [{"role": "user", "content": task["prompt"]}]
     code = ""
-    expected: list[str] | None = None            # multi: file set from attempt 1
-    merged: dict[str, str] = {}                  # multi: per-file persistent state
-    repair: list[str] | None = None              # multi: files a retry must fix
+    expected: list[str] | None = None  # multi: file set from attempt 1
+    merged: dict[str, str] = {}  # multi: per-file persistent state
+    repair: list[str] | None = None  # multi: files a retry must fix
     # R-5.3: if a suite adopted this arm's frame, the dead run's attempts are
     # already paid for — their verdicts, the conversation they built and the
     # multi-file union all come back off it, and the chain restarts at the
@@ -559,22 +680,40 @@ def solve(model, tokenizer, task: dict, max_attempts: int = 3,
         # The boundary write is what makes a between-attempt kill cheap: it
         # names the attempt about to start, so everything before it is settled
         # work the resume reads back rather than re-decodes.
-        checkpoint.begin(task["id"], "chain", stage, attempt_i,
-                         messages=messages, max_tokens=max_tokens,
-                         state={"merged": merged, "expected": expected,
-                                "repair": repair, "code": code},
-                         done=[asdict(a) for a in res.attempts])
-        out = _generate(model, tokenizer, messages, max_tokens,
-                        temp=0.0 if attempt_i == 0 else 0.7, seed=attempt_i,
-                        task_id=task["id"], attempt=attempt_i,
-                        contract=_contract_for(task, expected, repair,
-                                               constrain))
+        checkpoint.begin(
+            task["id"],
+            "chain",
+            stage,
+            attempt_i,
+            messages=messages,
+            max_tokens=max_tokens,
+            state={
+                "merged": merged,
+                "expected": expected,
+                "repair": repair,
+                "code": code,
+            },
+            done=[asdict(a) for a in res.attempts],
+        )
+        out = _generate(
+            model,
+            tokenizer,
+            messages,
+            max_tokens,
+            temp=0.0 if attempt_i == 0 else 0.7,
+            seed=attempt_i,
+            task_id=task["id"],
+            attempt=attempt_i,
+            contract=_contract_for(task, expected, repair, constrain),
+        )
 
         vt0 = time.perf_counter()
         kind = "test"
-        if task.get("multi"):                       # M2: coordinated file set
+        if task.get("multi"):  # M2: coordinated file set
             from flash.harness import diagnose_files, extract_files
+
             files = extract_files(out, expected=expected)
+
             # Per-file persistence (live find, mw suite): models often return
             # only the file they fixed, dropping the rest -> treat the file set
             # as STATE: latest valid version of each file wins, union across
@@ -592,10 +731,15 @@ def solve(model, tokenizer, task: dict, max_attempts: int = 3,
                 out = []
                 lines = src.splitlines()
                 for d in static_check(src):
-                    if d.severity == 'error':
-                        bad = lines[d.line - 1].strip() if 0 < d.line <= len(lines) else '?'
+                    if d.severity == "error":
+                        bad = (
+                            lines[d.line - 1].strip()
+                            if 0 < d.line <= len(lines)
+                            else "?"
+                        )
                         out.append(f"L{d.line}: {d.message} | line reads: {bad!r}")
                 return "; ".join(out)
+
             errors = {p: _detail(p, src) for p, src in files.items()}
             valid = {p: src for p, src in files.items() if not errors[p]}
             rejected = sorted(set(files) - set(valid))
@@ -610,7 +754,7 @@ def solve(model, tokenizer, task: dict, max_attempts: int = 3,
                 detail = "; ".join(f"{p}: {errors[p]}" for p in rejected)
                 ok, err = False, f"STATIC: {detail} (kept previous version)"
                 kind = "static"
-                targeted = detail        # next retry: repair only these files
+                targeted = detail  # next retry: repair only these files
             else:
                 ok, err = diagnose_files(merged, task["test"])
         else:
@@ -628,10 +772,16 @@ def solve(model, tokenizer, task: dict, max_attempts: int = 3,
         # Static failures are skipped — broken syntax has no execution to watch.
         if not ok and (DEBUG if debug is None else debug) and kind != "static":
             err, kind = _debug_feedback(task, code, merged, err), "debug"
-        trace.event("verify", task_id=task["id"], attempt=attempt_i, ok=ok,
-                    kind=kind, ms=round((time.perf_counter() - vt0) * 1000),
-                    files=len(merged) if task.get("multi") else None,
-                    err=None if ok else err[:trace.MAX_ERR])
+        trace.event(
+            "verify",
+            task_id=task["id"],
+            attempt=attempt_i,
+            ok=ok,
+            kind=kind,
+            ms=round((time.perf_counter() - vt0) * 1000),
+            files=len(merged) if task.get("multi") else None,
+            err=None if ok else err[: trace.MAX_ERR],
+        )
         # R-1.1: the resolved source has to reach the MODEL. It used to be
         # computed inside the Attempt(...) call below, so it landed in the record
         # that `flash trace` prints while `messages` — the thing read back as
@@ -650,18 +800,28 @@ def solve(model, tokenizer, task: dict, max_attempts: int = 3,
             # focused output; per-file persistence makes partial answers safe.
             feedback = TARGETED_FIX_TEMPLATE.format(detail=targeted)
         elif task.get("multi"):
-            feedback = MULTI_FIX_TEMPLATE.format(code=code, err=err,
-                                                 files=", ".join(expected or []))
+            feedback = MULTI_FIX_TEMPLATE.format(
+                code=code, err=err, files=", ".join(expected or [])
+            )
         else:
             feedback = FIX_TEMPLATE.format(code=code, err=err)
-        messages += [{"role": "assistant", "content": out},
-                     {"role": "user", "content": feedback}]
+        messages += [
+            {"role": "assistant", "content": out},
+            {"role": "user", "content": feedback},
+        ]
     res.seconds = round(time.perf_counter() - t0, 1)
     return res
 
 
-def _tourney_arm(model, tokenizer, task: dict, requested_k: int,
-                 width: int, max_tokens: int, stage: str = "small") -> SolveResult:
+def _tourney_arm(
+    model,
+    tokenizer,
+    task: dict,
+    requested_k: int,
+    width: int,
+    max_tokens: int,
+    stage: str = "small",
+) -> SolveResult:
     """R-3.3's small tier: k independent candidates, oracle-picked, shaped like
     a SolveResult so the policy, the ledger and `resume` need no special case.
 
@@ -670,10 +830,19 @@ def _tourney_arm(model, tokenizer, task: dict, requested_k: int,
     tournament of independent draws (SPEC §10.4).
     """
     from flash import tourney
-    tr = tourney.run(model, tokenizer, task, requested_k=requested_k,
-                     max_tokens=max_tokens, width=width, stage=stage)
-    res = SolveResult(task_id=tr.task_id, solved=tr.solved,
-                      seconds=tr.seconds, tournament=tr.fields())
+
+    tr = tourney.run(
+        model,
+        tokenizer,
+        task,
+        requested_k=requested_k,
+        max_tokens=max_tokens,
+        width=width,
+        stage=stage,
+    )
+    res = SolveResult(
+        task_id=tr.task_id, solved=tr.solved, seconds=tr.seconds, tournament=tr.fields()
+    )
     for c in tr.candidates:
         res.attempts.append(Attempt(code=c.code, ok=c.ok, err=c.err))
     return res
@@ -684,9 +853,14 @@ def tournament_fields(r: SolveResult) -> dict:
     return {} if r.tournament is None else {"tournament": r.tournament}
 
 
-def solve_with_escalation(small_repo: str, big_repo: str, task: dict,
-                          small_attempts: int = 2, big_attempts: int = 2,
-                          max_tokens: int = 1024) -> tuple[SolveResult, str]:
+def solve_with_escalation(
+    small_repo: str,
+    big_repo: str,
+    task: dict,
+    small_attempts: int = 2,
+    big_attempts: int = 2,
+    max_tokens: int = 1024,
+) -> tuple[SolveResult, str]:
     """The hardware-proven policy (App. A): small tries -> escalate to big.
 
     Hot-swap: the small model is fully freed BEFORE the big one loads —
@@ -695,22 +869,23 @@ def solve_with_escalation(small_repo: str, big_repo: str, task: dict,
     *when* to escalate instead of a fixed attempt count.
     """
     from flash import backend
+
     be = backend.selected()
 
     model, tok = load_model(small_repo)
-    r_small = solve(model, tok, task, max_attempts=small_attempts,
-                    max_tokens=max_tokens)
+    r_small = solve(
+        model, tok, task, max_attempts=small_attempts, max_tokens=max_tokens
+    )
     if r_small.solved:
         return r_small, "small"
     del model, tok
-    be.idle()                          # hot-swap: free before loading big
+    be.idle()  # hot-swap: free before loading big
 
     model, tok = be.load_model(big_repo)
-    r_big = solve(model, tok, task, max_attempts=big_attempts,
-                  max_tokens=max_tokens)
+    r_big = solve(model, tok, task, max_attempts=big_attempts, max_tokens=max_tokens)
     del model, tok
     be.idle()
-    r_big.attempts = r_small.attempts + r_big.attempts   # full audit trail
+    r_big.attempts = r_small.attempts + r_big.attempts  # full audit trail
     r_big.seconds = round(r_small.seconds + r_big.seconds, 1)
     return r_big, ("big" if r_big.solved else "failed")
 
@@ -740,7 +915,8 @@ def adapter_path(name: str | None = None) -> str | None:
     if not (Path(p) / "adapters.safetensors").exists():
         raise FileNotFoundError(
             f"adapter {p} holds no adapters.safetensors — refusing to run the "
-            f"base model under this name")
+            f"base model under this name"
+        )
     return p
 
 
@@ -783,6 +959,7 @@ def _load_router():
     global _ROUTER
     if _ROUTER == "unset":
         from flash.learn import load_router
+
         _ROUTER = load_router()
     return _ROUTER
 
@@ -831,6 +1008,7 @@ def assess_confidence(task: dict, r: SolveResult) -> dict:
     its ledger fields. §34.2's point in one call: the model's own probability
     is not evidence, four real runs are."""
     from flash import confidence
+
     a = surfaced_attempt(r)
     if a is None or not a.code:
         return {}
@@ -838,13 +1016,21 @@ def assess_confidence(task: dict, r: SolveResult) -> dict:
     return r.confidence.fields()
 
 
-def solve_routed(small_repo: str, big_repo: str, task: dict, root,
-                 small_attempts: int = 2, big_attempts: int = 2,
-                 max_tokens: int = 1024, max_chars: int = 4000,
-                 threshold: float = 0.5, allow_big: str = "auto",
-                 tournament: int = 1, confidence: bool = False,
-                 chat: bool = False
-                 ) -> tuple[SolveResult, str, str]:
+def solve_routed(
+    small_repo: str,
+    big_repo: str,
+    task: dict,
+    root,
+    small_attempts: int = 2,
+    big_attempts: int = 2,
+    max_tokens: int = 1024,
+    max_chars: int = 4000,
+    threshold: float = 0.5,
+    allow_big: str = "auto",
+    tournament: int = 1,
+    confidence: bool = False,
+    chat: bool = False,
+) -> tuple[SolveResult, str, str]:
     """The full policy: PERCEIVE(repo skeleton) -> ROUTE -> small -> reactive ESC.
 
     Router output is telemetry + a high-precision 'big' shortcut ONLY:
@@ -878,6 +1064,7 @@ def solve_routed(small_repo: str, big_repo: str, task: dict, root,
     tier or the verdict: the offer is for a human, or for a later policy.
     """
     from flash import backend
+
     # R-7.17d: this is the one place a routed run chooses a library, and it chooses
     # before any tokenizer work — a box with no backend at all gets `flash`'s
     # sentence here rather than a failure three generations deep. `be` then serves
@@ -889,12 +1076,16 @@ def solve_routed(small_repo: str, big_repo: str, task: dict, root,
 
     task = enrich_task(task, root, max_chars)
 
-    entry = {"task_id": task["id"], "prompt": task["prompt"][:300],
-             "ctx": bool(task.get("context")),
-             # the label is the model that made the decision, adapter included:
-             # a ledger row that says "7B" for a 7B+lora is a wrong attribution,
-             # not a shorthand one.
-             "small": small_label(small_repo), "big": big_label(big_repo)}
+    entry = {
+        "task_id": task["id"],
+        "prompt": task["prompt"][:300],
+        "ctx": bool(task.get("context")),
+        # the label is the model that made the decision, adapter included:
+        # a ledger row that says "7B" for a 7B+lora is a wrong attribution,
+        # not a shorthand one.
+        "small": small_label(small_repo),
+        "big": big_label(big_repo),
+    }
     conf_ok, conf_why = confidence_eligible(confidence, task)
     if chat:
         # §34.2's four signals execute one `solution.py` against its hidden
@@ -916,15 +1107,24 @@ def solve_routed(small_repo: str, big_repo: str, task: dict, root,
         # and the whole point of the ledger is that nobody has to guess what
         # this machine spent.
         model, tok = load_model(small_repo)
-        r = solve_chat(model, tok, task, max_attempts=small_attempts,
-                       max_tokens=max_tokens)
+        r = solve_chat(
+            model, tok, task, max_attempts=small_attempts, max_tokens=max_tokens
+        )
         del model, tok
         be.idle()
         tier = "small" if r.solved else "failed"
         with_conf(r)
-        ledger.record({**entry, "chat": True,
-                       "tier": tier, "routed": "chat", "solved": r.solved,
-                       "attempts": r.n_attempts, "seconds": r.seconds})
+        ledger.record(
+            {
+                **entry,
+                "chat": True,
+                "tier": tier,
+                "routed": "chat",
+                "solved": r.solved,
+                "attempts": r.n_attempts,
+                "seconds": r.seconds,
+            }
+        )
         return r, tier, "chat"
 
     # R-5.3: adopt whatever the dead session left on THIS task before any arm
@@ -954,21 +1154,25 @@ def solve_routed(small_repo: str, big_repo: str, task: dict, root,
         # reason the learned score is absent rather than a number that went missing;
         # the decision fabric's `routed` above stands on its own, as it did before
         # the router existed.
-        route_why = (f"{be.name}: the learned router scores MLX hidden states and "
-                     "this backend exposes none — routed on the decision fabric")
+        route_why = (
+            f"{be.name}: the learned router scores MLX hidden states and "
+            "this backend exposes none — routed on the decision fabric"
+        )
         router = None
     if router is not None:
         from flash.learn import bundle_labels, embed_text, probe_pool, route_score
+
         fit_repo, _ = bundle_labels(router)
         pool = probe_pool(router)
-        route_p, why = route_score(router, embed_text(model, tok, task["prompt"],
-                                                      pool=pool))
+        route_p, why = route_score(
+            router, embed_text(model, tok, task["prompt"], pool=pool)
+        )
         route_why = why or None
         if route_p is not None:
             entry["route_p"] = round(route_p, 3)
             entry["route_by"] = f"{fit_repo}/{pool}"
     if route_p is not None and route_p >= threshold:
-        routed = "big(learned)"                # outcome-trained big shortcut
+        routed = "big(learned)"  # outcome-trained big shortcut
 
     big_ok, big_why = power.allow_model(big_repo, caps)
     if allow_big == "always":
@@ -982,23 +1186,34 @@ def solve_routed(small_repo: str, big_repo: str, task: dict, root,
     # goes in the record: a reader must be able to tell "tournament off" from
     # "tournament asked for and declined by the width cap".
     from flash import tourney
-    tour_ok, tour_why = tourney.eligible(tournament, caps.tournament_width, task)
-    trace.event("route", task_id=task["id"], routed=routed,
-                route_p=None if route_p is None else round(route_p, 4),
-                route_why=route_why,
-                profile=caps.profile, allow_big=allow_big,
-                big_allowed=big_ok, multi=bool(task.get("multi")),
-                tournament=tournament, tournament_used=tour_ok,
-                conf_on=confidence, conf_used=conf_ok,
-                why=None if big_ok else big_why,
-                tour_why=tour_why or None, conf_why=conf_why or None)
 
-    if routed.startswith("big"):             # rare, high-precision: go direct
-        if not big_ok:                       # the governor outranks the router
+    tour_ok, tour_why = tourney.eligible(tournament, caps.tournament_width, task)
+    trace.event(
+        "route",
+        task_id=task["id"],
+        routed=routed,
+        route_p=None if route_p is None else round(route_p, 4),
+        route_why=route_why,
+        profile=caps.profile,
+        allow_big=allow_big,
+        big_allowed=big_ok,
+        multi=bool(task.get("multi")),
+        tournament=tournament,
+        tournament_used=tour_ok,
+        conf_on=confidence,
+        conf_used=conf_ok,
+        why=None if big_ok else big_why,
+        tour_why=tour_why or None,
+        conf_why=conf_why or None,
+    )
+
+    if routed.startswith("big"):  # rare, high-precision: go direct
+        if not big_ok:  # the governor outranks the router
             entry["shed"] = big_why
             routed = f"small(shed:{caps.profile})"
-            trace.event("escalation", task_id=task["id"], denied=True,
-                        tier="big", why=big_why)
+            trace.event(
+                "escalation", task_id=task["id"], denied=True, tier="big", why=big_why
+            )
         else:
             del model, tok
             be.idle()
@@ -1007,17 +1222,23 @@ def solve_routed(small_repo: str, big_repo: str, task: dict, root,
             # repair budget a reactive path would still have left (mw4 needed a
             # 3rd attempt: syntax fixed on 2, one-char semantic bug on 3).
             extra = 1 if task.get("multi") else 0
-            r = solve(model, tok, task, big_attempts + extra, max_tokens,
-                      stage="big")
+            r = solve(model, tok, task, big_attempts + extra, max_tokens, stage="big")
             del model, tok
             be.idle()
             tier = "big" if r.solved else "failed"
-            if not r.solved:                 # diagnose big-direct failures too
+            if not r.solved:  # diagnose big-direct failures too
                 entry["fail_output"] = fail_output(r)
             with_conf(r)
-            ledger.record({**entry, "tier": tier, "routed": routed,
-                           "solved": r.solved, "attempts": r.n_attempts,
-                           "seconds": r.seconds})
+            ledger.record(
+                {
+                    **entry,
+                    "tier": tier,
+                    "routed": routed,
+                    "solved": r.solved,
+                    "attempts": r.n_attempts,
+                    "seconds": r.seconds,
+                }
+            )
             return r, tier, routed
 
     # R-5.3, the part that is not about tokens: a frame that names the big tier
@@ -1029,38 +1250,70 @@ def solve_routed(small_repo: str, big_repo: str, task: dict, root,
     if f is not None and f.task_id == task["id"] and f.stage == "big":
         entry["resumed"] = "big"
         r_small = SolveResult(task_id=task["id"], solved=False)
-        trace.event("resume", task_id=task["id"], stage="big",
-                    reason="the dead run had already failed the small tier")
+        trace.event(
+            "resume",
+            task_id=task["id"],
+            stage="big",
+            reason="the dead run had already failed the small tier",
+        )
     else:
-        r_small = (_tourney_arm(model, tok, task, tournament,
-                                caps.tournament_width, max_tokens, stage="small")
-                   if tour_ok else
-                   solve(model, tok, task, small_attempts, max_tokens,
-                         stage="small"))
+        r_small = (
+            _tourney_arm(
+                model,
+                tok,
+                task,
+                tournament,
+                caps.tournament_width,
+                max_tokens,
+                stage="small",
+            )
+            if tour_ok
+            else solve(model, tok, task, small_attempts, max_tokens, stage="small")
+        )
     entry.update(tournament_fields(r_small))
     if r_small.solved:
         with_conf(r_small)
-        ledger.record({**entry, "tier": "small", "routed": routed,
-                       "solved": True, "attempts": r_small.n_attempts,
-                       "seconds": r_small.seconds})
+        ledger.record(
+            {
+                **entry,
+                "tier": "small",
+                "routed": routed,
+                "solved": True,
+                "attempts": r_small.n_attempts,
+                "seconds": r_small.seconds,
+            }
+        )
         return r_small, "small", routed
-    if not big_ok:        # would escalate, cannot: shed and say so in the ledger
+    if not big_ok:  # would escalate, cannot: shed and say so in the ledger
         entry["shed"] = big_why
-        trace.event("escalation", task_id=task["id"], denied=True, tier="big",
-                    why=big_why)
+        trace.event(
+            "escalation", task_id=task["id"], denied=True, tier="big", why=big_why
+        )
         with_conf(r_small)
-        ledger.record({**entry, "tier": "shed", "routed": routed,
-                       "solved": False, "attempts": r_small.n_attempts,
-                       "seconds": r_small.seconds})
+        ledger.record(
+            {
+                **entry,
+                "tier": "shed",
+                "routed": routed,
+                "solved": False,
+                "attempts": r_small.n_attempts,
+                "seconds": r_small.seconds,
+            }
+        )
         del model, tok
         be.idle()
         return r_small, "shed", routed
-    entry["fail_output"] = fail_output(r_small)   # feature: WHY small failed
+    entry["fail_output"] = fail_output(r_small)  # feature: WHY small failed
     del model, tok
-    be.idle()                            # hot-swap: free before big loads
+    be.idle()  # hot-swap: free before big loads
 
-    trace.event("escalation", task_id=task["id"], denied=False, tier="big",
-                reason=f"small failed after {r_small.n_attempts} attempt(s)")
+    trace.event(
+        "escalation",
+        task_id=task["id"],
+        denied=False,
+        tier="big",
+        reason=f"small failed after {r_small.n_attempts} attempt(s)",
+    )
     model, tok = be.load_model(big_repo)
     # stage="big" is not decoration: the frame identity is (task, arm, stage,
     # attempt), and a big tier that labels itself small both clobbers the small
@@ -1068,11 +1321,18 @@ def solve_routed(small_repo: str, big_repo: str, task: dict, root,
     r_big = solve(model, tok, task, big_attempts, max_tokens, stage="big")
     del model, tok
     be.idle()
-    r_big.attempts = r_small.attempts + r_big.attempts   # full audit trail
+    r_big.attempts = r_small.attempts + r_big.attempts  # full audit trail
     r_big.seconds = round(r_small.seconds + r_big.seconds, 1)
     tier = "big" if r_big.solved else "failed"
     with_conf(r_big)
-    ledger.record({**entry, "tier": tier, "routed": routed,
-                   "solved": r_big.solved, "attempts": r_big.n_attempts,
-                   "seconds": r_big.seconds})
+    ledger.record(
+        {
+            **entry,
+            "tier": tier,
+            "routed": routed,
+            "solved": r_big.solved,
+            "attempts": r_big.n_attempts,
+            "seconds": r_big.seconds,
+        }
+    )
     return r_big, tier, routed

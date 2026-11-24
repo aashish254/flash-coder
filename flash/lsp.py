@@ -12,6 +12,7 @@ Division of labor (the loop's design rule, App. A):
 
 Nothing here writes to disk; documents are opened as virtual buffers.
 """
+
 from __future__ import annotations
 
 import ast
@@ -27,7 +28,9 @@ from pathlib import Path
 
 # ---------------------------------------------------------------- AST layer
 
-PY_EXCLUDE = re.compile(r"(^|/)(__pycache__|\.venv|\.git|node_modules|build|\.tox)(/|$)")
+PY_EXCLUDE = re.compile(
+    r"(^|/)(__pycache__|\.venv|\.git|node_modules|build|\.tox)(/|$)"
+)
 
 
 def python_files(root: str | Path, limit: int = 2000) -> list[Path]:
@@ -47,11 +50,12 @@ def python_files(root: str | Path, limit: int = 2000) -> list[Path]:
 @dataclass
 class Occurrence:
     """One AST site that mentions `name` (a def, call, import, attribute...)."""
+
     path: Path
-    line: int                 # 1-based
-    col: int                  # 0-based
+    line: int  # 1-based
+    col: int  # 0-based
     name: str
-    kind: str                 # def | class | use | import
+    kind: str  # def | class | use | import
 
 
 def _walk_name(tree: ast.AST, name: str, path: Path) -> list[Occurrence]:
@@ -59,19 +63,31 @@ def _walk_name(tree: ast.AST, name: str, path: Path) -> list[Occurrence]:
     for node in ast.walk(tree):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
             if node.name == name:
-                hits.append(Occurrence(path, node.lineno, node.col_offset, name,
-                                       "class" if isinstance(node, ast.ClassDef) else "def"))
+                hits.append(
+                    Occurrence(
+                        path,
+                        node.lineno,
+                        node.col_offset,
+                        name,
+                        "class" if isinstance(node, ast.ClassDef) else "def",
+                    )
+                )
         elif isinstance(node, ast.Name):
             if node.id == name:
                 hits.append(Occurrence(path, node.lineno, node.col_offset, name, "use"))
         elif isinstance(node, ast.Attribute):
             if node.attr == name:
-                hits.append(Occurrence(path, node.lineno, node.end_col_offset - len(name),
-                                       name, "use"))
+                hits.append(
+                    Occurrence(
+                        path, node.lineno, node.end_col_offset - len(name), name, "use"
+                    )
+                )
         elif isinstance(node, (ast.Import, ast.ImportFrom)):
             for a in node.names:
                 if a.name == name or (a.asname or "") == name:
-                    hits.append(Occurrence(path, node.lineno, node.col_offset, name, "import"))
+                    hits.append(
+                        Occurrence(path, node.lineno, node.col_offset, name, "import")
+                    )
     return hits
 
 
@@ -90,12 +106,15 @@ def find_occurrences(root: str | Path, name: str, limit: int = 400) -> list[Occu
 
 
 def definitions_ast(root: str | Path, name: str) -> list[Occurrence]:
-    return [o for o in find_occurrences(root, name) if o.kind in ("def", "class", "import")]
+    return [
+        o for o in find_occurrences(root, name) if o.kind in ("def", "class", "import")
+    ]
 
 
 @dataclass
 class SymbolIndex:
     """name -> symbols, for the whole repo (built once, reused per retry)."""
+
     by_name: dict[str, list[Symbol]] = field(default_factory=dict)
 
     @classmethod
@@ -109,21 +128,30 @@ class SymbolIndex:
 
 def _signature(s: Symbol) -> str:
     qual = f"{s.container}.{s.name}" if s.container else s.name
-    tag = {"property": "  # @property — NO parens",
-           "cached_property": "  # @cached_property — NO parens"}.get(s.kind, "")
+    tag = {
+        "property": "  # @property — NO parens",
+        "cached_property": "  # @cached_property — NO parens",
+    }.get(s.kind, "")
     return f"{qual} [{s.kind}]{tag}"
 
 
 def _kind_priority(kind: str) -> int:
-    return {"property": 0, "cached_property": 0, "method": 1, "function": 1,
-            "field": 2, "constant": 2}.get(kind, 3)
+    return {
+        "property": 0,
+        "cached_property": 0,
+        "method": 1,
+        "function": 1,
+        "field": 2,
+        "constant": 2,
+    }.get(kind, 3)
 
 
 def _call_sites(text: str) -> set[str]:
     """Names the code CALLS: `foo(` and `.bar(` — the API surface it assumes."""
-    return (set(re.findall(r"(?:^|[^.\w])(\w+)\s*\(", text, re.M)) |
-            set(re.findall(r"\.(\w+)\s*\(", text))) - {"if", "for", "while",
-                                                       "with", "return", "print"}
+    return (
+        set(re.findall(r"(?:^|[^.\w])(\w+)\s*\(", text, re.M))
+        | set(re.findall(r"\.(\w+)\s*\(", text))
+    ) - {"if", "for", "while", "with", "return", "print"}
 
 
 def _bound_names(code: str) -> set[str]:
@@ -146,8 +174,9 @@ def _bound_names(code: str) -> set[str]:
     return out
 
 
-def symbols_involved(index: "SymbolIndex", err: str = "", code: str = "",
-                     limit: int = 3) -> list[Symbol]:
+def symbols_involved(
+    index: "SymbolIndex", err: str = "", code: str = "", limit: int = 3
+) -> list[Symbol]:
     """The repo symbols a failure actually turns on, best hint first.
 
     Rank 0 is the M2 r02 class: the code CALLS a name the repo also defines as
@@ -189,7 +218,7 @@ def symbols_involved(index: "SymbolIndex", err: str = "", code: str = "",
 
 
 HINT_HEADER = "Symbols in play (real repo source — call exactly as defined):"
-HINT_TAIL_ROOM = 64        # room kept for "… N symbol(s) at issue not shown …"
+HINT_TAIL_ROOM = 64  # room kept for "… N symbol(s) at issue not shown …"
 
 
 def _clip(block: str, room: int) -> str:
@@ -207,13 +236,19 @@ def _clip(block: str, room: int) -> str:
             break
         out.append(ln)
         used += len(ln) + 1
-    if len(out) < 2:                 # no signature + no def line: say nothing
+    if len(out) < 2:  # no signature + no def line: say nothing
         return ""
     return "\n".join(out + [note])
 
 
-def symbol_hint(root: str | Path, err: str = "", code: str = "", limit: int = 3,
-                max_chars: int = 1200, index: "SymbolIndex | None" = None) -> str:
+def symbol_hint(
+    root: str | Path,
+    err: str = "",
+    code: str = "",
+    limit: int = 3,
+    max_chars: int = 1200,
+    index: "SymbolIndex | None" = None,
+) -> str:
     """Feedback block: the EXACT source of the repo symbols at issue.
 
     `index` is the caller's, when it has one: `loop` asks this module and
@@ -257,9 +292,9 @@ def symbol_hint(root: str | Path, err: str = "", code: str = "", limit: int = 3,
             if not head:
                 return ""
             lines.append(head)
-            emitted = 1                 # a clipped block is still a block
+            emitted = 1  # a clipped block is still a block
             skipped += len(blocks) - i - 1
-            break                       # the budget is spent
+            break  # the budget is spent
         lines.append(b)
         room -= len(b) + 1
         emitted += 1
@@ -286,30 +321,58 @@ def ast_symbols(path: str | Path) -> list[Symbol]:
     def walk(node, container: str):
         for child in ast.iter_child_nodes(node):
             if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-                deco = "property" if any(
-                    (isinstance(d, ast.Name) and d.id == "property") or
-                    (isinstance(d, ast.Attribute) and d.attr in ("cached_property", "property"))
-                    for d in child.decorator_list) else None
-                kind = deco or ("class" if isinstance(child, ast.ClassDef) else
-                                ("method" if container else "function"))
-                out.append(Symbol(name=child.name, kind=kind, path=p,
-                                  line=child.lineno,
-                                  end_line=child.end_lineno or child.lineno,
-                                  container=container))
-                walk(child, child.name if isinstance(child, ast.ClassDef) else container)
+                deco = (
+                    "property"
+                    if any(
+                        (isinstance(d, ast.Name) and d.id == "property")
+                        or (
+                            isinstance(d, ast.Attribute)
+                            and d.attr in ("cached_property", "property")
+                        )
+                        for d in child.decorator_list
+                    )
+                    else None
+                )
+                kind = deco or (
+                    "class"
+                    if isinstance(child, ast.ClassDef)
+                    else ("method" if container else "function")
+                )
+                out.append(
+                    Symbol(
+                        name=child.name,
+                        kind=kind,
+                        path=p,
+                        line=child.lineno,
+                        end_line=child.end_lineno or child.lineno,
+                        container=container,
+                    )
+                )
+                walk(
+                    child, child.name if isinstance(child, ast.ClassDef) else container
+                )
             elif isinstance(child, ast.Assign):
                 for t in child.targets:
                     if isinstance(t, ast.Name):
-                        out.append(Symbol(t.id, "field" if container else "constant", p,
-                                          child.lineno, child.end_lineno or child.lineno,
-                                          container))
+                        out.append(
+                            Symbol(
+                                t.id,
+                                "field" if container else "constant",
+                                p,
+                                child.lineno,
+                                child.end_lineno or child.lineno,
+                                container,
+                            )
+                        )
             else:
                 walk(child, container)
+
     walk(tree, "")
     return out
 
 
 # --------------------------------------------------------------- LSP client
+
 
 def _frame(payload: dict) -> bytes:
     body = json.dumps(payload).encode()
@@ -333,6 +396,7 @@ def _read_msg(stream) -> dict | None:
 
 def _uri_to_path(uri: str) -> Path:
     from urllib.parse import unquote, urlparse
+
     p = urlparse(uri)
     return Path(unquote(p.path))
 
@@ -340,8 +404,8 @@ def _uri_to_path(uri: str) -> Path:
 @dataclass
 class Location:
     path: Path
-    line: int          # 1-based
-    char: int          # 0-based
+    line: int  # 1-based
+    char: int  # 0-based
 
 
 @dataclass
@@ -349,7 +413,7 @@ class Symbol:
     name: str
     kind: str
     path: Path
-    line: int          # 1-based, definition start
+    line: int  # 1-based, definition start
     end_line: int
     container: str = ""
 
@@ -359,12 +423,33 @@ class Symbol:
         return f"{qual:<34} {self.kind:<10} {where}"
 
 
-_SKIND = {1: "file", 2: "module", 3: "namespace", 4: "class", 5: "method",
-          6: "property", 7: "field", 8: "constructor", 9: "enum",
-          10: "interface", 11: "function", 12: "variable", 13: "constant",
-          14: "string", 15: "number", 16: "boolean", 17: "array",
-          18: "object", 19: "key", 20: "null", 21: "enum-member",
-          22: "struct", 23: "event", 24: "operator", 25: "type-param"}
+_SKIND = {
+    1: "file",
+    2: "module",
+    3: "namespace",
+    4: "class",
+    5: "method",
+    6: "property",
+    7: "field",
+    8: "constructor",
+    9: "enum",
+    10: "interface",
+    11: "function",
+    12: "variable",
+    13: "constant",
+    14: "string",
+    15: "number",
+    16: "boolean",
+    17: "array",
+    18: "object",
+    19: "key",
+    20: "null",
+    21: "enum-member",
+    22: "struct",
+    23: "event",
+    24: "operator",
+    25: "type-param",
+}
 
 
 class Lsp:
@@ -379,9 +464,13 @@ class Lsp:
         self.timeout = timeout
         self._id = 0
         self._open: set[str] = set()
-        self.proc = subprocess.Popen([sys.executable, "-m", "pylsp"],
-                                     stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                     stderr=subprocess.DEVNULL, cwd=str(self.root))
+        self.proc = subprocess.Popen(
+            [sys.executable, "-m", "pylsp"],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            cwd=str(self.root),
+        )
 
     # -- plumbing ---------------------------------------------------------
     def _send(self, method: str, params: dict, msg_id: int | None = None) -> None:
@@ -414,24 +503,48 @@ class Lsp:
         uri = p.as_uri()
         if uri in self._open:
             return uri
-        self._send("textDocument/didOpen", {"textDocument": {
-            "uri": uri, "languageId": "python", "version": 1,
-            "text": p.read_text(encoding="utf-8", errors="replace")}})
+        self._send(
+            "textDocument/didOpen",
+            {
+                "textDocument": {
+                    "uri": uri,
+                    "languageId": "python",
+                    "version": 1,
+                    "text": p.read_text(encoding="utf-8", errors="replace"),
+                }
+            },
+        )
         self._open.add(uri)
         return uri
 
     def start(self) -> "Lsp":
-        self._send("initialize", {
-            "processId": None,
-            "rootUri": self.root.as_uri(),
-            "capabilities": {"textDocument": {
-                "documentSymbol": {"hierarchicalWorkspaceSymbol": True},
-                "definition": {}, "references": {}, "hover": {}}},
-            "initializationOptions": {"jedi": {"extraPaths": [str(self.root)]},
-                                      "pylsp": {"plugins": {"jedi": {
-                                          "extra_arguments": [],
-                                          "env_vars": {"PYTHONPATH": str(self.root)}}}}}},
-            msg_id=0)
+        self._send(
+            "initialize",
+            {
+                "processId": None,
+                "rootUri": self.root.as_uri(),
+                "capabilities": {
+                    "textDocument": {
+                        "documentSymbol": {"hierarchicalWorkspaceSymbol": True},
+                        "definition": {},
+                        "references": {},
+                        "hover": {},
+                    }
+                },
+                "initializationOptions": {
+                    "jedi": {"extraPaths": [str(self.root)]},
+                    "pylsp": {
+                        "plugins": {
+                            "jedi": {
+                                "extra_arguments": [],
+                                "env_vars": {"PYTHONPATH": str(self.root)},
+                            }
+                        }
+                    },
+                },
+            },
+            msg_id=0,
+        )
         self._await(0)
         self._send("initialized", {})
         return self
@@ -463,41 +576,71 @@ class Lsp:
         """
         p = Path(path).resolve()
         uri = self.open(p)
-        res = self._request("textDocument/documentSymbol",
-                            {"textDocument": {"uri": uri}}) or []
+        res = (
+            self._request("textDocument/documentSymbol", {"textDocument": {"uri": uri}})
+            or []
+        )
         out: list[Symbol] = []
 
         def walk(items, container=""):
             for it in items:
                 loc = it.get("location") or {}
-                sel = loc.get("range") or it.get("selectionRange") or it.get("range") or {}
+                sel = (
+                    loc.get("range")
+                    or it.get("selectionRange")
+                    or it.get("range")
+                    or {}
+                )
                 full = loc.get("range") or it.get("range") or sel
                 s = sel.get("start", {}).get("line", 0)
                 e = full.get("end", {}).get("line", s)
                 name = it.get("name", "?")
-                out.append(Symbol(name=name, kind=_SKIND.get(it.get("kind", 0), "symbol"),
-                                  path=p, line=s + 1, end_line=e + 1,
-                                  container=container or it.get("containerName") or ""))
+                out.append(
+                    Symbol(
+                        name=name,
+                        kind=_SKIND.get(it.get("kind", 0), "symbol"),
+                        path=p,
+                        line=s + 1,
+                        end_line=e + 1,
+                        container=container or it.get("containerName") or "",
+                    )
+                )
                 walk(it.get("children") or [], container or name)
+
         walk(res)
         return out
 
     def definition(self, path: str | Path, line: int, char: int) -> list[Location]:
         p = Path(path).resolve()
         uri = self.open(p)
-        res = self._request("textDocument/definition", {
-            "textDocument": {"uri": uri},
-            "position": {"line": line - 1, "character": char}}) or []
+        res = (
+            self._request(
+                "textDocument/definition",
+                {
+                    "textDocument": {"uri": uri},
+                    "position": {"line": line - 1, "character": char},
+                },
+            )
+            or []
+        )
         return _locs(res)
 
-    def references(self, path: str | Path, line: int, char: int,
-                   include_decl: bool = True) -> list[Location]:
+    def references(
+        self, path: str | Path, line: int, char: int, include_decl: bool = True
+    ) -> list[Location]:
         p = Path(path).resolve()
         uri = self.open(p)
-        res = self._request("textDocument/references", {
-            "textDocument": {"uri": uri},
-            "position": {"line": line - 1, "character": char},
-            "context": {"includeDeclaration": include_decl}}) or []
+        res = (
+            self._request(
+                "textDocument/references",
+                {
+                    "textDocument": {"uri": uri},
+                    "position": {"line": line - 1, "character": char},
+                    "context": {"includeDeclaration": include_decl},
+                },
+            )
+            or []
+        )
         return _locs(res)
 
 
@@ -508,13 +651,18 @@ def _locs(res) -> list[Location]:
     for r in res:
         if "uri" not in r:
             continue
-        out.append(Location(_uri_to_path(r["uri"]),
-                            r["range"]["start"]["line"] + 1,
-                            r["range"]["start"]["character"]))
+        out.append(
+            Location(
+                _uri_to_path(r["uri"]),
+                r["range"]["start"]["line"] + 1,
+                r["range"]["start"]["character"],
+            )
+        )
     return out
 
 
 # ---------------------------------------------------------- high-level API
+
 
 def find_symbol(root: str | Path, name: str, use_lsp: bool = True) -> list[Symbol]:
     """Where is `name` defined — with container, kind and exact line range.
@@ -533,8 +681,10 @@ def find_symbol(root: str | Path, name: str, use_lsp: bool = True) -> list[Symbo
         return _dedup(syms)
     if not use_lsp:
         return []
-    occs = sorted(find_occurrences(root, name),
-                  key=lambda o: {"use": 0, "def": 1, "class": 1, "import": 2}[o.kind])
+    occs = sorted(
+        find_occurrences(root, name),
+        key=lambda o: {"use": 0, "def": 1, "class": 1, "import": 2}[o.kind],
+    )
     if not occs:
         return []
     try:
@@ -543,8 +693,11 @@ def find_symbol(root: str | Path, name: str, use_lsp: bool = True) -> list[Symbo
                 locs = lsp.definition(o.path, o.line, o.col)
                 out = []
                 for loc in locs:
-                    out.extend(s for s in ast_symbols(loc.path)
-                               if s.line == loc.line or s.name == name)
+                    out.extend(
+                        s
+                        for s in ast_symbols(loc.path)
+                        if s.line == loc.line or s.name == name
+                    )
                     if not out and locs:
                         out = [Symbol(name, "external", loc.path, loc.line, loc.line)]
                 if out:
@@ -554,8 +707,9 @@ def find_symbol(root: str | Path, name: str, use_lsp: bool = True) -> list[Symbo
     return []
 
 
-def find_references(root: str | Path, name: str, use_lsp: bool = True,
-                    max_sites: int = 8) -> list[Location]:
+def find_references(
+    root: str | Path, name: str, use_lsp: bool = True, max_sites: int = 8
+) -> list[Location]:
     """Every site that mentions `name`, resolved by the server when possible.
 
     The server needs a *resolved* position to answer, and jedi answers empty
@@ -582,8 +736,9 @@ def find_references(root: str | Path, name: str, use_lsp: bool = True,
     return _dedup_locs([Location(o.path, o.line, o.col) for o in occs])
 
 
-def symbol_source(root: str | Path, name: str, path: str | Path | None = None,
-                  line: int | None = None) -> str:
+def symbol_source(
+    root: str | Path, name: str, path: str | Path | None = None, line: int | None = None
+) -> str:
     """Exact source of one symbol — the ACT upgrade (§33.1): edit the symbol,
     not a text guess. `line` disambiguates same-named symbols in one file.
     Returns '' when not found."""
@@ -595,22 +750,28 @@ def symbol_source(root: str | Path, name: str, path: str | Path | None = None,
         except (SyntaxError, OSError, ValueError):
             continue
         for node in ast.walk(tree):
-            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)) \
-                    and node.name == name and (line is None or node.lineno == line):
+            if (
+                isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+                and node.name == name
+                and (line is None or node.lineno == line)
+            ):
                 # decorators are part of the truth: dropping @property is how
                 # the model learns the wrong call signature
                 start = min([node.lineno] + [d.lineno for d in node.decorator_list])
                 body = ast.get_source_segment(src, node) or ""
                 if start == node.lineno:
                     return body
-                head = "\n".join(src.splitlines()[start - 1:node.lineno - 1])
+                head = "\n".join(src.splitlines()[start - 1 : node.lineno - 1])
                 return f"{head}\n{body}"
             if isinstance(node, ast.Assign):
                 for t in node.targets:
-                    if isinstance(t, ast.Name) and t.id == name \
-                            and (line is None or node.lineno == line):
+                    if (
+                        isinstance(t, ast.Name)
+                        and t.id == name
+                        and (line is None or node.lineno == line)
+                    ):
                         lines = src.splitlines()
-                        return "\n".join(lines[node.lineno - 1:node.end_lineno])
+                        return "\n".join(lines[node.lineno - 1 : node.end_lineno])
     return ""
 
 
@@ -671,6 +832,7 @@ def run_selftest(verbose: bool = True) -> int:
     (App. A), so if perception can't tell them apart, perception is broken.
     """
     from flash import doctor
+
     refused = doctor.vector_refusal("lsp", _DATA_ROOT)
     if refused:
         return refused
@@ -681,63 +843,93 @@ def run_selftest(verbose: bool = True) -> int:
     def check(label, ok, detail=""):
         checks.append((label, bool(ok), detail))
         if verbose:
-            print(f"  {'OK  ' if ok else 'FAIL'} {label}" + (f"  {detail}" if detail else ""))
+            print(
+                f"  {'OK  ' if ok else 'FAIL'} {label}"
+                + (f"  {detail}" if detail else "")
+            )
 
     # 1. symbol tables: containers and the @property distinction
-    cart = {f.name: ast_symbols(f) for f in [fixture / "cart.py", fixture / "models.py"]}
-    props = [s for syms in cart.values() for s in syms
-             if s.name == "total_cents"]
+    cart = {
+        f.name: ast_symbols(f) for f in [fixture / "cart.py", fixture / "models.py"]
+    }
+    props = [s for syms in cart.values() for s in syms if s.name == "total_cents"]
     kinds = sorted(f"{s.container or '-'}::{s.kind}" for s in props)
-    check("ast: total_cents defined twice, method vs property",
-          kinds == ["Cart::method", "CartLine::property"], kinds)
-    check("ast: definitions carry exact line ranges",
-          all(s.end_line > s.line for s in props),
-          ", ".join(f"{s.name} L{s.line}-L{s.end_line}" for s in props))
+    check(
+        "ast: total_cents defined twice, method vs property",
+        kinds == ["Cart::method", "CartLine::property"],
+        kinds,
+    )
+    check(
+        "ast: definitions carry exact line ranges",
+        all(s.end_line > s.line for s in props),
+        ", ".join(f"{s.name} L{s.line}-L{s.end_line}" for s in props),
+    )
 
     # 2. symbol_source returns the executable-granularity text
     src = symbol_source(root / "flash", "solve")
-    check("source: solve() extracted whole", src.startswith("def solve(")
-          and "max_attempts" in src, f"{len(src.splitlines())} lines")
+    check(
+        "source: solve() extracted whole",
+        src.startswith("def solve(") and "max_attempts" in src,
+        f"{len(src.splitlines())} lines",
+    )
 
     # 3. outline covers the package
     syms = outline(root / "flash")
     names = {s.name for s in syms}
-    check("outline: package-wide symbol table",
-          {"solve", "solve_routed", "record", "load_tasks"} <= names,
-          f"{len(syms)} symbols over {len({str(s.path) for s in syms})} files")
+    check(
+        "outline: package-wide symbol table",
+        {"solve", "solve_routed", "record", "load_tasks"} <= names,
+        f"{len(syms)} symbols over {len({str(s.path) for s in syms})} files",
+    )
 
     # 4. the live server adds cross-file truth the AST cannot know
     try:
         with Lsp(root) as lsp:
             ms = lsp.document_symbols(fixture / "cart.py")
-            check("lsp: documentSymbol on cart.py", len(ms) >= 3,
-                  f"{len(ms)} names: " + ", ".join(f"{s.name}/{s.kind}" for s in ms[:5]))
+            check(
+                "lsp: documentSymbol on cart.py",
+                len(ms) >= 3,
+                f"{len(ms)} names: " + ", ".join(f"{s.name}/{s.kind}" for s in ms[:5]),
+            )
             imp = [o for o in find_occurrences(fixture, "loyalty_discount_cents")]
             use = next((o for o in imp if o.kind == "use"), None)
             if use:
                 d = lsp.definition(use.path, use.line, use.col)
-                check("lsp: cross-file go-to-def lands in pricing.py",
-                      any(x.path.name == "pricing.py" for x in d),
-                      ", ".join(f"{x.path.name}:{x.line}" for x in d) or "none")
+                check(
+                    "lsp: cross-file go-to-def lands in pricing.py",
+                    any(x.path.name == "pricing.py" for x in d),
+                    ", ".join(f"{x.path.name}:{x.line}" for x in d) or "none",
+                )
             refs = find_references(fixture, "subtotal_cents")
-            check("lsp: project-wide references from a use site",
-                  len(refs) >= 2, ", ".join(f"{l.path.name}:{l.line}" for l in refs))
+            check(
+                "lsp: project-wide references from a use site",
+                len(refs) >= 2,
+                ", ".join(f"{l.path.name}:{l.line}" for l in refs),
+            )
     except Exception as e:
         check("lsp: server session", False, f"{type(e).__name__}: {e}")
 
     # 6. symbol-precise feedback (the §33.1 ACT upgrade)
-    hint = symbol_hint(fixture,
-                       'FAILING_ASSERT: assert line_cost(CartLine(Product("a", 2))) '
-                       "| ERROR: TypeError 'int' object is not callable",
-                       "def line_cost(line):\n    return line.total_cents()")
-    check("hint: a property called as a method surfaces as a property",
-          "@property" in hint and "CartLine.total_cents" in hint and "NO parens" in hint,
-          f"{len(hint)} chars")
-    check("hint: call sites outrank names that merely appear in the assert",
-          hint.index("CartLine.total_cents") < hint.index("class CartLine"),
-          "ordering")
-    check("hint: silent when nothing repo-defined is at issue",
-          symbol_hint(fixture, "KeyError: 'zzz'", "x = 1") == "")
+    hint = symbol_hint(
+        fixture,
+        'FAILING_ASSERT: assert line_cost(CartLine(Product("a", 2))) '
+        "| ERROR: TypeError 'int' object is not callable",
+        "def line_cost(line):\n    return line.total_cents()",
+    )
+    check(
+        "hint: a property called as a method surfaces as a property",
+        "@property" in hint and "CartLine.total_cents" in hint and "NO parens" in hint,
+        f"{len(hint)} chars",
+    )
+    check(
+        "hint: call sites outrank names that merely appear in the assert",
+        hint.index("CartLine.total_cents") < hint.index("class CartLine"),
+        "ordering",
+    )
+    check(
+        "hint: silent when nothing repo-defined is at issue",
+        symbol_hint(fixture, "KeyError: 'zzz'", "x = 1") == "",
+    )
 
     # 6b. THE WIRING, not the helper. R-1.1's clause is about what the MODEL is
     # shown, and every check above calls `symbol_hint` directly — so all of them
@@ -754,54 +946,81 @@ def run_selftest(verbose: bool = True) -> int:
     def fake_generate(model, tokenizer, messages, max_tokens, **kw):
         seen.append([dict(m) for m in messages])
         if len(seen) == 1:
-            return ("```python\nimport cart\n\n\ndef answer(lines):\n"
-                    "    return cart.subtotal_cents(lines)\n```\n")
+            return (
+                "```python\nimport cart\n\n\ndef answer(lines):\n"
+                "    return cart.subtotal_cents(lines)\n```\n"
+            )
         return "```python\nanswer = 0\n```\n"
 
     wire = Path(tempfile.mkdtemp(prefix="lsp-wire-"))
     (wire / "pricing.py").write_text(
         '"""Pricing."""\nBULK_MIN_QTY = 5\n\n\n'
-        'def bulk_discount_cents(price_cents, qty):\n'
-        '    return price_cents * 10 if qty >= BULK_MIN_QTY else 0\n')
+        "def bulk_discount_cents(price_cents, qty):\n"
+        "    return price_cents * 10 if qty >= BULK_MIN_QTY else 0\n"
+    )
     bare = "NameError: name 'BULK_MIN_QTY' is not defined"
     real_gen, real_diag = _loop._generate, _loop.diagnose
     _loop._generate = fake_generate
     _loop.diagnose = lambda code, test: (False, bare)
     try:
         # (a) a task WITH repo context: the resolved source must reach the model.
-        _loop.solve(None, None,
-                    _loop.enrich_task({"id": "wire", "prompt": "sum the subtotal",
-                                       "test": "assert False", "context": "."},
-                                      wire),
-                    max_attempts=2, debug=False)
+        _loop.solve(
+            None,
+            None,
+            _loop.enrich_task(
+                {
+                    "id": "wire",
+                    "prompt": "sum the subtotal",
+                    "test": "assert False",
+                    "context": ".",
+                },
+                wire,
+            ),
+            max_attempts=2,
+            debug=False,
+        )
         with_ctx = [dict(m) for m in seen[1]] if len(seen) > 1 else []
         seen.clear()
         # (b) a task WITHOUT it: the same machinery must add nothing at all.
-        _loop.solve(None, None,
-                    {"id": "bare", "prompt": "sum the subtotal",
-                     "test": "assert False"},
-                    max_attempts=2, debug=False)
+        _loop.solve(
+            None,
+            None,
+            {"id": "bare", "prompt": "sum the subtotal", "test": "assert False"},
+            max_attempts=2,
+            debug=False,
+        )
         without_ctx = [dict(m) for m in seen[1]] if len(seen) > 1 else []
     finally:
         _loop._generate, _loop.diagnose = real_gen, real_diag
     retry = with_ctx[-1]["content"] if with_ctx else ""
-    want = symbol_hint(wire, bare, _loop.extract_code(with_ctx[-2]["content"])) \
-        if len(with_ctx) > 1 else ""
-    check("wiring: the RETRY PROMPT the model is actually shown carries the "
-          "resolved source — not only the recorded attempt, which is the failure "
-          "shape that made a dead seam look live",
-          "Symbols in play" in retry and "BULK_MIN_QTY = 5" in retry,
-          f"{len(retry)} chars in the retry, {len(want)} of them hint")
-    check("wiring: ...and what arrives is `symbol_hint`'s own output verbatim and "
-          "exactly once, so the loop neither truncates it nor injects it twice",
-          bool(want) and retry.count(want) == 1, f"{retry.count(want)} copies")
-    check("wiring: with no repo context on the task the retry is what it always "
-          "was — the hint stays silent rather than resolving against a directory "
-          "the task never named",
-          with_ctx and without_ctx
-          and "Symbols in play" not in without_ctx[-1]["content"]
-          and without_ctx[-1]["content"].count(bare) == 1,
-          f"{len(without_ctx[-1]['content']) if without_ctx else 0} chars")
+    want = (
+        symbol_hint(wire, bare, _loop.extract_code(with_ctx[-2]["content"]))
+        if len(with_ctx) > 1
+        else ""
+    )
+    check(
+        "wiring: the RETRY PROMPT the model is actually shown carries the "
+        "resolved source — not only the recorded attempt, which is the failure "
+        "shape that made a dead seam look live",
+        "Symbols in play" in retry and "BULK_MIN_QTY = 5" in retry,
+        f"{len(retry)} chars in the retry, {len(want)} of them hint",
+    )
+    check(
+        "wiring: ...and what arrives is `symbol_hint`'s own output verbatim and "
+        "exactly once, so the loop neither truncates it nor injects it twice",
+        bool(want) and retry.count(want) == 1,
+        f"{retry.count(want)} copies",
+    )
+    check(
+        "wiring: with no repo context on the task the retry is what it always "
+        "was — the hint stays silent rather than resolving against a directory "
+        "the task never named",
+        with_ctx
+        and without_ctx
+        and "Symbols in play" not in without_ctx[-1]["content"]
+        and without_ctx[-1]["content"].count(bare) == 1,
+        f"{len(without_ctx[-1]['content']) if without_ctx else 0} chars",
+    )
 
     # 6c. THE BUDGET OVERFLOWS, IT DOES NOT ABORT (R-1.1c). A ranked symbol's own
     # source can exceed 1200 chars by itself, and the budget check used to be a
@@ -813,79 +1032,112 @@ def run_selftest(verbose: bool = True) -> int:
     # and reads the retry back, because that is the difference between a helper that
     # works and a clause that is satisfied (R-1.1's lesson, §33.1).
     big = Path(tempfile.mkdtemp(prefix="lsp-big-"))
-    filler = "\n".join(f"    acc = acc + {i}  # a long body on purpose"
-                       for i in range(40))
+    filler = "\n".join(
+        f"    acc = acc + {i}  # a long body on purpose" for i in range(40)
+    )
     (big / "ship.py").write_text(
         '"""Shipping."""\n\n\n'
-        f'def compute_shipping(cart):\n{filler}\n    return acc\n\n\n'
-        'def fee_for(cart):\n    return 0\n')
+        f"def compute_shipping(cart):\n{filler}\n    return acc\n\n\n"
+        "def fee_for(cart):\n    return 0\n"
+    )
     berr = "AttributeError: compute_shipping() got an unexpected keyword 'rate'"
     bcode = "rate = compute_shipping(c)\nfee = fee_for(c)\n"
     bh = symbol_hint(big, berr, bcode)
-    check("overflow: a top-ranked symbol too long for the budget is CLIPPED at a "
-          "line boundary and still shown — the signature is the part the clause asks "
-          "the model to honour, and it is the first thing in the block",
-          bool(bh) and "def compute_shipping" in bh
-          and "source truncated here (context budget)" in bh,
-          f"{len(bh)} chars against a 1200 budget")
-    check("overflow: the symbols left behind are COUNTED in the block, so a reader "
-          "can tell 'nothing else is at issue' from 'there was no room'",
-          bh.count("symbol(s) at issue not shown (context budget)") == 1,
-          bh.splitlines()[-1] if bh else "no block at all")
-    check("overflow: the budget is a ceiling with the notes inside it, at every "
-          "size that can hold a signature",
-          len(bh) <= 1200 and len(symbol_hint(big, berr, bcode,
-                                             max_chars=400)) <= 400,
-          f"{len(bh)} and {len(symbol_hint(big, berr, bcode, max_chars=400))}")
-    check("overflow: a budget too small for a signature plus a def line returns "
-          "SILENCE, never a header with nothing under it",
-          symbol_hint(big, berr, bcode, max_chars=150) == ""
-          and symbol_hint(big, berr, bcode, max_chars=1100) != "",
-          "150 → '' · 1100 → a clipped block")
+    check(
+        "overflow: a top-ranked symbol too long for the budget is CLIPPED at a "
+        "line boundary and still shown — the signature is the part the clause asks "
+        "the model to honour, and it is the first thing in the block",
+        bool(bh)
+        and "def compute_shipping" in bh
+        and "source truncated here (context budget)" in bh,
+        f"{len(bh)} chars against a 1200 budget",
+    )
+    check(
+        "overflow: the symbols left behind are COUNTED in the block, so a reader "
+        "can tell 'nothing else is at issue' from 'there was no room'",
+        bh.count("symbol(s) at issue not shown (context budget)") == 1,
+        bh.splitlines()[-1] if bh else "no block at all",
+    )
+    check(
+        "overflow: the budget is a ceiling with the notes inside it, at every "
+        "size that can hold a signature",
+        len(bh) <= 1200 and len(symbol_hint(big, berr, bcode, max_chars=400)) <= 400,
+        f"{len(bh)} and {len(symbol_hint(big, berr, bcode, max_chars=400))}",
+    )
+    check(
+        "overflow: a budget too small for a signature plus a def line returns "
+        "SILENCE, never a header with nothing under it",
+        symbol_hint(big, berr, bcode, max_chars=150) == ""
+        and symbol_hint(big, berr, bcode, max_chars=1100) != "",
+        "150 → '' · 1100 → a clipped block",
+    )
     seen.clear()
 
     def big_generate(model, tokenizer, messages, max_tokens, **kw):
         seen.append([dict(m) for m in messages])
         if len(seen) == 1:
-            return ("```python\nimport ship\n\n\ndef answer(c):\n"
-                    "    return ship.compute_shipping(c)\n```\n")
+            return (
+                "```python\nimport ship\n\n\ndef answer(c):\n"
+                "    return ship.compute_shipping(c)\n```\n"
+            )
         return "```python\nanswer = 0\n```\n"
 
     _loop._generate, _loop.diagnose = big_generate, (lambda code, test: (False, berr))
     try:
-        _loop.solve(None, None,
-                    _loop.enrich_task({"id": "big", "prompt": "ship the cart",
-                                       "test": "assert False", "context": "."},
-                                      big),
-                    max_attempts=2, debug=False)
+        _loop.solve(
+            None,
+            None,
+            _loop.enrich_task(
+                {
+                    "id": "big",
+                    "prompt": "ship the cart",
+                    "test": "assert False",
+                    "context": ".",
+                },
+                big,
+            ),
+            max_attempts=2,
+            debug=False,
+        )
         big_retry = seen[1][-1]["content"] if len(seen) > 1 else ""
     finally:
         _loop._generate, _loop.diagnose = real_gen, real_diag
-    check("wiring, R-1.1c: the CLIPPED block reaches the model — an overflow that "
-          "silently deleted the hint would have passed every helper check above "
-          "except the ones written for it, and still told the retry nothing",
-          "Symbols in play" in big_retry and "source truncated here" in big_retry,
-          f"{len(big_retry)} chars in the retry")
+    check(
+        "wiring, R-1.1c: the CLIPPED block reaches the model — an overflow that "
+        "silently deleted the hint would have passed every helper check above "
+        "except the ones written for it, and still told the retry nothing",
+        "Symbols in play" in big_retry and "source truncated here" in big_retry,
+        f"{len(big_retry)} chars in the retry",
+    )
 
     # 7. degradation: no server, same answers (§33.9 invariant 7)
     fs = find_symbol(fixture, "total_cents", use_lsp=False)
-    check("fallback: find_symbol works without the server",
-          len(fs) == 2 and {s.kind for s in fs} == {"method", "property"},
-          ", ".join(f"{s.container}.{s.name}/{s.kind}" for s in fs))
+    check(
+        "fallback: find_symbol works without the server",
+        len(fs) == 2 and {s.kind for s in fs} == {"method", "property"},
+        ", ".join(f"{s.container}.{s.name}/{s.kind}" for s in fs),
+    )
     r_ast = find_references(fixture, "subtotal_cents", use_lsp=False)
-    check("fallback: find_references degrades to AST sites", len(r_ast) >= 2,
-          f"{len(r_ast)} sites")
+    check(
+        "fallback: find_references degrades to AST sites",
+        len(r_ast) >= 2,
+        f"{len(r_ast)} sites",
+    )
 
     # 8. kinds are AST truth even with the server live (jedi mislabels them)
     fs_live = find_symbol(fixture, "total_cents")
-    check("truth: server on, kinds unchanged (method vs property)",
-          sorted(f"{s.container}::{s.kind}" for s in fs_live) ==
-          ["Cart::method", "CartLine::property"],
-          ", ".join(f"{s.container}::{s.kind}" for s in fs_live))
+    check(
+        "truth: server on, kinds unchanged (method vs property)",
+        sorted(f"{s.container}::{s.kind}" for s in fs_live)
+        == ["Cart::method", "CartLine::property"],
+        ", ".join(f"{s.container}::{s.kind}" for s in fs_live),
+    )
     ext = find_symbol(fixture, "dataclass")
-    check("resolve: a name defined outside the tree resolves via the server",
-          any("dataclasses" in str(s.path) for s in ext),
-          ", ".join(f"{s.path.name}:{s.line}" for s in ext) or "none")
+    check(
+        "resolve: a name defined outside the tree resolves via the server",
+        any("dataclasses" in str(s.path) for s in ext),
+        ", ".join(f"{s.path.name}:{s.line}" for s in ext) or "none",
+    )
 
     n_ok = sum(ok for _, ok, _ in checks)
     if verbose:

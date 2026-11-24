@@ -919,7 +919,7 @@ here rather than folded into P6's confidence work.
       `flash/__init__.py`:30's `§27.3/R-6.4: flash.train` map entry; PLAN §34.3's
       close note (PLAN.md:1482) pointing at the decomposition, and the full
       Appendix A row at PLAN.md:1572. All of it landed in `6b1fde5`.
-      The §6 re-read is now a run rather than an arithmetic: 
+      The §6 re-read is now a run rather than an arithmetic:
       `benchmarks/battery_reread.py` holds one line per vector, requires the
       exact fraction each prints, sums checks (683) / oracle (20) / mutants (20)
       apart, and exits non-zero if the tree's total moves off the page's number —

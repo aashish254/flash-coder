@@ -41,6 +41,7 @@ The generator is deterministic: no RNG, no clock, no model. The ledger rows are
 carried with the timestamp of the run that put them in the band, so a re-cut
 against a grown ledger is traceable to a window.
 """
+
 import json
 import sys
 from pathlib import Path
@@ -106,106 +107,134 @@ BY_LABEL = {label: (pat, rep) for label, pat, rep in MUTATIONS}
 # BOTH ends of each mutation pair: an order assertion and a value assertion, a
 # clamp bound and a nesting depth.
 BASES = [
-    dict(key="topk",
-         brief="top_k(scores, k) returns the k highest scores, highest first.",
-         solution="def top_k(scores, k):\n    ordered = sorted(scores, reverse=True)\n"
-                  "    return ordered[:k]\n",
-         test="assert top_k([5, 3, 9, 1, 7], 3) == [9, 7, 5]\n"
-              "assert top_k([2, 8], 1) == [8]\n"),
-    dict(key="window",
-         brief="window_sum(values, size) returns the sum of every consecutive "
-               "window of `size` items.",
-         solution="def window_sum(values, size):\n    out = []\n"
-                  "    for i in range(len(values) - size + 1):\n"
-                  "        out.append(sum(values[i:i + size]))\n    return out\n",
-         test="assert window_sum([1, 2, 3, 4], 2) == [3, 5, 7]\n"
-              "assert window_sum([4, 4], 2) == [8]\n"),
-    dict(key="mean",
-         brief="mean(values) returns the arithmetic mean, as a float.",
-         solution="def mean(values):\n    total = 0\n    for v in values:\n"
-                  "        total += v\n    return total / len(values)\n",
-         test="assert mean([1, 2, 3, 4]) == 2.5\nassert mean([7, 8]) == 7.5\n"),
-    dict(key="dedupe",
-         brief="dedupe(items) removes duplicates keeping first-seen order.",
-         solution="def dedupe(items):\n    seen = set()\n    out = []\n"
-                  "    for v in items:\n        if v not in seen:\n"
-                  "            seen.add(v)\n            out.append(v)\n"
-                  "    return out\n",
-         test="assert dedupe([3, 1, 3, 2, 1]) == [3, 1, 2]\n"
-              "assert dedupe([1, 1]) == [1]\n"),
-    dict(key="running-max",
-         brief="running_max(values) returns, at each position, the largest value "
-               "seen so far.",
-         solution="def running_max(values):\n    best = values[0]\n    out = []\n"
-                  "    for v in values:\n        if v > best:\n            best = v\n"
-                  "        out.append(best)\n    return out\n",
-         test="assert running_max([1, 5, 2, 9, 3]) == [1, 5, 5, 9, 9]\n"
-              "assert running_max([-2, -5]) == [-2, -2]\n"),
-    dict(key="chunk",
-         brief="chunk(items, n) splits a list into consecutive lists of n items.",
-         solution="def chunk(items, n):\n    out = []\n"
-                  "    for i in range(0, len(items), n):\n"
-                  "        out.append(items[i:i + n])\n    return out\n",
-         test="assert chunk([1, 2, 3, 4, 5], 2) == [[1, 2], [3, 4], [5]]\n"
-              "assert chunk([], 3) == []\n"),
-    dict(key="flatten",
-         brief="flatten(rows) returns every value of a list of lists, in order.",
-         solution="def flatten(rows):\n    out = []\n    for r in rows:\n"
-                  "        for v in r:\n            out.append(v)\n    return out\n",
-         test="assert flatten([[1, 2], [3]]) == [1, 2, 3]\n"
-              "assert flatten([[], [4]]) == [4]\n"),
-    dict(key="histogram",
-         brief="histogram(items) returns {value: how many times it appears}.",
-         solution="def histogram(items):\n    counts = {}\n    for v in items:\n"
-                  "        counts[v] = counts.get(v, 0) + 1\n    return counts\n",
-         test="assert histogram(['a', 'b', 'a']) == {'a': 2, 'b': 1}\n"
-              "assert histogram([]) == {}\n"),
-    dict(key="first-pair",
-         brief="first_pair(values, target) returns the indices of the first two "
-               "distinct positions that sum to target, or None.",
-         solution="def first_pair(values, target):\n    for i in range(len(values)):\n"
-                  "        for j in range(i + 1, len(values)):\n"
-                  "            if values[i] + values[j] == target:\n"
-                  "                return (i, j)\n    return None\n",
-         test="assert first_pair([1, 7, 3, 5], 8) == (0, 1)\n"
-              "assert first_pair([1, 2], 9) is None\n"),
-    dict(key="insert-sorted",
-         brief="insert_sorted(items, x) returns a new sorted list with x placed "
-               "before any value equal to it.",
-         solution="def insert_sorted(items, x):\n    out = list(items)\n    i = 0\n"
-                  "    while i < len(out) and out[i] < x:\n        i += 1\n"
-                  "    out.insert(i, x)\n    return out\n",
-         test="assert insert_sorted([1, 3, 5], 4) == [1, 3, 4, 5]\n"
-              "assert insert_sorted([2, 2], 2) == [2, 2, 2]\n"),
-    dict(key="clamp",
-         brief="normalize(values, lo, hi) clamps every value into [lo, hi].",
-         solution="def normalize(values, lo, hi):\n    out = []\n    for v in values:\n"
-                  "        out.append(min(max(v, lo), hi))\n    return out\n",
-         test="assert normalize([-5, 3, 99], 0, 10) == [0, 3, 10]\n"
-              "assert normalize([7], 0, 10) == [7]\n"),
-    dict(key="cumulative",
-         brief="cumulative(values) returns the running totals.",
-         solution="def cumulative(values):\n    out = []\n    acc = 0\n"
-                  "    for v in values:\n        acc += v\n        out.append(acc)\n"
-                  "    return out\n",
-         test="assert cumulative([1, 2, 3]) == [1, 3, 6]\n"
-              "assert cumulative([4]) == [4]\n"),
-    dict(key="flags",
-         brief="parse_flags(text) reads 'key = value' lines into a dict with the "
-               "names and values stripped of spaces.",
-         solution="def parse_flags(text):\n    out = {}\n"
-                  "    for line in text.splitlines():\n        if '=' in line:\n"
-                  "            k, v = line.split('=', 1)\n"
-                  "            out[k.strip()] = v.strip()\n    return out\n",
-         test="assert parse_flags(' a = 1\\nb=2') == {'a': '1', 'b': '2'}\n"
-              "assert parse_flags('skip me') == {}\n"),
-    dict(key="title",
-         brief="title_words(text) capitalizes each word and joins them with "
-               "single spaces.",
-         solution="def title_words(text):\n    out = []\n    for w in text.split():\n"
-                  "        out.append(w.capitalize())\n    return ' '.join(out)\n",
-         test="assert title_words('hello  world') == 'Hello World'\n"
-              "assert title_words('x') == 'X'\n"),
+    dict(
+        key="topk",
+        brief="top_k(scores, k) returns the k highest scores, highest first.",
+        solution="def top_k(scores, k):\n    ordered = sorted(scores, reverse=True)\n"
+        "    return ordered[:k]\n",
+        test="assert top_k([5, 3, 9, 1, 7], 3) == [9, 7, 5]\n"
+        "assert top_k([2, 8], 1) == [8]\n",
+    ),
+    dict(
+        key="window",
+        brief="window_sum(values, size) returns the sum of every consecutive "
+        "window of `size` items.",
+        solution="def window_sum(values, size):\n    out = []\n"
+        "    for i in range(len(values) - size + 1):\n"
+        "        out.append(sum(values[i:i + size]))\n    return out\n",
+        test="assert window_sum([1, 2, 3, 4], 2) == [3, 5, 7]\n"
+        "assert window_sum([4, 4], 2) == [8]\n",
+    ),
+    dict(
+        key="mean",
+        brief="mean(values) returns the arithmetic mean, as a float.",
+        solution="def mean(values):\n    total = 0\n    for v in values:\n"
+        "        total += v\n    return total / len(values)\n",
+        test="assert mean([1, 2, 3, 4]) == 2.5\nassert mean([7, 8]) == 7.5\n",
+    ),
+    dict(
+        key="dedupe",
+        brief="dedupe(items) removes duplicates keeping first-seen order.",
+        solution="def dedupe(items):\n    seen = set()\n    out = []\n"
+        "    for v in items:\n        if v not in seen:\n"
+        "            seen.add(v)\n            out.append(v)\n"
+        "    return out\n",
+        test="assert dedupe([3, 1, 3, 2, 1]) == [3, 1, 2]\n"
+        "assert dedupe([1, 1]) == [1]\n",
+    ),
+    dict(
+        key="running-max",
+        brief="running_max(values) returns, at each position, the largest value "
+        "seen so far.",
+        solution="def running_max(values):\n    best = values[0]\n    out = []\n"
+        "    for v in values:\n        if v > best:\n            best = v\n"
+        "        out.append(best)\n    return out\n",
+        test="assert running_max([1, 5, 2, 9, 3]) == [1, 5, 5, 9, 9]\n"
+        "assert running_max([-2, -5]) == [-2, -2]\n",
+    ),
+    dict(
+        key="chunk",
+        brief="chunk(items, n) splits a list into consecutive lists of n items.",
+        solution="def chunk(items, n):\n    out = []\n"
+        "    for i in range(0, len(items), n):\n"
+        "        out.append(items[i:i + n])\n    return out\n",
+        test="assert chunk([1, 2, 3, 4, 5], 2) == [[1, 2], [3, 4], [5]]\n"
+        "assert chunk([], 3) == []\n",
+    ),
+    dict(
+        key="flatten",
+        brief="flatten(rows) returns every value of a list of lists, in order.",
+        solution="def flatten(rows):\n    out = []\n    for r in rows:\n"
+        "        for v in r:\n            out.append(v)\n    return out\n",
+        test="assert flatten([[1, 2], [3]]) == [1, 2, 3]\n"
+        "assert flatten([[], [4]]) == [4]\n",
+    ),
+    dict(
+        key="histogram",
+        brief="histogram(items) returns {value: how many times it appears}.",
+        solution="def histogram(items):\n    counts = {}\n    for v in items:\n"
+        "        counts[v] = counts.get(v, 0) + 1\n    return counts\n",
+        test="assert histogram(['a', 'b', 'a']) == {'a': 2, 'b': 1}\n"
+        "assert histogram([]) == {}\n",
+    ),
+    dict(
+        key="first-pair",
+        brief="first_pair(values, target) returns the indices of the first two "
+        "distinct positions that sum to target, or None.",
+        solution="def first_pair(values, target):\n    for i in range(len(values)):\n"
+        "        for j in range(i + 1, len(values)):\n"
+        "            if values[i] + values[j] == target:\n"
+        "                return (i, j)\n    return None\n",
+        test="assert first_pair([1, 7, 3, 5], 8) == (0, 1)\n"
+        "assert first_pair([1, 2], 9) is None\n",
+    ),
+    dict(
+        key="insert-sorted",
+        brief="insert_sorted(items, x) returns a new sorted list with x placed "
+        "before any value equal to it.",
+        solution="def insert_sorted(items, x):\n    out = list(items)\n    i = 0\n"
+        "    while i < len(out) and out[i] < x:\n        i += 1\n"
+        "    out.insert(i, x)\n    return out\n",
+        test="assert insert_sorted([1, 3, 5], 4) == [1, 3, 4, 5]\n"
+        "assert insert_sorted([2, 2], 2) == [2, 2, 2]\n",
+    ),
+    dict(
+        key="clamp",
+        brief="normalize(values, lo, hi) clamps every value into [lo, hi].",
+        solution="def normalize(values, lo, hi):\n    out = []\n    for v in values:\n"
+        "        out.append(min(max(v, lo), hi))\n    return out\n",
+        test="assert normalize([-5, 3, 99], 0, 10) == [0, 3, 10]\n"
+        "assert normalize([7], 0, 10) == [7]\n",
+    ),
+    dict(
+        key="cumulative",
+        brief="cumulative(values) returns the running totals.",
+        solution="def cumulative(values):\n    out = []\n    acc = 0\n"
+        "    for v in values:\n        acc += v\n        out.append(acc)\n"
+        "    return out\n",
+        test="assert cumulative([1, 2, 3]) == [1, 3, 6]\n"
+        "assert cumulative([4]) == [4]\n",
+    ),
+    dict(
+        key="flags",
+        brief="parse_flags(text) reads 'key = value' lines into a dict with the "
+        "names and values stripped of spaces.",
+        solution="def parse_flags(text):\n    out = {}\n"
+        "    for line in text.splitlines():\n        if '=' in line:\n"
+        "            k, v = line.split('=', 1)\n"
+        "            out[k.strip()] = v.strip()\n    return out\n",
+        test="assert parse_flags(' a = 1\\nb=2') == {'a': '1', 'b': '2'}\n"
+        "assert parse_flags('skip me') == {}\n",
+    ),
+    dict(
+        key="title",
+        brief="title_words(text) capitalizes each word and joins them with "
+        "single spaces.",
+        solution="def title_words(text):\n    out = []\n    for w in text.split():\n"
+        "        out.append(w.capitalize())\n    return ' '.join(out)\n",
+        test="assert title_words('hello  world') == 'Hello World'\n"
+        "assert title_words('x') == 'X'\n",
+    ),
 ]
 
 
@@ -278,9 +307,17 @@ def pairs(base: dict, s: list[tuple[str, str, str]] | None = None) -> list[dict]
                 continue
             if proves(code, base["test"], [ba, bb]) is not None:
                 continue
-            out.append(dict(key=base["key"], code=code, blame=[ba, bb],
-                            bugs=[la, lb], brief=base["brief"], test=base["test"],
-                            solution=base["solution"]))
+            out.append(
+                dict(
+                    key=base["key"],
+                    code=code,
+                    blame=[ba, bb],
+                    bugs=[la, lb],
+                    brief=base["brief"],
+                    test=base["test"],
+                    solution=base["solution"],
+                )
+            )
     return out
 
 
@@ -328,21 +365,31 @@ def band_from_ledger(cut: float | None = None) -> tuple[list[dict], str]:
         t["band_attempts"] = int(best[tid]["attempts"])
         t["band_ts"] = best[tid]["ts"]
         out.append(t)
-    note = ("ledger through ts "
+    note = (
+        (
+            "ledger through ts "
             + f"{max(r['ts'] for r in best.values()):.0f}"
-            + (" (frozen at the cut the file already carries)"
-               if cut is not None else " (today's whole ledger)")) \
-        if best else "empty ledger"
+            + (
+                " (frozen at the cut the file already carries)"
+                if cut is not None
+                else " (today's whole ledger)"
+            )
+        )
+        if best
+        else "empty ledger"
+    )
     if missing:
         print("in the band but no task row found for: " + ", ".join(missing))
     return out, note
 
 
 def prompt_for(base_brief: str, code: str) -> str:
-    return (base_brief + " The module is broken in TWO places, and the tests are "
-            "not shown: repair the module so the behaviour the brief describes is "
-            "what it does.\n\n```python\n" + code + "```\n\n"
-            "Return the whole corrected file, one fenced python block, no prose.\n")
+    return (
+        base_brief + " The module is broken in TWO places, and the tests are "
+        "not shown: repair the module so the behaviour the brief describes is "
+        "what it does.\n\n```python\n" + code + "```\n\n"
+        "Return the whole corrected file, one fenced python block, no prose.\n"
+    )
 
 
 def main(argv: list[str]) -> int:
@@ -376,24 +423,38 @@ def main(argv: list[str]) -> int:
         rank += 1
     rows = list(ledger_rows)
     for n, p in enumerate(sorted(chosen, key=lambda p: p["key"]), 1):
-        rows.append(dict(
-            id=f"band{n:02d}_{p['key'].replace('-', '_')}",
-            prompt=prompt_for(p["brief"], p["code"]),
-            test=p["test"], solution=p["solution"], seeded=p["code"],
-            blame=p["blame"], multi=False, repair=True, band_source="generated",
-            band_bugs=p["bugs"]))
+        rows.append(
+            dict(
+                id=f"band{n:02d}_{p['key'].replace('-', '_')}",
+                prompt=prompt_for(p["brief"], p["code"]),
+                test=p["test"],
+                solution=p["solution"],
+                seeded=p["code"],
+                blame=p["blame"],
+                multi=False,
+                repair=True,
+                band_source="generated",
+                band_bugs=p["bugs"],
+            )
+        )
     OUT.write_text("".join(json.dumps(r) + "\n" for r in rows))
     gen = len(rows) - len(ledger_rows)
-    print(f"wrote {len(rows)} tasks to {OUT.name}: {len(ledger_rows)} from the "
-          f"measured band ({cut_note}), {gen} generated two-bug blind repairs")
+    print(
+        f"wrote {len(rows)} tasks to {OUT.name}: {len(ledger_rows)} from the "
+        f"measured band ({cut_note}), {gen} generated two-bug blind repairs"
+    )
     if report:
         for key, ns, np_ in stats:
-            print(f"  {key:14s} {ns} single-bug mutants qualify, {np_} two-bug "
-                  f"pairs qualify")
+            print(
+                f"  {key:14s} {ns} single-bug mutants qualify, {np_} two-bug "
+                f"pairs qualify"
+            )
         print(f"  emitted {gen} of {len(all_pairs)} qualifying pairs")
     if gen < MIN_GENERATED:
-        print(f"SHORT: needed >= {MIN_GENERATED} generated tasks to reach a band "
-              f"of 30; only {gen} pairs survived the premise")
+        print(
+            f"SHORT: needed >= {MIN_GENERATED} generated tasks to reach a band "
+            f"of 30; only {gen} pairs survived the premise"
+        )
         return 1
     return 0
 

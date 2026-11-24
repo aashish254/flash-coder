@@ -64,6 +64,7 @@ The same honesty is in `flash doctor`: the llama.cpp backend's profile still say
 `verified: false`, and the GGUF line reports state, never a token decoded, because
 neither command decodes a token.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -108,6 +109,7 @@ def host() -> str:
 class Tier:
     """One pinned GGUF. Every field is printed by `flash models list`, so a stale
     row is visible instead of silently run."""
+
     tier: str
     repo: str
     filename: str
@@ -128,16 +130,20 @@ class Tier:
 # `flash models verify` re-derives the hash from the bytes rather than trusting
 # this line forever.
 TIERS: dict[str, Tier] = {
-    "fast": Tier("fast",
-                 "bartowski/Qwen2.5-Coder-7B-Instruct-GGUF",
-                 "Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf",
-                 "1664fccab734674a50763490a8c6931b70e3f2f8ec10031b54806d30e5f956b6",
-                 4_683_074_336),
-    "brain": Tier("brain",
-                  "lmstudio-community/Qwen3-Coder-30B-A3B-Instruct-GGUF",
-                  "Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf",
-                  "79ad15a5ee3caddc3f4ff0db33a14454a5a3eb503d7fa1c1e35feafc579de486",
-                  18_632_186_176),
+    "fast": Tier(
+        "fast",
+        "bartowski/Qwen2.5-Coder-7B-Instruct-GGUF",
+        "Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf",
+        "1664fccab734674a50763490a8c6931b70e3f2f8ec10031b54806d30e5f956b6",
+        4_683_074_336,
+    ),
+    "brain": Tier(
+        "brain",
+        "lmstudio-community/Qwen3-Coder-30B-A3B-Instruct-GGUF",
+        "Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf",
+        "79ad15a5ee3caddc3f4ff0db33a14454a5a3eb503d7fa1c1e35feafc579de486",
+        18_632_186_176,
+    ),
 }
 
 
@@ -153,7 +159,8 @@ def tier(name: str) -> Tier:
             f"flash: no tier named `{name}` is pinned. Pinned: "
             + ", ".join(sorted(TIERS))
             + " — or point llama.cpp at your own file with "
-              "`--small /path/to/model.gguf`.")
+            "`--small /path/to/model.gguf`."
+        )
     return t
 
 
@@ -178,7 +185,7 @@ def _human(n: int) -> str:
     4.36 GB while the tier table above says 4.68 GB, and the one number a
     metered connection is judged by is the one not to round sideways.
     """
-    return f"{n / 1000 ** 3:.2f} GB"
+    return f"{n / 1000**3:.2f} GB"
 
 
 def print_(out, line: str) -> None:
@@ -205,17 +212,30 @@ def status() -> dict:
         on_disk = bool(path) and path.is_file()
         part = d / (t.filename + ".part")
         part_bytes = part.stat().st_size if part.is_file() else 0
-        rows.append({
-            "tier": name, "repo": t.repo, "file": t.filename,
-            "sha256": t.sha256, "size": t.size,
-            "pulled": bool(on_disk), "tracked": fname,
-            "on_disk": on_disk, "bytes_on_disk": path.stat().st_size if on_disk else 0,
-            "complete": on_disk and path.stat().st_size == t.size,
-            "resumable": part_bytes > 0, "part_bytes": part_bytes,
-        })
+        rows.append(
+            {
+                "tier": name,
+                "repo": t.repo,
+                "file": t.filename,
+                "sha256": t.sha256,
+                "size": t.size,
+                "pulled": bool(on_disk),
+                "tracked": fname,
+                "on_disk": on_disk,
+                "bytes_on_disk": path.stat().st_size if on_disk else 0,
+                "complete": on_disk and path.stat().st_size == t.size,
+                "resumable": part_bytes > 0,
+                "part_bytes": part_bytes,
+            }
+        )
     tracked = {r["tracked"] for r in rows if r["tracked"]}
-    loose = [] if not d.is_dir() else sorted(
-        p.name for p in d.glob("*.gguf") if p.is_file() and p.name not in tracked)
+    loose = (
+        []
+        if not d.is_dir()
+        else sorted(
+            p.name for p in d.glob("*.gguf") if p.is_file() and p.name not in tracked
+        )
+    )
     free = None
     probe = d
     while not probe.exists() and probe != probe.parent:
@@ -224,10 +244,15 @@ def status() -> dict:
         free = shutil.disk_usage(probe).free
     except OSError:
         pass
-    return {"dir": str(d), "tiers": rows, "host": host(),
-            "bytes_on_disk": sum(r["bytes_on_disk"] for r in rows),
-            "untracked": loose, "free_bytes": free,
-            "pulled_gb": round(sum(r["bytes_on_disk"] for r in rows) / 1000 ** 3, 2)}
+    return {
+        "dir": str(d),
+        "tiers": rows,
+        "host": host(),
+        "bytes_on_disk": sum(r["bytes_on_disk"] for r in rows),
+        "untracked": loose,
+        "free_bytes": free,
+        "pulled_gb": round(sum(r["bytes_on_disk"] for r in rows) / 1000**3, 2),
+    }
 
 
 def plan(t: Tier) -> dict:
@@ -235,11 +260,19 @@ def plan(t: Tier) -> dict:
     the pin — so the size warning and the pull cannot disagree about the number."""
     st = status()
     mine = [r for r in st["tiers"] if r["tier"] == t.tier][0]
-    return {"tier": t.tier, "repo": t.repo, "file": t.filename,
-            "sha256": t.sha256, "size": t.size, "url": url(t),
-            "dir": st["dir"], "resumed": mine["part_bytes"],
-            "remaining": t.size - mine["part_bytes"], "complete": mine["complete"],
-            "free_bytes": st["free_bytes"]}
+    return {
+        "tier": t.tier,
+        "repo": t.repo,
+        "file": t.filename,
+        "sha256": t.sha256,
+        "size": t.size,
+        "url": url(t),
+        "dir": st["dir"],
+        "resumed": mine["part_bytes"],
+        "remaining": t.size - mine["part_bytes"],
+        "complete": mine["complete"],
+        "free_bytes": st["free_bytes"],
+    }
 
 
 # ---------------------------------------------------------------- the pull
@@ -266,8 +299,10 @@ def _hash_prefix(path: Path, h, up_to: int) -> None:
 def _progress(done: int, total: int, t0: float) -> str:
     frac = min(1.0, done / max(1, total))
     rate = done / max(1e-6, time.time() - t0)
-    return (f"\r  [{'#' * int(frac * 40):<40}] {frac * 100:5.1f}%  "
-            f"{_human(done)} / {_human(total)}  {rate / 1000 ** 2:6.1f} MB/s")
+    return (
+        f"\r  [{'#' * int(frac * 40):<40}] {frac * 100:5.1f}%  "
+        f"{_human(done)} / {_human(total)}  {rate / 1000**2:6.1f} MB/s"
+    )
 
 
 def _stream(t: Tier, progress: bool = True, bar=None) -> str:
@@ -290,16 +325,20 @@ def _stream(t: Tier, progress: bool = True, bar=None) -> str:
     code = getattr(resp, "status", None) or resp.getcode()
     length = resp.headers.get("Content-Length")
     if start and code != 206:
-        sys.stderr.write(f"  note: the host answered {code}, not 206 — it ignored "
-                         "the range, so this restarts from byte 0\n")
+        sys.stderr.write(
+            f"  note: the host answered {code}, not 206 — it ignored "
+            "the range, so this restarts from byte 0\n"
+        )
         start = 0
-    if length is not None and int(length) != (t.size - start if code == 206
-                                              else t.size):
+    if length is not None and int(length) != (
+        t.size - start if code == 206 else t.size
+    ):
         raise PullError(
             f"the host offers {int(length):,} bytes after byte {start} of "
             f"{t.filename}, which is not the {t.size:,} bytes flash pins. The file "
             "changed upstream, or the endpoint is serving something else; nothing "
-            "was written, so the pin in flash/models.py is the thing to fix.")
+            "was written, so the pin in flash/models.py is the thing to fix."
+        )
     h = hashlib.sha256()
     if start:
         _hash_prefix(part, h, start)
@@ -325,14 +364,22 @@ def _stream(t: Tier, progress: bool = True, bar=None) -> str:
     if done != t.size:
         # A short body is the interrupted case, not a failed one: the bytes are
         # good as far as they go, so the `.part` stays and the claim does not.
-        raise PullError(f"the stream ended at {_human(done)} of {_human(t.size)}. "
-                        "The partial file is kept — run the same command again to "
-                        "resume from it.")
+        raise PullError(
+            f"the stream ended at {_human(done)} of {_human(t.size)}. "
+            "The partial file is kept — run the same command again to "
+            "resume from it."
+        )
     return h.hexdigest()
 
 
-def fetch(t: Tier, yes: bool = False, force: bool = False,
-          progress: bool = True, out=None, bar=None) -> int:
+def fetch(
+    t: Tier,
+    yes: bool = False,
+    force: bool = False,
+    progress: bool = True,
+    out=None,
+    bar=None,
+) -> int:
     """Download one tier into the cache, resumably, and register it only if the
     hash matched. Returns the exit code the CLI prints.
 
@@ -346,34 +393,53 @@ def fetch(t: Tier, yes: bool = False, force: bool = False,
     d.mkdir(parents=True, exist_ok=True)
     print_(out, f"tier       {t.tier}  ({t.repo})")
     print_(out, f"file       {t.filename}")
-    print_(out, f"size       {_human(t.size)} ({t.size:,} bytes)"
-                + (f" — resuming at {_human(p['resumed'])}, "
-                   f"{_human(p['remaining'])} to go" if p["resumed"] else ""))
+    print_(
+        out,
+        f"size       {_human(t.size)} ({t.size:,} bytes)"
+        + (
+            f" — resuming at {_human(p['resumed'])}, {_human(p['remaining'])} to go"
+            if p["resumed"]
+            else ""
+        ),
+    )
     print_(out, f"sha256     {t.sha256}")
-    print_(out, f"source     {p['url']}"
-                + ("" if host() == DEFAULT_HOST else "   (FLASH_HF_ENDPOINT)"))
+    print_(
+        out,
+        f"source     {p['url']}"
+        + ("" if host() == DEFAULT_HOST else "   (FLASH_HF_ENDPOINT)"),
+    )
     print_(out, f"dest       {d / t.filename}")
     if p["free_bytes"] is not None and p["remaining"] > p["free_bytes"]:
-        print_(out, f"flash: {d} sits on a volume with {_human(p['free_bytes'])} "
-                    f"free and this needs {_human(p['remaining'])}. Free the disk, "
-                    "or move the cache with FLASH_GGUF_DIR.")
+        print_(
+            out,
+            f"flash: {d} sits on a volume with {_human(p['free_bytes'])} "
+            f"free and this needs {_human(p['remaining'])}. Free the disk, "
+            "or move the cache with FLASH_GGUF_DIR.",
+        )
         return 2
     if force and p["resumed"]:
         part_path(t).unlink(missing_ok=True)
         p = dict(p, resumed=0, remaining=t.size)
         print_(out, "  --force: the partial file was discarded, starting at byte 0")
     if p["complete"] and not force:
-        print_(out, f"  already pulled and registered: {d / t.filename}\n"
-                    f"  to re-check the bytes: flash models verify {t.tier}")
+        print_(
+            out,
+            f"  already pulled and registered: {d / t.filename}\n"
+            f"  to re-check the bytes: flash models verify {t.tier}",
+        )
         return 0
     if not yes:
         if not sys.stdin.isatty():
-            print_(out, f"flash: this would download {_human(t.size)}, and nobody is "
-                        "at the keyboard to agree to it. Re-run with --yes to "
-                        "accept, or type the command in a terminal.")
+            print_(
+                out,
+                f"flash: this would download {_human(t.size)}, and nobody is "
+                "at the keyboard to agree to it. Re-run with --yes to "
+                "accept, or type the command in a terminal.",
+            )
             return 2
-        if input(f"\npull {t.tier}: {_human(t.size)} into {d}? [y/N] ").lower() \
-                .strip() not in ("y", "yes"):
+        if input(
+            f"\npull {t.tier}: {_human(t.size)} into {d}? [y/N] "
+        ).lower().strip() not in ("y", "yes"):
             print_(out, "flash: not pulled. Nothing was downloaded.")
             return 1
     try:
@@ -382,47 +448,65 @@ def fetch(t: Tier, yes: bool = False, force: bool = False,
         print_(out, f"flash: {e}")
         return 1
     except urllib.error.HTTPError as e:
-        kept = (part_path(t).stat().st_size if part_path(t).exists() else 0)
+        kept = part_path(t).stat().st_size if part_path(t).exists() else 0
         if e.code == 416:
-            print_(out, f"flash: the host has no bytes past {_human(kept)}, so what "
-                        "is on disk is the whole file — and it is not registered, "
-                        "because nothing proved its hash. `flash models verify "
-                        f"{t.tier}` hashes it; `flash models pull {t.tier} --force` "
-                        "re-fetches from byte 0.")
+            print_(
+                out,
+                f"flash: the host has no bytes past {_human(kept)}, so what "
+                "is on disk is the whole file — and it is not registered, "
+                "because nothing proved its hash. `flash models verify "
+                f"{t.tier}` hashes it; `flash models pull {t.tier} --force` "
+                "re-fetches from byte 0.",
+            )
             return 1
-        print_(out, f"flash: HTTP {e.code} from {url(t)}. The {_human(kept)} already "
-                    "on disk is kept — run the same command again to resume.")
+        print_(
+            out,
+            f"flash: HTTP {e.code} from {url(t)}. The {_human(kept)} already "
+            "on disk is kept — run the same command again to resume.",
+        )
         return 1
     except (urllib.error.URLError, OSError) as e:
-        print_(out, f"flash: cannot reach {host()}: {type(e).__name__}: {e}\n"
-                    "  a partial download is kept; this command resumes from it.")
+        print_(
+            out,
+            f"flash: cannot reach {host()}: {type(e).__name__}: {e}\n"
+            "  a partial download is kept; this command resumes from it.",
+        )
         return 1
     except KeyboardInterrupt:
-        kept = (part_path(t).stat().st_size if part_path(t).exists() else 0)
-        print_(out, f"\nflash: interrupted at {_human(kept)}. The bytes are kept — "
-                    f"run `flash models pull {t.tier}` again to resume, or "
-                    f"`--force` to start over.")
+        kept = part_path(t).stat().st_size if part_path(t).exists() else 0
+        print_(
+            out,
+            f"\nflash: interrupted at {_human(kept)}. The bytes are kept — "
+            f"run `flash models pull {t.tier}` again to resume, or "
+            f"`--force` to start over.",
+        )
         return 130
 
     if got != t.sha256:
         part_path(t).unlink(missing_ok=True)
-        print_(out, f"flash: SHA256 MISMATCH for {t.filename} — the bytes are not "
-                    "the pinned file.\n"
-                    f"  expected  {t.sha256}\n"
-                    f"  got       {got}\n"
-                    "  the download is deleted and the manifest was not touched: a "
-                    "file that does not match its pin is not this tier. Re-run "
-                    f"`flash models pull {t.tier}`; if it mismatches again, the pin "
-                    "in flash/models.py is the thing that is stale.")
+        print_(
+            out,
+            f"flash: SHA256 MISMATCH for {t.filename} — the bytes are not "
+            "the pinned file.\n"
+            f"  expected  {t.sha256}\n"
+            f"  got       {got}\n"
+            "  the download is deleted and the manifest was not touched: a "
+            "file that does not match its pin is not this tier. Re-run "
+            f"`flash models pull {t.tier}`; if it mismatches again, the pin "
+            "in flash/models.py is the thing that is stale.",
+        )
         return 1
     part_path(t).replace(d / t.filename)
     write_manifest(t.tier, t.filename)
     print_(out, f"  [{'#' * 40}] 100.0%  {_human(t.size)} / {_human(t.size)}")
     print_(out, f"  verified   sha256 {got[:16]}… == pinned")
-    print_(out, f"  registered tier `{t.tier}` -> {t.filename} in "
-                f"{d / backend.MANIFEST}")
-    print_(out, f'  next       flash run "…" --test t.py --backend llama.cpp '
-                f"--small {t.tier}")
+    print_(
+        out, f"  registered tier `{t.tier}` -> {t.filename} in {d / backend.MANIFEST}"
+    )
+    print_(
+        out,
+        f'  next       flash run "…" --test t.py --backend llama.cpp --small {t.tier}',
+    )
     return 0
 
 
@@ -435,6 +519,7 @@ def write_manifest(name: str, filename: str) -> dict:
     thing a stale cache file would assert is that a bad weight is a good one.
     """
     import json
+
     d = cache()
     d.mkdir(parents=True, exist_ok=True)
     cur = backend.manifest()
@@ -453,6 +538,7 @@ def drop_tier(name: str) -> bool:
     by hand and a tool that deletes what it never fetched is a tool nobody trusts.
     """
     import json
+
     cur = backend.manifest()
     if name not in cur:
         return False
@@ -482,19 +568,28 @@ def verify(name: str) -> tuple[bool, str]:
     path = cache() / fname if fname else None
     if path is None or not path.is_file():
         part = part_path(t)
-        extra = (f" ({_human(part.stat().st_size)} of .part sits there, resumable)"
-                 if part.is_file() else "")
-        return False, (f"flash: tier `{name}` is not registered, so there is "
-                       f"nothing to verify{extra}. `flash models pull {name}`.")
+        extra = (
+            f" ({_human(part.stat().st_size)} of .part sits there, resumable)"
+            if part.is_file()
+            else ""
+        )
+        return False, (
+            f"flash: tier `{name}` is not registered, so there is "
+            f"nothing to verify{extra}. `flash models pull {name}`."
+        )
     got = hash_file(path)
     if got == t.sha256:
-        return True, (f"{name}: {path.name} hashes to the pinned SHA256 "
-                      f"({got[:16]}…), {path.stat().st_size:,} bytes.")
+        return True, (
+            f"{name}: {path.name} hashes to the pinned SHA256 "
+            f"({got[:16]}…), {path.stat().st_size:,} bytes."
+        )
     drop_tier(name)
-    return False, (f"flash: {path} hashes to {got}, not the pinned {t.sha256} — "
-                   f"tier `{name}` was UNREGISTERED so `--small {name}` will refuse "
-                   "rather than run these bytes. The file itself was left on disk; "
-                   f"replace it with `flash models pull {name} --force`.")
+    return False, (
+        f"flash: {path} hashes to {got}, not the pinned {t.sha256} — "
+        f"tier `{name}` was UNREGISTERED so `--small {name}` will refuse "
+        "rather than run these bytes. The file itself was left on disk; "
+        f"replace it with `flash models pull {name} --force`."
+    )
 
 
 # ---------------------------------------------------------------- the surface
@@ -504,25 +599,46 @@ def list_(out=None) -> int:
     print_(out, f"GGUF cache: {st['dir']}   (FLASH_GGUF_DIR moves it)")
     print_(out, f"source:     {st['host']}   (FLASH_HF_ENDPOINT changes it)")
     if st["free_bytes"] is not None:
-        print_(out, f"volume:     {_human(st['free_bytes'])} free, "
-                    f"{_human(st['bytes_on_disk'])} of GGUF here")
+        print_(
+            out,
+            f"volume:     {_human(st['free_bytes'])} free, "
+            f"{_human(st['bytes_on_disk'])} of GGUF here",
+        )
     for t in TIERS.values():
         r = [x for x in st["tiers"] if x["tier"] == t.tier][0]
-        state = ("pulled" if r["complete"] else
-                 "pulled, WRONG SIZE" if r["pulled"] else
-                 f"partial {_human(r['part_bytes'])}" if r["resumable"] else "absent")
-        print_(out, f"  {t.tier:<6} {state:<20} {_human(t.size):>9}  "
-                    f"{t.filename}  sha256 {t.sha256[:12]}…")
+        state = (
+            "pulled"
+            if r["complete"]
+            else "pulled, WRONG SIZE"
+            if r["pulled"]
+            else f"partial {_human(r['part_bytes'])}"
+            if r["resumable"]
+            else "absent"
+        )
+        print_(
+            out,
+            f"  {t.tier:<6} {state:<20} {_human(t.size):>9}  "
+            f"{t.filename}  sha256 {t.sha256[:12]}…",
+        )
         print_(out, f"         {t.repo}")
-        print_(out, f"         run it: --backend llama.cpp --small {t.tier}"
-                    f"   |   re-hash it: flash models verify {t.tier}")
+        print_(
+            out,
+            f"         run it: --backend llama.cpp --small {t.tier}"
+            f"   |   re-hash it: flash models verify {t.tier}",
+        )
     for name in st["untracked"]:
-        print_(out, f"  in the cache but not a tier: {name} — reachable as "
-                    f"`--small {name}`, never as a tier word")
+        print_(
+            out,
+            f"  in the cache but not a tier: {name} — reachable as "
+            f"`--small {name}`, never as a tier word",
+        )
     if not any(x["complete"] for x in st["tiers"]):
-        print_(out, "\n  nothing pulled yet: `flash models pull fast` "
-                    f"({_human(TIERS['fast'].size)}), or `--small /path/file.gguf` "
-                    "for a file you already have.")
+        print_(
+            out,
+            "\n  nothing pulled yet: `flash models pull fast` "
+            f"({_human(TIERS['fast'].size)}), or `--small /path/file.gguf` "
+            "for a file you already have.",
+        )
     return 0
 
 
@@ -535,9 +651,11 @@ def gguf_line(st: dict) -> str:
     """
     got = [r["tier"] for r in st["tiers"] if r["complete"]]
     parts = [r["tier"] for r in st["tiers"] if r["resumable"] and not r["pulled"]]
-    out = (f"GGUF cache {st['dir']}: {len(got)} of {len(st['tiers'])} tiers pulled "
-           f"({', '.join(got) or 'none'}), {st['pulled_gb']} GB — this line checks "
-           "sizes; only `flash models verify` checks the hash")
+    out = (
+        f"GGUF cache {st['dir']}: {len(got)} of {len(st['tiers'])} tiers pulled "
+        f"({', '.join(got) or 'none'}), {st['pulled_gb']} GB — this line checks "
+        "sizes; only `flash models verify` checks the hash"
+    )
     if parts:
         out += f", partial: {', '.join(parts)}"
     if st["untracked"]:
@@ -549,33 +667,48 @@ def add_flags(p: argparse.ArgumentParser) -> None:
     """`flash models` owns its verbs the way `flash doctor` owns its flags: one
     module, one parser, so the CLI cannot drift from it."""
     v = p.add_subparsers(dest="verb", required=True, metavar="VERB")
-    pl = v.add_parser("pull", help="download a pinned tier's GGUF, resumably, and "
-                                   "register it only if its SHA256 matches")
+    pl = v.add_parser(
+        "pull",
+        help="download a pinned tier's GGUF, resumably, and "
+        "register it only if its SHA256 matches",
+    )
     pl.add_argument("tier", choices=sorted(TIERS), help="which pinned tier to fetch")
-    pl.add_argument("--yes", action="store_true",
-                    help="accept the size warning without asking (required when "
-                         "stdin is not a terminal)")
-    pl.add_argument("--force", action="store_true",
-                    help="discard any partial download and start at byte 0")
-    pl.add_argument("--quiet", action="store_true",
-                    help="no per-chunk progress line (the plan and the verdict "
-                         "still print)")
+    pl.add_argument(
+        "--yes",
+        action="store_true",
+        help="accept the size warning without asking (required when "
+        "stdin is not a terminal)",
+    )
+    pl.add_argument(
+        "--force",
+        action="store_true",
+        help="discard any partial download and start at byte 0",
+    )
+    pl.add_argument(
+        "--quiet",
+        action="store_true",
+        help="no per-chunk progress line (the plan and the verdict still print)",
+    )
     st = v.add_parser("list", help="what the cache holds, without reading a byte")
-    ver = v.add_parser("verify", help="re-hash a pulled tier — slow: it reads the "
-                                       "whole file")
+    ver = v.add_parser(
+        "verify", help="re-hash a pulled tier — slow: it reads the whole file"
+    )
     for q in (st, ver):
-        q.add_argument("tier", nargs="?", choices=sorted(TIERS),
-                       help="one tier, or every pinned tier when omitted")
+        q.add_argument(
+            "tier",
+            nargs="?",
+            choices=sorted(TIERS),
+            help="one tier, or every pinned tier when omitted",
+        )
 
 
 def dispatch(a: argparse.Namespace) -> int:
     if a.verb == "pull":
-        return fetch(tier(a.tier), yes=a.yes, force=a.force,
-                     progress=not a.quiet)
+        return fetch(tier(a.tier), yes=a.yes, force=a.force, progress=not a.quiet)
     if a.verb == "list":
         return list_()
     rc = 0
-    for name in ([a.tier] if getattr(a, "tier", None) else sorted(TIERS)):
+    for name in [a.tier] if getattr(a, "tier", None) else sorted(TIERS):
         ok, line = verify(name)
         print(line)
         rc = rc or (0 if ok else 1)
@@ -583,11 +716,12 @@ def dispatch(a: argparse.Namespace) -> int:
 
 
 def main(argv: list) -> int:
-    ap = argparse.ArgumentParser(prog="flash models",
-                                 description=__doc__.split("\n")[0])
+    ap = argparse.ArgumentParser(
+        prog="flash models", description=__doc__.split("\n")[0]
+    )
     add_flags(ap)
     return dispatch(ap.parse_args(argv))
 
 
-if __name__ == "__main__":                       # pragma: no cover
+if __name__ == "__main__":  # pragma: no cover
     raise SystemExit(main(sys.argv[1:]))

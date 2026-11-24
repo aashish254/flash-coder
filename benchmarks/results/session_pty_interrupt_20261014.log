@@ -10,7 +10,7 @@
 [t+  0.00s] zero-pad the cents and keep a negative sign in front of the dollar sign, exactly as t.py asserts
 [t+  0.07s] flash session on /tmp/flash-chat-demo against the oracle /tmp/flash-chat-demo/t.py — one ask per line, and each answer arrives before you type the next. `quit` or Ctrl-D ends it; `/help` lists `/help`, `/quit`, `/save` and `/retry`.
 [t+  0.07s] you> [working] turn 1 — generating: small tier first, up to 2 attempt(s) per tier, big tier on failure, grading against /tmp/flash-chat-demo/t.py
-[t+  3.08s] 
+[t+  3.08s]
 [t+  3.08s] <<< keyboard sent Ctrl-C (\x03) into the terminal
 [t+  3.29s] ^C
 [t+  3.29s] session: turn 1 was interrupted — it is not counted and nothing was verified
